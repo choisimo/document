@@ -1,0 +1,2421 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Java 개념 가이드</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #ED4A7B 0%, #818CF8 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .search-section {
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .search-container {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 250px;
+            padding: 12px 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #ED4A7B;
+            box-shadow: 0 0 0 3px rgba(237, 74, 123, 0.1);
+        }
+
+        .category-filter {
+            padding: 12px 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            font-size: 16px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .category-filter:focus {
+            outline: none;
+            border-color: #ED4A7B;
+        }
+
+        .tags-container {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            padding: 8px 16px;
+            background: #e9ecef;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .tag:hover {
+            background: #ED4A7B;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .tag.active {
+            background: #ED4A7B;
+            color: white;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .category-section {
+            margin-bottom: 40px;
+        }
+
+        .category-title {
+            font-size: 1.8rem;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #ED4A7B;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .category-icon {
+            font-size: 1.5rem;
+        }
+
+        .concepts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .concept-card {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 15px;
+            padding: 25px;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+
+        .concept-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+            border-color: #ED4A7B;
+        }
+
+        .concept-name {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #ED4A7B;
+            margin-bottom: 10px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .concept-description {
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .concept-example {
+            background: #f8f9fa;
+            border-left: 4px solid #ED4A7B;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+
+        .concept-tags {
+            margin-top: 15px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .concept-tag {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .version-badge {
+            background: #4CAF50;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+            font-size: 1.2rem;
+        }
+
+        .stats {
+            background: #f8f9fa;
+            padding: 15px 30px;
+            border-top: 1px solid #e9ecef;
+            text-align: center;
+            color: #666;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .search-container {
+                flex-direction: column;
+            }
+            
+            .concepts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>☕ Java 개념 가이드</h1>
+            <p>Java 개발에 필요한 모든 개념과 최신 기능을 한눈에!</p>
+        </div>
+
+        <div class="search-section">
+            <div class="search-container">
+                <input type="text" class="search-input" placeholder="Java 개념이나 키워드로 검색하세요..." id="searchInput">
+                <select class="category-filter" id="categoryFilter">
+                    <option value="">모든 카테고리</option>
+                    <option value="basic">기본 문법</option>
+                    <option value="oop">객체지향</option>
+                    <option value="collections">컬렉션</option>
+                    <option value="functional">함수형 프로그래밍</option>
+                    <option value="modern">최신 기능</option>
+                    <option value="concurrency">동시성</option>
+                    <option value="exceptions">예외처리</option>
+                    <option value="generics">제네릭</option>
+                    <option value="annotations">어노테이션</option>
+                    <option value="io">I/O & NIO</option>
+                </select>
+            </div>
+            
+            <div class="tags-container" id="tagsContainer">
+                <button class="tag" data-tag="basic">기본</button>
+                <button class="tag" data-tag="oop">객체지향</button>
+                <button class="tag" data-tag="lambda">람다</button>
+                <button class="tag" data-tag="stream">스트림</button>
+                <button class="tag" data-tag="modern">최신기능</button>
+                <button class="tag" data-tag="collection">컬렉션</button>
+                <button class="tag" data-tag="thread">멀티스레드</button>
+                <button class="tag" data-tag="generic">제네릭</button>
+                <button class="tag" data-tag="exception">예외</button>
+                <button class="tag" data-tag="annotation">어노테이션</button>
+            </div>
+        </div>
+
+        <div class="content" id="content">
+            <!-- 최신 기능 카테고리 -->
+            <div class="category-section" data-category="modern">
+                <h2 class="category-title">
+                    <span class="category-icon">🆕</span>
+                    최신 Java 기능 (Java 14+)
+                </h2>
+                <div class="concepts-grid">
+                    <div class="concept-card" data-tags="modern basic">
+                        <div class="concept-name">Record <span class="version-badge">Java 14+</span></div>
+                        <div class="concept-description">불변 데이터를 간단하게 정의할 수 있는 클래스입니다. 자동으로 생성자, getter, equals, hashCode, toString 메서드를 생성해줍니다.</div>
+                        <div class="concept-example">// 기존 방식
+public class PersonOld {
+    private final String name;
+    private final int age;
+    
+    public PersonOld(String name, int age) {
+        this.name = name;
+        this.age = age;
+    }
+    
+    public String getName() { return name; }
+    public int getAge() { return age; }
+    // equals, hashCode, toString 구현 필요...
+}
+
+// Record 사용
+public record Person(String name, int age) {
+    // 생성자, getter, equals, hashCode, toString 자동 생성!
+    
+    // 추가 메서드 정의 가능
+    public boolean isAdult() {
+        return age >= 18;
+    }
+}
+
+// 사용 예시
+Person person = new Person("홍길동", 25);
+System.out.println(person.name()); // 홍길동
+System.out.println(person.age());  // 25
+System.out.println(person.isAdult()); // true</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">불변객체</span>
+                            <span class="concept-tag">데이터클래스</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="modern">
+                        <div class="concept-name">Sealed Classes <span class="version-badge">Java 17+</span></div>
+                        <div class="concept-description">상속을 제한하여 허용된 하위 클래스만 만들 수 있게 하는 기능입니다. 패턴 매칭과 함께 사용하면 강력합니다.</div>
+                        <div class="concept-example">// Sealed 클래스 정의
+public sealed class Shape 
+    permits Circle, Rectangle, Triangle {
+}
+
+// 허용된 하위 클래스들
+public final class Circle extends Shape {
+    private final double radius;
+    
+    public Circle(double radius) {
+        this.radius = radius;
+    }
+    
+    public double getRadius() { return radius; }
+}
+
+public final class Rectangle extends Shape {
+    private final double width, height;
+    
+    public Rectangle(double width, double height) {
+        this.width = width;
+        this.height = height;
+    }
+    
+    public double getWidth() { return width; }
+    public double getHeight() { return height; }
+}
+
+public final class Triangle extends Shape {
+    private final double base, height;
+    
+    public Triangle(double base, double height) {
+        this.base = base;
+        this.height = height;
+    }
+    
+    public double getBase() { return base; }
+    public double getHeight() { return height; }
+}
+
+// 패턴 매칭과 함께 사용
+public double calculateArea(Shape shape) {
+    return switch (shape) {
+        case Circle c -> Math.PI * c.getRadius() * c.getRadius();
+        case Rectangle r -> r.getWidth() * r.getHeight();
+        case Triangle t -> 0.5 * t.getBase() * t.getHeight();
+    };
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">상속제한</span>
+                            <span class="concept-tag">패턴매칭</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="modern">
+                        <div class="concept-name">Text Blocks <span class="version-badge">Java 15+</span></div>
+                        <div class="concept-description">여러 줄 문자열을 쉽게 작성할 수 있는 기능입니다. JSON, SQL, HTML 등을 작성할 때 매우 유용합니다.</div>
+                        <div class="concept-example">// 기존 방식
+String json = "{\n" +
+              "  \"name\": \"홍길동\",\n" +
+              "  \"age\": 25,\n" +
+              "  \"city\": \"서울\"\n" +
+              "}";
+
+// Text Blocks 사용
+String jsonTextBlock = """
+    {
+      "name": "홍길동",
+      "age": 25,
+      "city": "서울"
+    }
+    """;
+
+// SQL 예시
+String sql = """
+    SELECT u.name, u.email, p.title
+    FROM users u
+    JOIN posts p ON u.id = p.user_id
+    WHERE u.active = true
+    ORDER BY p.created_at DESC
+    """;
+
+// HTML 예시
+String html = """
+    <html>
+        <body>
+            <h1>안녕하세요!</h1>
+            <p>Java Text Blocks를 사용한 HTML입니다.</p>
+        </body>
+    </html>
+    """;</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">문자열</span>
+                            <span class="concept-tag">가독성</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="modern">
+                        <div class="concept-name">Pattern Matching <span class="version-badge">Java 17+</span></div>
+                        <div class="concept-description">instanceof와 switch 문에서 패턴 매칭을 사용하여 더 간결하고 안전한 코드를 작성할 수 있습니다.</div>
+                        <div class="concept-example">// instanceof 패턴 매칭
+public String formatValue(Object obj) {
+    // 기존 방식
+    if (obj instanceof String) {
+        String s = (String) obj;
+        return "String: " + s.toUpperCase();
+    }
+    
+    // 패턴 매칭 사용
+    if (obj instanceof String s) {
+        return "String: " + s.toUpperCase();
+    } else if (obj instanceof Integer i) {
+        return "Integer: " + (i * 2);
+    } else if (obj instanceof Double d) {
+        return "Double: " + String.format("%.2f", d);
+    }
+    
+    return "Unknown type";
+}
+
+// Switch 패턴 매칭
+public String processValue(Object value) {
+    return switch (value) {
+        case String s -> "문자열: " + s.length() + "글자";
+        case Integer i -> "정수: " + i;
+        case Double d -> "실수: " + d;
+        case null -> "null 값";
+        default -> "알 수 없는 타입";
+    };
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">타입체크</span>
+                            <span class="concept-tag">캐스팅</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 함수형 프로그래밍 카테고리 -->
+            <div class="category-section" data-category="functional">
+                <h2 class="category-title">
+                    <span class="category-icon">🔗</span>
+                    함수형 프로그래밍 (Java 8+)
+                </h2>
+                <div class="concepts-grid">
+                    <div class="concept-card" data-tags="lambda functional">
+                        <div class="concept-name">Lambda Expressions <span class="version-badge">Java 8+</span></div>
+                        <div class="concept-description">익명 함수를 간결하게 표현할 수 있는 방법입니다. 함수형 인터페이스와 함께 사용하여 코드를 더 읽기 쉽게 만듭니다.</div>
+                        <div class="concept-example">import java.util.*;
+import java.util.function.*;
+
+// 기존 익명 클래스 방식
+List<String> names = Arrays.asList("Alice", "Bob", "Charlie");
+names.sort(new Comparator<String>() {
+    @Override
+    public int compare(String a, String b) {
+        return a.compareTo(b);
+    }
+});
+
+// Lambda 표현식 사용
+names.sort((a, b) -> a.compareTo(b));
+// 또는 더 간단하게
+names.sort(String::compareTo);
+
+// 다양한 Lambda 예시
+Predicate<String> isEmpty = s -> s.isEmpty();
+Function<String, Integer> getLength = s -> s.length();
+Consumer<String> print = s -> System.out.println(s);
+Supplier<String> getHello = () -> "Hello World";
+
+// 사용 예시
+List<String> words = Arrays.asList("java", "lambda", "stream");
+words.stream()
+     .filter(word -> word.length() > 4)  // 4글자 초과
+     .map(String::toUpperCase)           // 대문자 변환
+     .forEach(System.out::println);      // 출력</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">익명함수</span>
+                            <span class="concept-tag">함수형인터페이스</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="stream functional">
+                        <div class="concept-name">Stream API <span class="version-badge">Java 8+</span></div>
+                        <div class="concept-description">컬렉션 데이터를 함수형 스타일로 처리할 수 있는 API입니다. 필터링, 매핑, 리듀싱 등의 연산을 체이닝으로 수행할 수 있습니다.</div>
+                        <div class="concept-example">import java.util.*;
+import java.util.stream.*;
+
+List<Person> people = Arrays.asList(
+    new Person("Alice", 25),
+    new Person("Bob", 30),
+    new Person("Charlie", 35),
+    new Person("Diana", 28)
+);
+
+// 나이가 30 이상인 사람들의 이름을 대문자로 변환하여 리스트로 수집
+List<String> result = people.stream()
+    .filter(person -> person.getAge() >= 30)
+    .map(person -> person.getName().toUpperCase())
+    .collect(Collectors.toList());
+
+// 평균 나이 계산
+double averageAge = people.stream()
+    .mapToInt(Person::getAge)
+    .average()
+    .orElse(0.0);
+
+// 이름별로 그룹핑
+Map<String, List<Person>> groupedByName = people.stream()
+    .collect(Collectors.groupingBy(Person::getName));
+
+// 병렬 스트림 사용
+List<Integer> numbers = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+int sum = numbers.parallelStream()
+    .filter(n -> n % 2 == 0)  // 짝수만
+    .mapToInt(n -> n * n)     // 제곱
+    .sum();                   // 합계
+
+System.out.println("짝수 제곱의 합: " + sum); // 220</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">컬렉션처리</span>
+                            <span class="concept-tag">함수형스타일</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="functional">
+                        <div class="concept-name">Optional <span class="version-badge">Java 8+</span></div>
+                        <div class="concept-description">null 값을 안전하게 처리할 수 있는 컨테이너 클래스입니다. NullPointerException을 방지하고 더 명확한 API를 제공합니다.</div>
+                        <div class="concept-example">import java.util.Optional;
+
+// Optional 생성
+Optional<String> optional1 = Optional.of("Hello");
+Optional<String> optional2 = Optional.ofNullable(null);
+Optional<String> optional3 = Optional.empty();
+
+// 값 확인 및 처리
+optional1.ifPresent(System.out::println); // Hello 출력
+
+// 기본값 제공
+String value = optional2.orElse("기본값");
+String value2 = optional2.orElseGet(() -> "동적 기본값");
+
+// 예외 던지기
+try {
+    String value3 = optional2.orElseThrow(() -> 
+        new IllegalArgumentException("값이 없습니다"));
+} catch (IllegalArgumentException e) {
+    System.out.println(e.getMessage());
+}
+
+// 체이닝
+Optional<String> result = Optional.of("  hello world  ")
+    .filter(s -> !s.trim().isEmpty())
+    .map(String::trim)
+    .map(String::toUpperCase);
+
+result.ifPresent(System.out::println); // HELLO WORLD
+
+// 실제 사용 예시 - 사용자 검색
+public Optional<User> findUserById(Long id) {
+    // 데이터베이스에서 사용자 검색
+    User user = database.findUser(id);
+    return Optional.ofNullable(user);
+}
+
+// 사용
+findUserById(1L)
+    .map(User::getEmail)
+    .filter(email -> email.contains("@"))
+    .ifPresentOrElse(
+        email -> System.out.println("이메일: " + email),
+        () -> System.out.println("유효한 사용자를 찾을 수 없습니다")
+    );</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">null안전성</span>
+                            <span class="concept-tag">함수형스타일</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="functional">
+                        <div class="concept-name">Method References <span class="version-badge">Java 8+</span></div>
+                        <div class="concept-description">기존 메서드를 람다 표현식 대신 참조하여 사용할 수 있는 기능입니다. 코드를 더 간결하고 읽기 쉽게 만듭니다.</div>
+                        <div class="concept-example">import java.util.*;
+import java.util.function.*;
+
+List<String> names = Arrays.asList("Alice", "Bob", "Charlie");
+
+// 1. 정적 메서드 참조 (ClassName::staticMethod)
+names.sort(String::compareToIgnoreCase);
+
+// 2. 인스턴스 메서드 참조 (instance::method)
+String prefix = "Hello ";
+Function<String, String> addPrefix = prefix::concat;
+System.out.println(addPrefix.apply("World")); // Hello World
+
+// 3. 특정 타입의 임의 객체의 인스턴스 메서드 참조 (ClassName::instanceMethod)
+names.stream()
+     .map(String::toUpperCase)  // s -> s.toUpperCase()와 동일
+     .forEach(System.out::println);
+
+// 4. 생성자 참조 (ClassName::new)
+Supplier<List<String>> listSupplier = ArrayList::new;
+Function<String, StringBuilder> sbFunction = StringBuilder::new;
+
+// 실제 사용 예시
+List<Person> people = Arrays.asList(
+    new Person("Alice", 25),
+    new Person("Bob", 30)
+);
+
+// 메서드 참조 사용
+people.stream()
+      .map(Person::getName)        // person -> person.getName()
+      .map(String::toUpperCase)    // name -> name.toUpperCase()
+      .forEach(System.out::println); // name -> System.out.println(name)
+
+// 생성자 참조로 객체 생성
+Function<String, Person> personCreator = Person::new;
+Person newPerson = personCreator.apply("David");</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">메서드참조</span>
+                            <span class="concept-tag">간결한코드</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 컬렉션 카테고리 -->
+            <div class="category-section" data-category="collections">
+                <h2 class="category-title">
+                    <span class="category-icon">📦</span>
+                    컬렉션 프레임워크
+                </h2>
+                <div class="concepts-grid">
+                    <div class="concept-card" data-tags="collection basic">
+                        <div class="concept-name">List Interface</div>
+                        <div class="concept-description">순서가 있는 데이터의 집합을 다루는 인터페이스입니다. 중복을 허용하고 인덱스로 접근할 수 있습니다.</div>
+                        <div class="concept-example">import java.util.*;
+
+// ArrayList - 동적 배열, 빠른 접근
+List<String> arrayList = new ArrayList<>();
+arrayList.add("Apple");
+arrayList.add("Banana");
+arrayList.add("Cherry");
+arrayList.add(1, "Blueberry"); // 인덱스 1에 삽입
+
+// LinkedList - 연결 리스트, 빠른 삽입/삭제
+List<String> linkedList = new LinkedList<>();
+linkedList.addFirst("First");
+linkedList.addLast("Last");
+
+// Vector - 동기화된 ArrayList (레거시)
+List<String> vector = new Vector<>();
+
+// 공통 메서드들
+System.out.println(arrayList.get(0));        // Apple
+System.out.println(arrayList.size());        // 4
+System.out.println(arrayList.contains("Apple")); // true
+
+// 반복
+for (String fruit : arrayList) {
+    System.out.println(fruit);
+}
+
+// Stream과 함께 사용
+arrayList.stream()
+         .filter(fruit -> fruit.startsWith("B"))
+         .forEach(System.out::println);
+
+// List.of() - 불변 리스트 (Java 9+)
+List<String> immutableList = List.of("A", "B", "C");
+// immutableList.add("D"); // UnsupportedOperationException</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">순서보장</span>
+                            <span class="concept-tag">인덱스접근</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="collection">
+                        <div class="concept-name">Set Interface</div>
+                        <div class="concept-description">중복을 허용하지 않는 데이터의 집합을 다루는 인터페이스입니다. 수학의 집합 개념과 유사합니다.</div>
+                        <div class="concept-example">import java.util.*;
+
+// HashSet - 해시 테이블 기반, 빠른 검색
+Set<String> hashSet = new HashSet<>();
+hashSet.add("Apple");
+hashSet.add("Banana");
+hashSet.add("Apple"); // 중복 - 추가되지 않음
+System.out.println(hashSet.size()); // 2
+
+// LinkedHashSet - 삽입 순서 보장
+Set<String> linkedHashSet = new LinkedHashSet<>();
+linkedHashSet.add("Third");
+linkedHashSet.add("First");
+linkedHashSet.add("Second");
+// 출력 순서: Third, First, Second
+
+// TreeSet - 정렬된 순서 보장
+Set<String> treeSet = new TreeSet<>();
+treeSet.add("Zebra");
+treeSet.add("Apple");
+treeSet.add("Banana");
+// 출력 순서: Apple, Banana, Zebra
+
+// 집합 연산
+Set<Integer> set1 = new HashSet<>(Arrays.asList(1, 2, 3, 4));
+Set<Integer> set2 = new HashSet<>(Arrays.asList(3, 4, 5, 6));
+
+// 합집합 (Union)
+Set<Integer> union = new HashSet<>(set1);
+union.addAll(set2);
+System.out.println(union); // [1, 2, 3, 4, 5, 6]
+
+// 교집합 (Intersection)
+Set<Integer> intersection = new HashSet<>(set1);
+intersection.retainAll(set2);
+System.out.println(intersection); // [3, 4]
+
+// 차집합 (Difference)
+Set<Integer> difference = new HashSet<>(set1);
+difference.removeAll(set2);
+System.out.println(difference); // [1, 2]</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">중복제거</span>
+                            <span class="concept-tag">집합연산</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="collection">
+                        <div class="concept-name">Map Interface</div>
+                        <div class="concept-description">키-값 쌍으로 데이터를 저장하는 인터페이스입니다. 키는 중복될 수 없지만 값은 중복될 수 있습니다.</div>
+                        <div class="concept-example">import java.util.*;
+
+// HashMap - 해시 테이블 기반, 빠른 검색
+Map<String, Integer> hashMap = new HashMap<>();
+hashMap.put("Apple", 100);
+hashMap.put("Banana", 200);
+hashMap.put("Cherry", 150);
+
+// LinkedHashMap - 삽입 순서 보장
+Map<String, Integer> linkedHashMap = new LinkedHashMap<>();
+
+// TreeMap - 키 기준 정렬
+Map<String, Integer> treeMap = new TreeMap<>();
+
+// 값 접근
+System.out.println(hashMap.get("Apple"));        // 100
+System.out.println(hashMap.getOrDefault("Orange", 0)); // 0
+
+// 키 존재 확인
+if (hashMap.containsKey("Apple")) {
+    System.out.println("Apple이 있습니다");
+}
+
+// 반복
+// 1. entrySet() 사용
+for (Map.Entry<String, Integer> entry : hashMap.entrySet()) {
+    System.out.println(entry.getKey() + ": " + entry.getValue());
+}
+
+// 2. keySet() 사용
+for (String key : hashMap.keySet()) {
+    System.out.println(key + ": " + hashMap.get(key));
+}
+
+// 3. forEach() 사용 (Java 8+)
+hashMap.forEach((key, value) -> 
+    System.out.println(key + ": " + value));
+
+// 고급 메서드들 (Java 8+)
+hashMap.putIfAbsent("Orange", 300);
+hashMap.computeIfAbsent("Grape", k -> k.length() * 10);
+hashMap.merge("Apple", 50, Integer::sum); // 기존 값과 합산
+
+// Map.of() - 불변 맵 (Java 9+)
+Map<String, Integer> immutableMap = Map.of(
+    "A", 1,
+    "B", 2,
+    "C", 3
+);</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">키값쌍</span>
+                            <span class="concept-tag">해시테이블</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="collection stream">
+                        <div class="concept-name">Collectors</div>
+                        <div class="concept-description">Stream API와 함께 사용하여 데이터를 수집하고 변환하는 유틸리티 클래스입니다. 다양한 수집 연산을 제공합니다.</div>
+                        <div class="concept-example">import java.util.*;
+import java.util.stream.*;
+
+List<Person> people = Arrays.asList(
+    new Person("Alice", 25, "Engineering"),
+    new Person("Bob", 30, "Marketing"),
+    new Person("Charlie", 35, "Engineering"),
+    new Person("Diana", 28, "Marketing")
+);
+
+// 1. 리스트로 수집
+List<String> names = people.stream()
+    .map(Person::getName)
+    .collect(Collectors.toList());
+
+// 2. 집합으로 수집 (중복 제거)
+Set<String> departments = people.stream()
+    .map(Person::getDepartment)
+    .collect(Collectors.toSet());
+
+// 3. 맵으로 수집
+Map<String, Integer> nameToAge = people.stream()
+    .collect(Collectors.toMap(
+        Person::getName,
+        Person::getAge
+    ));
+
+// 4. 그룹핑
+Map<String, List<Person>> byDepartment = people.stream()
+    .collect(Collectors.groupingBy(Person::getDepartment));
+
+// 5. 파티셔닝 (조건에 따라 true/false로 분할)
+Map<Boolean, List<Person>> partitioned = people.stream()
+    .collect(Collectors.partitioningBy(p -> p.getAge() >= 30));
+
+// 6. 통계 수집
+IntSummaryStatistics ageStats = people.stream()
+    .collect(Collectors.summarizingInt(Person::getAge));
+System.out.println("평균 나이: " + ageStats.getAverage());
+System.out.println("최대 나이: " + ageStats.getMax());
+
+// 7. 문자열 조인
+String allNames = people.stream()
+    .map(Person::getName)
+    .collect(Collectors.joining(", ", "[", "]"));
+System.out.println(allNames); // [Alice, Bob, Charlie, Diana]
+
+// 8. 다운스트림 컬렉터
+Map<String, Double> avgAgeByDept = people.stream()
+    .collect(Collectors.groupingBy(
+        Person::getDepartment,
+        Collectors.averagingInt(Person::getAge)
+    ));</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">데이터수집</span>
+                            <span class="concept-tag">그룹핑</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 객체지향 카테고리 -->
+            <div class="category-section" data-category="oop">
+                <h2 class="category-title">
+                    <span class="category-icon">🏗️</span>
+                    객체지향 프로그래밍
+                </h2>
+                <div class="concepts-grid">
+                    <div class="concept-card" data-tags="oop basic">
+                        <div class="concept-name">Encapsulation (캡슐화)</div>
+                        <div class="concept-description">데이터와 메서드를 하나로 묶고 외부에서의 직접 접근을 제한하는 원칙입니다. private 필드와 public 메서드를 통해 구현합니다.</div>
+                        <div class="concept-example">public class BankAccount {
+    // private 필드 - 외부에서 직접 접근 불가
+    private String accountNumber;
+    private double balance;
+    private String ownerName;
+    
+    // 생성자
+    public BankAccount(String accountNumber, String ownerName) {
+        this.accountNumber = accountNumber;
+        this.ownerName = ownerName;
+        this.balance = 0.0;
+    }
+    
+    // public 메서드를 통한 안전한 접근
+    public void deposit(double amount) {
+        if (amount > 0) {
+            balance += amount;
+            System.out.println(amount + "원이 입금되었습니다.");
+        } else {
+            throw new IllegalArgumentException("입금액은 0보다 커야 합니다.");
+        }
+    }
+    
+    public boolean withdraw(double amount) {
+        if (amount > 0 && amount <= balance) {
+            balance -= amount;
+            System.out.println(amount + "원이 출금되었습니다.");
+            return true;
+        } else {
+            System.out.println("출금할 수 없습니다.");
+            return false;
+        }
+    }
+    
+    // getter 메서드 - 읽기 전용 접근
+    public double getBalance() {
+        return balance;
+    }
+    
+    public String getAccountNumber() {
+        return accountNumber;
+    }
+    
+    public String getOwnerName() {
+        return ownerName;
+    }
+    
+    // setter 메서드 - 검증 로직 포함
+    public void setOwnerName(String ownerName) {
+        if (ownerName != null && !ownerName.trim().isEmpty()) {
+            this.ownerName = ownerName;
+        } else {
+            throw new IllegalArgumentException("소유자 이름은 비어있을 수 없습니다.");
+        }
+    }
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">데이터보호</span>
+                            <span class="concept-tag">접근제어</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="oop">
+                        <div class="concept-name">Inheritance (상속)</div>
+                        <div class="concept-description">기존 클래스의 속성과 메서드를 새로운 클래스가 물려받는 기능입니다. 코드 재사용성을 높이고 계층 구조를 만들 수 있습니다.</div>
+                        <div class="concept-example">// 부모 클래스 (슈퍼클래스)
+public class Animal {
+    protected String name;
+    protected int age;
+    
+    public Animal(String name, int age) {
+        this.name = name;
+        this.age = age;
+    }
+    
+    public void eat() {
+        System.out.println(name + "이(가) 먹고 있습니다.");
+    }
+    
+    public void sleep() {
+        System.out.println(name + "이(가) 잠을 자고 있습니다.");
+    }
+    
+    // 오버라이드될 수 있는 메서드
+    public void makeSound() {
+        System.out.println(name + "이(가) 소리를 냅니다.");
+    }
+}
+
+// 자식 클래스 (서브클래스)
+public class Dog extends Animal {
+    private String breed;
+    
+    public Dog(String name, int age, String breed) {
+        super(name, age); // 부모 생성자 호출
+        this.breed = breed;
+    }
+    
+    // 메서드 오버라이딩
+    @Override
+    public void makeSound() {
+        System.out.println(name + "이(가) 멍멍 짖습니다.");
+    }
+    
+    // 새로운 메서드 추가
+    public void wagTail() {
+        System.out.println(name + "이(가) 꼬리를 흔듭니다.");
+    }
+    
+    public String getBreed() {
+        return breed;
+    }
+}
+
+public class Cat extends Animal {
+    public Cat(String name, int age) {
+        super(name, age);
+    }
+    
+    @Override
+    public void makeSound() {
+        System.out.println(name + "이(가) 야옹 웁니다.");
+    }
+    
+    public void climb() {
+        System.out.println(name + "이(가) 나무를 타고 있습니다.");
+    }
+}
+
+// 사용 예시
+public class Main {
+    public static void main(String[] args) {
+        Dog dog = new Dog("멍멍이", 3, "골든 리트리버");
+        Cat cat = new Cat("야옹이", 2);
+        
+        dog.eat();        // 상속받은 메서드
+        dog.makeSound();  // 오버라이드된 메서드
+        dog.wagTail();    // 고유 메서드
+        
+        cat.eat();        // 상속받은 메서드
+        cat.makeSound();  // 오버라이드된 메서드
+        cat.climb();      // 고유 메서드
+    }
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">코드재사용</span>
+                            <span class="concept-tag">계층구조</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="oop">
+                        <div class="concept-name">Polymorphism (다형성)</div>
+                        <div class="concept-description">하나의 인터페이스로 여러 타입의 객체를 다룰 수 있는 능력입니다. 메서드 오버라이딩과 인터페이스를 통해 구현됩니다.</div>
+                        <div class="concept-example">// 인터페이스 정의
+interface Shape {
+    double calculateArea();
+    double calculatePerimeter();
+    void draw();
+}
+
+// 구현 클래스들
+class Circle implements Shape {
+    private double radius;
+    
+    public Circle(double radius) {
+        this.radius = radius;
+    }
+    
+    @Override
+    public double calculateArea() {
+        return Math.PI * radius * radius;
+    }
+    
+    @Override
+    public double calculatePerimeter() {
+        return 2 * Math.PI * radius;
+    }
+    
+    @Override
+    public void draw() {
+        System.out.println("원을 그립니다. 반지름: " + radius);
+    }
+}
+
+class Rectangle implements Shape {
+    private double width, height;
+    
+    public Rectangle(double width, double height) {
+        this.width = width;
+        this.height = height;
+    }
+    
+    @Override
+    public double calculateArea() {
+        return width * height;
+    }
+    
+    @Override
+    public double calculatePerimeter() {
+        return 2 * (width + height);
+    }
+    
+    @Override
+    public void draw() {
+        System.out.println("사각형을 그립니다. " + width + " x " + height);
+    }
+}
+
+// 다형성 활용
+public class ShapeCalculator {
+    // 다양한 Shape 타입을 받을 수 있음
+    public void printShapeInfo(Shape shape) {
+        shape.draw();
+        System.out.println("넓이: " + shape.calculateArea());
+        System.out.println("둘레: " + shape.calculatePerimeter());
+        System.out.println();
+    }
+    
+    public double getTotalArea(Shape[] shapes) {
+        double total = 0;
+        for (Shape shape : shapes) {
+            total += shape.calculateArea(); // 런타임에 적절한 메서드 호출
+        }
+        return total;
+    }
+    
+    public static void main(String[] args) {
+        ShapeCalculator calculator = new ShapeCalculator();
+        
+        // 다양한 타입의 객체를 같은 방식으로 처리
+        Shape[] shapes = {
+            new Circle(5.0),
+            new Rectangle(4.0, 6.0),
+            new Circle(3.0)
+        };
+        
+        for (Shape shape : shapes) {
+            calculator.printShapeInfo(shape);
+        }
+        
+        System.out.println("전체 넓이: " + calculator.getTotalArea(shapes));
+    }
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">인터페이스</span>
+                            <span class="concept-tag">런타임바인딩</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="oop">
+                        <div class="concept-name">Abstract Classes</div>
+                        <div class="concept-description">인스턴스를 생성할 수 없는 클래스로, 공통 기능을 제공하면서 하위 클래스에서 구현해야 할 추상 메서드를 정의합니다.</div>
+                        <div class="concept-example">// 추상 클래스
+public abstract class Vehicle {
+    protected String brand;
+    protected String model;
+    protected int year;
+    
+    public Vehicle(String brand, String model, int year) {
+        this.brand = brand;
+        this.model = model;
+        this.year = year;
+    }
+    
+    // 구현된 메서드 (공통 기능)
+    public void startEngine() {
+        System.out.println(brand + " " + model + "의 엔진을 시작합니다.");
+    }
+    
+    public void stopEngine() {
+        System.out.println(brand + " " + model + "의 엔진을 정지합니다.");
+    }
+    
+    // 추상 메서드 (하위 클래스에서 반드시 구현)
+    public abstract void accelerate();
+    public abstract void brake();
+    public abstract double getFuelEfficiency();
+    
+    // getter 메서드들
+    public String getBrand() { return brand; }
+    public String getModel() { return model; }
+    public int getYear() { return year; }
+}
+
+// 구체 클래스 1
+public class Car extends Vehicle {
+    private int numberOfDoors;
+    
+    public Car(String brand, String model, int year, int numberOfDoors) {
+        super(brand, model, year);
+        this.numberOfDoors = numberOfDoors;
+    }
+    
+    @Override
+    public void accelerate() {
+        System.out.println("자동차가 가속합니다.");
+    }
+    
+    @Override
+    public void brake() {
+        System.out.println("자동차가 브레이크를 밟습니다.");
+    }
+    
+    @Override
+    public double getFuelEfficiency() {
+        return 12.5; // km/l
+    }
+    
+    public int getNumberOfDoors() {
+        return numberOfDoors;
+    }
+}
+
+// 구체 클래스 2
+public class Motorcycle extends Vehicle {
+    private boolean hasSidecar;
+    
+    public Motorcycle(String brand, String model, int year, boolean hasSidecar) {
+        super(brand, model, year);
+        this.hasSidecar = hasSidecar;
+    }
+    
+    @Override
+    public void accelerate() {
+        System.out.println("오토바이가 가속합니다.");
+    }
+    
+    @Override
+    public void brake() {
+        System.out.println("오토바이가 브레이크를 잡습니다.");
+    }
+    
+    @Override
+    public double getFuelEfficiency() {
+        return 25.0; // km/l
+    }
+    
+    public boolean hasSidecar() {
+        return hasSidecar;
+    }
+}
+
+// 사용 예시
+public class VehicleTest {
+    public static void main(String[] args) {
+        // Vehicle vehicle = new Vehicle(); // 컴파일 에러! 추상 클래스는 인스턴스화 불가
+        
+        Vehicle car = new Car("현대", "소나타", 2023, 4);
+        Vehicle motorcycle = new Motorcycle("할리데이비슨", "스포츠터", 2023, false);
+        
+        Vehicle[] vehicles = {car, motorcycle};
+        
+        for (Vehicle vehicle : vehicles) {
+            vehicle.startEngine();
+            vehicle.accelerate();
+            System.out.println("연비: " + vehicle.getFuelEfficiency() + " km/l");
+            vehicle.brake();
+            vehicle.stopEngine();
+            System.out.println();
+        }
+    }
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">추상화</span>
+                            <span class="concept-tag">템플릿메서드</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 동시성 카테고리 -->
+            <div class="category-section" data-category="concurrency">
+                <h2 class="category-title">
+                    <span class="category-icon">🔄</span>
+                    동시성 프로그래밍
+                </h2>
+                <div class="concepts-grid">
+                    <div class="concept-card" data-tags="thread">
+                        <div class="concept-name">Thread</div>
+                        <div class="concept-description">프로그램 내에서 실행되는 독립적인 실행 단위입니다. 멀티스레딩을 통해 동시에 여러 작업을 수행할 수 있습니다.</div>
+                        <div class="concept-example">// 1. Thread 클래스 상속
+class MyThread extends Thread {
+    private String threadName;
+    
+    public MyThread(String name) {
+        this.threadName = name;
+    }
+    
+    @Override
+    public void run() {
+        for (int i = 1; i <= 5; i++) {
+            System.out.println(threadName + ": " + i);
+            try {
+                Thread.sleep(1000); // 1초 대기
+            } catch (InterruptedException e) {
+                System.out.println(threadName + " 인터럽트됨");
+                return;
+            }
+        }
+        System.out.println(threadName + " 완료");
+    }
+}
+
+// 2. Runnable 인터페이스 구현
+class MyRunnable implements Runnable {
+    private String taskName;
+    
+    public MyRunnable(String name) {
+        this.taskName = name;
+    }
+    
+    @Override
+    public void run() {
+        for (int i = 1; i <= 5; i++) {
+            System.out.println(taskName + ": " + i);
+            try {
+                Thread.sleep(800);
+            } catch (InterruptedException e) {
+                System.out.println(taskName + " 인터럽트됨");
+                return;
+            }
+        }
+        System.out.println(taskName + " 완료");
+    }
+}
+
+// 사용 예시
+public class ThreadExample {
+    public static void main(String[] args) {
+        // Thread 클래스 사용
+        MyThread thread1 = new MyThread("스레드-1");
+        MyThread thread2 = new MyThread("스레드-2");
+        
+        // Runnable 인터페이스 사용
+        Thread thread3 = new Thread(new MyRunnable("작업-3"));
+        
+        // 람다 표현식 사용
+        Thread thread4 = new Thread(() -> {
+            for (int i = 1; i <= 3; i++) {
+                System.out.println("람다 스레드: " + i);
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    return;
+                }
+            }
+        });
+        
+        // 스레드 시작
+        thread1.start();
+        thread2.start();
+        thread3.start();
+        thread4.start();
+        
+        // 메인 스레드에서 다른 스레드들이 끝날 때까지 대기
+        try {
+            thread1.join();
+            thread2.join();
+            thread3.join();
+            thread4.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        
+        System.out.println("모든 스레드 완료");
+    }
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">멀티스레딩</span>
+                            <span class="concept-tag">병렬처리</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="thread">
+                        <div class="concept-name">Synchronization</div>
+                        <div class="concept-description">여러 스레드가 공유 자원에 동시에 접근할 때 발생할 수 있는 문제를 방지하기 위한 동기화 메커니즘입니다.</div>
+                        <div class="concept-example">// 동기화가 필요한 공유 자원
+class Counter {
+    private int count = 0;
+    
+    // synchronized 메서드
+    public synchronized void increment() {
+        count++;
+    }
+    
+    // synchronized 블록
+    public void decrement() {
+        synchronized(this) {
+            count--;
+        }
+    }
+    
+    public synchronized int getCount() {
+        return count;
+    }
+}
+
+// 은행 계좌 예시
+class BankAccount {
+    private double balance;
+    private final Object lock = new Object();
+    
+    public BankAccount(double initialBalance) {
+        this.balance = initialBalance;
+    }
+    
+    public void deposit(double amount) {
+        synchronized(lock) {
+            double newBalance = balance + amount;
+            // 시뮬레이션: 처리 시간
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                return;
+            }
+            balance = newBalance;
+            System.out.println(Thread.currentThread().getName() + 
+                " 입금: " + amount + ", 잔액: " + balance);
+        }
+    }
+    
+    public boolean withdraw(double amount) {
+        synchronized(lock) {
+            if (balance >= amount) {
+                double newBalance = balance - amount;
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    return false;
+                }
+                balance = newBalance;
+                System.out.println(Thread.currentThread().getName() + 
+                    " 출금: " + amount + ", 잔액: " + balance);
+                return true;
+            } else {
+                System.out.println(Thread.currentThread().getName() + 
+                    " 출금 실패: 잔액 부족");
+                return false;
+            }
+        }
+    }
+    
+    public synchronized double getBalance() {
+        return balance;
+    }
+}
+
+// 사용 예시
+public class SynchronizationExample {
+    public static void main(String[] args) {
+        BankAccount account = new BankAccount(1000);
+        
+        // 여러 스레드가 동시에 계좌에 접근
+        Runnable depositTask = () -> {
+            for (int i = 0; i < 5; i++) {
+                account.deposit(100);
+            }
+        };
+        
+        Runnable withdrawTask = () -> {
+            for (int i = 0; i < 3; i++) {
+                account.withdraw(150);
+            }
+        };
+        
+        Thread t1 = new Thread(depositTask, "입금자-1");
+        Thread t2 = new Thread(depositTask, "입금자-2");
+        Thread t3 = new Thread(withdrawTask, "출금자-1");
+        Thread t4 = new Thread(withdrawTask, "출금자-2");
+        
+        t1.start();
+        t2.start();
+        t3.start();
+        t4.start();
+        
+        try {
+            t1.join();
+            t2.join();
+            t3.join();
+            t4.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        
+        System.out.println("최종 잔액: " + account.getBalance());
+    }
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">동기화</span>
+                            <span class="concept-tag">공유자원</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="thread modern">
+                        <div class="concept-name">CompletableFuture <span class="version-badge">Java 8+</span></div>
+                        <div class="concept-description">비동기 프로그래밍을 위한 고수준 API입니다. Future의 확장된 버전으로 콜백, 조합, 예외 처리 등을 지원합니다.</div>
+                        <div class="concept-example">import java.util.concurrent.*;
+import java.util.function.*;
+
+public class CompletableFutureExample {
+    
+    // 비동기 작업 시뮬레이션
+    public static CompletableFuture<String> fetchUserData(int userId) {
+        return CompletableFuture.supplyAsync(() -> {
+            // 네트워크 요청 시뮬레이션
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            return "User-" + userId + " 데이터";
+        });
+    }
+    
+    public static CompletableFuture<String> fetchUserProfile(String userData) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                Thread.sleep(800);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            return userData + "의 프로필";
+        });
+    }
+    
+    public static void main(String[] args) {
+        System.out.println("비동기 작업 시작");
+        
+        // 1. 기본 비동기 작업
+        Completabl
+        System.out.println("비동기 작업 시작");
+        
+        // 1. 기본 비동기 작업
+        CompletableFuture<String> future1 = CompletableFuture.supplyAsync(() -> {
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            return "Hello";
+        });
+        
+        // 2. 체이닝 (thenApply, thenCompose)
+        CompletableFuture<String> chainedFuture = fetchUserData(123)
+            .thenCompose(userData -> fetchUserProfile(userData))
+            .thenApply(profile -> profile + " (처리 완료)");
+        
+        // 3. 여러 Future 조합
+        CompletableFuture<String> future2 = CompletableFuture.supplyAsync(() -> "World");
+        CompletableFuture<String> combined = future1.thenCombine(future2, 
+            (s1, s2) -> s1 + " " + s2);
+        
+        // 4. 모든 Future 완료 대기
+        CompletableFuture<Void> allOf = CompletableFuture.allOf(
+            fetchUserData(1),
+            fetchUserData(2),
+            fetchUserData(3)
+        );
+        
+        // 5. 가장 빠른 Future 결과 사용
+        CompletableFuture<String> anyOf = CompletableFuture.anyOf(
+            fetchUserData(1),
+            fetchUserData(2),
+            fetchUserData(3)
+        ).thenApply(result -> (String) result);
+        
+        // 6. 예외 처리
+        CompletableFuture<String> withExceptionHandling = CompletableFuture
+            .supplyAsync(() -> {
+                if (Math.random() > 0.5) {
+                    throw new RuntimeException("랜덤 에러 발생!");
+                }
+                return "성공!";
+            })
+            .exceptionally(throwable -> {
+                System.out.println("예외 처리: " + throwable.getMessage());
+                return "기본값";
+            });
+        
+        // 7. 콜백 등록
+        chainedFuture.thenAccept(result -> 
+            System.out.println("결과: " + result));
+        
+        // 결과 대기 및 출력
+        try {
+            System.out.println("Combined: " + combined.get());
+            System.out.println("Exception handling: " + withExceptionHandling.get());
+            
+            allOf.get(); // 모든 작업 완료 대기
+            System.out.println("모든 사용자 데이터 로딩 완료");
+            
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+        }
+        
+        System.out.println("메인 스레드 계속 실행 중...");
+    }
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">비동기프로그래밍</span>
+                            <span class="concept-tag">Future</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 제네릭 카테고리 -->
+            <div class="category-section" data-category="generics">
+                <h2 class="category-title">
+                    <span class="category-icon">🔧</span>
+                    제네릭 (Generics)
+                </h2>
+                <div class="concepts-grid">
+                    <div class="concept-card" data-tags="generic basic">
+                        <div class="concept-name">Generic Classes</div>
+                        <div class="concept-description">타입을 매개변수로 받아 타입 안전성을 보장하는 클래스입니다. 컴파일 타임에 타입 체크를 수행하여 런타임 오류를 방지합니다.</div>
+                        <div class="concept-example">// 제네릭 클래스 정의
+public class Box<T> {
+    private T content;
+    
+    public Box() {}
+    
+    public Box(T content) {
+        this.content = content;
+    }
+    
+    public void setContent(T content) {
+        this.content = content;
+    }
+    
+    public T getContent() {
+        return content;
+    }
+    
+    public boolean isEmpty() {
+        return content == null;
+    }
+}
+
+// 여러 타입 매개변수를 가진 제네릭 클래스
+public class Pair<T, U> {
+    private T first;
+    private U second;
+    
+    public Pair(T first, U second) {
+        this.first = first;
+        this.second = second;
+    }
+    
+    public T getFirst() { return first; }
+    public U getSecond() { return second; }
+    
+    public void setFirst(T first) { this.first = first; }
+    public void setSecond(U second) { this.second = second; }
+    
+    @Override
+    public String toString() {
+        return "(" + first + ", " + second + ")";
+    }
+}
+
+// 사용 예시
+public class GenericExample {
+    public static void main(String[] args) {
+        // 타입 안전성 보장
+        Box<String> stringBox = new Box<>("Hello");
+        Box<Integer> intBox = new Box<>(42);
+        Box<List<String>> listBox = new Box<>(Arrays.asList("a", "b", "c"));
+        
+        String str = stringBox.getContent(); // 캐스팅 불필요
+        Integer num = intBox.getContent();   // 캐스팅 불필요
+        
+        // 컴파일 에러 방지
+        // stringBox.setContent(123); // 컴파일 에러!
+        
+        // 여러 타입 매개변수 사용
+        Pair<String, Integer> nameAge = new Pair<>("Alice", 25);
+        Pair<Integer, String> idName = new Pair<>(1, "Bob");
+        
+        System.out.println(nameAge);  // (Alice, 25)
+        System.out.println(idName);   // (1, Bob)
+    }
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">타입안전성</span>
+                            <span class="concept-tag">매개변수화타입</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="generic">
+                        <div class="concept-name">Wildcards</div>
+                        <div class="concept-description">제네릭에서 타입의 범위를 제한하거나 확장할 때 사용하는 와일드카드입니다. ?, extends, super 키워드를 사용합니다.</div>
+                        <div class="concept-example">import java.util.*;
+
+public class WildcardExample {
+    
+    // 1. Unbounded Wildcard (?)
+    public static void printList(List<?> list) {
+        for (Object item : list) {
+            System.out.println(item);
+        }
+    }
+    
+    // 2. Upper Bounded Wildcard (? extends)
+    // Number 또는 Number의 하위 타입만 허용
+    public static double sumNumbers(List<? extends Number> numbers) {
+        double sum = 0.0;
+        for (Number num : numbers) {
+            sum += num.doubleValue();
+        }
+        return sum;
+    }
+    
+    // 3. Lower Bounded Wildcard (? super)
+    // Integer 또는 Integer의 상위 타입만 허용
+    public static void addIntegers(List<? super Integer> list) {
+        list.add(1);
+        list.add(2);
+        list.add(3);
+    }
+    
+    // 제네릭 메서드
+    public static <T> void swap(List<T> list, int i, int j) {
+        T temp = list.get(i);
+        list.set(i, list.get(j));
+        list.set(j, temp);
+    }
+    
+    // 바운드된 타입 매개변수
+    public static <T extends Comparable<T>> T findMax(List<T> list) {
+        if (list.isEmpty()) {
+            return null;
+        }
+        
+        T max = list.get(0);
+        for (T item : list) {
+            if (item.compareTo(max) > 0) {
+                max = item;
+            }
+        }
+        return max;
+    }
+    
+    public static void main(String[] args) {
+        // Unbounded Wildcard 사용
+        List<String> stringList = Arrays.asList("a", "b", "c");
+        List<Integer> intList = Arrays.asList(1, 2, 3);
+        
+        printList(stringList); // 어떤 타입의 리스트든 가능
+        printList(intList);
+        
+        // Upper Bounded Wildcard 사용
+        List<Integer> integers = Arrays.asList(1, 2, 3, 4, 5);
+        List<Double> doubles = Arrays.asList(1.1, 2.2, 3.3);
+        
+        System.out.println("Integer 합: " + sumNumbers(integers));
+        System.out.println("Double 합: " + sumNumbers(doubles));
+        
+        // Lower Bounded Wildcard 사용
+        List<Number> numbers = new ArrayList<>();
+        List<Object> objects = new ArrayList<>();
+        
+        addIntegers(numbers); // Integer의 상위 타입
+        addIntegers(objects); // Integer의 상위 타입
+        
+        // 제네릭 메서드 사용
+        List<String> names = new ArrayList<>(Arrays.asList("Charlie", "Alice", "Bob"));
+        System.out.println("정렬 전: " + names);
+        
+        swap(names, 0, 2);
+        System.out.println("swap 후: " + names);
+        
+        String maxName = findMax(names);
+        System.out.println("최대값: " + maxName);
+    }
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">와일드카드</span>
+                            <span class="concept-tag">타입제한</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 예외처리 카테고리 -->
+            <div class="category-section" data-category="exceptions">
+                <h2 class="category-title">
+                    <span class="category-icon">⚠️</span>
+                    예외 처리 (Exception Handling)
+                </h2>
+                <div class="concepts-grid">
+                    <div class="concept-card" data-tags="exception basic">
+                        <div class="concept-name">Try-Catch-Finally</div>
+                        <div class="concept-description">예외가 발생할 수 있는 코드를 안전하게 처리하는 기본적인 방법입니다. try 블록에서 예외가 발생하면 catch 블록에서 처리합니다.</div>
+                        <div class="concept-example">import java.io.*;
+import java.util.*;
+
+public class ExceptionHandlingExample {
+    
+    public static void basicTryCatch() {
+        try {
+            int[] numbers = {1, 2, 3};
+            System.out.println(numbers[5]); // ArrayIndexOutOfBoundsException 발생
+        } catch (ArrayIndexOutOfBoundsException e) {
+            System.out.println("배열 인덱스 오류: " + e.getMessage());
+        } catch (Exception e) {
+            System.out.println("일반적인 예외: " + e.getMessage());
+        } finally {
+            System.out.println("finally 블록은 항상 실행됩니다.");
+        }
+    }
+    
+    public static void multiCatchExample() {
+        try {
+            String str = null;
+            int length = str.length(); // NullPointerException
+            
+            int result = 10 / 0; // ArithmeticException
+            
+        } catch (NullPointerException | ArithmeticException e) {
+            // Java 7+ 다중 catch
+            System.out.println("Null 또는 산술 예외: " + e.getClass().getSimpleName());
+        } catch (Exception e) {
+            System.out.println("기타 예외: " + e.getMessage());
+        }
+    }
+    
+    public static void tryWithResources() {
+        // try-with-resources (Java 7+)
+        // AutoCloseable 인터페이스를 구현한 리소스 자동 해제
+        try (Scanner scanner = new Scanner(System.in);
+             FileWriter writer = new FileWriter("output.txt")) {
+            
+            System.out.print("입력하세요: ");
+            String input = scanner.nextLine();
+            writer.write("사용자 입력: " + input);
+            
+        } catch (IOException e) {
+            System.out.println("파일 처리 오류: " + e.getMessage());
+        }
+        // scanner와 writer는 자동으로 close() 호출됨
+    }
+    
+    public static void nestedTryExample() {
+        try {
+            System.out.println("외부 try 블록");
+            
+            try {
+                System.out.println("내부 try 블록");
+                int result = 10 / 0; // ArithmeticException
+            } catch (ArithmeticException e) {
+                System.out.println("내부 catch: " + e.getMessage());
+                throw new RuntimeException("내부에서 새로운 예외 발생");
+            }
+            
+        } catch (RuntimeException e) {
+            System.out.println("외부 catch: " + e.getMessage());
+        } finally {
+            System.out.println("외부 finally 블록");
+        }
+    }
+    
+    public static void main(String[] args) {
+        System.out.println("=== 기본 try-catch ===");
+        basicTryCatch();
+        
+        System.out.println("\n=== 다중 catch ===");
+        multiCatchExample();
+        
+        System.out.println("\n=== 중첩 try ===");
+        nestedTryExample();
+        
+        System.out.println("\n=== try-with-resources ===");
+        tryWithResources();
+    }
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">예외처리</span>
+                            <span class="concept-tag">리소스관리</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="exception">
+                        <div class="concept-name">Custom Exceptions</div>
+                        <div class="concept-description">애플리케이션의 특정 상황에 맞는 사용자 정의 예외를 만들어 더 명확하고 의미있는 예외 처리를 할 수 있습니다.</div>
+                        <div class="concept-example">// 사용자 정의 Checked Exception
+class InsufficientFundsException extends Exception {
+    private double amount;
+    private double balance;
+    
+    public InsufficientFundsException(double amount, double balance) {
+        super(String.format("잔액 부족: 요청 금액 %.2f, 현재 잔액 %.2f", amount, balance));
+        this.amount = amount;
+        this.balance = balance;
+    }
+    
+    public double getAmount() { return amount; }
+    public double getBalance() { return balance; }
+    public double getShortfall() { return amount - balance; }
+}
+
+// 사용자 정의 Unchecked Exception
+class InvalidAccountNumberException extends RuntimeException {
+    private String accountNumber;
+    
+    public InvalidAccountNumberException(String accountNumber) {
+        super("유효하지 않은 계좌번호: " + accountNumber);
+        this.accountNumber = accountNumber;
+    }
+    
+    public String getAccountNumber() { return accountNumber; }
+}
+
+// 비즈니스 로직 클래스
+class BankAccount {
+    private String accountNumber;
+    private double balance;
+    
+    public BankAccount(String accountNumber, double initialBalance) {
+        if (accountNumber == null || accountNumber.length() != 10) {
+            throw new InvalidAccountNumberException(accountNumber);
+        }
+        this.accountNumber = accountNumber;
+        this.balance = initialBalance;
+    }
+    
+    public void withdraw(double amount) throws InsufficientFundsException {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("출금 금액은 0보다 커야 합니다: " + amount);
+        }
+        
+        if (amount > balance) {
+            throw new InsufficientFundsException(amount, balance);
+        }
+        
+        balance -= amount;
+        System.out.println(String.format("%.2f 출금 완료. 잔액: %.2f", amount, balance));
+    }
+    
+    public void deposit(double amount) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("입금 금액은 0보다 커야 합니다: " + amount);
+        }
+        
+        balance += amount;
+        System.out.println(String.format("%.2f 입금 완료. 잔액: %.2f", amount, balance));
+    }
+    
+    public double getBalance() { return balance; }
+    public String getAccountNumber() { return accountNumber; }
+}
+
+// 사용 예시
+public class CustomExceptionExample {
+    public static void main(String[] args) {
+        try {
+            // 정상적인 계좌 생성
+            BankAccount account = new BankAccount("1234567890", 1000.0);
+            
+            // 정상적인 거래
+            account.deposit(500.0);
+            account.withdraw(200.0);
+            
+            // 잔액 부족 예외 발생
+            account.withdraw(2000.0);
+            
+        } catch (InsufficientFundsException e) {
+            System.err.println("거래 실패: " + e.getMessage());
+            System.err.println("부족한 금액: " + e.getShortfall());
+            
+            // 복구 로직
+            System.out.println("대출 상품을 안내해드릴까요?");
+            
+        } catch (InvalidAccountNumberException e) {
+            System.err.println("계좌 생성 실패: " + e.getMessage());
+            System.err.println("올바른 계좌번호를 입력해주세요.");
+            
+        } catch (IllegalArgumentException e) {
+            System.err.println("입력 오류: " + e.getMessage());
+            
+        } catch (Exception e) {
+            System.err.println("예상치 못한 오류: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        // 잘못된 계좌번호로 생성 시도
+        try {
+            BankAccount invalidAccount = new BankAccount("123", 1000.0);
+        } catch (InvalidAccountNumberException e) {
+            System.err.println("계좌 생성 실패: " + e.getMessage());
+        }
+    }
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">사용자정의예외</span>
+                            <span class="concept-tag">비즈니스로직</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 어노테이션 카테고리 -->
+            <div class="category-section" data-category="annotations">
+                <h2 class="category-title">
+                    <span class="category-icon">📝</span>
+                    어노테이션 (Annotations)
+                </h2>
+                <div class="concepts-grid">
+                    <div class="concept-card" data-tags="annotation basic">
+                        <div class="concept-name">Built-in Annotations</div>
+                        <div class="concept-description">Java에서 기본으로 제공하는 어노테이션들입니다. 컴파일러에게 정보를 제공하거나 런타임에 특별한 처리를 할 때 사용됩니다.</div>
+                        <div class="concept-example">// @Override - 메서드 오버라이딩 명시
+class Animal {
+    public void makeSound() {
+        System.out.println("동물이 소리를 냅니다");
+    }
+}
+
+class Dog extends Animal {
+    @Override
+    public void makeSound() {
+        System.out.println("멍멍!");
+    }
+    
+    // @Override
+    // public void makeSond() { // 컴파일 에러! 오타 발견
+    //     System.out.println("멍멍!");
+    // }
+}
+
+// @Deprecated - 사용 중단 권고
+class Calculator {
+    @Deprecated
+    public int add(int a, int b) {
+        return a + b;
+    }
+    
+    // 새로운 메서드
+    public long addLong(long a, long b) {
+        return a + b;
+    }
+}
+
+// @SuppressWarnings - 경고 억제
+class WarningExample {
+    @SuppressWarnings("unchecked")
+    public void uncheckedCast() {
+        List rawList = new ArrayList();
+        List<String> stringList = (List<String>) rawList; // 경고 억제
+    }
+    
+    @SuppressWarnings({"unused", "deprecation"})
+    public void multipleWarnings() {
+        Calculator calc = new Calculator();
+        int result = calc.add(1, 2); // deprecated 경고 억제
+        String unusedVariable = "사용되지 않음"; // unused 경고 억제
+    }
+}
+
+// @FunctionalInterface - 함수형 인터페이스 명시
+@FunctionalInterface
+interface MathOperation {
+    int operate(int a, int b);
+    
+    // default 메서드는 허용
+    default void printResult(int result) {
+        System.out.println("결과: " + result);
+    }
+    
+    // static 메서드도 허용
+    static void printInfo() {
+        System.out.println("수학 연산 인터페이스");
+    }
+    
+    // int anotherMethod(); // 컴파일 에러! 추상 메서드는 하나만 허용
+}
+
+// @SafeVarargs - 가변인자 안전성 보장
+class VarargsExample {
+    @SafeVarargs
+    public static <T> void printAll(T... items) {
+        for (T item : items) {
+            System.out.println(item);
+        }
+    }
+}
+
+// 사용 예시
+public class BuiltInAnnotationsExample {
+    public static void main(String[] args) {
+        // @Override 사용
+        Dog dog = new Dog();
+        dog.makeSound(); // 오버라이드된 메서드 호출
+        
+        // @Deprecated 사용
+        Calculator calc = new Calculator();
+        int result = calc.add(1, 2); // 경고 표시됨
+        
+        // @FunctionalInterface 사용
+        MathOperation addition = (a, b) -> a + b;
+        MathOperation multiplication = (a, b) -> a * b;
+        
+        addition.printResult(addition.operate(5, 3));
+        multiplication.printResult(multiplication.operate(5, 3));
+        
+        // @SafeVarargs 사용
+        VarargsExample.printAll("Hello", "World", "Java");
+        VarargsExample.printAll(1, 2, 3, 4, 5);
+    }
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">내장어노테이션</span>
+                            <span class="concept-tag">컴파일러지시</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="annotation">
+                        <div class="concept-name">Custom Annotations</div>
+                        <div class="concept-description">사용자가 직접 정의하는 어노테이션입니다. 메타데이터를 제공하고 리플렉션을 통해 런타임에 처리할 수 있습니다.</div>
+                        <div class="concept-example">import java.lang.annotation.*;
+import java.lang.reflect.*;
+
+// 1. 간단한 마커 어노테이션
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.METHOD)
+@interface Test {
+}
+
+// 2. 값을 가지는 어노테이션
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.METHOD)
+@interface Benchmark {
+    String value() default "";
+    int iterations() default 1;
+    boolean enabled() default true;
+}
+
+// 3. 복합 어노테이션
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.TYPE, ElementType.METHOD})
+@interface Author {
+    String name();
+    String email() default "";
+    String date();
+    String[] tags() default {};
+}
+
+// 4. 검증 어노테이션
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.FIELD)
+@interface Validate {
+    int min() default 0;
+    int max() default Integer.MAX_VALUE;
+    boolean required() default false;
+    String pattern() default "";
+}
+
+// 어노테이션 사용 예시
+@Author(name = "홍길동", date = "2024-01-15", tags = {"utility", "math"})
+class Calculator {
+    
+    @Validate(required = true, min = 0)
+    private int value;
+    
+    @Test
+    public void simpleTest() {
+        System.out.println("간단한 테스트 실행");
+    }
+    
+    @Benchmark(value = "덧셈 성능 테스트", iterations = 1000)
+    public int add(int a, int b) {
+        return a + b;
+    }
+    
+    @Benchmark(value = "곱셈 성능 테스트", iterations = 500, enabled = false)
+    public int multiply(int a, int b) {
+        return a * b;
+    }
+    
+    @Author(name = "김개발", date = "2024-01-16")
+    @Test
+    public void complexCalculation() {
+        System.out.println("복잡한 계산 테스트");
+    }
+}
+
+// 어노테이션 처리기
+class AnnotationProcessor {
+    
+    public static void runTests(Class<?> clazz) {
+        Method[] methods = clazz.getDeclaredMethods();
+        
+        for (Method method : methods) {
+            if (method.isAnnotationPresent(Test.class)) {
+                try {
+                    Object instance = clazz.getDeclaredConstructor().newInstance();
+                    method.invoke(instance);
+                    System.out.println("✓ " + method.getName() + " 테스트 통과");
+                } catch (Exception e) {
+                    System.out.println("✗ " + method.getName() + " 테스트 실패: " + e.getMessage());
+                }
+            }
+        }
+    }
+    
+    public static void runBenchmarks(Class<?> clazz) {
+        Method[] methods = clazz.getDeclaredMethods();
+        
+        for (Method method : methods) {
+            if (method.isAnnotationPresent(Benchmark.class)) {
+                Benchmark benchmark = method.getAnnotation(Benchmark.class);
+                
+                if (!benchmark.enabled()) {
+                    System.out.println("⏭ " + method.getName() + " 벤치마크 비활성화됨");
+                    continue;
+                }
+                
+                try {
+                    Object instance = clazz.getDeclaredConstructor().newInstance();
+                    
+                    long startTime = System.nanoTime();
+                    for (int i = 0; i < benchmark.iterations(); i++) {
+                        method.invoke(instance, 10, 20); // 임의의 매개변수
+                    }
+                    long endTime = System.nanoTime();
+                    
+                    double duration = (endTime - startTime) / 1_000_000.0; // ms로 변환
+                    System.out.printf("⏱ %s: %s (%.2f ms, %d iterations)%n", 
+                        method.getName(), benchmark.value(), duration, benchmark.iterations());
+                        
+                } catch (Exception e) {
+                    System.out.println("✗ " + method.getName() + " 벤치마크 실패: " + e.getMessage());
+                }
+            }
+        }
+    }
+    
+    public static void printAuthorInfo(Class<?> clazz) {
+        if (clazz.isAnnotationPresent(Author.class)) {
+            Author author = clazz.getAnnotation(Author.class);
+            System.out.println("=== 클래스 작성자 정보 ===");
+            System.out.println("이름: " + author.name());
+            System.out.println("이메일: " + author.email());
+            System.out.println("작성일: " + author.date());
+            System.out.println("태그: " + String.join(", ", author.tags()));
+            System.out.println();
+        }
+    }
+}
+
+// 실행 예시
+public class CustomAnnotationExample {
+    public static void main(String[] args) {
+        Class<Calculator> calcClass = Calculator.class;
+        
+        // 작성자 정보 출력
+        AnnotationProcessor.printAuthorInfo(calcClass);
+        
+        // 테스트 실행
+        System.out.println("=== 테스트 실행 ===");
+        AnnotationProcessor.runTests(calcClass);
+        System.out.println();
+        
+        // 벤치마크 실행
+        System.out.println("=== 벤치마크 실행 ===");
+        AnnotationProcessor.runBenchmarks(calcClass);
+    }
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">사용자정의어노테이션</span>
+                            <span class="concept-tag">리플렉션</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats" id="stats">
+            총 <span id="totalCount">0</span>개의 Java 개념이 있습니다.
+        </div>
+    </div>
+
+    <script>
+        // DOM 요소들
+        const searchInput = document.getElementById('searchInput');
+        const categoryFilter = document.getElementById('categoryFilter');
+        const tagsContainer = document.getElementById('tagsContainer');
+        const content = document.getElementById('content');
+        const totalCountSpan = document.getElementById('totalCount');
+
+        // 모든 개념 카드들
+        const allCards = document.querySelectorAll('.concept-card');
+        const allSections = document.querySelectorAll('.category-section');
+
+        // 활성 태그들
+        let activeTags = new Set();
+
+        // 초기 카운트 설정
+        updateStats();
+
+        // 검색 기능
+        searchInput.addEventListener('input', filterConcepts);
+        categoryFilter.addEventListener('change', filterConcepts);
+
+        // 태그 클릭 이벤트
+        tagsContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('tag')) {
+                const tag = e.target.dataset.tag;
+                
+                if (activeTags.has(tag)) {
+                    activeTags.delete(tag);
+                    e.target.classList.remove('active');
+                } else {
+                    activeTags.add(tag);
+                    e.target.classList.add('active');
+                }
+                
+                filterConcepts();
+            }
+        });
+
+        function filterConcepts() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const selectedCategory = categoryFilter.value;
+            
+            let visibleCount = 0;
+
+            allSections.forEach(section => {
+                const sectionCategory = section.dataset.category;
+                let sectionHasVisibleCards = false;
+
+                // 카테고리 필터 확인
+                if (selectedCategory && selectedCategory !== sectionCategory) {
+                    section.classList.add('hidden');
+                    return;
+                }
+
+                const cards = section.querySelectorAll('.concept-card');
+                cards.forEach(card => {
+                    const name = card.querySelector('.concept-name').textContent.toLowerCase();
+                    const description = card.querySelector('.concept-description').textContent.toLowerCase();
+                    const example = card.querySelector('.concept-example').textContent.toLowerCase();
+                    const cardTags = card.dataset.tags.split(' ');
+
+                    // 검색어 필터
+                    const matchesSearch = !searchTerm || 
+                        name.includes(searchTerm) || 
+                        description.includes(searchTerm) || 
+                        example.includes(searchTerm);
+
+                    // 태그 필터
+                    const matchesTags = activeTags.size === 0 || 
+                        [...activeTags].some(tag => cardTags.includes(tag));
+
+                    if (matchesSearch && matchesTags) {
+                        card.classList.remove('hidden');
+                        sectionHasVisibleCards = true;
+                        visibleCount++;
+                    } else {
+                        card.classList.add('hidden');
+                    }
+                });
+
+                // 섹션에 보이는 카드가 있으면 섹션도 보이게 함
+                if (sectionHasVisibleCards) {
+                    section.classList.remove('hidden');
+                } else {
+                    section.classList.add('hidden');
+                }
+            });
+
+            updateStats(visibleCount);
+            showNoResults(visibleCount === 0);
+        }
+
+        function updateStats(visibleCount = null) {
+            const count = visibleCount !== null ? visibleCount : allCards.length;
+            totalCountSpan.textContent = count;
+        }
+
+        function showNoResults(show) {
+            let noResultsDiv = document.querySelector('.no-results');
+            
+            if (show && !noResultsDiv) {
+                noResultsDiv = document.createElement('div');
+                noResultsDiv.className = 'no-results';
+                noResultsDiv.innerHTML = '🔍 검색 결과가 없습니다.<br>다른 키워드로 검색해보세요.';
+                content.appendChild(noResultsDiv);
+            } else if (!show && noResultsDiv) {
+                noResultsDiv.remove();
+            }
+        }
+
+        // 카드 호버 효과 개선
+        allCards.forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.style.transform = 'translateY(-8px) scale(1.02)';
+            });
+            
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'translateY(0) scale(1)';
+            });
+        });
+
+        // 키보드 단축키
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'k') {
+                e.preventDefault();
+                searchInput.focus();
+            }
+            
+            if (e.key === 'Escape') {
+                searchInput.value = '';
+                categoryFilter.value = '';
+                activeTags.clear();
+                document.querySelectorAll('.tag.active').forEach(tag => {
+                    tag.classList.remove('active');
+                });
+                filterConcepts();
+            }
+        });
+    </script>
+</body>
+</html>
