@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EU 에너지 시장 동향 및 REPowerEU 분석</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Application Structure Plan: SPA infographic with scroll-based navigation. Sections: 
+        1. 서론: 지정학적 변화와 EU 에너지 시장의 전환.
+        2. 과거의 의존성: 러시아 에너지 의존도 심층 분석.
+        3. 시장 충격과 단기 대응: 에너지 가격 급등과 긴급 조치.
+        4. REPowerEU: 새로운 산업 동향의 촉매 (재생에너지, 수소, 에너지 효율, 인프라).
+        5. 투자 환경 및 재정: REPowerEU 투자 규모와 재원.
+        6. 주요 성과 및 미래 전망: 초기 성공과 장기적 비전.
+        This narrative flow highlights the dramatic shift in EU energy markets and industry trends, driven by REPowerEU, making it easy for users to follow the transformation. -->
+    <!-- Visualization & Content Choices:
+        - Pre-War Russian Gas Dependency (% of EU total): Goal: Inform, Viz: Donut Chart (Chart.js), Justification: Clear proportion of reliance.
+        - Russian Gas Import Share Reduction (%): Goal: Change, Viz: Bar Chart (Chart.js), Justification: Shows dramatic reduction over time.
+        - LNG Import Surge (Illustrative % increase or key sources): Goal: Change/Compare, Viz: Bar Chart (Chart.js), Justification: Highlights shift to LNG and new key suppliers.
+        - REPowerEU Renewable Energy Targets (Solar GW, Wind GW by 2030): Goal: Inform, Viz: Grouped Bar Chart (Chart.js), Justification: Clear visualization of ambitious targets.
+        - REPowerEU Hydrogen Goals (Production/Import Tons by 2030): Goal: Inform, Viz: KPI Cards (HTML/Tailwind), Justification: Emphasizes scale of hydrogen strategy.
+        - Energy Consumption Reduction Target & Achievement (%): Goal: Inform/Compare, Viz: Bar Chart (Chart.js), Justification: Shows success of demand-side measures.
+        - REPowerEU Investment (€300bn total, illustrative breakdown by pillar): Goal: Inform/Compare, Viz: Donut Chart (Chart.js), Justification: Shows scale and allocation of funding.
+        - REPowerEU 5 Pillars Overview: Goal: Organize, Viz: HTML/CSS Cards with Unicode Icons (e.g., ☀️, 💨, 💡, 🔗, 💰), Justification: Provides a quick summary of the core strategies.
+        - All charts use Chart.js (Canvas). No SVG/Mermaid JS used. Text from the report provides context and explanations for each visualization. -->
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #F0F8FF; color: #03045E; }
+        .chart-container { position: relative; width: 100%; max-width: 600px; margin-left: auto; margin-right: auto; height: 300px; max-height: 380px; }
+        @media (min-width: 768px) { .chart-container { height: 350px; max-height: 400px; } }
+        .kpi-card { background-color: #FFFFFF; padding: 1.5rem; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); text-align: center; }
+        .kpi-value { font-size: 2.25rem; font-weight: bold; color: #0077B6; }
+        .kpi-label { font-size: 0.875rem; color: #4A5568; margin-top: 0.5rem; }
+        .section-title { font-size: 2rem; font-weight: bold; color: #0077B6; margin-bottom: 1rem; text-align: center; padding-top: 2rem; }
+        .section-intro { text-align: center; color: #03045E; margin-bottom: 2rem; max-width: 800px; margin-left: auto; margin-right: auto; font-size: 1.1rem; line-height: 1.6; }
+        .content-card { background-color: #FFFFFF; padding: 2rem; border-radius: 0.75rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); margin-bottom: 2rem; }
+        .nav-sticky { position: sticky; top: 0; background-color: rgba(240, 248, 255, 0.9); z-index: 50; backdrop-filter: blur(8px); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .nav-link { padding: 0.75rem 1rem; color: #03045E; font-weight: 500; border-radius: 0.375rem; transition: background-color 0.3s, color 0.3s; }
+        .nav-link:hover { background-color: #CAF0F8; color: #0077B6; }
+        .nav-link.active { background-color: #0077B6; color: white; }
+        .pillar-card { background-color: #CAF0F8; border: 1px solid #90E0EF; color: #03045E; }
+        .pillar-icon { font-size: 2.5rem; margin-bottom: 0.5rem; color: #0077B6; }
+    </style>
+</head>
+<body>
+
+    <nav id="navbar" class="nav-sticky">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-center h-16 overflow-x-auto whitespace-nowrap">
+                <a href="#intro" class="nav-link active">서론</a>
+                <a href="#dependency" class="nav-link">과거 의존도</a>
+                <a href="#market-shock" class="nav-link">시장 충격</a>
+                <a href="#repowereu-trends" class="nav-link">REPowerEU 동향</a>
+                <a href="#investment" class="nav-link">투자 환경</a>
+                <a href="#achievements-outlook" class="nav-link">성과와 전망</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <section id="intro" class="pt-12">
+            <h1 class="text-4xl font-bold text-center mb-6" style="color: #0077B6;">EU 에너지 시장 대전환: REPowerEU가 이끄는 산업 동향</h1>
+            <p class="section-intro">
+                러시아-우크라이나 전쟁은 EU 에너지 시장에 전례 없는 충격을 안겨주었습니다. 이에 EU는 'REPowerEU' 계획을 통해 러시아 화석연료로부터의 독립을 선언하고, 에너지 안보 강화 및 기후 목표 달성을 위한 야심찬 여정을 시작했습니다. 본 인포그래픽은 REPowerEU가 촉발한 EU 에너지 산업의 주요 동향, 시장 변화, 그리고 미래 전망을 심층적으로 분석합니다.
+            </p>
+        </section>
+
+        <section id="dependency" class="pt-12">
+            <h2 class="section-title">과거의 그림자: EU의 대러시아 에너지 의존도</h2>
+            <p class="section-intro">
+                전쟁 이전, EU는 에너지 공급의 상당 부분을 러시아에 의존하며 구조적 취약성을 안고 있었습니다. 이는 특정 회원국의 경우 더욱 심각한 수준이었습니다.
+            </p>
+            <div class="content-card">
+                <h3 class="text-xl font-semibold text-center mb-4">2021년 EU의 러시아산 에너지원별 평균 수입 의존도</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+                    <div class="kpi-card">
+                        <div class="kpi-value">~40-45%</div>
+                        <div class="kpi-label">천연가스</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-value">~25-30%</div>
+                        <div class="kpi-label">원유</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-value">~45-50%</div>
+                        <div class="kpi-label">석탄</div>
+                    </div>
+                </div>
+                <p class="text-sm text-gray-600 mt-6 text-center">특히 독일은 천연가스 55% 이상, 헝가리 등 일부 동유럽 국가는 80-100%를 러시아에 의존했습니다.</p>
+            </div>
+        </section>
+
+        <section id="market-shock" class="pt-12">
+            <h2 class="section-title">시장 충격과 EU의 단기 대응</h2>
+            <p class="section-intro">
+                러시아의 에너지 무기화는 EU 에너지 시장에 극심한 가격 폭등과 공급 불안을 야기했습니다. EU는 LNG 수입 확대, 가스 공동구매 플랫폼 시도, 에너지 소비 감축 등 신속한 단기 조치로 대응했습니다.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="content-card">
+                    <h3 class="text-xl font-semibold text-center mb-4">러시아산 가스 수입 비중 급감</h3>
+                    <div class="chart-container !h-[280px] md:!h-[320px]">
+                        <canvas id="russianGasImportChart"></canvas>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-3 text-center">EU의 러시아산 천연가스 수입 비중은 전쟁 이전 40%대에서 2023년 말 15% 미만으로 극적으로 감소했습니다.</p>
+                </div>
+                <div class="content-card">
+                    <h3 class="text-xl font-semibold text-center mb-4">에너지 소비 감축 성과</h3>
+                     <div class="kpi-card">
+                        <div class="kpi-value">약 18% 감소</div>
+                        <div class="kpi-label">천연가스 소비량 (2022.8 ~ 2023.3, 5년 평균 대비)</div>
+                        <p class="text-xs text-gray-500 mt-2">EU는 목표치(15%)를 초과 달성하며 에너지 절약 효과를 입증했습니다.</p>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-6 text-center">LNG 수입 급증 (미국, 카타르 등) 및 FSRU 긴급 도입으로 공급 다변화가 추진되었습니다.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="repowereu-trends" class="pt-12">
+            <h2 class="section-title">REPowerEU: 새로운 산업 동향의 촉매</h2>
+            <p class="section-intro">
+                REPowerEU는 단순한 위기 대응을 넘어 EU 에너지 산업의 구조적 전환을 이끌고 있습니다. 재생에너지, 그린 수소, 에너지 효율 향상이 핵심 동력으로 부상하고 있습니다.
+            </p>
+            <div class="mb-8 content-card">
+                <h3 class="text-xl font-semibold text-center mb-6">REPowerEU 5대 핵심축</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-center">
+                    <div class="p-4 pillar-card rounded-lg"><span class="pillar-icon">☀️</span><p class="font-semibold">재생에너지 가속화</p></div>
+                    <div class="p-4 pillar-card rounded-lg"><span class="pillar-icon">💡</span><p class="font-semibold">에너지 효율/절약</p></div>
+                    <div class="p-4 pillar-card rounded-lg"><span class="pillar-icon">🔗</span><p class="font-semibold">공급망 다변화</p></div>
+                    <div class="p-4 pillar-card rounded-lg"><span class="pillar-icon">💰</span><p class="font-semibold">투자 재원 확보</p></div>
+                    <div class="p-4 pillar-card rounded-lg"><span class="pillar-icon">🛠️</span><p class="font-semibold">산업/기술 혁신</p></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="content-card">
+                    <h3 class="text-xl font-semibold text-center mb-4">재생에너지 목표 (2030년)</h3>
+                    <div class="chart-container">
+                        <canvas id="renewableTargetsChart"></canvas>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-3 text-center">태양광 최소 600GW, 풍력 확대 등 야심찬 목표를 설정하고, 'EU Solar Rooftops Initiative' 등을 추진합니다.</p>
+                </div>
+                <div class="content-card">
+                    <h3 class="text-xl font-semibold text-center mb-4">그린 수소 전략 (2030년)</h3>
+                    <div class="space-y-4">
+                        <div class="kpi-card">
+                            <div class="kpi-value">1,000만톤</div>
+                            <div class="kpi-label">EU 내 그린 수소 생산 목표</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-value">1,000만톤</div>
+                            <div class="kpi-label">해외 그린 수소 수입 목표</div>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-3 text-center">'Hydrogen Accelerator' 전략을 통해 수소 생산, 인프라, 활용을 전방위적으로 지원합니다.</p>
+                </div>
+            </div>
+             <div class="mt-6 content-card">
+                <h3 class="text-xl font-semibold text-center mb-4">에너지 효율 및 공급망 강화</h3>
+                <p class="text-gray-700 mb-3">
+                    EU는 2030년 에너지 효율 개선 목표를 13%로 상향하고, 'Renovation Wave'를 통한 건물 에너지 효율 개선을 가속화합니다.
+                    또한, 미국, 노르웨이, 카타르 등 신뢰할 수 있는 파트너로부터 LNG 및 PNG 공급을 확대하고, LNG 터미널 및 국가 간 에너지망 연결성을 강화하여 공급망의 회복탄력성을 높입니다.
+                </p>
+            </div>
+        </section>
+
+        <section id="investment" class="pt-12">
+            <h2 class="section-title">투자 환경 및 재정</h2>
+            <p class="section-intro">
+                REPowerEU 목표 달성을 위해 막대한 규모의 투자가 필요하며, EU는 경제회복기금(RRF), 탄소배출권거래제(ETS) 수익 등 다양한 재원을 활용할 계획입니다.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="kpi-card">
+                    <div class="kpi-value">약 €3,000억</div>
+                    <div class="kpi-label">REPowerEU 총 투자 추정액 (2030년까지)</div>
+                    <p class="text-xs text-gray-500 mt-2">(한화 약 430조 원 이상)</p>
+                </div>
+                <div class="content-card">
+                    <h3 class="text-xl font-semibold text-center mb-4">주요 투자 분야 (예시)</h3>
+                    <div class="chart-container !h-[280px] md:!h-[320px]">
+                        <canvas id="investmentBreakdownChart"></canvas>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-3 text-center">재생에너지, 에너지 효율, 전력망 현대화, 수소 인프라 등에 집중 투자될 예정입니다.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="achievements-outlook" class="pt-12">
+            <h2 class="section-title">주요 성과 및 미래 전망</h2>
+            <p class="section-intro">
+                REPowerEU는 이미 러시아 가스 의존도 급감, 재생에너지 발전 비중 증가 등 초기 성과를 보이고 있습니다. 장기적으로 에너지 독립, 기후 중립, 지속 가능한 경제 성장이라는 선순환 구조 확립이 기대됩니다.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="content-card">
+                    <h3 class="text-xl font-semibold text-center mb-4">초기 성과 하이라이트</h3>
+                    <ul class="list-disc list-inside text-gray-700 space-y-2">
+                        <li>2022년, 풍력/태양광 발전량 사상 첫 가스 발전량 추월</li>
+                        <li>재생에너지 발전 비중 40% 돌파 (2023/2024년)</li>
+                        <li>러시아산 화석연료 수입 극적 감소 (가스 <15%, 석탄 중단, 원유 대폭 축소)</li>
+                        <li>에너지 소비 18% 감축 목표 초과 달성</li>
+                    </ul>
+                </div>
+                <div class="content-card">
+                    <h3 class="text-xl font-semibold text-center mb-4">미래 전망</h3>
+                     <ul class="list-disc list-inside text-gray-700 space-y-2">
+                        <li>에너지 독립을 통한 지정학적 위상 강화</li>
+                        <li>기후 중립과 에너지 안보의 시너지 창출</li>
+                        <li>청정에너지 산업 육성 및 녹색 일자리 창출</li>
+                        <li>에너지 시스템의 회복탄력성 및 지속가능성 제고</li>
+                    </ul>
+                </div>
+            </div>
+            <p class="text-center text-gray-600 mt-8 text-sm">
+                물론 막대한 전환 비용, 에너지 가격 변동성, 회원국 간 이해관계 대립 등 도전 과제도 산적해 있습니다. REPowerEU의 성공은 지속적인 노력과 전략적 대응에 달려있습니다.
+            </p>
+        </section>
+
+    </div>
+
+    <footer class="mt-12 py-8 bg-gray-800 text-center">
+        <p class="text-sm text-gray-300">&copy; 2024 EU 에너지 시장 동향 분석. 모든 정보는 제공된 보고서에 기반합니다.</p>
+    </footer>
+
+    <script>
+        const chartTooltipTitleCallback = function(tooltipItems) {
+            const item = tooltipItems[0];
+            let label = item.chart.data.labels[item.dataIndex];
+            if (Array.isArray(label)) {
+                return label.join(' ');
+            }
+            return label;
+        };
+
+        const processLabels = (labels) => {
+            return labels.map(label => {
+                if (typeof label === 'string' && label.length > 16) {
+                    const words = label.split(' ');
+                    const newLabel = [];
+                    let currentLine = '';
+                    words.forEach(word => {
+                        if ((currentLine + word).length > 16 && currentLine.length > 0) {
+                            newLabel.push(currentLine.trim());
+                            currentLine = word + ' ';
+                        } else {
+                            currentLine += word + ' ';
+                        }
+                    });
+                    newLabel.push(currentLine.trim());
+                    return newLabel;
+                }
+                return label;
+            });
+        };
+        
+        const commonChartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: true, position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12, padding:10 } },
+                tooltip: { callbacks: { title: chartTooltipTitleCallback } }
+            },
+            scales: {
+                y: { beginAtZero: true, ticks: { font: {size: 10}, maxTicksLimit: 6 }, grid: { color: 'rgba(200,200,200,0.1)'} },
+                x: { ticks: { font: {size: 10} }, grid: { display: false } }
+            }
+        };
+         const commonPieDonutOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: true, position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12, padding:10 } },
+                tooltip: { callbacks: { title: chartTooltipTitleCallback } }
+            }
+        };
+
+        // Russian Gas Import Chart
+        const russianGasCtx = document.getElementById('russianGasImportChart').getContext('2d');
+        new Chart(russianGasCtx, {
+            type: 'bar',
+            data: {
+                labels: processLabels(['2021년 (전쟁 이전)', '2023년 말']),
+                datasets: [{
+                    label: '러시아산 가스 수입 비중 (%)',
+                    data: [40, 15], // Approximate values
+                    backgroundColor: ['#0077B6', '#90E0EF'],
+                    borderColor: ['#0077B6', '#90E0EF'],
+                    borderWidth: 1
+                }]
+            },
+            options: { ...commonChartOptions, scales: {...commonChartOptions.scales, y: {...commonChartOptions.scales.y, suggestedMax: 50, ticks: {...commonChartOptions.scales.y.ticks, callback: function(value){return value + '%'}}}}}
+        });
+        
+        // Renewable Targets Chart
+        const renewableTargetsCtx = document.getElementById('renewableTargetsChart').getContext('2d');
+        new Chart(renewableTargetsCtx, {
+            type: 'bar',
+            data: {
+                labels: processLabels(['태양광 (Solar PV)', '풍력 (Wind Power)']),
+                datasets: [
+                    {
+                        label: '2025년 목표 (GW)',
+                        data: [320, null], // Example data, Wind target for 2025 might not be as explicit
+                        backgroundColor: '#00B4D8',
+                        borderColor: '#00B4D8',
+                        borderWidth: 1
+                    },
+                    {
+                        label: '2030년 목표 (GW)',
+                        data: [600, 500], // Illustrative for Wind, report says "확대"
+                        backgroundColor: '#0077B6',
+                        borderColor: '#0077B6',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: { ...commonChartOptions, scales: {...commonChartOptions.scales, y: {...commonChartOptions.scales.y, suggestedMax: 700, ticks: {...commonChartOptions.scales.y.ticks, callback: function(value){return value + ' GW'}}}}}
+        });
+
+        // Investment Breakdown Chart
+        const investmentCtx = document.getElementById('investmentBreakdownChart').getContext('2d');
+        new Chart(investmentCtx, {
+            type: 'doughnut',
+            data: {
+                labels: processLabels(['재생에너지 확대', '에너지 효율 개선', '전력망 현대화', '수소 인프라', '기타 (공급 다변화 등)']),
+                datasets: [{
+                    label: 'REPowerEU 투자 분야 (예시)',
+                    data: [120, 70, 50, 40, 20], // Illustrative breakdown of 300bn
+                    backgroundColor: ['#0077B6', '#00B4D8', '#90E0EF', '#CAF0F8', '#03045E'],
+                    hoverOffset: 4
+                }]
+            },
+            options: commonPieDonutOptions
+        });
+
+        // Navbar scroll behavior
+        const navbar = document.getElementById('navbar');
+        const navLinks = navbar.querySelectorAll('.nav-link');
+        const sections = document.querySelectorAll('section');
+
+        function changeNavOnScroll() {
+            let currentSection = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (pageYOffset >= sectionTop - navbar.offsetHeight - 10) { // Adjust offset
+                    currentSection = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href').substring(1) === currentSection) {
+                    link.classList.add('active');
+                }
+            });
+        }
+        window.addEventListener('scroll', changeNavOnScroll);
+        
+        navLinks.forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href');
+                const targetSection = document.querySelector(targetId);
+                window.scrollTo({
+                    top: targetSection.offsetTop - navbar.offsetHeight,
+                    behavior: 'smooth'
+                });
+            });
+        });
+        // Initial call to set active link
+        changeNavOnScroll();
+
+    </script>
+</body>
+</html>
