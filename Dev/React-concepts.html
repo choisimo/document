@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>React 개념 가이드</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #61DAFB 0%, #21232A 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .search-section {
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .search-container {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 250px;
+            padding: 12px 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #61DAFB;
+            box-shadow: 0 0 0 3px rgba(97, 218, 251, 0.1);
+        }
+
+        .category-filter {
+            padding: 12px 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            font-size: 16px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .category-filter:focus {
+            outline: none;
+            border-color: #61DAFB;
+        }
+
+        .tags-container {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            padding: 8px 16px;
+            background: #e9ecef;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .tag:hover {
+            background: #61DAFB;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .tag.active {
+            background: #61DAFB;
+            color: white;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .category-section {
+            margin-bottom: 40px;
+        }
+
+        .category-title {
+            font-size: 1.8rem;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #61DAFB;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .category-icon {
+            font-size: 1.5rem;
+        }
+
+        .concepts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .concept-card {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 15px;
+            padding: 25px;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+
+        .concept-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+            border-color: #61DAFB;
+        }
+
+        .concept-name {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #61DAFB;
+            margin-bottom: 10px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .concept-description {
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .concept-example {
+            background: #f8f9fa;
+            border-left: 4px solid #61DAFB;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+
+        .concept-tags {
+            margin-top: 15px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .concept-tag {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+            font-size: 1.2rem;
+        }
+
+        .stats {
+            background: #f8f9fa;
+            padding: 15px 30px;
+            border-top: 1px solid #e9ecef;
+            text-align: center;
+            color: #666;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .search-container {
+                flex-direction: column;
+            }
+            
+            .concepts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚛️ React 개념 가이드</h1>
+            <p>React 개발에 필요한 모든 개념과 Hook을 한눈에!</p>
+        </div>
+
+        <div class="search-section">
+            <div class="search-container">
+                <input type="text" class="search-input" placeholder="Hook 이름이나 설명으로 검색하세요..." id="searchInput">
+                <select class="category-filter" id="categoryFilter">
+                    <option value="">모든 카테고리</option>
+                    <option value="hooks">Hooks</option>
+                    <option value="lifecycle">Lifecycle</option>
+                    <option value="events">Events</option>
+                    <option value="styling">Styling</option>
+                    <option value="performance">Performance</option>
+                    <option value="context">Context/State</option>
+                    <option value="routing">Routing</option>
+                    <option value="forms">Forms</option>
+                </select>
+            </div>
+            
+            <div class="tags-container" id="tagsContainer">
+                <button class="tag" data-tag="basic">기본</button>
+                <button class="tag" data-tag="state">상태관리</button>
+                <button class="tag" data-tag="effect">사이드이펙트</button>
+                <button class="tag" data-tag="performance">성능최적화</button>
+                <button class="tag" data-tag="ref">참조</button>
+                <button class="tag" data-tag="context">컨텍스트</button>
+                <button class="tag" data-tag="memo">메모이제이션</button>
+                <button class="tag" data-tag="custom">커스텀훅</button>
+                <button class="tag" data-tag="event">이벤트</button>
+                <button class="tag" data-tag="form">폼</button>
+            </div>
+        </div>
+
+        <div class="content" id="content">
+            <!-- Hooks 카테고리 -->
+            <div class="category-section" data-category="hooks">
+                <h2 class="category-title">
+                    <span class="category-icon">🪝</span>
+                    React Hooks
+                </h2>
+                <div class="concepts-grid">
+                    <div class="concept-card" data-tags="basic state">
+                        <div class="concept-name">useState</div>
+                        <div class="concept-description">컴포넌트에 상태를 추가할 수 있게 해주는 Hook입니다. 상태값과 상태를 업데이트하는 함수를 반환합니다.</div>
+                        <div class="concept-example">import { useState } from 'react';
+
+function Counter() {
+  const [count, setCount] = useState(0);
+
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button onClick={() => setCount(count + 1)}>
+        증가
+      </button>
+    </div>
+  );
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">상태관리</span>
+                            <span class="concept-tag">기본Hook</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="effect basic">
+                        <div class="concept-name">useEffect</div>
+                        <div class="concept-description">컴포넌트에서 사이드 이펙트를 수행할 수 있게 해주는 Hook입니다. 데이터 가져오기, 구독 설정, DOM 수동 조작 등에 사용됩니다.</div>
+                        <div class="concept-example">import { useState, useEffect } from 'react';
+
+function UserProfile({ userId }) {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    fetchUser(userId).then(setUser);
+  }, [userId]); // userId가 변경될 때만 실행
+
+  return user ? <div>{user.name}</div> : <div>Loading...</div>;
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">사이드이펙트</span>
+                            <span class="concept-tag">기본Hook</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="context basic">
+                        <div class="concept-name">useContext</div>
+                        <div class="concept-description">React Context를 구독하고 해당 컨텍스트의 현재 값을 읽을 수 있게 해주는 Hook입니다. prop drilling을 피할 수 있습니다.</div>
+                        <div class="concept-example">import { useContext } from 'react';
+import { ThemeContext } from './ThemeContext';
+
+function Button() {
+  const theme = useContext(ThemeContext);
+  
+  return (
+    <button style={{ 
+      backgroundColor: theme.background,
+      color: theme.color 
+    }}>
+      테마 버튼
+    </button>
+  );
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">컨텍스트</span>
+                            <span class="concept-tag">전역상태</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="ref basic">
+                        <div class="concept-name">useRef</div>
+                        <div class="concept-description">DOM 요소에 직접 접근하거나 렌더링 간에 값을 유지해야 할 때 사용하는 Hook입니다. .current 프로퍼티로 값에 접근합니다.</div>
+                        <div class="concept-example">import { useRef, useEffect } from 'react';
+
+function TextInput() {
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    // 컴포넌트가 마운트되면 input에 포커스
+    inputRef.current.focus();
+  }, []);
+
+  return <input ref={inputRef} type="text" />;
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">DOM접근</span>
+                            <span class="concept-tag">참조</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="state">
+                        <div class="concept-name">useReducer</div>
+                        <div class="concept-description">복잡한 상태 로직을 관리할 때 useState 대신 사용할 수 있는 Hook입니다. Redux와 유사한 패턴으로 상태를 관리합니다.</div>
+                        <div class="concept-example">import { useReducer } from 'react';
+
+function reducer(state, action) {
+  switch (action.type) {
+    case 'increment':
+      return { count: state.count + 1 };
+    case 'decrement':
+      return { count: state.count - 1 };
+    default:
+      throw new Error();
+  }
+}
+
+function Counter() {
+  const [state, dispatch] = useReducer(reducer, { count: 0 });
+
+  return (
+    <div>
+      Count: {state.count}
+      <button onClick={() => dispatch({ type: 'increment' })}>+</button>
+      <button onClick={() => dispatch({ type: 'decrement' })}>-</button>
+    </div>
+  );
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">복잡한상태</span>
+                            <span class="concept-tag">리듀서패턴</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="memo performance">
+                        <div class="concept-name">useMemo</div>
+                        <div class="concept-description">비용이 많이 드는 계산을 메모이제이션하여 성능을 최적화하는 Hook입니다. 의존성 배열의 값이 변경될 때만 재계산됩니다.</div>
+                        <div class="concept-example">import { useMemo } from 'react';
+
+function ExpensiveComponent({ items }) {
+  const expensiveValue = useMemo(() => {
+    return items.reduce((sum, item) => sum + item.value, 0);
+  }, [items]); // items가 변경될 때만 재계산
+
+  return <div>Total: {expensiveValue}</div>;
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">메모이제이션</span>
+                            <span class="concept-tag">성능최적화</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="memo performance">
+                        <div class="concept-name">useCallback</div>
+                        <div class="concept-description">함수를 메모이제이션하여 불필요한 리렌더링을 방지하는 Hook입니다. 자식 컴포넌트에 함수를 props로 전달할 때 유용합니다.</div>
+                        <div class="concept-example">import { useCallback, useState } from 'react';
+
+function Parent() {
+  const [count, setCount] = useState(0);
+
+  const handleClick = useCallback(() => {
+    setCount(c => c + 1);
+  }, []); // 의존성이 없으므로 함수가 재생성되지 않음
+
+  return <Child onClick={handleClick} />;
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">함수메모이제이션</span>
+                            <span class="concept-tag">성능최적화</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="custom">
+                        <div class="concept-name">Custom Hooks</div>
+                        <div class="concept-description">재사용 가능한 로직을 추출하여 여러 컴포넌트에서 공유할 수 있는 사용자 정의 Hook입니다. 'use'로 시작하는 함수로 만듭니다.</div>
+                        <div class="concept-example">import { useState, useEffect } from 'react';
+
+function useLocalStorage(key, initialValue) {
+  const [storedValue, setStoredValue] = useState(() => {
+    try {
+      const item = window.localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch (error) {
+      return initialValue;
+    }
+  });
+
+  const setValue = (value) => {
+    try {
+      setStoredValue(value);
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  return [storedValue, setValue];
+}
+
+// 사용 예시
+function App() {
+  const [name, setName] = useLocalStorage('name', '');
+  
+  return (
+    <input 
+      value={name} 
+      onChange={(e) => setName(e.target.value)} 
+    />
+  );
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">커스텀훅</span>
+                            <span class="concept-tag">재사용성</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Events 카테고리 -->
+            <div class="category-section" data-category="events">
+                <h2 class="category-title">
+                    <span class="category-icon">🎯</span>
+                    Event Handling
+                </h2>
+                <div class="concepts-grid">
+                    <div class="concept-card" data-tags="event basic">
+                        <div class="concept-name">onClick</div>
+                        <div class="concept-description">클릭 이벤트를 처리하는 가장 기본적인 이벤트 핸들러입니다. 버튼, 링크 등의 클릭 동작을 처리할 때 사용됩니다.</div>
+                        <div class="concept-example">function Button() {
+  const handleClick = (event) => {
+    event.preventDefault();
+    console.log('버튼이 클릭되었습니다!');
+  };
+
+  return (
+    <button onClick={handleClick}>
+      클릭하세요
+    </button>
+  );
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">클릭이벤트</span>
+                            <span class="concept-tag">기본이벤트</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="event form">
+                        <div class="concept-name">onChange</div>
+                        <div class="concept-description">입력 필드의 값이 변경될 때 발생하는 이벤트를 처리합니다. 폼 입력을 실시간으로 추적할 때 사용됩니다.</div>
+                        <div class="concept-example">function TextInput() {
+  const [value, setValue] = useState('');
+
+  const handleChange = (event) => {
+    setValue(event.target.value);
+  };
+
+  return (
+    <input 
+      type="text" 
+      value={value} 
+      onChange={handleChange}
+      placeholder="텍스트를 입력하세요"
+    />
+  );
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">입력이벤트</span>
+                            <span class="concept-tag">폼처리</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="event form">
+                        <div class="concept-name">onSubmit</div>
+                        <div class="concept-description">폼이 제출될 때 발생하는 이벤트를 처리합니다. 폼 데이터를 서버로 전송하거나 유효성 검사를 수행할 때 사용됩니다.</div>
+                        <div class="concept-example">function LoginForm() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    console.log('로그인 시도:', { email, password });
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input 
+        type="email" 
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+      <input 
+        type="password" 
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
+      <button type="submit">로그인</button>
+    </form>
+  );
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">폼제출</span>
+                            <span class="concept-tag">유효성검사</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="event">
+                        <div class="concept-name">onMouseEnter/onMouseLeave</div>
+                        <div class="concept-description">마우스가 요소에 진입하거나 떠날 때 발생하는 이벤트를 처리합니다. 호버 효과나 툴팁 표시에 사용됩니다.</div>
+                        <div class="concept-example">function HoverCard() {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <div 
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        backgroundColor: isHovered ? '#f0f0f0' : 'white',
+        padding: '20px',
+        border: '1px solid #ccc'
+      }}
+    >
+      {isHovered ? '마우스가 올라와 있습니다!' : '마우스를 올려보세요'}
+    </div>
+  );
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">마우스이벤트</span>
+                            <span class="concept-tag">호버효과</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance 카테고리 -->
+            <div class="category-section" data-category="performance">
+                <h2 class="category-title">
+                    <span class="category-icon">⚡</span>
+                    Performance Optimization
+                </h2>
+                <div class="concepts-grid">
+                    <div class="concept-card" data-tags="performance memo">
+                        <div class="concept-name">React.memo</div>
+                        <div class="concept-description">컴포넌트를 메모이제이션하여 props가 변경되지 않으면 리렌더링을 방지합니다. 함수형 컴포넌트의 성능을 최적화할 때 사용됩니다.</div>
+                        <div class="concept-example">import React from 'react';
+
+const ExpensiveComponent = React.memo(function ExpensiveComponent({ data }) {
+  console.log('ExpensiveComponent 렌더링');
+  
+  return (
+    <div>
+      {data.map(item => (
+        <div key={item.id}>{item.name}</div>
+      ))}
+    </div>
+  );
+});
+
+// props가 같으면 리렌더링되지 않음</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">컴포넌트메모이제이션</span>
+                            <span class="concept-tag">리렌더링방지</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="performance">
+                        <div class="concept-name">Lazy Loading</div>
+                        <div class="concept-description">컴포넌트를 필요할 때만 로드하여 초기 번들 크기를 줄이는 기법입니다. React.lazy()와 Suspense를 함께 사용합니다.</div>
+                        <div class="concept-example">import React, { Suspense } from 'react';
+
+const LazyComponent = React.lazy(() => import('./LazyComponent'));
+
+function App() {
+  return (
+    <div>
+      <Suspense fallback={<div>로딩 중...</div>}>
+        <LazyComponent />
+      </Suspense>
+    </div>
+  );
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">코드분할</span>
+                            <span class="concept-tag">번들최적화</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="performance">
+                        <div class="concept-name">Virtual Scrolling</div>
+                        <div class="concept-description">대량의 데이터를 렌더링할 때 화면에 보이는 부분만 렌더링하여 성능을 최적화하는 기법입니다.</div>
+                        <div class="concept-example">import { FixedSizeList as List } from 'react-window';
+
+function VirtualizedList({ items }) {
+  const Row = ({ index, style }) => (
+    <div style={style}>
+      {items[index].name}
+    </div>
+  );
+
+  return (
+    <List
+      height={600}
+      itemCount={items.length}
+      itemSize={35}
+    >
+      {Row}
+    </List>
+  );
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">가상스크롤</span>
+                            <span class="concept-tag">대용량데이터</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Context/State 카테고리 -->
+            <div class="category-section" data-category="context">
+                <h2 class="category-title">
+                    <span class="category-icon">🌐</span>
+                    Context & State Management
+                </h2>
+                <div class="concepts-grid">
+                    <div class="concept-card" data-tags="context state">
+                        <div class="concept-name">Context API</div>
+                        <div class="concept-description">컴포넌트 트리 전체에 데이터를 제공하는 방법입니다. prop drilling 없이 깊은 컴포넌트에 데이터를 전달할 수 있습니다.</div>
+                        <div class="concept-example">import React, { createContext, useContext, useState } from 'react';
+
+const ThemeContext = createContext();
+
+export function ThemeProvider({ children }) {
+  const [theme, setTheme] = useState('light');
+
+  return (
+    <ThemeContext.Provider value={{ theme, setTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+
+export function useTheme() {
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error('useTheme must be used within ThemeProvider');
+  }
+  return context;
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">전역상태</span>
+                            <span class="concept-tag">컨텍스트</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="state">
+                        <div class="concept-name">State Lifting</div>
+                        <div class="concept-description">여러 컴포넌트가 같은 상태를 공유해야 할 때, 상태를 공통 부모 컴포넌트로 끌어올리는 패턴입니다.</div>
+                        <div class="concept-example">function Parent() {
+  const [sharedState, setSharedState] = useState('');
+
+  return (
+    <div>
+      <ChildA value={sharedState} onChange={setSharedState} />
+      <ChildB value={sharedState} />
+    </div>
+  );
+}
+
+function ChildA({ value, onChange }) {
+  return (
+    <input 
+      value={value} 
+      onChange={(e) => onChange(e.target.value)} 
+    />
+  );
+}
+
+function ChildB({ value }) {
+  return <div>현재 값: {value}</div>;
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">상태끌어올리기</span>
+                            <span class="concept-tag">상태공유</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Forms 카테고리 -->
+            <div class="category-section" data-category="forms">
+                <h2 class="category-title">
+                    <span class="category-icon">📝</span>
+                    Forms & Validation
+                </h2>
+                <div class="concepts-grid">
+                    <div class="concept-card" data-tags="form">
+                        <div class="concept-name">Controlled Components</div>
+                        <div class="concept-description">React 상태에 의해 값이 제어되는 폼 요소입니다. 입력값이 항상 React 상태와 동기화됩니다.</div>
+                        <div class="concept-example">function ControlledForm() {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    message: ''
+  });
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  return (
+    <form>
+      <input
+        name="name"
+        value={formData.name}
+        onChange={handleChange}
+        placeholder="이름"
+      />
+      <input
+        name="email"
+        value={formData.email}
+        onChange={handleChange}
+        placeholder="이메일"
+      />
+      <textarea
+        name="message"
+        value={formData.message}
+        onChange={handleChange}
+        placeholder="메시지"
+      />
+    </form>
+  );
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">제어컴포넌트</span>
+                            <span class="concept-tag">폼상태관리</span>
+                        </div>
+                    </div>
+
+                    <div class="concept-card" data-tags="form">
+                        <div class="concept-name">Form Validation</div>
+                        <div class="concept-description">사용자 입력의 유효성을 검사하고 오류 메시지를 표시하는 기능입니다. 실시간 검증과 제출 시 검증을 구현할 수 있습니다.</div>
+                        <div class="concept-example">function ValidatedForm() {
+  const [email, setEmail] = useState('');
+  const [errors, setErrors] = useState({});
+
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const newErrors = {};
+
+    if (!email) {
+      newErrors.email = '이메일은 필수입니다';
+    } else if (!validateEmail(email)) {
+      newErrors.email = '올바른 이메일 형식이 아닙니다';
+    }
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length === 0) {
+      console.log('폼 제출 성공!');
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="이메일"
+      />
+      {errors.email && <span style={{color: 'red'}}>{errors.email}</span>}
+      <button type="submit">제출</button>
+    </form>
+  );
+}</div>
+                        <div class="concept-tags">
+                            <span class="concept-tag">유효성검사</span>
+                            <span class="concept-tag">에러처리</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats" id="stats">
+            총 <span id="totalCount">0</span>개의 React 개념이 있습니다.
+        </div>
+    </div>
+
+    <script>
+        // DOM 요소들
+        const searchInput = document.getElementById('searchInput');
+        const categoryFilter = document.getElementById('categoryFilter');
+        const tagsContainer = document.getElementById('tagsContainer');
+        const content = document.getElementById('content');
+        const totalCountSpan = document.getElementById('totalCount');
+
+        // 모든 개념 카드들
+        const allCards = document.querySelectorAll('.concept-card');
+        const allSections = document.querySelectorAll('.category-section');
+
+        // 활성 태그들
+        let activeTags = new Set();
+
+        // 초기 카운트 설정
+        updateStats();
+
+        // 검색 기능
+        searchInput.addEventListener('input', filterConcepts);
+        categoryFilter.addEventListener('change', filterConcepts);
+
+        // 태그 클릭 이벤트
+        tagsContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('tag')) {
+                const tag = e.target.dataset.tag;
+                
+                if (activeTags.has(tag)) {
+                    activeTags.delete(tag);
+                    e.target.classList.remove('active');
+                } else {
+                    activeTags.add(tag);
+                    e.target.classList.add('active');
+                }
+                
+                filterConcepts();
+            }
+        });
+
+        function filterConcepts() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const selectedCategory = categoryFilter.value;
+            
+            let visibleCount = 0;
+
+            allSections.forEach(section => {
+                const sectionCategory = section.dataset.category;
+                let sectionHasVisibleCards = false;
+
+                // 카테고리 필터 확인
+                if (selectedCategory && selectedCategory !== sectionCategory) {
+                    section.classList.add('hidden');
+                    return;
+                }
+
+                const cards = section.querySelectorAll('.concept-card');
+                cards.forEach(card => {
+                    const name = card.querySelector('.concept-name').textContent.toLowerCase();
+                    const description = card.querySelector('.concept-description').textContent.toLowerCase();
+                    const example = card.querySelector('.concept-example').textContent.toLowerCase();
+                    const cardTags = card.dataset.tags.split(' ');
+
+                    // 검색어 필터
+                    const matchesSearch = !searchTerm || 
+                        name.includes(searchTerm) || 
+                        description.includes(searchTerm) || 
+                        example.includes(searchTerm);
+
+                    // 태그 필터
+                    const matchesTags = activeTags.size === 0 || 
+                        [...activeTags].some(tag => cardTags.includes(tag));
+
+                    if (matchesSearch && matchesTags) {
+                        card.classList.remove('hidden');
+                        sectionHasVisibleCards = true;
+                        visibleCount++;
+                    } else {
+                        card.classList.add('hidden');
+                    }
+                });
+
+                // 섹션에 보이는 카드가 있으면 섹션도 보이게 함
+                if (sectionHasVisibleCards) {
+                    section.classList.remove('hidden');
+                } else {
+                    section.classList.add('hidden');
+                }
+            });
+
+            updateStats(visibleCount);
+            showNoResults(visibleCount === 0);
+        }
+
+        function updateStats(visibleCount = null) {
+            const count = visibleCount !== null ? visibleCount : allCards.length;
+            totalCountSpan.textContent = count;
+        }
+
+        function showNoResults(show) {
+            let noResultsDiv = document.querySelector('.no-results');
+            
+            if (show && !noResultsDiv) {
+                noResultsDiv = document.createElement('div');
+                noResultsDiv.className = 'no-results';
+                noResultsDiv.innerHTML = '🔍 검색 결과가 없습니다.<br>다른 키워드로 검색해보세요.';
+                content.appendChild(noResultsDiv);
+            } else if (!show && noResultsDiv) {
+                noResultsDiv.remove();
+            }
+        }
+
+        // 카드 호버 효과 개선
+        allCards.forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.style.transform = 'translateY(-8px) scale(1.02)';
+            });
+            
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'translateY(0) scale(1)';
+            });
+        });
+
+        // 키보드 단축키
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'k') {
+                e.preventDefault();
+                searchInput.focus();
+            }
+            
+            if (e.key === 'Escape') {
+                searchInput.value = '';
+                categoryFilter.value = '';
+                activeTags.clear();
+                document.querySelectorAll('.tag.active').forEach(tag => {
+                    tag.classList.remove('active');
+                });
+                filterConcepts();
+            }
+        });
+    </script>
+</body>
+</html>
