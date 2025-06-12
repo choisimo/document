@@ -1537,7 +1537,7 @@ gantt
     dateFormat X
     axisFormat %s
     
-    section 시스템 프로세스 (최고 우선순위)
+    section 시스템 프로세스 
     P1 시스템 :0, 3
     
     section 대화형 프로세스

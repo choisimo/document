@@ -1,0 +1,219 @@
+{
+  "mcp": {
+    "servers": {
+      "memory": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-memory"
+        ],
+        "env": {
+          "MEMORY_FILE_PATH": "/workspace/mcp/memory"
+        }
+      },
+      "sequential-thinking": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-sequential-thinking"
+        ],
+        "env": {}
+      }
+    },
+    "recommended_extensions": {
+      "절차적 사고 (Sequential Thinking)": [
+        {
+          "name": "Code Runner",
+          "description": "현재 열린 소스 코드 파일이나 선택된 코드 블록을 매우 빠르고 간단하게 실행해줍니다. 논리 흐름을 즉시 테스트하고 결과를 확인하는 데 유용합니다.",
+          "command": "code",
+          "args": [
+            "--install-extension",
+            "formulahendry.code-runner"
+          ]
+        },
+        {
+          "name": "Todo Tree",
+          "description": "소스 코드에 TODO:, FIXME: 등과 같은 주석을 남기면, 해당 라인들을 한눈에 볼 수 있는 트리 뷰를 제공합니다. 작업의 순서를 정하고 놓치지 않도록 도와줍니다.",
+          "command": "code",
+          "args": [
+            "--install-extension",
+            "Gruntfuggly.todo-tree"
+          ]
+        },
+        {
+          "name": "Draw.io Integration",
+          "description": "VS Code 내에서 직접 플로우차트, 다이어그램, 아키텍처 등을 그릴 수 있게 해줍니다. 코드의 논리나 시스템의 작동 순서를 시각적으로 설계하고 이해하는 데 탁월합니다.",
+          "command": "code",
+          "args": [
+            "--install-extension",
+            "hediet.vscode-drawio"
+          ]
+        },
+        {
+          "name": "GitLens — Git supercharged",
+          "description": "코드 한 줄 한 줄이 언제, 누구에 의해, 왜 수정되었는지 추적할 수 있게 해줍니다. 코드의 변경 이력(순서)을 파악하여 문제의 원인을 찾거나 히스토리를 이해하는 데 필수적입니다.",
+          "command": "code",
+          "args": [
+            "--install-extension",
+            "eamodio.gitlens"
+          ]
+        },
+        {
+          "name": "Bookmarks",
+          "description": "코드의 특정 위치에 북마크를 설정하고, 단축키로 빠르게 이동할 수 있게 합니다. 복잡한 코드의 여러 부분을 순차적으로 오가며 작업할 때 매우 편리합니다.",
+          "command": "code",
+          "args": [
+            "--install-extension",
+            "alefragnani.bookmarks"
+          ]
+        }
+      ],
+      "기억 및 메모리 (Memory & Note-taking)": [
+        {
+          "name": "CodeStream: GitHub, GitLab, Bitbucket PRs & Code Comments",
+          "description": "코드에 대한 질문이나 토론을 에디터에서 바로 팀원들과 주고받고 기록으로 남길 수 있습니다. 코드와 관련된 중요한 논의 내용을 '기억'하고 공유하는 데 효과적입니다.",
+          "command": "code",
+          "args": [
+            "--install-extension",
+            "CodeStream.codestream"
+          ]
+        },
+        {
+          "name": "Memo",
+          "description": "VS Code 내에서 빠르게 메모를 작성하고 관리할 수 있는 위키 스타일의 노트 기능을 제공합니다. 프로젝트와 관련된 아이디어나 작은 정보들을 잊지 않도록 기록하기 좋습니다.",
+          "command": "code",
+          "args": [
+            "--install-extension",
+            "svsool.memo"
+          ]
+        },
+        {
+          "name": "Snippets",
+          "description": "자주 사용하는 코드 패턴을 snippet(조각)으로 만들어 저장하고, 접두사 입력만으로 빠르게 불러올 수 있습니다. 반복적인 코드를 기억할 필요가 없어집니다. VS Code 내장 기능이며 'Configure User Snippets' 명령어로 설정할 수 있습니다.",
+          "command": null,
+          "args": []
+        },
+        {
+          "name": "Paste JSON as Code",
+          "description": "JSON 데이터를 복사한 후, 원하는 프로그래밍 언어(Python, TypeScript, Java 등)의 타입이나 클래스 코드로 즉시 변환해 붙여넣기 해줍니다. 데이터 구조를 외울 필요 없이 코드를 생성할 수 있습니다.",
+          "command": "code",
+          "args": [
+            "--install-extension",
+            "quicktype.quicktype"
+          ]
+        },
+        {
+          "name": "Local History",
+          "description": "Git으로 커밋하지 않은 파일의 변경 내용까지 로컬에 자동으로 저장해줍니다. 실수로 코드를 잘못 수정하거나 삭제했을 때 쉽게 이전 버전으로 돌아갈 수 있어 '단기 기억'을 보완해주는 보험 같은 역할을 합니다.",
+          "command": "code",
+          "args": [
+            "--install-extension",
+            "xyz.local-history"
+          ]
+        }
+      ],
+      "코드 작성 및 가독성 향상": [
+        {
+          "name": "Prettier - Code formatter",
+          "description": "코드를 저장할 때마다 설정된 규칙에 따라 자동으로 정렬해줍니다. 코드 스타일을 일관적으로 유지하여 가독성을 크게 향상시킵니다.",
+          "command": "code",
+          "args": [
+            "--install-extension",
+            "esbenp.prettier-vscode"
+          ]
+        },
+        {
+          "name": "ESLint",
+          "description": "JavaScript 및 TypeScript 코드에서 잠재적인 오류나 스타일 문제를 실시간으로 찾아내고 수정 제안을 해줍니다. 버그를 사전에 예방하는 데 필수적입니다.",
+          "command": "code",
+          "args": [
+            "--install-extension",
+            "dbaeumer.vscode-eslint"
+          ]
+        },
+        {
+          "name": "indent-rainbow",
+          "description": "코드의 들여쓰기(indentation) 깊이에 따라 다른 색상을 부여하여 코드 블록의 구조를 시각적으로 쉽게 파악할 수 있도록 도와줍니다.",
+          "command": "code",
+          "args": [
+            "--install-extension",
+            "oderwat.indent-rainbow"
+          ]
+        },
+        {
+          "name": "Bracket Pair Colorizer 2 (내장 기능)",
+          "description": "서로 쌍을 이루는 괄호 (), {}, []에 같은 색상을 지정해줍니다. 복잡하게 중첩된 코드에서 괄호의 범위를 파악하는 데 매우 유용합니다. (현재 VS Code에 기본 내장되었습니다.)",
+          "command": null,
+          "args": []
+        },
+        {
+          "name": "Auto Rename Tag",
+          "description": "HTML/XML에서 여는 태그를 수정하면 닫는 태그가 자동으로 변경됩니다. 태그 쌍을 맞추는 실수를 줄여줍니다.",
+          "command": "code",
+          "args": [
+            "--install-extension",
+            "formulahendry.auto-rename-tag"
+          ]
+        }
+      ],
+      "협업 및 원격 작업": [
+        {
+          "name": "Live Share",
+          "description": "다른 사람을 자신의 VS Code 세션에 초대하여 실시간으로 코드를 함께 편집하고 디버깅할 수 있습니다. 페어 프로그래밍이나 원격 교육 시 강력한 기능을 제공합니다.",
+          "command": "code",
+          "args": [
+            "--install-extension",
+            "ms-vsliveshare.vsliveshare"
+          ]
+        },
+        {
+          "name": "Remote - SSH",
+          "description": "원격 서버나 가상 머신에 SSH로 접속하여, 마치 로컬 컴퓨터에서 작업하는 것처럼 파일을 편집하고 터미널을 사용할 수 있게 해줍니다.",
+          "command": "code",
+          "args": [
+            "--install-extension",
+            "ms-vscode-remote.remote-ssh"
+          ]
+        },
+        {
+          "name": "Docker",
+          "description": "VS Code 내에서 Docker 컨테이너와 이미지를 쉽게 관리하고, Dockerfile 및 docker-compose.yml 파일 작성 시 자동 완성과 구문 강조를 지원합니다.",
+          "command": "code",
+          "args": [
+            "--install-extension",
+            "ms-azuretools.vscode-docker"
+          ]
+        }
+      ],
+      "테마 및 아이콘": [
+        {
+          "name": "Material Icon Theme",
+          "description": "파일 탐색기에서 파일과 폴더의 종류에 따라 직관적이고 예쁜 아이콘을 표시해줍니다. 원하는 파일을 시각적으로 빠르게 찾는 데 도움이 됩니다.",
+          "command": "code",
+          "args": [
+            "--install-extension",
+            "PKief.material-icon-theme"
+          ]
+        },
+        {
+          "name": "One Dark Pro",
+          "description": "Atom 에디터의 기본 테마로 유명하며, 눈이 편안한 색상 대비로 많은 개발자에게 사랑받는 대표적인 다크 테마입니다.",
+          "command": "code",
+          "args": [
+            "--install-extension",
+            "zhuangtongfa.one-dark-pro"
+          ]
+        },
+        {
+          "name": "Community Material Theme",
+          "description": "머티리얼 디자인 기반의 다양한 테마(Darker, Lighter 등)를 제공하여 사용자의 취향에 맞게 에디터 색상을 변경할 수 있습니다.",
+          "command": "code",
+          "args": [
+            "--install-extension",
+            "Equinusocio.vsc-material-theme"
+          ]
+        }
+      ]
+    }
+  }
+}
