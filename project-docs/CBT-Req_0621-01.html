@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>CBT-Req_0621-01.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="cbt-diary-mongodb-%EC%97%B0%EB%8F%99-%EC%95%84%ED%82%A4%ED%85%8D%EC%B2%98-%EA%B0%9C%EC%84%A0-%EC%A0%9C%EC%95%88%EC%84%9C">CBT Diary: MongoDB 연동 아키텍처 개선 제안서</h1>
+<p><strong>작성일</strong>: 2025년 6월 21일<br>
+<strong>작성자</strong>: CBT Diary 개발팀<br>
+<strong>문서 목적</strong>: MariaDB + MongoDB 하이브리드 아키텍처 제안</p>
+<hr>
+<h2 id="%F0%9F%93%8B-%EB%AA%A9%EC%B0%A8">📋 목차</h2>
+<pre><code class="language-mermaid"><div class="mermaid">mindmap
+  root((CBT Diary<br/>MongoDB 연동))
+    제안 개요
+      현재 상황 분석
+      MongoDB 도입 이유
+    기술적 분석
+      데이터 특성 분석
+      성능 비교
+      확장성 검토
+    아키텍처 설계
+      Polyglot Persistence
+      데이터 분산 전략
+      API 변경사항
+    구현 전략
+      단계별 마이그레이션
+      리스크 관리
+      테스트 계획
+    기대 효과
+      성능 향상
+      개발 생산성
+      확장성 확보
+</div></code></pre>
+<hr>
+<h2 id="1-%F0%9F%93%8A-%EC%A0%9C%EC%95%88-%EA%B0%9C%EC%9A%94">1. 📊 제안 개요</h2>
+<p>본 문서는 현재 MariaDB(관계형 데이터베이스) 중심으로 구현된 CBT-Diary 프로젝트에 **MongoDB(도큐먼트 데이터베이스)**를 도입하여, 각 데이터의 특성에 맞는 최적의 데이터베이스를 사용하는 **하이브리드 데이터베이스 아키텍처(Polyglot Persistence)**로 전환하는 방안을 제안합니다.</p>
+<h3 id="%F0%9F%93%88-%ED%98%84%EC%9E%AC-%EC%8B%9C%EC%8A%A4%ED%85%9C-vs-%EC%A0%9C%EC%95%88-%EC%8B%9C%EC%8A%A4%ED%85%9C">📈 현재 시스템 vs 제안 시스템</h3>
+<pre><code class="language-mermaid"><div class="mermaid">graph LR
+    subgraph "현재 (MariaDB Only)"
+        A[React Native] --> B[Spring Boot]
+        B --> C[(MariaDB)]
+        B --> D[(Redis)]
+        E[Python AI] --> B
+    end
+
+    subgraph "제안 (Hybrid Architecture)"
+        F[React Native] --> G[Spring Boot]
+        G --> H[(MariaDB<br/>구조화된 데이터)]
+        G --> I[(MongoDB<br/>비구조화된 데이터)]
+        G --> J[(Redis<br/>캐시)]
+        K[Python AI] --> G
+    end
+
+    style H fill:#e1f5fe
+    style I fill:#fff3e0
+    style J fill:#f3e5f5
+</div></code></pre>
+<p>이러한 접근 방식은 데이터의 유연성, 확장성, 그리고 조회 성능을 극대화하여 서비스의 기술적 경쟁력을 한 단계 높이는 것을 목표로 합니다.</p>
+<p>---## 2. 🤔 왜 MongoDB를 도입해야 하는가?</p>
+<p>현재 시스템은 정형화된 데이터를 다루는 데 강점이 있는 MariaDB를 중심으로 설계되었습니다. 하지만 CBT-Diary 서비스가 다루는 데이터 중 일부는 MongoDB와 같은 NoSQL 데이터베이스에 더 적합한 특성을 가집니다.</p>
+<h3 id="%F0%9F%93%8A-%EB%8D%B0%EC%9D%B4%ED%84%B0-%ED%8A%B9%EC%84%B1-%EB%B6%84%EC%84%9D-%EB%B0%8F-%EB%B9%84%EA%B5%90">📊 데이터 특성 분석 및 비교</h3>
+<pre><code class="language-mermaid"><div class="mermaid">graph TB
+    subgraph "🔥 MongoDB 최적 영역"
+        A[📝 일기 내용<br/>비구조화 + 고성능]
+        B[🤖 AI 분석결과<br/>비구조화 + 고성능]
+        C[📊 활동 로그<br/>비구조화 + 고성능]
+    end
+
+    subgraph "⚡ MongoDB 적합 영역"
+        D[💬 채팅 이력<br/>비구조화 + 중성능]
+    end
+
+    subgraph "🗃️ MariaDB 적합 영역"
+        E[👤 사용자 정보<br/>구조화 + 고성능]
+        F[🔐 인증 토큰<br/>구조화 + 고성능]
+    end
+
+    A --> MongoDB[(MongoDB<br/>Document DB)]
+    B --> MongoDB
+    C --> MongoDB
+    D --> MongoDB
+
+    E --> MariaDB[(MariaDB<br/>Relational DB)]
+    F --> MariaDB
+
+    style A fill:#ff9800
+    style B fill:#ff9800
+    style C fill:#ff9800
+    style D fill:#ffc107
+    style E fill:#2196f3
+    style F fill:#2196f3
+    style MongoDB fill:#4caf50
+    style MariaDB fill:#00bcd4
+</div></code></pre>
+<h3 id="%F0%9F%94%8D-%EC%83%81%EC%84%B8-%EB%B9%84%EA%B5%90-%EB%B6%84%EC%84%9D">🔍 상세 비교 분석</h3>
+<table>
+<thead>
+<tr>
+<th>📋 데이터 종류</th>
+<th>🔄 현황 (MariaDB)</th>
+<th>❌ 문제점 및 한계</th>
+<th>✅ MongoDB 도입 시 이점</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>📝 일기 본문 및 AI 분석 결과</strong></td>
+<td>diary, report 테이블에 정해진 컬럼으로 저장</td>
+<td><strong>비정형 데이터</strong>: 일기 내용은 길이가 가변적인 긴 텍스트이며, AI 분석 결과(감정, 솔루션 등)는 복잡하고 중첩된 구조<br/><strong>유연성 부족</strong>: AI 모델 개선으로 분석 항목이 추가/변경될 때마다 report 테이블의 스키마 변경(ALTER TABLE)이 필요</td>
+<td><strong>유연한 스키마</strong>: JSON과 유사한 BSON 도큐먼트 구조로, 일기 내용과 복잡한 AI 분석 결과를 있는 그대로 저장<br/><strong>성능</strong>: 관련된 데이터를 하나의 도큐먼트에 내장하여 JOIN 없이 한 번의 쿼리로 빠르게 조회</td>
+</tr>
+<tr>
+<td><strong>📊 사용자 활동 로그</strong></td>
+<td>(현재 미구현)</td>
+<td>향후 서비스 확장 시, 대량의 쓰기(Write) 작업으로 인한 부하 발생 가능성</td>
+<td><strong>빠른 쓰기 성능</strong>: 대량의 로그 데이터를 빠르게 저장<br/><strong>데이터 분석 용이</strong>: 저장된 로그를 기반으로 사용자 행동 패턴 분석</td>
+</tr>
+<tr>
+<td><strong>🔔 실시간 알림 데이터</strong></td>
+<td>sse_emitter 테이블 등 별도 구현 필요</td>
+<td>실시간 알림 구현 시, 사용자 온라인 상태 및 알림 읽음 상태 관리의 복잡성</td>
+<td><strong>Capped Collection</strong>: 오래된 데이터 자동 삭제로 최신 알림 목록 효율적 유지<br/><strong>Change Streams</strong>: 데이터베이스 변경 사항 실시간 스트리밍</td>
+</tr>
+</tbody>
+</table>
+<h3 id="%F0%9F%93%88-%EC%84%B1%EB%8A%A5-%EB%B9%84%EA%B5%90-%EC%98%88%EC%8B%9C">📈 성능 비교 예시</h3>
+<pre><code class="language-mermaid"><div class="mermaid">gantt
+    title 쿼리 성능 비교 (일기 + AI 분석 결과 조회)
+    dateFormat X
+    axisFormat %s ms
+
+    section MariaDB (JOIN)
+    사용자 조회    :0, 50
+    일기 조회      :50, 150
+    AI 분석 조회   :150, 300
+    Total         :0, 300
+
+    section MongoDB (Single Query)
+    통합 도큐먼트 조회 :0, 80
+    Total             :0, 80
+</div></code></pre>
+<hr>
+<h2 id="3-%F0%9F%8E%AF-mongodb-%EC%A0%81%EC%9A%A9-%EB%8C%80%EC%83%81-%EC%84%9C%EB%B9%84%EC%8A%A4-%EB%B6%84%EC%84%9D">3. 🎯 MongoDB 적용 대상 서비스 분석</h2>
+<p>MongoDB의 장점을 극대화하기 위해, 다음 데이터들을 MongoDB로 이전하거나 신규 저장하는 것을 제안합니다.</p>
+<h3 id="%F0%9F%93%8A-%EC%A0%81%EC%9A%A9-%EC%9A%B0%EC%84%A0%EC%88%9C%EC%9C%84-%EB%A7%A4%ED%8A%B8%EB%A6%AD%EC%8A%A4">📊 적용 우선순위 매트릭스</h3>
+<pre><code class="language-mermaid"><div class="mermaid">graph TB
+    subgraph "🔥 최우선 적용"
+        A[📝 일기 및 AI 분석 리포트<br/>• 핵심 비즈니스 데이터<br/>• 스키마 유연성 필수<br/>• 높은 조회 빈도]
+    end
+
+    subgraph "⚡ 신규 기능"
+        B[📊 사용자 활동 로그<br/>• 대량 데이터 처리<br/>• 빠른 쓰기 성능<br/>• 분석 최적화]
+        C[💬 대화형 AI 채팅<br/>• 실시간 데이터<br/>• 컨텍스트 유지<br/>• 유연한 구조]
+        D[🔔 실시간 알림<br/>• 임시 데이터<br/>• 자동 만료<br/>• 스트리밍 지원]
+    end
+
+    A --> B
+    A --> C
+    B --> D
+    C --> D
+
+    style A fill:#ffcdd2
+    style B fill:#f8bbd9
+    style C fill:#e1bee7
+    style D fill:#d1c4e9
+</div></code></pre>
+<h3 id="%E2%9C%85-%EC%B5%9C%EC%9A%B0%EC%84%A0-%EC%A0%81%EC%9A%A9-%EC%9D%BC%EA%B8%B0-%EB%B0%8F-ai-%EB%B6%84%EC%84%9D-%EB%A6%AC%ED%8F%AC%ED%8A%B8">✅ [최우선 적용] 일기 및 AI 분석 리포트</h3>
+<p><strong>설명</strong>: 사용자의 일기와 그에 대한 AI 분석 결과는 이 서비스의 가장 핵심적인 데이터입니다. 이 둘은 논리적으로 매우 강하게 연결되어 있으므로, 하나의 **&quot;Diary Document&quot;**로 묶어 저장하는 것이 가장 이상적입니다.</p>
+<h4 id="%F0%9F%93%84-mongodb-%EB%8D%B0%EC%9D%B4%ED%84%B0-%EB%AA%A8%EB%8D%B8-%EC%98%88%EC%8B%9C-diaries-%EC%BB%AC%EB%A0%89%EC%85%98">📄 MongoDB 데이터 모델 예시 (diaries 컬렉션)</h4>
+<pre><code class="language-mermaid"><div class="mermaid">erDiagram
+    DiaryDocument {
+        ObjectId _id
+        Number userId
+        String title
+        String content
+        String weather
+        Date createdAt
+        Date updatedAt
+        Object report
+    }
+
+    ReportSubDocument {
+        String status
+        Date analysisDate
+        Array emotions
+        Array cognitiveDistortions
+        Array solutions
+        Object metadata
+    }
+
+    EmotionObject {
+        String name
+        Number score
+        String intensity
+    }
+
+    DiaryDocument ||--|| ReportSubDocument : contains
+    ReportSubDocument ||--o{ EmotionObject : has
+</div></code></pre>
+<pre class="hljs"><code><div>{
+  <span class="hljs-attr">"_id"</span>: <span class="hljs-string">"6492a48f5e3b2e1f8a7b3d9c"</span>, <span class="hljs-comment">// MongoDB의 ObjectId</span>
+  <span class="hljs-attr">"userId"</span>: <span class="hljs-number">123</span>, <span class="hljs-comment">// MariaDB의 User ID (FK 역할)</span>
+  <span class="hljs-attr">"title"</span>: <span class="hljs-string">"오늘의 일기"</span>,
+  <span class="hljs-attr">"content"</span>: <span class="hljs-string">"오늘은 날씨가 정말 좋아서 기분이 상쾌했다..."</span>,
+  <span class="hljs-attr">"weather"</span>: <span class="hljs-string">"맑음"</span>,
+  <span class="hljs-attr">"createdAt"</span>: <span class="hljs-string">"2025-06-21T10:00:00Z"</span>,
+  <span class="hljs-attr">"updatedAt"</span>: <span class="hljs-string">"2025-06-21T10:00:00Z"</span>,
+  <span class="hljs-attr">"report"</span>: {
+    <span class="hljs-comment">// AI 분석 결과를 내장(embedded) 도큐먼트로 저장</span>
+    <span class="hljs-attr">"status"</span>: <span class="hljs-string">"COMPLETED"</span>,
+    <span class="hljs-attr">"analysisDate"</span>: <span class="hljs-string">"2025-06-21T10:01:00Z"</span>,
+    <span class="hljs-attr">"emotions"</span>: [
+      { <span class="hljs-attr">"name"</span>: <span class="hljs-string">"행복"</span>, <span class="hljs-attr">"score"</span>: <span class="hljs-number">0.8</span>, <span class="hljs-attr">"intensity"</span>: <span class="hljs-string">"높음"</span> },
+      { <span class="hljs-attr">"name"</span>: <span class="hljs-string">"평온"</span>, <span class="hljs-attr">"score"</span>: <span class="hljs-number">0.6</span>, <span class="hljs-attr">"intensity"</span>: <span class="hljs-string">"보통"</span> }
+    ],
+    <span class="hljs-attr">"cognitiveDistortions"</span>: [
+      <span class="hljs-comment">// AI 모델이 고도화되어 새로운 필드가 생겨도 스키마 변경 불필요</span>
+      {
+        <span class="hljs-attr">"type"</span>: <span class="hljs-string">"긍정 편향"</span>,
+        <span class="hljs-attr">"originalSentence"</span>: <span class="hljs-string">"날씨가 좋아서 기분이 상쾌했다"</span>,
+        <span class="hljs-attr">"alternativeThought"</span>: <span class="hljs-string">"날씨와 관계없이 나의 기분을 조절할 수 있다."</span>,
+        <span class="hljs-attr">"confidence"</span>: <span class="hljs-number">0.7</span>
+      }
+    ],
+    <span class="hljs-attr">"solutions"</span>: [<span class="hljs-string">"오늘 느낀 긍정적인 감정을 친구와 나눠보세요."</span>],
+    <span class="hljs-attr">"metadata"</span>: {
+      <span class="hljs-attr">"modelVersion"</span>: <span class="hljs-string">"GPT-4-turbo"</span>,
+      <span class="hljs-attr">"processingTime"</span>: <span class="hljs-number">1250</span>,
+      <span class="hljs-attr">"tokensUsed"</span>: <span class="hljs-number">245</span>
+    }
+  }
+}
+</div></code></pre>
+<h3 id="%E2%9C%85-%EC%8B%A0%EA%B7%9C-%EA%B8%B0%EB%8A%A5-%EC%82%AC%EC%9A%A9%EC%9E%90-%ED%99%9C%EB%8F%99-%EB%A1%9C%EA%B7%B8">✅ [신규 기능] 사용자 활동 로그</h3>
+<p><strong>설명</strong>: API 호출 로그, 주요 기능 사용 이력 등을 저장하여 서비스 운영 및 데이터 분석에 활용합니다.</p>
+<h4 id="%F0%9F%93%8A-%ED%99%9C%EB%8F%99-%EB%A1%9C%EA%B7%B8-%EB%8D%B0%EC%9D%B4%ED%84%B0-%ED%94%8C%EB%A1%9C%EC%9A%B0">📊 활동 로그 데이터 플로우</h4>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant U as User
+    participant A as Auth Server
+    participant M as MongoDB
+    participant D as Dashboard
+
+    U->>A: API 호출
+    A->>A: 비즈니스 로직 처리
+    A->>M: 활동 로그 저장 (비동기)
+    A->>U: 응답 반환
+
+    Note over M: 로그 집계 처리
+    M->>D: 분석 데이터 제공
+</div></code></pre>
+<h4 id="%F0%9F%93%84-mongodb-%EB%8D%B0%EC%9D%B4%ED%84%B0-%EB%AA%A8%EB%8D%B8-%EC%98%88%EC%8B%9C-activitylogs-%EC%BB%AC%EB%A0%89%EC%85%98">📄 MongoDB 데이터 모델 예시 (activity_logs 컬렉션)</h4>
+<pre class="hljs"><code><div>{
+  <span class="hljs-attr">"_id"</span>: <span class="hljs-string">"..."</span>,
+  <span class="hljs-attr">"userId"</span>: <span class="hljs-number">123</span>,
+  <span class="hljs-attr">"action"</span>: <span class="hljs-string">"LOGIN_SUCCESS"</span>, <span class="hljs-comment">// 또는 "CREATE_DIARY", "DELETE_DIARY" 등</span>
+  <span class="hljs-attr">"ipAddress"</span>: <span class="hljs-string">"127.0.0.1"</span>,
+  <span class="hljs-attr">"timestamp"</span>: <span class="hljs-string">"2025-06-21T09:00:00Z"</span>,
+  <span class="hljs-attr">"details"</span>: {
+    <span class="hljs-attr">"device"</span>: <span class="hljs-string">"Android"</span>,
+    <span class="hljs-attr">"osVersion"</span>: <span class="hljs-string">"13.0"</span>,
+    <span class="hljs-attr">"appVersion"</span>: <span class="hljs-string">"1.2.3"</span>,
+    <span class="hljs-attr">"sessionId"</span>: <span class="hljs-string">"sess_abc123"</span>,
+    <span class="hljs-attr">"responseTime"</span>: <span class="hljs-number">245</span>,
+    <span class="hljs-attr">"statusCode"</span>: <span class="hljs-number">200</span>
+  },
+  <span class="hljs-attr">"metadata"</span>: {
+    <span class="hljs-attr">"userAgent"</span>: <span class="hljs-string">"CBT-Diary/1.2.3 (Android 13.0)"</span>,
+    <span class="hljs-attr">"referer"</span>: <span class="hljs-string">"/dashboard"</span>,
+    <span class="hljs-attr">"geolocation"</span>: {
+      <span class="hljs-attr">"country"</span>: <span class="hljs-string">"KR"</span>,
+      <span class="hljs-attr">"city"</span>: <span class="hljs-string">"Seoul"</span>
+    }
+  }
+}
+</div></code></pre>
+<h3 id="%E2%9C%85-%EC%8B%A0%EA%B7%9C-%EA%B8%B0%EB%8A%A5-%EB%8C%80%ED%99%94%ED%98%95-ai-%EC%B1%84%ED%8C%85-%EC%9D%B4%EB%A0%A5">✅ [신규 기능] 대화형 AI 채팅 이력</h3>
+<p><strong>설명</strong>: 사용자와 AI 챗봇 간의 대화 내용을 저장합니다. 각 대화 세션을 하나의 도큐먼트로 관리하여 컨텍스트를 유지하기 용이합니다.</p>
+<h4 id="%F0%9F%92%AC-%EC%B1%84%ED%8C%85-%EC%84%B8%EC%85%98-%EA%B5%AC%EC%A1%B0">💬 채팅 세션 구조</h4>
+<pre><code class="language-mermaid"><div class="mermaid">graph TD
+    A[Chat Session] --> B[Messages Array]
+    B --> C[User Message]
+    B --> D[Assistant Message]
+    B --> E[System Message]
+
+    C --> F[Content]
+    C --> G[Timestamp]
+    C --> H[Metadata]
+
+    D --> I[Content]
+    D --> J[Timestamp]
+    D --> K[AI Model Info]
+
+    style A fill:#e3f2fd
+    style B fill:#f3e5f5
+    style C fill:#fff3e0
+    style D fill:#e8f5e8
+    style E fill:#fce4ec
+</div></code></pre>
+<h4 id="%F0%9F%93%84-mongodb-%EB%8D%B0%EC%9D%B4%ED%84%B0-%EB%AA%A8%EB%8D%B8-%EC%98%88%EC%8B%9C-chatsessions-%EC%BB%AC%EB%A0%89%EC%85%98">📄 MongoDB 데이터 모델 예시 (chat_sessions 컬렉션)</h4>
+<pre class="hljs"><code><div>{
+  <span class="hljs-attr">"_id"</span>: <span class="hljs-string">"..."</span>,
+  <span class="hljs-attr">"userId"</span>: <span class="hljs-number">123</span>,
+  <span class="hljs-attr">"createdAt"</span>: <span class="hljs-string">"2025-06-21T11:00:00Z"</span>,
+  <span class="hljs-attr">"lastActivity"</span>: <span class="hljs-string">"2025-06-21T11:15:00Z"</span>,
+  <span class="hljs-attr">"status"</span>: <span class="hljs-string">"active"</span>, <span class="hljs-comment">// active, closed, archived</span>
+  <span class="hljs-attr">"summary"</span>: <span class="hljs-string">"우울감에 대한 상담 세션"</span>,
+  <span class="hljs-attr">"messages"</span>: [
+    {
+      <span class="hljs-attr">"role"</span>: <span class="hljs-string">"user"</span>,
+      <span class="hljs-attr">"content"</span>: <span class="hljs-string">"오늘 너무 우울해요."</span>,
+      <span class="hljs-attr">"timestamp"</span>: <span class="hljs-string">"2025-06-21T11:00:00Z"</span>,
+      <span class="hljs-attr">"metadata"</span>: {
+        <span class="hljs-attr">"sentiment"</span>: <span class="hljs-string">"negative"</span>,
+        <span class="hljs-attr">"urgency"</span>: <span class="hljs-string">"medium"</span>
+      }
+    },
+    {
+      <span class="hljs-attr">"role"</span>: <span class="hljs-string">"assistant"</span>,
+      <span class="hljs-attr">"content"</span>: <span class="hljs-string">"무슨 일이 있으셨나요? 조금 더 자세히 이야기해주실 수 있나요?"</span>,
+      <span class="hljs-attr">"timestamp"</span>: <span class="hljs-string">"2025-06-21T11:00:30Z"</span>,
+      <span class="hljs-attr">"metadata"</span>: {
+        <span class="hljs-attr">"model"</span>: <span class="hljs-string">"GPT-4"</span>,
+        <span class="hljs-attr">"temperature"</span>: <span class="hljs-number">0.7</span>,
+        <span class="hljs-attr">"responseTime"</span>: <span class="hljs-number">1200</span>
+      }
+    }
+  ],
+  <span class="hljs-attr">"analytics"</span>: {
+    <span class="hljs-attr">"totalMessages"</span>: <span class="hljs-number">8</span>,
+    <span class="hljs-attr">"averageResponseTime"</span>: <span class="hljs-number">1150</span>,
+    <span class="hljs-attr">"userSentiment"</span>: <span class="hljs-string">"improving"</span>,
+    <span class="hljs-attr">"sessionDuration"</span>: <span class="hljs-number">900</span> <span class="hljs-comment">// seconds</span>
+  }
+}
+</div></code></pre>
+<hr>
+<h2 id="4-%F0%9F%8F%97%EF%B8%8F-%EC%A0%9C%EC%95%88-%EC%95%84%ED%82%A4%ED%85%8D%EC%B2%98-polyglot-persistence">4. 🏗️ 제안 아키텍처: Polyglot Persistence</h2>
+<p>MariaDB와 MongoDB를 함께 사용하는 하이브리드 아키텍처입니다. <strong>Auth-server</strong>가 두 데이터베이스와 모두 통신하며, 데이터의 성격에 따라 적절한 저장소를 선택합니다.</p>
+<h3 id="%F0%9F%8E%AF-%EC%A0%84%EC%B2%B4-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EC%95%84%ED%82%A4%ED%85%8D%EC%B2%98">🎯 전체 시스템 아키텍처</h3>
+<pre><code class="language-mermaid"><div class="mermaid">graph TB
+    subgraph "Client Layer"
+        Client["📱 CBT-front<br/>(React-Native)"]
+    end
+
+    subgraph "API Gateway Layer"
+        Gateway["🚪 API Gateway<br/>(Optional)"]
+    end
+
+    subgraph "Application Layer"
+        AuthServer["🔐 Auth-server<br/>(Spring Boot)"]
+        AiServer["🤖 ai-server<br/>(Python/FastAPI)"]
+    end
+
+    subgraph "Database Layer"
+        subgraph "Structured Data"
+            RDBMS["🗃️ MariaDB<br/>• 사용자 정보<br/>• 인증 데이터<br/>• 관계형 데이터"]
+        end
+
+        subgraph "Semi-Structured Data"
+            NoSQL["📄 MongoDB<br/>• 일기 내용<br/>• AI 분석 결과<br/>• 활동 로그<br/>• 채팅 이력"]
+        end
+
+        subgraph "Cache Layer"
+            Cache["⚡ Redis<br/>• 세션 정보<br/>• Refresh Token<br/>• 임시 데이터"]
+        end
+    end
+
+    subgraph "External Services"
+        OpenAI["🧠 OpenAI API<br/>(GPT Models)"]
+    end
+
+    Client --> Gateway
+    Gateway --> AuthServer
+    AuthServer --> AiServer
+    AiServer --> OpenAI
+
+    AuthServer -.->|"사용자, 인증"| RDBMS
+    AuthServer -.->|"일기, 로그, 채팅"| NoSQL
+    AuthServer -.->|"캐시, 세션"| Cache
+
+    style RDBMS fill:#e1f5fe
+    style NoSQL fill:#fff3e0
+    style Cache fill:#f3e5f5
+    style AuthServer fill:#e8f5e8
+    style AiServer fill:#fce4ec
+</div></code></pre>
+<h3 id="%F0%9F%93%8A-%EB%8D%B0%EC%9D%B4%ED%84%B0-%EB%B6%84%EC%82%B0-%EC%A0%84%EB%9E%B5">📊 데이터 분산 전략</h3>
+<pre><code class="language-mermaid"><div class="mermaid">pie title 데이터 분산 비율 (예상)
+    "MariaDB (구조화된 데이터)" : 25
+    "MongoDB (비구조화된 데이터)" : 60
+    "Redis (캐시 데이터)" : 15
+</div></code></pre>
+<h3 id="%F0%9F%94%84-%EB%8D%B0%EC%9D%B4%ED%84%B0-%EB%8F%99%EA%B8%B0%ED%99%94-%EC%A0%84%EB%9E%B5">🔄 데이터 동기화 전략</h3>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant C as Client
+    participant A as Auth Server
+    participant M as MariaDB
+    participant Mo as MongoDB
+    participant R as Redis
+
+    Note over A: 사용자 인증
+    C->>A: 로그인 요청
+    A->>M: 사용자 정보 조회
+    M-->>A: 사용자 데이터
+    A->>R: 세션 저장
+    A-->>C: 인증 토큰
+
+    Note over A: 일기 작성
+    C->>A: 일기 저장 요청
+    A->>Mo: 일기 도큐먼트 저장
+    Mo-->>A: 저장 완료
+    A->>Mo: 활동 로그 저장 (비동기)
+    A-->>C: 저장 성공 응답
+</div></code></pre>
+<h3 id="%F0%9F%92%BE-%EB%8D%B0%EC%9D%B4%ED%84%B0%EB%B2%A0%EC%9D%B4%EC%8A%A4%EB%B3%84-%EC%97%AD%ED%95%A0-%EB%B6%84%EB%8B%B4">💾 <strong>데이터베이스별 역할 분담</strong></h3>
+<table>
+<thead>
+<tr>
+<th>🗃️ <strong>MariaDB (RDBMS)</strong></th>
+<th>📄 <strong>MongoDB (NoSQL)</strong></th>
+<th>⚡ <strong>Redis (Cache)</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>✅ 사용자 계정 정보</td>
+<td>✅ 일기 내용 및 AI 분석</td>
+<td>✅ JWT Refresh Token</td>
+</tr>
+<tr>
+<td>✅ 인증 및 권한 관리</td>
+<td>✅ 사용자 활동 로그</td>
+<td>✅ 세션 정보</td>
+</tr>
+<tr>
+<td>✅ 시스템 설정</td>
+<td>✅ 대화형 AI 채팅 이력</td>
+<td>✅ 임시 캐시 데이터</td>
+</tr>
+<tr>
+<td>✅ 관리자 기능</td>
+<td>✅ 실시간 알림 데이터</td>
+<td>✅ API 응답 캐시</td>
+</tr>
+</tbody>
+</table>
+<h3 id="%F0%9F%94%97-%EB%A7%88%EC%9D%B4%ED%81%AC%EB%A1%9C%EC%84%9C%EB%B9%84%EC%8A%A4-%ED%86%B5%EC%8B%A0-%ED%8C%A8%ED%84%B4">🔗 마이크로서비스 통신 패턴</h3>
+<pre><code class="language-mermaid"><div class="mermaid">graph LR
+    subgraph "Synchronous Communication"
+        A[Auth API] -->|HTTP/REST| B[User Service]
+        A -->|HTTP/REST| C[Diary Service]
+    end
+
+    subgraph "Asynchronous Communication"
+        D[Event Publisher] -->|Message Queue| E[Log Service]
+        D -->|Message Queue| F[Analytics Service]
+        D -->|Message Queue| G[Notification Service]
+    end
+
+    subgraph "Data Access Pattern"
+        H[Repository Layer] --> I[(MariaDB)]
+        H --> J[(MongoDB)]
+        H --> K[(Redis)]
+    end
+
+    style A fill:#e3f2fd
+    style D fill:#fff3e0
+    style H fill:#f3e5f5
+</div></code></pre>
+<hr>
+<h2 id="5-%F0%9F%9A%80-%EB%8B%A8%EA%B3%84%EB%B3%84-%EA%B5%AC%ED%98%84-%EC%A0%84%EB%9E%B5">5. 🚀 단계별 구현 전략</h2>
+<h3 id="%F0%9F%93%85-%EA%B5%AC%ED%98%84-%EB%A1%9C%EB%93%9C%EB%A7%B5">📅 구현 로드맵</h3>
+<pre><code class="language-mermaid"><div class="mermaid">gantt
+    title MongoDB 도입 단계별 일정
+    dateFormat  YYYY-MM-DD
+    section Phase 1: 인프라 구축
+    Docker 환경 설정     :p1-1, 2025-06-22, 3d
+    MongoDB 설치 및 설정  :p1-2, after p1-1, 2d
+    개발환경 구축        :p1-3, after p1-2, 2d
+
+    section Phase 2: 백엔드 개발
+    의존성 추가          :p2-1, after p1-3, 1d
+    Repository 계층 개발 :p2-2, after p2-1, 5d
+    Service 계층 수정    :p2-3, after p2-2, 4d
+    API 엔드포인트 수정   :p2-4, after p2-3, 3d
+
+    section Phase 3: 데이터 마이그레이션
+    마이그레이션 스크립트 작성 :p3-1, after p2-4, 4d
+    테스트 데이터 마이그레이션 :p3-2, after p3-1, 2d
+    운영 데이터 마이그레이션   :p3-3, after p3-2, 3d
+
+    section Phase 4: 테스트 및 배포
+    단위 테스트          :p4-1, after p3-3, 3d
+    통합 테스트          :p4-2, after p4-1, 4d
+    성능 테스트          :p4-3, after p4-2, 3d
+    운영 배포           :p4-4, after p4-3, 2d
+</div></code></pre>
+<h3 id="%F0%9F%90%B3-1-%EC%9D%B8%ED%94%84%EB%9D%BC-%EC%84%A4%EC%A0%95-docker-composeyml">🐳 1. 인프라 설정 (docker-compose.yml)</h3>
+<p>docker-compose.yml 파일에 MongoDB 서비스를 추가하고, Auth-server가 접근할 수 있도록 네트워크를 설정합니다.</p>
+<pre class="hljs"><code><div><span class="hljs-comment"># docker-compose.yml 추가 내용</span>
+<span class="hljs-attr">version:</span> <span class="hljs-string">"3.8"</span>
+
+<span class="hljs-attr">services:</span>
+  <span class="hljs-comment"># ... 기존 서비스들 ...</span>
+
+  <span class="hljs-attr">mongodb:</span>
+    <span class="hljs-attr">image:</span> <span class="hljs-string">mongo:7.0</span>
+    <span class="hljs-attr">container_name:</span> <span class="hljs-string">cbt-mongodb</span>
+    <span class="hljs-attr">restart:</span> <span class="hljs-string">unless-stopped</span>
+    <span class="hljs-attr">environment:</span>
+      <span class="hljs-attr">MONGO_INITDB_ROOT_USERNAME:</span> <span class="hljs-string">admin</span>
+      <span class="hljs-attr">MONGO_INITDB_ROOT_PASSWORD:</span> <span class="hljs-string">secure_password</span>
+      <span class="hljs-attr">MONGO_INITDB_DATABASE:</span> <span class="hljs-string">cbt_diary</span>
+    <span class="hljs-attr">ports:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">"27017:27017"</span>
+    <span class="hljs-attr">volumes:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">mongodb_data:/data/db</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">./mongo-init:/docker-entrypoint-initdb.d</span>
+    <span class="hljs-attr">networks:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">cbt-network</span>
+
+  <span class="hljs-attr">mongo-express:</span>
+    <span class="hljs-attr">image:</span> <span class="hljs-string">mongo-express:1.0.0</span>
+    <span class="hljs-attr">container_name:</span> <span class="hljs-string">cbt-mongo-express</span>
+    <span class="hljs-attr">restart:</span> <span class="hljs-string">unless-stopped</span>
+    <span class="hljs-attr">ports:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">"8081:8081"</span>
+    <span class="hljs-attr">environment:</span>
+      <span class="hljs-attr">ME_CONFIG_MONGODB_ADMINUSERNAME:</span> <span class="hljs-string">admin</span>
+      <span class="hljs-attr">ME_CONFIG_MONGODB_ADMINPASSWORD:</span> <span class="hljs-string">secure_password</span>
+      <span class="hljs-attr">ME_CONFIG_MONGODB_URL:</span> <span class="hljs-string">mongodb://admin:secure_password@mongodb:27017/</span>
+    <span class="hljs-attr">depends_on:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">mongodb</span>
+    <span class="hljs-attr">networks:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">cbt-network</span>
+
+<span class="hljs-attr">volumes:</span>
+  <span class="hljs-attr">mongodb_data:</span>
+
+<span class="hljs-attr">networks:</span>
+  <span class="hljs-attr">cbt-network:</span>
+    <span class="hljs-attr">driver:</span> <span class="hljs-string">bridge</span>
+</div></code></pre>
+<h3 id="%E2%9A%99%EF%B8%8F-2-%EB%B0%B1%EC%97%94%EB%93%9C-%EC%9D%98%EC%A1%B4%EC%84%B1-%EB%B0%8F-%EC%84%A4%EC%A0%95-auth-server">⚙️ 2. 백엔드 의존성 및 설정 (Auth-server)</h3>
+<h4 id="%F0%9F%93%A6-buildgradle-%EC%9D%98%EC%A1%B4%EC%84%B1-%EC%B6%94%EA%B0%80">📦 build.gradle 의존성 추가</h4>
+<pre class="hljs"><code><div><span class="hljs-keyword">dependencies</span> {
+    <span class="hljs-comment">// ... 기존 의존성들 ...</span>
+
+    <span class="hljs-comment">// MongoDB 관련 의존성</span>
+    implementation <span class="hljs-string">'org.springframework.boot:spring-boot-starter-data-mongodb'</span>
+    implementation <span class="hljs-string">'org.springframework.data:spring-data-mongodb'</span>
+
+    <span class="hljs-comment">// JSON 처리 개선</span>
+    implementation <span class="hljs-string">'com.fasterxml.jackson.core:jackson-databind'</span>
+    implementation <span class="hljs-string">'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'</span>
+
+    <span class="hljs-comment">// 테스트용 내장 MongoDB</span>
+    testImplementation <span class="hljs-string">'de.flapdoodle.embed:de.flapdoodle.embed.mongo'</span>
+}
+</div></code></pre>
+<h4 id="%F0%9F%94%A7-applicationproperties-%EC%84%A4%EC%A0%95">🔧 application.properties 설정</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># MongoDB 설정</span>
+<span class="hljs-meta">spring.data.mongodb.uri</span>=<span class="hljs-string">mongodb://admin:secure_password@localhost:27017/cbt_diary?authSource=admin</span>
+<span class="hljs-meta">spring.data.mongodb.auto-index-creation</span>=<span class="hljs-string">true</span>
+<span class="hljs-comment">
+# JPA와 MongoDB 공존 설정</span>
+<span class="hljs-meta">spring.jpa.hibernate.ddl-auto</span>=<span class="hljs-string">validate</span>
+<span class="hljs-meta">spring.jpa.show-sql</span>=<span class="hljs-string">false</span>
+<span class="hljs-comment">
+# 로깅 설정</span>
+<span class="hljs-meta">logging.level.org.springframework.data.mongodb</span>=<span class="hljs-string">DEBUG</span>
+<span class="hljs-meta">logging.level.org.mongodb.driver</span>=<span class="hljs-string">INFO</span>
+</div></code></pre>
+<h3 id="%F0%9F%8F%9B%EF%B8%8F-3-%EB%8F%84%EB%A9%94%EC%9D%B8-%EB%B0%8F-%EB%A6%AC%ED%8F%AC%EC%A7%80%ED%86%A0%EB%A6%AC-%EC%9E%AC%EC%84%A4%EA%B3%84">🏛️ 3. 도메인 및 리포지토리 재설계</h3>
+<h4 id="%F0%9F%93%84-diarydocument-%ED%81%B4%EB%9E%98%EC%8A%A4">📄 DiaryDocument 클래스</h4>
+<pre class="hljs"><code><div><span class="hljs-meta">@Document</span>(collection = <span class="hljs-string">"diaries"</span>)
+<span class="hljs-meta">@Data</span>
+<span class="hljs-meta">@Builder</span>
+<span class="hljs-meta">@NoArgsConstructor</span>
+<span class="hljs-meta">@AllArgsConstructor</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DiaryDocument</span> </span>{
+
+    <span class="hljs-meta">@Id</span>
+    <span class="hljs-keyword">private</span> String id;
+
+    <span class="hljs-meta">@Indexed</span>
+    <span class="hljs-keyword">private</span> Long userId; <span class="hljs-comment">// MariaDB User와 연결</span>
+
+    <span class="hljs-keyword">private</span> String title;
+    <span class="hljs-keyword">private</span> String content;
+    <span class="hljs-keyword">private</span> String weather;
+
+    <span class="hljs-meta">@CreatedDate</span>
+    <span class="hljs-keyword">private</span> LocalDateTime createdAt;
+
+    <span class="hljs-meta">@LastModifiedDate</span>
+    <span class="hljs-keyword">private</span> LocalDateTime updatedAt;
+
+    <span class="hljs-keyword">private</span> ReportSubDocument report;
+
+    <span class="hljs-comment">// 인덱스 설정을 위한 컴파운드 인덱스</span>
+    <span class="hljs-meta">@CompoundIndex</span>(name = <span class="hljs-string">"user_date_idx"</span>,
+                   def = <span class="hljs-string">"{'userId': 1, 'createdAt': -1}"</span>)
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Indexes</span> </span>{}
+}
+
+<span class="hljs-meta">@Data</span>
+<span class="hljs-meta">@Builder</span>
+<span class="hljs-meta">@NoArgsConstructor</span>
+<span class="hljs-meta">@AllArgsConstructor</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ReportSubDocument</span> </span>{
+    <span class="hljs-keyword">private</span> String status;
+    <span class="hljs-keyword">private</span> LocalDateTime analysisDate;
+    <span class="hljs-keyword">private</span> List&lt;EmotionData&gt; emotions;
+    <span class="hljs-keyword">private</span> List&lt;CognitiveDistortion&gt; cognitiveDistortions;
+    <span class="hljs-keyword">private</span> List&lt;String&gt; solutions;
+    <span class="hljs-keyword">private</span> AnalysisMetadata metadata;
+}
+</div></code></pre>
+<h4 id="%F0%9F%94%8D-repository-%EC%9D%B8%ED%84%B0%ED%8E%98%EC%9D%B4%EC%8A%A4">🔍 Repository 인터페이스</h4>
+<pre class="hljs"><code><div><span class="hljs-meta">@Repository</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">DiaryMongoRepository</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">MongoRepository</span>&lt;<span class="hljs-title">DiaryDocument</span>, <span class="hljs-title">String</span>&gt; </span>{
+
+    <span class="hljs-comment">// 사용자별 일기 조회 (페이징)</span>
+    <span class="hljs-function">Page&lt;DiaryDocument&gt; <span class="hljs-title">findByUserIdOrderByCreatedAtDesc</span><span class="hljs-params">(
+        Long userId, Pageable pageable)</span></span>;
+
+    <span class="hljs-comment">// 특정 날짜 범위의 일기 조회</span>
+    <span class="hljs-function">List&lt;DiaryDocument&gt; <span class="hljs-title">findByUserIdAndCreatedAtBetween</span><span class="hljs-params">(
+        Long userId, LocalDateTime start, LocalDateTime end)</span></span>;
+
+    <span class="hljs-comment">// AI 분석 완료된 일기만 조회</span>
+    <span class="hljs-function">List&lt;DiaryDocument&gt; <span class="hljs-title">findByUserIdAndReport_Status</span><span class="hljs-params">(
+        Long userId, String status)</span></span>;
+
+    <span class="hljs-comment">// 전문 검색 (MongoDB Atlas Search 활용)</span>
+    <span class="hljs-meta">@Query</span>(<span class="hljs-string">"{ '$text': { '$search': ?0 } }"</span>)
+    <span class="hljs-function">List&lt;DiaryDocument&gt; <span class="hljs-title">findByContentText</span><span class="hljs-params">(String searchText)</span></span>;
+
+    <span class="hljs-comment">// 감정별 일기 조회</span>
+    <span class="hljs-meta">@Query</span>(<span class="hljs-string">"{ 'userId': ?0, 'report.emotions.name': ?1 }"</span>)
+    <span class="hljs-function">List&lt;DiaryDocument&gt; <span class="hljs-title">findByUserIdAndEmotion</span><span class="hljs-params">(Long userId, String emotion)</span></span>;
+}
+</div></code></pre>
+<h3 id="%F0%9F%94%84-4-%EC%84%9C%EB%B9%84%EC%8A%A4-%EB%A1%9C%EC%A7%81-%EB%B3%80%EA%B2%BD%EC%A0%90">🔄 4. 서비스 로직 변경점</h3>
+<h4 id="%E2%9A%96%EF%B8%8F-as-is-vs-to-be-%EB%B9%84%EA%B5%90">⚖️ AS-IS vs TO-BE 비교</h4>
+<pre><code class="language-mermaid"><div class="mermaid">graph TB
+    subgraph "AS-IS (JPA 기반)"
+        A1[DiaryService] --> A2[DiaryRepository]
+        A1 --> A3[ReportRepository]
+        A2 --> A4[(MariaDB)]
+        A3 --> A4
+        A5[AI 분석 후] --> A6[별도 Report 저장]
+        A6 --> A7[Diary-Report 연결]
+    end
+
+    subgraph "TO-BE (MongoDB 기반)"
+        B1[DiaryService] --> B2[DiaryMongoRepository]
+        B2 --> B3[(MongoDB)]
+        B4[AI 분석 후] --> B5[Diary Document 업데이트]
+        B5 --> B6[하나의 도큐먼트에 통합]
+    end
+
+    style A4 fill:#ffcdd2
+    style B3 fill:#c8e6c9
+</div></code></pre>
+<h4 id="%F0%9F%93%9D-%EC%84%9C%EB%B9%84%EC%8A%A4-%EB%A1%9C%EC%A7%81-%EA%B5%AC%ED%98%84-%EC%98%88%EC%8B%9C">📝 서비스 로직 구현 예시</h4>
+<pre class="hljs"><code><div><span class="hljs-meta">@Service</span>
+<span class="hljs-meta">@Transactional</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DiaryService</span> </span>{
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> DiaryMongoRepository diaryMongoRepository;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> UserRepository userRepository; <span class="hljs-comment">// MariaDB</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> AiAnalysisService aiAnalysisService;
+
+    <span class="hljs-function"><span class="hljs-keyword">public</span> DiaryDocument <span class="hljs-title">createDiary</span><span class="hljs-params">(Long userId, CreateDiaryRequest request)</span> </span>{
+        <span class="hljs-comment">// 1. 사용자 존재 확인 (MariaDB)</span>
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -&gt; <span class="hljs-keyword">new</span> UserNotFoundException(<span class="hljs-string">"User not found"</span>));
+
+        <span class="hljs-comment">// 2. 일기 도큐먼트 생성 및 저장 (MongoDB)</span>
+        DiaryDocument diary = DiaryDocument.builder()
+            .userId(userId)
+            .title(request.getTitle())
+            .content(request.getContent())
+            .weather(request.getWeather())
+            .build();
+
+        DiaryDocument savedDiary = diaryMongoRepository.save(diary);
+
+        <span class="hljs-comment">// 3. AI 분석 요청 (비동기)</span>
+        CompletableFuture.runAsync(() -&gt; {
+            <span class="hljs-keyword">try</span> {
+                ReportSubDocument report = aiAnalysisService.analyzeContent(
+                    savedDiary.getContent());
+                savedDiary.setReport(report);
+                diaryMongoRepository.save(savedDiary);
+            } <span class="hljs-keyword">catch</span> (Exception e) {
+                log.error(<span class="hljs-string">"AI 분석 실패: diaryId={}"</span>, savedDiary.getId(), e);
+            }
+        });
+
+        <span class="hljs-keyword">return</span> savedDiary;
+    }
+
+    <span class="hljs-function"><span class="hljs-keyword">public</span> Page&lt;DiaryDocument&gt; <span class="hljs-title">getDiariesByDate</span><span class="hljs-params">(Long userId, LocalDate date,
+                                               Pageable pageable)</span> </span>{
+        LocalDateTime startOfDay = date.atStartOfDay();
+        LocalDateTime endOfDay = date.atTime(<span class="hljs-number">23</span>, <span class="hljs-number">59</span>, <span class="hljs-number">59</span>);
+
+        <span class="hljs-keyword">return</span> diaryMongoRepository.findByUserIdAndCreatedAtBetween(
+            userId, startOfDay, endOfDay, pageable);
+    }
+}
+</div></code></pre>
+<h3 id="%F0%9F%93%8A-5-%EB%8D%B0%EC%9D%B4%ED%84%B0-%EB%A7%88%EC%9D%B4%EA%B7%B8%EB%A0%88%EC%9D%B4%EC%85%98-%EC%A0%84%EB%9E%B5">📊 5. 데이터 마이그레이션 전략</h3>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[기존 MariaDB 데이터] --> B{마이그레이션 스크립트}
+    B --> C[데이터 검증]
+    C --> D{검증 성공?}
+    D -->|YES| E[MongoDB 변환]
+    D -->|NO| F[오류 로그 기록]
+    F --> G[수동 수정]
+    G --> C
+    E --> H[MongoDB 저장]
+    H --> I[동기화 검증]
+    I --> J{동기화 완료?}
+    J -->|YES| K[마이그레이션 완료]
+    J -->|NO| L[롤백 처리]
+
+    style A fill:#ffcdd2
+    style K fill:#c8e6c9
+    style L fill:#ffcdd2
+</div></code></pre>
+<hr>
+<h2 id="6-%F0%9F%93%88-%EA%B8%B0%EB%8C%80-%ED%9A%A8%EA%B3%BC-%EB%B0%8F-%EC%84%B1%EA%B3%BC-%EC%A7%80%ED%91%9C">6. 📈 기대 효과 및 성과 지표</h2>
+<h3 id="%F0%9F%8E%AF-%ED%95%B5%EC%8B%AC-%EA%B8%B0%EB%8C%80-%ED%9A%A8%EA%B3%BC">🎯 핵심 기대 효과</h3>
+<pre><code class="language-mermaid"><div class="mermaid">graph TD
+    A[MongoDB 도입] --> B[개발 유연성 증대]
+    A --> C[성능 향상]
+    A --> D[확장성 확보]
+    A --> E[최적화된 아키텍처]
+
+    B --> B1[스키마 변경 불필요]
+    B --> B2[빠른 기능 추가]
+    B --> B3[AI 모델 실험 용이]
+
+    C --> C1[JOIN 연산 제거]
+    C --> C2[단일 쿼리 조회]
+    C --> C3[읽기 성능 향상]
+
+    D --> D1[수평적 확장]
+    D --> D2[대용량 데이터 처리]
+    D --> D3[샤딩 지원]
+
+    E --> E1[데이터 특성별 최적화]
+    E --> E2[시스템 효율성]
+    E --> E3[안정성 향상]
+
+    style A fill:#e3f2fd
+    style B fill:#fff3e0
+    style C fill:#e8f5e8
+    style D fill:#f3e5f5
+    style E fill:#fce4ec
+</div></code></pre>
+<h3 id="%F0%9F%93%8A-%EC%84%B1%EB%8A%A5-%EA%B0%9C%EC%84%A0-%EC%98%88%EC%83%81-%EC%A7%80%ED%91%9C">📊 성능 개선 예상 지표</h3>
+<pre><code class="language-mermaid"><div class="mermaid">graph LR
+    subgraph "응답 시간 개선"
+        A[일기 목록 조회<br/>300ms → 80ms<br/>73% 개선]
+        B[일기 상세 조회<br/>450ms → 120ms<br/>73% 개선]
+        C[AI 분석 결과 조회<br/>200ms → 50ms<br/>75% 개선]
+    end
+
+    subgraph "처리량 개선"
+        D[동시 사용자<br/>100 → 500<br/>5배 증가]
+        E[일기 작성 TPS<br/>50 → 200<br/>4배 증가]
+        F[데이터 저장 속도<br/>1000/s → 5000/s<br/>5배 증가]
+    end
+
+    style A fill:#c8e6c9
+    style B fill:#c8e6c9
+    style C fill:#c8e6c9
+    style D fill:#bbdefb
+    style E fill:#bbdefb
+    style F fill:#bbdefb
+</div></code></pre>
+<h3 id="%F0%9F%92%B0-%EB%B9%84%EC%9A%A9-%ED%9A%A8%EC%9C%A8%EC%84%B1-%EB%B6%84%EC%84%9D">💰 비용 효율성 분석</h3>
+<table>
+<thead>
+<tr>
+<th>💡 <strong>항목</strong></th>
+<th>🔴 <strong>현재 (MariaDB Only)</strong></th>
+<th>🟢 <strong>개선 후 (Hybrid)</strong></th>
+<th>📈 <strong>절약 효과</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>서버 리소스</strong></td>
+<td>단일 DB 서버 고사양 필요</td>
+<td>역할별 최적화된 리소스 할당</td>
+<td><strong>30% 비용 절약</strong></td>
+</tr>
+<tr>
+<td><strong>개발 시간</strong></td>
+<td>스키마 변경 시 다운타임 발생</td>
+<td>무중단 스키마 변경</td>
+<td><strong>50% 시간 단축</strong></td>
+</tr>
+<tr>
+<td><strong>유지보수</strong></td>
+<td>복잡한 JOIN 쿼리 최적화</td>
+<td>단순한 도큐먼트 조회</td>
+<td><strong>40% 작업량 감소</strong></td>
+</tr>
+<tr>
+<td><strong>확장 비용</strong></td>
+<td>수직 확장 (Scale-up)</td>
+<td>수평 확장 (Scale-out)</td>
+<td><strong>60% 비용 절약</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="%F0%9F%93%8B-%EC%83%81%EC%84%B8-%EC%84%B1%EA%B3%BC-%EC%A7%80%ED%91%9C">📋 상세 성과 지표</h3>
+<h4 id="%F0%9F%94%A7-%EA%B8%B0%EC%88%A0%EC%A0%81-%EC%A7%80%ED%91%9C">🔧 <strong>기술적 지표</strong></h4>
+<ul>
+<li><strong>응답 시간</strong>: 평균 응답 시간 70% 이상 개선</li>
+<li><strong>처리량</strong>: 동시 사용자 수 5배 증가 지원</li>
+<li><strong>가용성</strong>: 99.9% 이상 시스템 가용성 유지</li>
+<li><strong>확장성</strong>: 월 1TB 이상 데이터 증가 대응 가능</li>
+</ul>
+<h4 id="%F0%9F%91%A5-%EC%82%AC%EC%9A%A9%EC%9E%90-%EA%B2%BD%ED%97%98-%EC%A7%80%ED%91%9C">👥 <strong>사용자 경험 지표</strong></h4>
+<ul>
+<li><strong>만족도</strong>: 사용자 만족도 4.5/5.0 이상</li>
+<li><strong>이탈률</strong>: 앱 이탈률 20% 이상 감소</li>
+<li><strong>사용 빈도</strong>: 일일 활성 사용자 30% 증가</li>
+<li><strong>기능 활용도</strong>: AI 분석 기능 사용률 60% 이상</li>
+</ul>
+<h4 id="%F0%9F%92%BC-%EB%B9%84%EC%A6%88%EB%8B%88%EC%8A%A4-%EC%A7%80%ED%91%9C">💼 <strong>비즈니스 지표</strong></h4>
+<ul>
+<li><strong>개발 속도</strong>: 새 기능 개발 시간 50% 단축</li>
+<li><strong>운영 비용</strong>: 인프라 운영 비용 30% 절감</li>
+<li><strong>매출 성장</strong>: 월 매출 20% 이상 증가</li>
+<li><strong>시장 점유율</strong>: CBT 앱 시장에서 경쟁 우위 확보</li>
+</ul>
+<h3 id="%E2%9A%A0%EF%B8%8F-%EB%A6%AC%EC%8A%A4%ED%81%AC-%EA%B4%80%EB%A6%AC-%EB%B0%8F-%EB%8C%80%EC%9D%91-%EB%B0%A9%EC%95%88">⚠️ 리스크 관리 및 대응 방안</h3>
+<pre><code class="language-mermaid"><div class="mermaid">graph TD
+    A[리스크 식별] --> B{리스크 유형}
+
+    B --> C[기술적 리스크]
+    B --> D[운영적 리스크]
+    B --> E[비즈니스 리스크]
+
+    C --> C1[데이터 마이그레이션 실패]
+    C --> C2[성능 저하]
+    C --> C3[호환성 문제]
+
+    D --> D1[팀 학습 곡선]
+    D --> D2[운영 복잡성 증가]
+    D --> D3[모니터링 어려움]
+
+    E --> E1[개발 일정 지연]
+    E --> E2[추가 비용 발생]
+    E --> E3[사용자 서비스 중단]
+
+    C1 --> F1[단계적 마이그레이션<br/>롤백 계획 수립]
+    C2 --> F2[성능 테스트 강화<br/>모니터링 도구 도입]
+    C3 --> F3[호환성 매트릭스 작성<br/>충분한 테스트]
+
+    D1 --> G1[MongoDB 교육 프로그램<br/>내부 세미나 진행]
+    D2 --> G2[운영 매뉴얼 작성<br/>자동화 도구 활용]
+    D3 --> G3[통합 모니터링 대시보드<br/>알림 시스템 구축]
+
+    E1 --> H1[버퍼 기간 설정<br/>마일스톤 관리]
+    E2 --> H2[예산 계획 수립<br/>비용 모니터링]
+    E3 --> H3[무중단 배포 전략<br/>긴급 대응 계획]
+
+    style A fill:#ffcdd2
+    style F1 fill:#c8e6c9
+    style F2 fill:#c8e6c9
+    style F3 fill:#c8e6c9
+    style G1 fill:#bbdefb
+    style G2 fill:#bbdefb
+    style G3 fill:#bbdefb
+    style H1 fill:#fff3e0
+    style H2 fill:#fff3e0
+    style H3 fill:#fff3e0
+</div></code></pre>
+<hr>
+<h2 id="%F0%9F%93%9D-%EA%B2%B0%EB%A1%A0-%EB%B0%8F-%EC%A0%9C%EC%95%88">📝 결론 및 제안</h2>
+<h3 id="%F0%9F%8E%AF-%ED%95%B5%EC%8B%AC-%EB%A9%94%EC%8B%9C%EC%A7%80">🎯 <strong>핵심 메시지</strong></h3>
+<p>CBT Diary 프로젝트에 MongoDB를 도입하는 것은 단순한 기술 스택 추가가 아닌, <strong>미래 지향적인 아키텍처 혁신</strong>입니다. 이를 통해 다음과 같은 전략적 가치를 얻을 수 있습니다:</p>
+<pre><code class="language-mermaid"><div class="mermaid">mindmap
+  root((전략적 가치))
+    기술적 우위
+      확장성 확보
+      성능 최적화
+      개발 생산성 향상
+    비즈니스 성장
+      빠른 기능 출시
+      사용자 경험 개선
+      시장 경쟁력 강화
+    운영 효율성
+      비용 최적화
+      유지보수 간소화
+      안정성 향상
+</div></code></pre>
+<p><em>본 문서는 CBT Diary 프로젝트의 기술적 발전과 사용자 경험 향상을 위해 작성되었습니다.</em></p>
+<p><strong>📊 문서 정보</strong></p>
+<ul>
+<li><strong>버전</strong>: v1.0</li>
+<li><strong>작성일</strong>: 2025년 6월 21일</li>
+<li><strong>검토자</strong>: 개발팀</li>
+<li><strong>승인자</strong>: CTO</li>
+<li><strong>다음 리뷰</strong>: 2025년 6월 28일</li>
+</ul>
+
+</body>
+</html>
