@@ -1,0 +1,217 @@
+pre {
+	position: relative;
+	/*box-shadow: 0 5px 15px rgb(0 0 0 / 40%);*/
+	filter: drop-shadow(5px 5px 5px rgba(0, 0, 0, 0.7));
+}
+
+pre::after {
+	content: attr(data-ke-language);
+	position: absolute;
+	bottom: 8px;
+	right: 20px;
+	color: #cfd2d1;
+	font-size: 15px;
+	--tw-text-opacity: 1;
+	color: rgb(213 213 213 / var(--tw-text-opacity));
+}
+
+.dark pre::after {
+	--tw-text-opacity: 1;
+	color: rgb(221 221 221 / var(--tw-text-opacity));
+}
+
+.hljs {
+	display: flex !important;
+	flex-direction: column;
+	padding: 0 !important;
+	font-size: 15px !important;
+	border-radius: 10px;
+	background-color: #282c34 !important;
+	/*box-shadow: 0 5px 15px rgb(0 0 0 / 40%);*/
+}
+
+.dark .hljs {
+	display: flex !important;
+	flex-direction: column;
+	padding: 0 !important;
+	font-size: 15px;
+	border-radius: 10px;
+	background-color: #282c34 !important;
+}
+
+.hljs .line {
+	counter-increment: line-idx;
+	line-height: 1.5;
+}
+
+.hljs .line:hover {
+	--tw-bg-opacity: 1;
+	background-color: rgb(53 54 56 / var(--tw-bg-opacity));
+}
+
+.dark .hljs .line:hover {
+	--tw-bg-opacity: 1;
+	background-color: rgb(53 54 56 / var(--tw-bg-opacity));
+}
+
+.hljs .line::before {
+	content: counter(line-idx);
+	width: 24px;
+	display: inline-block;
+	text-align: right;
+	margin-right: 16px;
+	font-size: 15px;
+	color: #747a7a;
+}
+
+.hljs .code-header {
+	display: flex;
+	align-items: center;
+	padding: 5px;
+	border-radius: 8px 8px 0 0;
+	--tw-bg-opacity: 1;
+	background-color: rgb(60 60 60 / var(--tw-bg-opacity));
+}
+
+.dark .hljs .code-header {
+	--tw-bg-opacity: 1;
+	background-color: rgb(33 37 43 / var(--tw-bg-opacity));
+}
+
+.hljs .code-header .mac_dot {
+	border-radius: 50%;
+	width: 14px;
+	height: 14px;
+	margin: 0px 0px 0px 15px;
+}
+
+.hljs .code-header .mac_dot.red {
+	background-color: #f5655b;
+}
+
+.hljs .code-header .mac_dot.yellow {
+	background-color: #f6bd3b;
+}
+
+.hljs .code-header .mac_dot.green {
+	background-color: #43c645;
+}
+
+.hljs .code-body {
+	max-height: 500px;
+	margin: 32px 8px;
+	overflow: auto;
+}
+
+.hljs .code-body::-webkit-scrollbar {
+	width: 5px;
+	height: 5px;
+}
+
+.hljs .code-body::-webkit-scrollbar-thumb { /*ìŠ¤í¬ë¡¤ë°” ìƒ‰ìƒ*/
+	--tw-bg-opacity: 0.8;
+	background-color: rgb(53 54 56 / var(--tw-bg-opacity));
+}
+
+.dark .hljs .code-body::-webkit-scrollbar-thumb {
+	--tw-bg-opacity: 0.8;
+	background-color: rgb(53 54 56 / var(--tw-bg-opacity));
+}
+
+.hljs .code-body::-webkit-scrollbar-thumb {
+	border-radius: 5px;
+}
+
+.hljs .code-body::-webkit-scrollbar-corner {
+	display: none;
+}
+
+.hljs .copy-btn {
+	border: none;
+	cursor: pointer;
+	font-size: 0.85rem;
+	padding: 5px;
+	width: 65px;
+	border-radius: 4px;
+	margin-left: auto;
+}
+
+.hljs .copy-btn:hover {
+	background-color: #555152;
+}
+
+
+/*
+
+Atom One Dark With support for ReasonML by Gidi Morris, based off work by Daniel Gamage
+
+Original One Dark Syntax theme from https://github.com/atom/one-dark-syntax
+
+*/
+.hljs {
+  color: #abb2bf;
+  background: #282c34;
+}
+.hljs-keyword, .hljs-operator {
+  color: #FC5F99;
+}
+.hljs-pattern-match {
+  color: #F92672;
+}
+.hljs-pattern-match .hljs-constructor {
+  color: #61aeee;
+}
+.hljs-function {
+  color: #61aeee;
+}
+.hljs-function .hljs-params {
+  color: #A6E22E;
+}
+.hljs-function .hljs-params .hljs-typing {
+  color: #FD971F;
+}
+.hljs-module-access .hljs-module {
+  color: #7e57c2;
+}
+.hljs-constructor {
+  color: #e2b93d;
+}
+.hljs-constructor .hljs-string {
+  color: #9CCC65;
+}
+.hljs-comment, .hljs-quote {
+  color: #B290B2;
+  font-style: italic;
+}
+.hljs-doctag, .hljs-formula {
+  color: #c678dd;
+}
+.hljs-section, .hljs-name, .hljs-selector-tag, .hljs-deletion, .hljs-subst {
+  color: #E9969D;
+}
+.hljs-literal {
+  color: #56b6c2;
+}
+.hljs-string, .hljs-regexp, .hljs-addition, .hljs-attribute, .hljs-meta .hljs-string {
+  color: #A0C884;
+}
+.hljs-built_in,
+.hljs-title.class_,
+.hljs-class .hljs-title {
+  color: #e6c07b;
+}
+.hljs-attr, .hljs-variable, .hljs-template-variable, .hljs-type, .hljs-selector-class, .hljs-selector-attr, .hljs-selector-pseudo, .hljs-number {
+  color: #D7A779;
+}
+.hljs-symbol, .hljs-bullet, .hljs-link, .hljs-meta, .hljs-selector-id, .hljs-title {
+  color: #78BBF2;
+}
+.hljs-emphasis {
+  font-style: italic;
+}
+.hljs-strong {
+  font-weight: bold;
+}
+.hljs-link {
+  text-decoration: underline;
+}

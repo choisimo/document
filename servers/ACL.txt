@@ -1,0 +1,10 @@
+setfacl -m u:사용자1:권한1:디렉토리
+setfacl -m u:사용자1:권한1:디렉토리
+getfacl 디렉토리
+
+
+권한 확인
+ls -ld ${username}
+
+sudo usermod -aG ${group_name} ${username}
+

@@ -1,0 +1,1 @@
+docker cp ${host_file} ${container_name}:/${docker inside directory}

@@ -1,0 +1,17 @@
+CREATE USER '${username}'@'%' IDENTIFIED BY '${password}';
+GRANT ALL PRIVILEGES ON ${schema}.* TO '${username}'@'%';
+FLUSH PRIVILEGES;
+
+SHOW GRANTS FOR '${username}'@'%';
+
+docker inspect mysql1 | grep "${ip_address}"
+
+
+
+
+# for additional file management (ACL)
+setfacl -d -m u::rwx,g::rwx,o::rwx /path/to/dir
+-d : "default" : 새로 생성되는 파일이나 서브 디렉토리에 자동으로 적용되는 권한 
+-m "modify"  : 권한을 추가하거나 변경할 때 사용됨
+# (umask)
+umask 

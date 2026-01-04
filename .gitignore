@@ -1,1 +1,21 @@
 **/EU-politics/**
+
+# IDE
+.vscode/
+.idea/
+
+# History
+.history/
+
+# Backup files
+*.bak
+backup_*/
+
+# OS generated
+.DS_Store
+thumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp

@@ -1,0 +1,12 @@
+services:
+  psitransfer:
+    container_name: psitransfer
+    image: psitrax/psitransfer
+    restart: always
+    ports:
+      - 3000:3000
+    volumes:
+      - ${PWD}/data:/data
+    environment:
+      - PSITRANSFER_ADMIN_PASS=${PASSWORD}
+    user: "0:0"
