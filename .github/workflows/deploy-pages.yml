@@ -1,0 +1,118 @@
+name: Deploy Documentation to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install MkDocs and dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Copy extra content to docs
+        run: |
+          mkdir -p docs/extra/algorithm-simulator
+          cp -r algorithm/simulator/javascript/* docs/extra/algorithm-simulator/
+          
+          mkdir -p docs/extra/scripts
+          cp -r scripts/* docs/extra/scripts/
+          
+          mkdir -p docs/extra/docker
+          cp -r docker/* docs/extra/docker/
+          
+          mkdir -p docs/extra/configs
+          cp -r configs/* docs/extra/configs/
+          
+          mkdir -p docs/extra/project-docs
+          cp -r project-docs/* docs/extra/project-docs/
+          
+          mkdir -p docs/extra/legacy
+          cp -r legacy/* docs/extra/legacy/
+          
+          mkdir -p docs/extra/prompts-raw
+          cp -r prompt/* docs/extra/prompts-raw/
+          
+          mkdir -p docs/extra/mcp
+          cp -r mcp/* docs/extra/mcp/
+          
+          mkdir -p docs/extra/memo
+          cp -r memo/* docs/extra/memo/
+          
+          mkdir -p docs/extra/algorithm-code
+          cp -r algorithm/data-structures docs/extra/algorithm-code/ 2>/dev/null || true
+          cp -r algorithm/code docs/extra/algorithm-code/ 2>/dev/null || true
+          cp -r algorithm/C-lang docs/extra/algorithm-code/ 2>/dev/null || true
+          cp -r algorithm/simulator/python docs/extra/algorithm-code/simulator-python 2>/dev/null || true
+          cp -r algorithm/simulator/java docs/extra/algorithm-code/simulator-java 2>/dev/null || true
+          cp algorithm/README.md docs/extra/algorithm-code/ 2>/dev/null || true
+          cp algorithm/REVIEW_REPORT.md docs/extra/algorithm-code/ 2>/dev/null || true
+
+      - name: Build MkDocs site
+        run: mkdocs build
+
+      - name: Copy extra static files to site
+        run: |
+          cp -r docs/extra/algorithm-simulator site/extra/algorithm-simulator 2>/dev/null || true
+          
+          find site/extra -name "*.sh" -exec chmod +r {} \; 2>/dev/null || true
+          find site/extra -name "*.py" -exec chmod +r {} \; 2>/dev/null || true
+          find site/extra -name "*.java" -exec chmod +r {} \; 2>/dev/null || true
+
+      - name: Create CNAME file
+        run: echo 'docs.nodove.com' > site/CNAME
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

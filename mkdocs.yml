@@ -1,10 +1,10 @@
 site_name: "Documentation Hub"
 site_description: "Infrastructure, Development, and Operations Documentation"
 site_author: "nodove"
-site_url: "https://docs.example.com"
+site_url: "https://docs.nodove.com"
 
-repo_name: "document"
-repo_url: "https://github.com/nodove/document"
+repo_name: "choisimo/document"
+repo_url: "https://github.com/choisimo/document"
 edit_uri: "edit/main/docs/"
 
 theme:
@@ -104,7 +104,7 @@ markdown_extensions:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/nodove
+      link: https://github.com/choisimo
       name: GitHub
   
   version:
@@ -265,5 +265,8 @@ nav:
     - Document Editor: prompts/docs-editor.md
     - Database Prompt: prompts/database.md
     - Architecture: prompts/architecture.md
+  
+  - Extra Resources:
+    - extra/index.md
 
 copyright: Copyright &copy; 2024 nodove - All rights reserved
