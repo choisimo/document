@@ -6,7 +6,7 @@
 
 ## Interactive Tools
 
-### [:material-play-circle: Algorithm Simulator](algorithm-simulator/index.html){ .md-button .md-button--primary target="_blank" }
+### [:material-play-circle: Algorithm Simulator](/extra/algorithm-simulator/index.html){ .md-button .md-button--primary target="_blank" }
 
 실시간으로 알고리즘과 자료구조를 시각화하고 학습할 수 있는 인터랙티브 시뮬레이터입니다.
 
@@ -27,7 +27,7 @@
 
     알고리즘 구현 코드 (Python, JavaScript, Java, Rust)
 
-    [:octicons-arrow-right-24: Browse](algorithm-code/)
+    [:octicons-arrow-right-24: Browse](/extra/algorithm-code/){ target="_blank" }
 
 -   :material-script-text:{ .lg .middle } **Utility Scripts**
 
@@ -35,7 +35,7 @@
 
     배포, 백업, 유틸리티 셸 스크립트
 
-    [:octicons-arrow-right-24: Browse](scripts/)
+    [:octicons-arrow-right-24: Browse](/extra/scripts/){ target="_blank" }
 
 -   :material-docker:{ .lg .middle } **Docker Configs**
 
@@ -43,7 +43,7 @@
 
     Docker 이미지, Compose 파일, 문서
 
-    [:octicons-arrow-right-24: Browse](docker/)
+    [:octicons-arrow-right-24: Browse](/extra/docker/){ target="_blank" }
 
 -   :material-cog:{ .lg .middle } **Service Configs**
 
@@ -51,7 +51,7 @@
 
     Nginx, HAProxy, 모니터링 설정 파일
 
-    [:octicons-arrow-right-24: Browse](configs/)
+    [:octicons-arrow-right-24: Browse](/extra/configs/){ target="_blank" }
 
 </div>
 
@@ -67,7 +67,7 @@
 
     프로젝트 기획서, 요구사항 문서, 설계 문서
 
-    [:octicons-arrow-right-24: Browse](project-docs/)
+    [:octicons-arrow-right-24: Browse](/extra/project-docs/){ target="_blank" }
 
 -   :material-archive:{ .lg .middle } **Legacy Docs**
 
@@ -75,7 +75,7 @@
 
     이전 버전 문서, 아카이브
 
-    [:octicons-arrow-right-24: Browse](legacy/)
+    [:octicons-arrow-right-24: Browse](/extra/legacy/){ target="_blank" }
 
 -   :material-robot:{ .lg .middle } **AI Prompts**
 
@@ -83,7 +83,7 @@
 
     AI 프롬프트 템플릿, 가이드
 
-    [:octicons-arrow-right-24: Browse](prompts-raw/)
+    [:octicons-arrow-right-24: Browse](/extra/prompts-raw/){ target="_blank" }
 
 -   :material-connection:{ .lg .middle } **MCP Configs**
 
@@ -91,7 +91,7 @@
 
     Model Context Protocol 설정
 
-    [:octicons-arrow-right-24: Browse](mcp/)
+    [:octicons-arrow-right-24: Browse](/extra/mcp/){ target="_blank" }
 
 -   :material-note-text:{ .lg .middle } **Memo**
 
@@ -99,7 +99,7 @@
 
     메모, 임시 문서
 
-    [:octicons-arrow-right-24: Browse](memo/)
+    [:octicons-arrow-right-24: Browse](/extra/memo/){ target="_blank" }
 
 </div>
 
@@ -109,9 +109,9 @@
 
 | Resource | Description | Type |
 |----------|-------------|------|
-| [Algorithm Simulator](algorithm-simulator/index.html){ target="_blank" } | 인터랙티브 알고리즘 시각화 | :material-web: Web App |
-| [Python Simulators](algorithm-code/simulator-python/) | CLI 기반 시뮬레이터 | :material-language-python: Python |
-| [Java Simulators](algorithm-code/simulator-java/) | CLI 기반 시뮬레이터 | :material-language-java: Java |
-| [BST Implementation](algorithm-code/data-structures/tree/binary-search-tree/) | 4개 언어 BST 구현 | :material-code-braces: Multi-lang |
-| [Deploy Script](scripts/deployment/deploy.sh) | 배포 스크립트 | :material-bash: Shell |
-| [Docker Images](docker/images/) | 개발 환경 Docker 이미지 | :material-docker: Docker |
+| [Algorithm Simulator](/extra/algorithm-simulator/index.html){ target="_blank" } | 인터랙티브 알고리즘 시각화 | :material-web: Web App |
+| [Python Simulators](/extra/algorithm-code/simulator-python/){ target="_blank" } | CLI 기반 시뮬레이터 | :material-language-python: Python |
+| [Java Simulators](/extra/algorithm-code/simulator-java/){ target="_blank" } | CLI 기반 시뮬레이터 | :material-language-java: Java |
+| [BST Implementation](/extra/algorithm-code/data-structures/tree/binary-search-tree/){ target="_blank" } | 4개 언어 BST 구현 | :material-code-braces: Multi-lang |
+| [Deploy Script](/extra/scripts/deployment/deploy.sh){ target="_blank" } | 배포 스크립트 | :material-bash: Shell |
+| [Docker Images](/extra/docker/images/){ target="_blank" } | 개발 환경 Docker 이미지 | :material-docker: Docker |

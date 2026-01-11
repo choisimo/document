@@ -45,54 +45,41 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Copy extra content to docs
-        run: |
-          mkdir -p docs/extra/algorithm-simulator
-          cp -r algorithm/simulator/javascript/* docs/extra/algorithm-simulator/
-          
-          mkdir -p docs/extra/scripts
-          cp -r scripts/* docs/extra/scripts/
-          
-          mkdir -p docs/extra/docker
-          cp -r docker/* docs/extra/docker/
-          
-          mkdir -p docs/extra/configs
-          cp -r configs/* docs/extra/configs/
-          
-          mkdir -p docs/extra/project-docs
-          cp -r project-docs/* docs/extra/project-docs/
-          
-          mkdir -p docs/extra/legacy
-          cp -r legacy/* docs/extra/legacy/
-          
-          mkdir -p docs/extra/prompts-raw
-          cp -r prompt/* docs/extra/prompts-raw/
-          
-          mkdir -p docs/extra/mcp
-          cp -r mcp/* docs/extra/mcp/
-          
-          mkdir -p docs/extra/memo
-          cp -r memo/* docs/extra/memo/
-          
-          mkdir -p docs/extra/algorithm-code
-          cp -r algorithm/data-structures docs/extra/algorithm-code/ 2>/dev/null || true
-          cp -r algorithm/code docs/extra/algorithm-code/ 2>/dev/null || true
-          cp -r algorithm/C-lang docs/extra/algorithm-code/ 2>/dev/null || true
-          cp -r algorithm/simulator/python docs/extra/algorithm-code/simulator-python 2>/dev/null || true
-          cp -r algorithm/simulator/java docs/extra/algorithm-code/simulator-java 2>/dev/null || true
-          cp algorithm/README.md docs/extra/algorithm-code/ 2>/dev/null || true
-          cp algorithm/REVIEW_REPORT.md docs/extra/algorithm-code/ 2>/dev/null || true
-
       - name: Build MkDocs site
         run: mkdocs build
 
-      - name: Copy extra static files to site
+      - name: Copy extra static content to site (post-build)
         run: |
-          cp -r docs/extra/algorithm-simulator site/extra/algorithm-simulator 2>/dev/null || true
+          mkdir -p site/extra
           
-          find site/extra -name "*.sh" -exec chmod +r {} \; 2>/dev/null || true
-          find site/extra -name "*.py" -exec chmod +r {} \; 2>/dev/null || true
-          find site/extra -name "*.java" -exec chmod +r {} \; 2>/dev/null || true
+          cp -r algorithm/simulator/javascript site/extra/algorithm-simulator
+          
+          cp -r scripts site/extra/scripts
+          
+          cp -r docker site/extra/docker
+          
+          cp -r configs site/extra/configs
+          
+          cp -r project-docs site/extra/project-docs
+          
+          cp -r legacy site/extra/legacy
+          
+          cp -r prompt site/extra/prompts-raw
+          
+          cp -r mcp site/extra/mcp
+          
+          cp -r memo site/extra/memo
+          
+          mkdir -p site/extra/algorithm-code
+          cp -r algorithm/data-structures site/extra/algorithm-code/ 2>/dev/null || true
+          cp -r algorithm/code site/extra/algorithm-code/ 2>/dev/null || true
+          cp -r algorithm/C-lang site/extra/algorithm-code/ 2>/dev/null || true
+          cp -r algorithm/simulator/python site/extra/algorithm-code/simulator-python 2>/dev/null || true
+          cp -r algorithm/simulator/java site/extra/algorithm-code/simulator-java 2>/dev/null || true
+          cp algorithm/README.md site/extra/algorithm-code/ 2>/dev/null || true
+          cp algorithm/REVIEW_REPORT.md site/extra/algorithm-code/ 2>/dev/null || true
+          
+          find site/extra -type f \( -name "*.sh" -o -name "*.py" -o -name "*.java" \) -exec chmod +r {} \; 2>/dev/null || true
 
       - name: Create CNAME file
         run: echo 'docs.nodove.com' > site/CNAME
