@@ -52,34 +52,32 @@ jobs:
         run: |
           mkdir -p site/extra
           
-          cp -r algorithm/simulator/javascript site/extra/algorithm-simulator
+          cp -rL algorithm/simulator/javascript site/extra/algorithm-simulator
           
-          cp -r scripts site/extra/scripts
+          rsync -av --exclude='*.class' --exclude='*.pyc' --exclude='__pycache__' scripts/ site/extra/scripts/
           
-          cp -r docker site/extra/docker
+          rsync -av --exclude='.git' --exclude='*.class' docker/ site/extra/docker/
           
-          cp -r configs site/extra/configs
+          rsync -av configs/ site/extra/configs/
           
-          cp -r project-docs site/extra/project-docs
+          rsync -av project-docs/ site/extra/project-docs/
           
-          cp -r legacy site/extra/legacy
+          rsync -av --exclude='.git' legacy/ site/extra/legacy/
           
-          cp -r prompt site/extra/prompts-raw
+          rsync -av prompt/ site/extra/prompts-raw/
           
-          cp -r mcp site/extra/mcp
+          rsync -av --no-links mcp/ site/extra/mcp/
           
-          cp -r memo site/extra/memo
+          rsync -av memo/ site/extra/memo/
           
           mkdir -p site/extra/algorithm-code
-          cp -r algorithm/data-structures site/extra/algorithm-code/ 2>/dev/null || true
-          cp -r algorithm/code site/extra/algorithm-code/ 2>/dev/null || true
-          cp -r algorithm/C-lang site/extra/algorithm-code/ 2>/dev/null || true
-          cp -r algorithm/simulator/python site/extra/algorithm-code/simulator-python 2>/dev/null || true
-          cp -r algorithm/simulator/java site/extra/algorithm-code/simulator-java 2>/dev/null || true
+          rsync -av --exclude='*.class' --exclude='*.pyc' --exclude='__pycache__' --exclude='.ruff_cache' algorithm/data-structures/ site/extra/algorithm-code/data-structures/ 2>/dev/null || true
+          rsync -av --exclude='*.class' algorithm/code/ site/extra/algorithm-code/code/ 2>/dev/null || true
+          rsync -av algorithm/C-lang/ site/extra/algorithm-code/C-lang/ 2>/dev/null || true
+          rsync -av --exclude='*.pyc' --exclude='__pycache__' algorithm/simulator/python/ site/extra/algorithm-code/simulator-python/ 2>/dev/null || true
+          rsync -av --exclude='*.class' algorithm/simulator/java/ site/extra/algorithm-code/simulator-java/ 2>/dev/null || true
           cp algorithm/README.md site/extra/algorithm-code/ 2>/dev/null || true
           cp algorithm/REVIEW_REPORT.md site/extra/algorithm-code/ 2>/dev/null || true
-          
-          find site/extra -type f \( -name "*.sh" -o -name "*.py" -o -name "*.java" \) -exec chmod +r {} \; 2>/dev/null || true
 
       - name: Create CNAME file
         run: echo 'docs.nodove.com' > site/CNAME
