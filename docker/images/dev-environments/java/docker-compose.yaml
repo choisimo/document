@@ -1,0 +1,22 @@
+services:
+  dev-java:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dev-java
+    ports:
+      - "8080:8080"
+      - "5005:5005"
+    volumes:
+      - type: bind
+        source: ${WORKSPACE_PATH:-./workspace}
+        target: /workspace
+      - maven-repo:/home/java/.m2
+      - gradle-cache:/home/java/.gradle
+    tty: true
+    stdin_open: true
+    restart: unless-stopped
+
+volumes:
+  maven-repo:
+  gradle-cache:

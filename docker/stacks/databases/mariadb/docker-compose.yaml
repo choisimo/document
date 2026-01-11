@@ -1,0 +1,38 @@
+services:
+  rdb:
+    image: mariadb
+    restart: always
+    container_name: ${MARIADB_CONTAINER_NAME:-mariadb}
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MARIADB_DATABASE}
+      MYSQL_USER: ${MARIADB_USER}
+      MYSQL_PASSWORD: ${MARIADB_PASSWORD}
+      MYSQL_ALLOW_EMPTY_PASSWORD: "false"
+    ports:
+      - "${MARIADB_PORT:-3306}:3306"
+    volumes:
+      - "${MARIADB_LIB_DIR:-./data/mysql}:/var/lib/mysql"
+    networks:
+      mariadb_network:
+        ipv4_address: ${MARIADB_INTERNAL_STATIC_IP:-172.20.0.10}
+    healthcheck:
+      test: mysqladmin ping -h 127.0.0.1 -u $$MYSQL_USER --password=$$MYSQL_PASSWORD
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 3090:8080
+    networks:
+      - mariadb_network
+
+networks:
+  mariadb_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${MARIADB_NETWORK_SUBNET:-172.20.0.0/24}

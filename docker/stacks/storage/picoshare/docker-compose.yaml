@@ -1,0 +1,23 @@
+services:
+  picoshare:
+    image: mtlynch/picoshare
+    environment:
+      - PORT=4001
+      - PS_SHARED_SECRET=${PICO_SHARE_PASSWORD}
+      - TZ=Asia/Seoul
+    ports:
+      - 4001:4001
+    command: -db /data/store.db
+    volumes:
+      - ${DATA_DIR:-./data}:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4001"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"

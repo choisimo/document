@@ -1,0 +1,29 @@
+.env
+.n8n
+**/.env
+
+# Sensitive files
+mongo-keyfile
+**/mongo-keyfile
+
+# Local data directories
+.n8n/
+mongodata/
+**/data/
+
+# Backup files
+*.bak
+*.backup
+
+# Logs
+*.log
+**/logs/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
