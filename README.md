@@ -1,102 +1,96 @@
-# Document Repository
+# Documentation Hub
 
-This repository contains organized documentation, scripts, and configuration files for infrastructure, development, and operations.
+A comprehensive documentation repository for infrastructure, development, and operations.
 
-## Directory Structure
+## 🚀 Quick Start
 
-### 📚 `/docs` - Documentation
-Comprehensive guides and documentation organized by topic:
+### View Documentation Locally
 
-- **`ai-ml/`** - AI/ML related documentation and research
-  - NLP embedding and similarity guides
-  - Multimodal recommendation system research
-  
-- **`databases/`** - Database setup and management
-  - Database installation guides
-  - Redis configuration and usage
-  - SpringBoot JPA documentation
-  
-- **`development/`** - Development tools and practices
-  - VSCode and code-server setup
-  - Git workflows and best practices
-  - Docker guides
-  - Java, GCC, and Tomcat setup
-  
-- **`infrastructure/`** - Server and network infrastructure
-  - Proxmox cluster configuration
-  - Network settings and disk management
-  - Email and monitoring setup
-  - SSH/SSHFS configuration
-  - Rsync usage and port configuration
-  
-- **`security/`** - Security and access control
-  - SSH configuration and key management
-  - ACL and user management
-  - Cloudflare Zero Trust
-  - VPN solutions (WireGuard, Tailscale)
-  
-- **`tools/`** - Tool-specific guides
-  - Tmux, Vim usage
-  - Guacamole server setup
-  - Selenium automation
-  - Change detection and monitoring tools
-  - MCP (Model Context Protocol) usage
+```bash
+# Start documentation server with Docker
+docker compose -f docker-compose.docs.yml up docs
 
-### 🔧 `/scripts` - Automation Scripts
-Organized automation scripts:
+# Open in browser
+open http://localhost:8000
+```
 
-- **`backup/`** - Backup and sync scripts
-  - NAS synchronization
-  - Directory backup utilities
-  
-- **`deployment/`** - Deployment automation
-  - Node.js deployment
-  - Load balancer synchronization
-  
-- **`maintenance/`** - System maintenance
-  - Docker cleanup scripts
-  
-- **`utilities/`** - General utilities
-  - Password encryption
-  - Project summary generation
-  - File renaming tools
-  - Schedule management
+### Build for Production
 
-### ⚙️ `/configs` - Configuration Files
-Service configuration files:
+```bash
+# Build static site
+docker compose -f docker-compose.docs.yml --profile build up docs-build
 
-- **`haproxy/`** - HAProxy load balancer configs
-- **`nginx/`** - Nginx web server configs
-- **`monitoring/`** - Loki, Prometheus, Grafana configs
+# Serve with nginx
+docker compose -f docker-compose.docs.yml --profile production up nginx
+```
 
-## Quick Navigation
+## 📁 Directory Structure
 
-### Common Tasks
-- **Setting up a new server**: See `docs/infrastructure/`
-- **Database configuration**: See `docs/databases/`
-- **Security setup**: See `docs/security/`
-- **Development environment**: See `docs/development/`
-- **Running backups**: See `scripts/backup/`
+```
+.
+├── docs/                    # Documentation source (MkDocs)
+│   ├── algorithms/          # Algorithm & data structure guides
+│   ├── compiler/            # Compiler theory documentation
+│   ├── databases/           # Database setup & JPA guides
+│   ├── development/         # Docker, Git, IDE setup
+│   ├── infrastructure/      # Server, network, storage
+│   ├── java/                # Java language guides
+│   ├── linux/               # Linux & Arch Linux guides
+│   ├── nginx/               # Nginx configuration
+│   ├── os/                  # Operating system concepts
+│   ├── projects/            # Project documentation
+│   ├── prompts/             # AI prompt templates
+│   ├── security/            # SSH, VPN, Zero Trust
+│   └── tools/               # Terminal, automation tools
+├── configs/                 # Service configuration files
+│   ├── haproxy/             # HAProxy configs
+│   ├── nginx/               # Nginx configs
+│   └── monitoring/          # Loki, Prometheus configs
+├── scripts/                 # Automation scripts
+│   ├── backup/              # Backup utilities
+│   ├── deployment/          # Deployment scripts
+│   ├── maintenance/         # System maintenance
+│   └── utilities/           # General utilities
+├── docker/                  # Docker configurations
+├── legacy/                  # Archived old documentation
+├── mkdocs.yml               # MkDocs configuration
+└── docker-compose.docs.yml  # Documentation Docker setup
+```
 
-### Key Documentation
-- Infrastructure setup: `docs/infrastructure/proxmox_cluster.md`
-- Network configuration: `docs/infrastructure/linux_network_setting.md`
-- Security best practices: `docs/security/user_ACL_management.md`
-- Database setup: `docs/databases/database_install.md`
+## 📚 Key Documentation
 
-## Organization Principles
+### Infrastructure
+- [Proxmox Cluster Setup](docs/infrastructure/proxmox/cluster.md)
+- [Network Configuration](docs/infrastructure/networking/network-settings.md)
+- [Monitoring Stack](docs/infrastructure/monitoring/prometheus-grafana-loki.md)
 
-1. **Clear categorization** - Files grouped by purpose and domain
-2. **No duplicates** - Single source of truth for each document
-3. **Intuitive naming** - English names with clear, descriptive titles
-4. **Logical hierarchy** - Related content grouped together
-5. **Easy navigation** - README files in key directories
+### Security
+- [SSH Configuration](docs/security/ssh/configuration.md)
+- [Tailscale VPN](docs/security/vpn/tailscale.md)
+- [Cloudflare Zero Trust](docs/security/zerotrust/cloudflare.md)
 
-## Contributing
+### Development
+- [Docker Installation](docs/development/docker/installation.md)
+- [Git Branch Management](docs/development/git/branch-management.md)
+- [VS Code Setup](docs/development/ide/vscode-plugins.md)
 
-When adding new content:
-- Place documentation in appropriate `/docs` subdirectory
-- Put scripts in categorized `/scripts` subdirectory
-- Store configs in `/configs` with service-specific folders
-- Use clear, descriptive filenames
-- Update relevant README files
+### Tools
+- [Linux Commands](docs/tools/terminal/linux-commands.md)
+- [Tmux Guide](docs/tools/terminal/tmux.md)
+
+## 🛠️ Technology Stack
+
+- **Documentation**: [MkDocs Material](https://squidfunk.github.io/mkdocs-material/)
+- **Containerization**: Docker + Docker Compose
+- **Web Server**: Nginx (production)
+
+## 📝 Contributing
+
+1. Place documentation in appropriate `docs/` subdirectory
+2. Follow existing markdown formatting conventions
+3. Use mermaid diagrams for visualizations where helpful
+4. Update `mkdocs.yml` navigation if adding new pages
+
+## 📄 License
+
+This documentation is for personal/internal use.
