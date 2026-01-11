@@ -1,387 +1,391 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-         <loc>https://docs.example.com/</loc>
+         <loc>https://docs.nodove.com/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/algorithms/</loc>
+         <loc>https://docs.nodove.com/algorithms/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/algorithms/function-pointers/</loc>
+         <loc>https://docs.nodove.com/algorithms/function-pointers/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/algorithms/oop-patterns/</loc>
+         <loc>https://docs.nodove.com/algorithms/oop-patterns/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/algorithms/pointers/</loc>
+         <loc>https://docs.nodove.com/algorithms/pointers/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/compiler/</loc>
+         <loc>https://docs.nodove.com/compiler/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/compiler/lexical/dfa/</loc>
+         <loc>https://docs.nodove.com/compiler/lexical/dfa/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/compiler/lexical/nfa-to-dfa/</loc>
+         <loc>https://docs.nodove.com/compiler/lexical/nfa-to-dfa/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/compiler/lexical/nfa/</loc>
+         <loc>https://docs.nodove.com/compiler/lexical/nfa/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/compiler/parsing/bottom-up/</loc>
+         <loc>https://docs.nodove.com/compiler/parsing/bottom-up/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/compiler/parsing/cfg/</loc>
+         <loc>https://docs.nodove.com/compiler/parsing/cfg/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/compiler/parsing/ll-parser/</loc>
+         <loc>https://docs.nodove.com/compiler/parsing/ll-parser/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/compiler/parsing/lr-parser/</loc>
+         <loc>https://docs.nodove.com/compiler/parsing/lr-parser/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/databases/</loc>
+         <loc>https://docs.nodove.com/databases/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/databases/installation/</loc>
+         <loc>https://docs.nodove.com/databases/installation/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/databases/jpa/lifecycle/</loc>
+         <loc>https://docs.nodove.com/databases/jpa/lifecycle/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/databases/jpa/overview/</loc>
+         <loc>https://docs.nodove.com/databases/jpa/overview/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/databases/jpa/querydsl/</loc>
+         <loc>https://docs.nodove.com/databases/jpa/querydsl/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/databases/jpa/relationships/</loc>
+         <loc>https://docs.nodove.com/databases/jpa/relationships/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/databases/redis/overview/</loc>
+         <loc>https://docs.nodove.com/databases/redis/overview/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/databases/redis/springboot-integration/</loc>
+         <loc>https://docs.nodove.com/databases/redis/springboot-integration/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/development/</loc>
+         <loc>https://docs.nodove.com/development/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/development/docker/commands/</loc>
+         <loc>https://docs.nodove.com/development/docker/commands/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/development/docker/installation/</loc>
+         <loc>https://docs.nodove.com/development/docker/installation/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/development/docker/networking/</loc>
+         <loc>https://docs.nodove.com/development/docker/networking/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/development/docker/vaultwarden/</loc>
+         <loc>https://docs.nodove.com/development/docker/vaultwarden/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/development/docker/volumes/</loc>
+         <loc>https://docs.nodove.com/development/docker/volumes/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/development/git/branch-management/</loc>
+         <loc>https://docs.nodove.com/development/git/branch-management/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/development/git/deployment/</loc>
+         <loc>https://docs.nodove.com/development/git/deployment/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/development/git/restore-deletion/</loc>
+         <loc>https://docs.nodove.com/development/git/restore-deletion/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/development/ide/code-server/</loc>
+         <loc>https://docs.nodove.com/development/ide/code-server/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/development/ide/vscode-plugins/</loc>
+         <loc>https://docs.nodove.com/development/ide/vscode-plugins/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/development/languages/gcc/</loc>
+         <loc>https://docs.nodove.com/development/languages/gcc/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/development/languages/java-install/</loc>
+         <loc>https://docs.nodove.com/development/languages/java-install/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/infrastructure/</loc>
+         <loc>https://docs.nodove.com/extra/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/infrastructure/hardware/nano-pi-neo3/</loc>
+         <loc>https://docs.nodove.com/infrastructure/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/infrastructure/hardware/ssd-guide/</loc>
+         <loc>https://docs.nodove.com/infrastructure/hardware/nano-pi-neo3/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/infrastructure/monitoring/process-management/</loc>
+         <loc>https://docs.nodove.com/infrastructure/hardware/ssd-guide/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/infrastructure/monitoring/prometheus-grafana-loki/</loc>
+         <loc>https://docs.nodove.com/infrastructure/monitoring/process-management/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/infrastructure/networking/email-config/</loc>
+         <loc>https://docs.nodove.com/infrastructure/monitoring/prometheus-grafana-loki/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/infrastructure/networking/network-settings/</loc>
+         <loc>https://docs.nodove.com/infrastructure/networking/email-config/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/infrastructure/networking/rsync/</loc>
+         <loc>https://docs.nodove.com/infrastructure/networking/network-settings/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/infrastructure/proxmox/cluster-with-sbc/</loc>
+         <loc>https://docs.nodove.com/infrastructure/networking/rsync/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/infrastructure/proxmox/cluster/</loc>
+         <loc>https://docs.nodove.com/infrastructure/proxmox/cluster-with-sbc/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/infrastructure/proxmox/email-alerts/</loc>
+         <loc>https://docs.nodove.com/infrastructure/proxmox/cluster/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/infrastructure/storage/disk-format/</loc>
+         <loc>https://docs.nodove.com/infrastructure/proxmox/email-alerts/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/infrastructure/storage/mounting/</loc>
+         <loc>https://docs.nodove.com/infrastructure/storage/disk-format/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/infrastructure/storage/sshfs/</loc>
+         <loc>https://docs.nodove.com/infrastructure/storage/mounting/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/java/</loc>
+         <loc>https://docs.nodove.com/infrastructure/storage/sshfs/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/java/core-concepts/</loc>
+         <loc>https://docs.nodove.com/java/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/java/memory-gc/</loc>
+         <loc>https://docs.nodove.com/java/core-concepts/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/linux/</loc>
+         <loc>https://docs.nodove.com/java/memory-gc/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/linux/commands/</loc>
+         <loc>https://docs.nodove.com/linux/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/linux/filesystem/</loc>
+         <loc>https://docs.nodove.com/linux/commands/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/linux/arch/installation/</loc>
+         <loc>https://docs.nodove.com/linux/filesystem/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/linux/arch/kde-theme/</loc>
+         <loc>https://docs.nodove.com/linux/arch/installation/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/linux/arch/troubleshooting/</loc>
+         <loc>https://docs.nodove.com/linux/arch/kde-theme/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/linux/multimedia/ffmpeg/</loc>
+         <loc>https://docs.nodove.com/linux/arch/troubleshooting/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/linux/proxmox/drive-mount/</loc>
+         <loc>https://docs.nodove.com/linux/multimedia/ffmpeg/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/linux/proxmox/migration/</loc>
+         <loc>https://docs.nodove.com/linux/proxmox/drive-mount/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/linux/proxmox/wireguard-vpn/</loc>
+         <loc>https://docs.nodove.com/linux/proxmox/migration/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/nginx/</loc>
+         <loc>https://docs.nodove.com/linux/proxmox/wireguard-vpn/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/nginx/configuration/</loc>
+         <loc>https://docs.nodove.com/nginx/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/nginx/proxy-manager/</loc>
+         <loc>https://docs.nodove.com/nginx/configuration/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/os/</loc>
+         <loc>https://docs.nodove.com/nginx/proxy-manager/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/os/cpu-scheduling/</loc>
+         <loc>https://docs.nodove.com/os/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/os/deadlocks/</loc>
+         <loc>https://docs.nodove.com/os/cpu-scheduling/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/os/memory/</loc>
+         <loc>https://docs.nodove.com/os/deadlocks/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/os/process/</loc>
+         <loc>https://docs.nodove.com/os/memory/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/os/synchronization/</loc>
+         <loc>https://docs.nodove.com/os/process/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/projects/</loc>
+         <loc>https://docs.nodove.com/os/synchronization/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/projects/cbt-system/</loc>
+         <loc>https://docs.nodove.com/projects/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/projects/emotion-diary/</loc>
+         <loc>https://docs.nodove.com/projects/cbt-system/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/prompts/</loc>
+         <loc>https://docs.nodove.com/projects/emotion-diary/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/prompts/architecture/</loc>
+         <loc>https://docs.nodove.com/prompts/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/prompts/database/</loc>
+         <loc>https://docs.nodove.com/prompts/architecture/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/prompts/docs-editor/</loc>
+         <loc>https://docs.nodove.com/prompts/database/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/security/</loc>
+         <loc>https://docs.nodove.com/prompts/docs-editor/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/security/access/permissions/</loc>
+         <loc>https://docs.nodove.com/security/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/security/access/user-acl/</loc>
+         <loc>https://docs.nodove.com/security/access/permissions/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/security/ssh/configuration/</loc>
+         <loc>https://docs.nodove.com/security/access/user-acl/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/security/ssh/key-management/</loc>
+         <loc>https://docs.nodove.com/security/ssh/configuration/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/security/ssh/match-rules/</loc>
+         <loc>https://docs.nodove.com/security/ssh/key-management/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/security/vpn/tailscale/</loc>
+         <loc>https://docs.nodove.com/security/ssh/match-rules/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/security/vpn/wireguard/</loc>
+         <loc>https://docs.nodove.com/security/vpn/tailscale/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/security/zerotrust/cloudflare/</loc>
+         <loc>https://docs.nodove.com/security/vpn/wireguard/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/tools/</loc>
+         <loc>https://docs.nodove.com/security/zerotrust/cloudflare/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/tools/ai/gemini-shell/</loc>
+         <loc>https://docs.nodove.com/tools/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/tools/ai/mcp/</loc>
+         <loc>https://docs.nodove.com/tools/ai/gemini-shell/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/tools/automation/change-detection/</loc>
+         <loc>https://docs.nodove.com/tools/ai/mcp/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/tools/automation/schedule-manager/</loc>
+         <loc>https://docs.nodove.com/tools/automation/change-detection/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/tools/automation/selenium/</loc>
+         <loc>https://docs.nodove.com/tools/automation/schedule-manager/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/tools/remote/guacamole/</loc>
+         <loc>https://docs.nodove.com/tools/automation/selenium/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/tools/terminal/linux-commands/</loc>
+         <loc>https://docs.nodove.com/tools/remote/guacamole/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/tools/terminal/tmux/</loc>
+         <loc>https://docs.nodove.com/tools/terminal/linux-commands/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.example.com/tools/terminal/vim/</loc>
+         <loc>https://docs.nodove.com/tools/terminal/tmux/</loc>
+         <lastmod>2026-01-11</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.nodove.com/tools/terminal/vim/</loc>
          <lastmod>2026-01-11</lastmod>
     </url>
 </urlset>
