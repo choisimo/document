@@ -6,8 +6,9 @@ gluetun:
   devices:
     - /dev/net/tun:/dev/net/tun
   environment:
-    - VPN_SERVICE_PROVIDER=airvpn  # 또는 protonvpn
-    - VPN_TYPE=wireguard
-    - WIREGUARD_PRIVATE_KEY=${WG_PRIVATE_KEY}
-    - WIREGUARD_ADDRESSES=${WG_ADDRESSES}
+    - VPN_SERVICE_PROVIDER=${ACTIVE_PROVIDER}
+    - VPN_TYPE=${VPN_TYPE:-wireguard}
+    - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}
+    - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES}
+    - WIREGUARD_PRESHARED_KEY=${WIREGUARD_PRESHARED_KEY}
 

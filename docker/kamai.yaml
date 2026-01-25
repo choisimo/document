@@ -1,0 +1,41 @@
+services:
+  sqldb:
+    image: mysql:8.3
+    volumes:
+      - $PWD/kimai/db/mysql:/var/lib/mysql
+    environment:
+      - MYSQL_DATABASE=${kimai_db}
+      - MYSQL_USER=${kimaiuser}
+      - MYSQL_PASSWORD=${kimaipassword}
+      - MYSQL_ROOT_PASSWORD=${mysqlrootpasswd}
+    command: --default-storage-engine innodb
+    restart: unless-stopped
+    healthcheck:
+      test: mysqladmin -p$$MYSQL_ROOT_PASSWORD ping -h localhost
+      interval: 20s
+      start_period: 10s
+      timeout: 10s
+      retries: 3
+      
+  kimai:
+    image: kimai/kimai2:apache
+    volumes:
+      - $PWD/kimai/host/data:/opt/kimai/var/data
+      - $PWD/kimai/host/plugins:/opt/kimai/var/plugins
+    environment:
+      - ADMINMAIL=${ADMIN_EMAIL}
+      - ADMINPASS=${ADMIN_PASSWORD}
+      - "DATABASE_URL=mysql://${kimaiuser}:${kimaipassword}@sqldb/${kimai_db}?charset=utf8mb4&serverVersion=8.3.0"
+    restart: unless-stopped
+
+volumes:
+  data:
+  mysql:
+  plugins:
+
+# kimai_db=kimai
+# kimaiuser=kimaiuser
+# kimaipassword=strongpassword
+# mysqlrootpasswd=strongrootpassword
+# ADMIN_EMAIL=admin@example.com
+# ADMIN_PASSWORD=strongadminpassword

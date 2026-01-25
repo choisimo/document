@@ -1,0 +1,42 @@
+version: "3.9"
+services:
+  changedetection:
+    container_name: changedetection
+    image: ghcr.io/dgtlmoon/changedetection.io:latest
+    hostname: changedetection
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Seoul
+      - BASE_URL=http://localhost:5000
+      - PLAYWRIGHT_DRIVER_URL=ws://playwright-chrome:3000/?stealth=1&--disable-web-security=true&blockAds=true
+    volumes:
+      - ${DATASTORE_DIR}:/datastore
+    ports:
+      - ${PORT}:5000
+    restart: unless-stopped
+    depends_on:
+      playwright-chrome:
+        condition: service_started
+
+  playwright-chrome:
+    hostname: playwright-chrome
+    container_name: playwright-chrome
+    image: ghcr.io/browserless/chromium:latest
+    restart: unless-stopped
+    environment:
+      - SCREEN_WIDTH=1920
+      - SCREEN_HEIGHT=1024
+      - SCREEN_DEPTH=16
+      - ENABLE_DEBUGGER=false
+      - TIMEOUT=60000
+      - CONCURRENT=10
+      - DEFAULT_BLOCK_ADS=true
+      - DEFAULT_STEALTH=true
+
+
+
+
+# # .env file
+# DATASTORE_DIR=
+# PORT=

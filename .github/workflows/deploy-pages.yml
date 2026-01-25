@@ -45,6 +45,29 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Inject AI configuration from secrets
+        env:
+          AI_API_BASE_URL: ${{ secrets.AI_API_BASE_URL }}
+          AI_API_TOKEN: ${{ secrets.AI_API_TOKEN }}
+          AI_MODEL_NAME: ${{ secrets.AI_MODEL_NAME }}
+        run: |
+          CONFIG_FILE="docs/javascripts/ai-config.js"
+          if [ -f "$CONFIG_FILE" ]; then
+            # Replace placeholders with actual values from secrets
+            if [ -n "$AI_API_BASE_URL" ]; then
+              sed -i "s|%%AI_API_BASE_URL%%|${AI_API_BASE_URL}|g" "$CONFIG_FILE"
+            fi
+            if [ -n "$AI_API_TOKEN" ]; then
+              sed -i "s|%%AI_API_TOKEN%%|${AI_API_TOKEN}|g" "$CONFIG_FILE"
+            fi
+            if [ -n "$AI_MODEL_NAME" ]; then
+              sed -i "s|%%AI_MODEL_NAME%%|${AI_MODEL_NAME}|g" "$CONFIG_FILE"
+            fi
+            echo "AI configuration injected successfully"
+          else
+            echo "Warning: AI config file not found at $CONFIG_FILE"
+          fi
+
       - name: Build MkDocs site
         run: mkdocs build
 

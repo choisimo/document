@@ -2,171 +2,168 @@
 
 인프라, 개발, 운영에 관한 종합 기술 문서 허브에 오신 것을 환영합니다.
 
+<div class="hero-section" markdown>
+<div class="hero-content">
+
+## :material-magnify: 무엇을 찾고 계신가요?
+
+<div class="search-box-hero" markdown>
+**Ctrl+K** 또는 상단 검색창을 이용해 원하는 문서를 빠르게 찾아보세요.
+</div>
+
+<div class="hero-stats" markdown>
+
+:material-file-document-multiple: **100+ 문서** · :material-folder-multiple: **15 카테고리** · :fontawesome-brands-docker: **Docker 컴포즈 50+**
+
+</div>
+
+</div>
+</div>
+
 ---
 
-## :material-rocket-launch: 빠른 시작
+## :robot: AI 어시스턴트
 
-<div class="grid cards" markdown>
+<div class="ai-promo-section" markdown>
 
--   :material-server:{ .lg .middle } __인프라__
+우측 하단의 **AI 챗봇**을 사용하여 문서에 대해 질문하세요!
+
+- Docker 설정 방법이 궁금하신가요?
+- SSH 보안 구성을 알고 싶으신가요?
+- Proxmox 클러스터 구축이 필요하신가요?
+
+**AI 어시스턴트가 도와드립니다!** :material-robot-happy:
+
+</div>
+
+---
+
+## :material-apps: 빠른 탐색
+
+<div class="grid cards category-grid" markdown>
+
+-   :material-server:{ .lg .middle .category-icon } **인프라**
 
     ---
-
-    서버 구성, 네트워크 설정, 스토리지 관리, 모니터링 가이드
-
+    
+    Proxmox · 네트워크 · 스토리지 · 모니터링
+    
     [:octicons-arrow-right-24: 인프라 문서](infrastructure/index.md)
 
--   :material-shield-lock:{ .lg .middle } __보안__
+-   :material-shield-lock:{ .lg .middle .category-icon } **보안**
 
     ---
-
-    SSH 설정, 접근 제어, VPN 구성, Zero Trust 아키텍처
-
+    
+    SSH · VPN · Zero Trust · 접근 제어
+    
     [:octicons-arrow-right-24: 보안 문서](security/index.md)
 
--   :material-code-braces:{ .lg .middle } __개발__
+-   :material-code-braces:{ .lg .middle .category-icon } **개발**
 
     ---
-
-    Docker, Git, IDE 설정, 프로그래밍 언어 환경 구성
-
+    
+    Docker · Git · IDE · 프로그래밍 환경
+    
     [:octicons-arrow-right-24: 개발 문서](development/index.md)
 
--   :material-database:{ .lg .middle } __데이터베이스__
+-   :material-database:{ .lg .middle .category-icon } **데이터베이스**
 
     ---
-
-    데이터베이스 설치, Redis 캐싱, JPA/QueryDSL 활용
-
+    
+    Redis · JPA · QueryDSL
+    
     [:octicons-arrow-right-24: 데이터베이스 문서](databases/index.md)
+
+-   :fontawesome-brands-linux:{ .lg .middle .category-icon } **Linux**
+
+    ---
+    
+    명령어 · 파일시스템 · Arch Linux
+    
+    [:octicons-arrow-right-24: Linux 문서](linux/index.md)
+
+-   :material-console:{ .lg .middle .category-icon } **도구**
+
+    ---
+    
+    Tmux · Vim · 자동화
+    
+    [:octicons-arrow-right-24: 도구 문서](tools/index.md)
 
 </div>
 
 ---
 
-## :material-fire: 인기 문서
+## :fontawesome-brands-docker: Docker Compose 컬렉션
+
+<div class="docker-section" markdown>
+
+실제 운영에 사용되는 Docker Compose 설정 파일들을 확인하세요.
 
 <div class="grid cards" markdown>
 
--   :material-console:{ .lg .middle } __터미널 도구__
+-   :material-database-outline: **데이터베이스**
 
-    ---
+    MariaDB · MongoDB · Supabase
+    
+    [:octicons-arrow-right-24: 데이터베이스 스택](extra/docker/stacks/databases/)
 
-    Tmux, Vim, Linux 명령어 마스터
+-   :material-cog-outline: **자동화**
 
-    [:octicons-arrow-right-24: 도구 문서](tools/index.md)
+    n8n · Change Detection
+    
+    [:octicons-arrow-right-24: 자동화 스택](extra/docker/stacks/automation/)
 
--   :fontawesome-brands-linux:{ .lg .middle } __Linux__
+-   :material-source-branch: **개발 도구**
 
-    ---
+    Gitea · Sourcebot
+    
+    [:octicons-arrow-right-24: 개발 도구 스택](extra/docker/stacks/devtools/)
 
-    Linux 명령어, 파일시스템, Arch Linux 가이드
+-   :material-lock-outline: **보안**
 
-    [:octicons-arrow-right-24: Linux 문서](linux/index.md)
+    Vaultwarden · Nginx Proxy
+    
+    [:octicons-arrow-right-24: 보안 스택](extra/docker/stacks/security/)
 
--   :material-cog:{ .lg .middle } __운영체제__
-
-    ---
-
-    CPU 스케줄링, 동기화, 데드락, 메모리 관리
-
-    [:octicons-arrow-right-24: OS 문서](os/index.md)
-
--   :material-language-java:{ .lg .middle } __Java__
-
-    ---
-
-    Java 핵심 개념, 메모리 관리, GC 이해
-
-    [:octicons-arrow-right-24: Java 문서](java/index.md)
+</div>
 
 </div>
 
 ---
 
-## :material-file-document-multiple: 주요 문서
+## :material-chart-line: 인기 문서
 
-### :material-server-network: 인프라 설정
-
-| 문서 | 설명 |
-|------|------|
-| [:material-server-network: Proxmox 클러스터](infrastructure/proxmox/cluster.md) | 가상화 플랫폼 클러스터 구성 |
-| [:material-lan: 네트워크 설정](infrastructure/networking/network-settings.md) | Linux 네트워크 구성 가이드 |
-| [:material-chart-line: Prometheus/Grafana](infrastructure/monitoring/prometheus-grafana-loki.md) | 모니터링 스택 구축 |
-
-### :material-lock: 보안 강화
-
-| 문서 | 설명 |
-|------|------|
-| [:material-key: SSH 설정](security/ssh/configuration.md) | SSH 보안 구성 및 최적화 |
-| [:material-vpn: Tailscale VPN](security/vpn/tailscale.md) | 제로 설정 VPN 구축 |
-| [:material-cloud-lock: Cloudflare Zero Trust](security/zerotrust/cloudflare.md) | 제로 트러스트 네트워크 |
-
-### :material-wrench: 개발 환경
-
-| 문서 | 설명 |
-|------|------|
-| [:material-docker: Docker 명령어](development/docker/commands.md) | Docker 활용 가이드 |
-| [:material-source-branch: Git 브랜치 관리](development/git/branch-management.md) | Git 워크플로우 |
-| [:material-microsoft-visual-studio-code: VS Code 설정](development/ide/vscode-plugins.md) | 개발 환경 최적화 |
-
----
-
-## :material-sitemap: 카테고리별 탐색
-
-```mermaid
-mindmap
-  root((Documentation Hub))
-    Infrastructure
-      Proxmox
-      Networking
-      Storage
-      Monitoring
-    Security
-      SSH
-      VPN
-      Zero Trust
-    Development
-      Docker
-      Git
-      IDE
-    Databases
-      Redis
-      JPA
-    Tools
-      Terminal
-      Automation
-    Linux
-      Commands
-      Arch Linux
-```
+| 문서 | 카테고리 | 설명 |
+|------|----------|------|
+| [:material-docker: Docker 명령어](development/docker/commands.md) | 개발 | Docker 핵심 명령어 가이드 |
+| [:material-key: SSH 설정](security/ssh/configuration.md) | 보안 | SSH 보안 구성 및 최적화 |
+| [:material-server-network: Proxmox 클러스터](infrastructure/proxmox/cluster.md) | 인프라 | 가상화 플랫폼 클러스터 구성 |
+| [:material-vpn: Tailscale VPN](security/vpn/tailscale.md) | 보안 | 제로 설정 VPN 구축 |
+| [:material-chart-line: Prometheus/Grafana](infrastructure/monitoring/prometheus-grafana-loki.md) | 인프라 | 모니터링 스택 구축 |
 
 ---
 
 ## :material-information: 문서 정보
 
-!!! tip "문서 업데이트"
-    이 문서는 지속적으로 업데이트됩니다. 최신 정보를 확인하려면 정기적으로 방문해 주세요.
+!!! tip "검색 팁"
+    **Ctrl+K** 또는 **/**를 눌러 어디서든 빠르게 검색할 수 있습니다.
 
-!!! info "기여하기"
-    오류 발견이나 개선 제안은 GitHub에서 Pull Request를 제출해 주세요.
+!!! info "AI 어시스턴트"
+    우측 하단의 챗봇 버튼을 클릭하여 문서에 대해 질문하세요.
 
-<div class="grid cards" markdown>
+<div class="grid cards footer-links" markdown>
 
--   :material-github:{ .lg .middle } __GitHub에서 기여하기__
-
-    ---
-
-    이 문서는 오픈소스로 관리됩니다.
-
-    [:octicons-arrow-right-24: GitHub 저장소](https://github.com/choisimo/document)
-
--   :material-email:{ .lg .middle } __문의하기__
+-   :material-github: **GitHub**
 
     ---
+    
+    [:octicons-arrow-right-24: 저장소 방문](https://github.com/choisimo/document)
 
-    문서에 대한 질문이나 제안이 있으시면 연락주세요.
+-   :material-email: **연락처**
 
-    [:octicons-arrow-right-24: 연락처](https://github.com/choisimo)
+    ---
+    
+    [:octicons-arrow-right-24: GitHub 프로필](https://github.com/choisimo)
 
 </div>

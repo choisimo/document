@@ -347,3 +347,180 @@ html {
     color: #333;
   }
 }
+
+/* ===================================== */
+/* Hero Section - Homepage */
+/* ===================================== */
+
+.hero-section {
+  text-align: center;
+  padding: 3rem 1rem;
+  margin: -1rem -0.8rem 2rem;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+  border-radius: 0 0 var(--card-border-radius) var(--card-border-radius);
+}
+
+[data-md-color-scheme="slate"] .hero-section {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+}
+
+.hero-content h2 {
+  font-size: 1.75rem;
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-top: 0;
+}
+
+.search-box-hero {
+  font-size: 1.1rem;
+  color: var(--md-default-fg-color--light);
+  margin: 1rem 0;
+}
+
+.search-box-hero strong {
+  background: var(--md-primary-fg-color);
+  color: white;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.hero-stats {
+  font-size: 0.95rem;
+  color: var(--md-default-fg-color--light);
+  margin-top: 1.5rem;
+}
+
+.hero-stats strong {
+  color: var(--md-primary-fg-color);
+}
+
+/* ===================================== */
+/* AI Promotion Section */
+/* ===================================== */
+
+.ai-promo-section {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 2rem;
+  border-radius: var(--card-border-radius);
+  text-align: center;
+  margin: 1rem 0 2rem;
+}
+
+.ai-promo-section ul {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 2rem;
+}
+
+.ai-promo-section li {
+  margin: 0;
+}
+
+.ai-promo-section strong {
+  color: #ffd700;
+}
+
+/* ===================================== */
+/* Category Grid */
+/* ===================================== */
+
+.category-grid > ul > li {
+  text-align: center;
+}
+
+.category-grid .category-icon {
+  font-size: 2rem !important;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.category-grid p {
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+  color: var(--md-default-fg-color--light);
+}
+
+.category-grid a {
+  display: inline-block;
+  margin-top: 0.5rem;
+}
+
+/* ===================================== */
+/* Docker Section */
+/* ===================================== */
+
+.docker-section {
+  background: var(--md-code-bg-color);
+  padding: 1.5rem;
+  border-radius: var(--card-border-radius);
+  margin: 1rem 0;
+}
+
+.docker-section > p:first-child {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.docker-section .grid.cards > ul > li {
+  background: var(--md-default-bg-color);
+}
+
+/* ===================================== */
+/* Footer Links */
+/* ===================================== */
+
+.footer-links > ul > li {
+  text-align: center;
+}
+
+/* ===================================== */
+/* Enhanced Responsive Design */
+/* ===================================== */
+
+@media screen and (max-width: 76.1875em) {
+  .hero-section {
+    padding: 2rem 1rem;
+  }
+  
+  .hero-content h2 {
+    font-size: 1.5rem;
+  }
+  
+  .ai-promo-section ul {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+}
+
+@media screen and (max-width: 44.9375em) {
+  .hero-section {
+    margin: -1rem -0.4rem 1.5rem;
+    padding: 1.5rem 0.5rem;
+  }
+  
+  .hero-content h2 {
+    font-size: 1.25rem;
+  }
+  
+  .hero-stats {
+    font-size: 0.85rem;
+  }
+  
+  .ai-promo-section {
+    padding: 1.5rem 1rem;
+    margin: 1rem 0;
+  }
+  
+  .docker-section {
+    padding: 1rem;
+    margin: 1rem -0.4rem;
+    border-radius: 0;
+  }
+}
+
