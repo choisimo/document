@@ -1,5 +1,7 @@
 services:
-  # PostgreSQL 추가
+  # ===================
+  # PostgreSQL (n8n 메인 DB)
+  # ===================
   postgres:
     image: postgres:16
     container_name: postgres
@@ -19,8 +21,9 @@ services:
       retries: 5
     networks:
       - n8n-stack
+
   # ===================
-  # Core Services
+  # n8n Main Instance
   # ===================
   n8n:
     image: n8nio/n8n:latest
@@ -29,7 +32,7 @@ services:
     ports:
       - ${N8N_PORT:-5678}:5678
     environment:
-      # 🔥 PostgreSQL 설정으로 변경
+      # Database settings
       - DB_TYPE=postgresdb
       - DB_POSTGRESDB_HOST=postgres
       - DB_POSTGRESDB_PORT=5432
@@ -37,7 +40,7 @@ services:
       - DB_POSTGRESDB_USER=${POSTGRES_USER:-n8nuser}
       - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-n8npass}
       
-      # 🔥 Redis 인증 정보 추가
+      # Redis 인증 정보
       - QUEUE_BULL_REDIS_HOST=redis
       - QUEUE_BULL_REDIS_PORT=6379
       - QUEUE_BULL_REDIS_PASSWORD=${REDIS_PASSWORD:-redispass}
@@ -54,13 +57,17 @@ services:
       - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
       - N8N_BASIC_AUTH_PASSWORD=${N8N_PASS:-adminpass}
       - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-your-encryption-key}
-      - WEBHOOK_URL=${WEBHOOK_URL}
       - EXECUTIONS_TIMEOUT_MAX=7200
       - NODE_OPTIONS=--max-old-space-size=8192
       
+      # 프로덕션 웹훅 URL 설정
+      - WEBHOOK_URL=https://workflow.nodove.com/
+      - N8N_HOST=workflow.nodove.com
+      - N8N_PROTOCOL=https
+      
     volumes:
       - n8n_storage:/home/node/.n8n
-      - ./data/n8n_files:/files
+      - ./n8n_files:/files
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,13 +76,14 @@ services:
     networks:
       - n8n-stack
 
-
-# Worker Instances (실제 작업 처리)
+  # ===================
+  # n8n Worker Instances
+  # ===================
   n8n-worker:
     image: n8nio/n8n:latest
     restart: unless-stopped
     environment:
-      # PostgreSQL 설정
+      # Database settings
       - DB_TYPE=postgresdb
       - DB_POSTGRESDB_HOST=postgres
       - DB_POSTGRESDB_PORT=5432
@@ -88,7 +96,7 @@ services:
       - QUEUE_BULL_REDIS_PORT=6379
       - QUEUE_BULL_REDIS_PASSWORD=${REDIS_PASSWORD:-redispass}
       - QUEUE_BULL_REDIS_DB=0
-     
+    
       # Queue 설정
       - EXECUTIONS_MODE=queue
       - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-your-encryption-key}
@@ -98,7 +106,7 @@ services:
     command: ["worker"]
     volumes:
       - n8n_storage:/home/node/.n8n
-      - ./data/n8n_files:/files
+      - ./n8n_files:/files
     depends_on:
       postgres:
         condition: service_healthy
@@ -109,13 +117,11 @@ services:
     networks:
       - n8n-stack
 
-  
-
   # ===================
-  # 인메모리 캐시 & 큐
+  # Redis (Queue 처리용)
   # ===================
   redis:
-    image: redis:7-alpine
+    image: redis:alpine
     container_name: redis
     restart: unless-stopped
     ports:
@@ -132,37 +138,15 @@ services:
       - n8n-stack
 
   # ===================
-  # NoSQL 데이터베이스
-  # ===================
-  mongodb:
-    image: mongo:7
-    container_name: mongodb
-    restart: unless-stopped
-    ports:
-      - ${MONGODB_PORT:-27017}:27017
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER:-mongouser}
-      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:-mongopass}
-    volumes:
-      - mongo_storage:/data/db
-    healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh --quiet
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    networks:
-      - n8n-stack
-
-  # ===================
-  # 벡터 데이터베이스
+  # Qdrant (Vector DB)
   # ===================
   qdrant:
     image: qdrant/qdrant:latest
     container_name: qdrant
     restart: unless-stopped
     ports:
-      - ${QDRANT_PORT:-6333}:6333
+      - ${QDRANT_HTTP_PORT:-6333}:6333
+      - ${QDRANT_GRPC_PORT:-6334}:6334
     environment:
       - QDRANT__SERVICE__API_KEY=${QDRANT_API_KEY:-qdrantkey}
     volumes:
@@ -170,198 +154,10 @@ services:
     networks:
       - n8n-stack
 
-  # ===================
-  # 검색 엔진
-  # ===================
-  elasticsearch:
-    image: elasticsearch:8.11.0
-    container_name: elasticsearch
-    restart: unless-stopped
-    ports:
-      - ${ELASTICSEARCH_PORT:-9200}:9200
-    environment:
-      - discovery.type=single-node
-      - ES_JAVA_OPTS=-Xms1g -Xmx1g
-      - xpack.security.enabled=false
-      - xpack.security.http.ssl.enabled=false
-    volumes:
-      - elasticsearch_storage:/usr/share/elasticsearch/data
-    networks:
-      - n8n-stack
-
-  # ===================
-  # 객체 스토리지
-  # ===================
-  minio:
-    image: minio/minio:latest
-    container_name: minio
-    restart: unless-stopped
-    ports:
-      - ${MINIO_API_PORT:-9000}:9000
-      - ${MINIO_CONSOLE_PORT:-9001}:9001
-    environment:
-      - MINIO_ROOT_USER=${MINIO_USER:-minioadmin}
-      - MINIO_ROOT_PASSWORD=${MINIO_PASSWORD:-minioadmin}
-    volumes:
-      - minio_storage:/data
-    command: server /data --console-address ":9001"
-    networks:
-      - n8n-stack
-
-  # ===================
-  # 메시지 브로커
-  # ===================
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: rabbitmq
-    restart: unless-stopped
-    ports:
-      - ${RABBITMQ_PORT:-5672}:5672
-      - ${RABBITMQ_MANAGEMENT_PORT:-15672}:15672
-    environment:
-      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-admin}
-      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS:-adminpass}
-    volumes:
-      - rabbitmq_storage:/var/lib/rabbitmq
-    networks:
-      - n8n-stack
-
-  # ===================
-  # 모니터링 & 관찰성
-  # ===================
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: prometheus
-    restart: unless-stopped
-    ports:
-      - ${PROMETHEUS_PORT:-9090}:9090
-    volumes:
-      - prometheus_storage:/prometheus
-      - ./config/prometheus.yaml:/etc/prometheus/prometheus.yml
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
-    networks:
-      - n8n-stack
-
-  grafana:
-    image: grafana/grafana:latest
-    container_name: grafana
-    restart: unless-stopped
-    ports:
-      - ${GRAFANA_PORT:-3000}:3000
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-grafanapass}
-    volumes:
-      - grafana_storage:/var/lib/grafana
-    networks:
-      - n8n-stack
-
-  # ===================
-  # 데이터베이스 관리 도구
-  # ===================
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: pgadmin
-    restart: unless-stopped
-    ports:
-      - ${PGADMIN_PORT:-5050}:80
-    environment:
-      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL:-admin@example.com}
-      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD:-adminpass}
-    volumes:
-      - pgadmin_storage:/var/lib/pgadmin
-    networks:
-      - n8n-stack
-
-  adminer:
-    image: adminer:latest
-    container_name: adminer
-    restart: unless-stopped
-    ports:
-      - ${ADMINER_PORT:-8080}:8080
-    networks:
-      - n8n-stack
-
-  redis-insight:
-    image: redislabs/redisinsight:latest
-    container_name: redis-insight
-    restart: unless-stopped
-    ports:
-      - ${REDIS_INSIGHT_PORT:-8001}:8001
-    volumes:
-      - redis_insight_storage:/db
-    networks:
-      - n8n-stack
-#
-#  # ===================
-#  # 리버스 프록시 (선택사항)
-#  # ===================
-#  nginx-proxy-manager:
-#    image: jc21/nginx-proxy-manager:latest
-#    container_name: nginx-proxy-manager
-#    restart: unless-stopped
-#    ports:
-#      - ${NPM_HTTP_PORT:-80}:80
-#      - ${NPM_HTTPS_PORT:-443}:443
-#      - ${NPM_ADMIN_PORT:-81}:81
-#    environment:
-#      - DB_MYSQL_HOST=npm-db
-#      - DB_MYSQL_PORT=3306
-#      - DB_MYSQL_USER=${NPM_DB_USER:-npm}
-#      - DB_MYSQL_PASSWORD=${NPM_DB_PASSWORD:-npm}
-#      - DB_MYSQL_NAME=${NPM_DB_NAME:-npm}
-#    volumes:
-#      - npm_data:/data
-#      - npm_ssl:/etc/letsencrypt
-#    depends_on:
-#      - npm-db
-#    networks:
-#      - n8n-stack
-#
-  npm-db:
-    image: mariadb:latest
-    container_name: npm-db
-    restart: unless-stopped
-    environment:
-      - MYSQL_ROOT_PASSWORD=${NPM_DB_ROOT_PASSWORD:-npm}
-      - MYSQL_DATABASE=${NPM_DB_NAME:-npm}
-      - MYSQL_USER=${NPM_DB_USER:-npm}
-      - MYSQL_PASSWORD=${NPM_DB_PASSWORD:-npm}
-    volumes:
-      - npm_db_storage:/var/lib/mysql
-    networks:
-      - n8n-stack
-
-# firecrawl
-  firecrawl:  
-    image: trieve/firecrawl:latest
-    
-    environment:
-    - API_BEARER_TOKEN=${API_BEARER_TOKEN}  
-    - ANOTHER_VARIABLE=${ANOTHER_VARIABLE}
-    restart: always
-    container_name: firecrawl
-    networks:
-      - n8n-stack
-
 volumes:
   n8n_storage:
   redis_storage:
-  mongo_storage:
   qdrant_storage:
-  elasticsearch_storage:
-  minio_storage:
-  rabbitmq_storage:
-  prometheus_storage:
-  grafana_storage:
-  pgadmin_storage:
-  redis_insight_storage:
-  npm_data:
-  npm_ssl:
-  npm_db_storage:
   postgres_storage:
 
 networks:

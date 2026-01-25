@@ -1,0 +1,157 @@
+# ==============================================================================
+# Termix Docker Compose Configuration
+# Web-based terminal emulator/SSH client
+# ==============================================================================
+# 사용법:
+#   docker compose -f termix.yaml up -d
+#   docker compose -f termix.yaml logs -f termix
+# ==============================================================================
+
+services:
+  termix:
+    image: ghcr.io/lukegus/termix:latest
+    container_name: termix
+    hostname: termix
+    restart: unless-stopped
+
+    # ----------------------------------
+    # 포트 설정
+    # ----------------------------------
+    ports:
+      - "${TERMIX_PORT:-8080}:8080"
+
+    # ----------------------------------
+    # 볼륨 마운트
+    # ----------------------------------
+    volumes:
+      - termix-data:/app/data
+      - termix-config:/app/config
+      - termix-logs:/app/logs
+      # SSH 키 마운트 (선택사항)
+      # - ./ssh-keys:/app/ssh-keys:ro
+
+    # ----------------------------------
+    # 환경변수 설정
+    # ----------------------------------
+    environment:
+      # === 서버 설정 ===
+      PORT: "8080"
+      HOST: "0.0.0.0"
+      NODE_ENV: "${NODE_ENV:-production}"
+      TZ: "${TZ:-Asia/Seoul}"
+
+      # === 보안 설정 ===
+      # 인증 활성화 여부
+      ENABLE_AUTH: "${TERMIX_ENABLE_AUTH:-true}"
+      # 기본 관리자 계정 (초기 설정용)
+      ADMIN_USERNAME: "${TERMIX_ADMIN_USER:-admin}"
+      ADMIN_PASSWORD: "${TERMIX_ADMIN_PASS:-changeme}"
+      # 세션 설정
+      SESSION_SECRET: "${TERMIX_SESSION_SECRET:-your-secret-key-change-in-production}"
+      SESSION_TIMEOUT: "${TERMIX_SESSION_TIMEOUT:-3600}"
+      # CORS 설정
+      CORS_ORIGIN: "${TERMIX_CORS_ORIGIN:-*}"
+
+      # === SSH 설정 ===
+      # 기본 SSH 호스트 (선택사항)
+      DEFAULT_SSH_HOST: "${TERMIX_SSH_HOST:-}"
+      DEFAULT_SSH_PORT: "${TERMIX_SSH_PORT:-22}"
+      # 연결 타임아웃 (초)
+      SSH_TIMEOUT: "${TERMIX_SSH_TIMEOUT:-30}"
+      # 최대 동시 연결 수
+      MAX_CONNECTIONS: "${TERMIX_MAX_CONNECTIONS:-10}"
+
+      # === 터미널 설정 ===
+      # 기본 셸
+      DEFAULT_SHELL: "${TERMIX_SHELL:-/bin/bash}"
+      # 터미널 크기
+      TERM_ROWS: "${TERMIX_ROWS:-24}"
+      TERM_COLS: "${TERMIX_COLS:-80}"
+
+      # === 로깅 설정 ===
+      LOG_LEVEL: "${TERMIX_LOG_LEVEL:-info}"
+      LOG_FORMAT: "${TERMIX_LOG_FORMAT:-json}"
+      ENABLE_ACCESS_LOG: "${TERMIX_ACCESS_LOG:-true}"
+
+      # === 기능 플래그 ===
+      ENABLE_FILE_MANAGER: "${TERMIX_FILE_MANAGER:-true}"
+      ENABLE_CLIPBOARD: "${TERMIX_CLIPBOARD:-true}"
+      ENABLE_UPLOAD: "${TERMIX_UPLOAD:-true}"
+      ENABLE_DOWNLOAD: "${TERMIX_DOWNLOAD:-true}"
+
+    # ----------------------------------
+    # 리소스 제한
+    # ----------------------------------
+    deploy:
+      resources:
+        limits:
+          cpus: "${TERMIX_CPU_LIMIT:-1.0}"
+          memory: "${TERMIX_MEM_LIMIT:-512M}"
+        reservations:
+          cpus: "0.25"
+          memory: "128M"
+
+    # ----------------------------------
+    # 헬스체크
+    # ----------------------------------
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    # ----------------------------------
+    # 로깅 설정
+    # ----------------------------------
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+        labels: "service,environment"
+        tag: "{{.Name}}/{{.ID}}"
+
+    # ----------------------------------
+    # 보안 설정
+    # ----------------------------------
+    security_opt:
+      - no-new-privileges:true
+    # 읽기 전용 루트 파일시스템 (필요시 활성화)
+    # read_only: true
+
+    # ----------------------------------
+    # 네트워크 설정
+    # ----------------------------------
+    networks:
+      - termix-network
+
+    # ----------------------------------
+    # 라벨
+    # ----------------------------------
+    labels:
+      - "com.termix.description=Web-based Terminal Emulator"
+      - "com.termix.version=latest"
+      - "traefik.enable=false"
+
+# ==============================================================================
+# 볼륨 정의
+# ==============================================================================
+volumes:
+  termix-data:
+    driver: local
+    name: termix-data
+  termix-config:
+    driver: local
+    name: termix-config
+  termix-logs:
+    driver: local
+    name: termix-logs
+
+# ==============================================================================
+# 네트워크 정의
+# ==============================================================================
+networks:
+  termix-network:
+    driver: bridge
+    name: termix-network
