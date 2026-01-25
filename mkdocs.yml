@@ -1,5 +1,5 @@
 site_name: "Documentation Hub"
-site_description: "Infrastructure, Development, and Operations Documentation"
+site_description: "인프라, 개발, 보안, Docker, Linux 등 종합 기술 문서 허브 - nodove"
 site_author: "nodove"
 site_url: "https://docs.nodove.com"
 
@@ -61,6 +61,7 @@ plugins:
         - en
       separator: '[\s\-\.]+'
   - tags
+  - meta
 
 markdown_extensions:
   - abbr
@@ -112,6 +113,32 @@ extra:
   
   version:
     provider: mike
+  
+  # SEO 및 Open Graph 설정
+  generator: false
+  
+  # 사이트 메타 정보
+  meta:
+    - name: keywords
+      content: "Docker, Linux, Proxmox, SSH, VPN, Kubernetes, 인프라, 개발, 보안, DevOps"
+    - name: author
+      content: "nodove"
+    - property: og:type
+      content: website
+    - property: og:title
+      content: "Documentation Hub - 종합 기술 문서"
+    - property: og:description
+      content: "인프라, 개발, 보안, Docker, Linux 등 종합 기술 문서 허브"
+    - property: og:url
+      content: "https://docs.nodove.com"
+    - property: og:locale
+      content: "ko_KR"
+    - name: twitter:card
+      content: summary
+    - name: twitter:title
+      content: "Documentation Hub"
+    - name: twitter:description
+      content: "인프라, 개발, 보안 종합 기술 문서"
 
 extra_css:
   - stylesheets/extra.css
@@ -275,4 +302,4 @@ nav:
   - Extra Resources:
     - extra/index.md
 
-copyright: Copyright &copy; 2024 nodove - All rights reserved
+copyright: Copyright &copy; 2026 nodove - All rights reserved
