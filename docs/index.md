@@ -2,47 +2,35 @@
 
 인프라, 개발, 운영에 관한 종합 기술 문서 허브에 오신 것을 환영합니다.
 
-<div class="hero-section" markdown>
-<div class="hero-content">
+---
 
 ## :material-magnify: 무엇을 찾고 계신가요?
 
-<div class="search-box-hero" markdown>
-**Ctrl+K** 또는 상단 검색창을 이용해 원하는 문서를 빠르게 찾아보세요.
-</div>
-
-<div class="hero-stats" markdown>
+!!! tip "빠른 검색"
+    **Ctrl+K** 또는 상단 검색창을 이용해 원하는 문서를 빠르게 찾아보세요.
 
 :material-file-document-multiple: **100+ 문서** · :material-folder-multiple: **15 카테고리** · :fontawesome-brands-docker: **Docker 컴포즈 50+**
-
-</div>
-
-</div>
-</div>
 
 ---
 
 ## :robot: AI 어시스턴트
 
-<div class="ai-promo-section" markdown>
-
-우측 하단의 **AI 챗봇**을 사용하여 문서에 대해 질문하세요!
-
-- Docker 설정 방법이 궁금하신가요?
-- SSH 보안 구성을 알고 싶으신가요?
-- Proxmox 클러스터 구축이 필요하신가요?
-
-**AI 어시스턴트가 도와드립니다!** :material-robot-happy:
-
-</div>
+!!! success "AI 챗봇 사용하기"
+    우측 하단의 **AI 챗봇**을 사용하여 문서에 대해 질문하세요!
+    
+    - :material-docker: Docker 설정 방법이 궁금하신가요?
+    - :material-shield-lock: SSH 보안 구성을 알고 싶으신가요?
+    - :material-server: Proxmox 클러스터 구축이 필요하신가요?
+    
+    **AI 어시스턴트가 도와드립니다!** :material-robot-happy:
 
 ---
 
 ## :material-apps: 빠른 탐색
 
-<div class="grid cards category-grid" markdown>
+<div class="grid cards" markdown>
 
--   :material-server:{ .lg .middle .category-icon } **인프라**
+-   :material-server:{ .lg .middle } **인프라**
 
     ---
     
@@ -50,7 +38,7 @@
     
     [:octicons-arrow-right-24: 인프라 문서](infrastructure/index.md)
 
--   :material-shield-lock:{ .lg .middle .category-icon } **보안**
+-   :material-shield-lock:{ .lg .middle } **보안**
 
     ---
     
@@ -58,7 +46,7 @@
     
     [:octicons-arrow-right-24: 보안 문서](security/index.md)
 
--   :material-code-braces:{ .lg .middle .category-icon } **개발**
+-   :material-code-braces:{ .lg .middle } **개발**
 
     ---
     
@@ -66,7 +54,7 @@
     
     [:octicons-arrow-right-24: 개발 문서](development/index.md)
 
--   :material-database:{ .lg .middle .category-icon } **데이터베이스**
+-   :material-database:{ .lg .middle } **데이터베이스**
 
     ---
     
@@ -74,7 +62,7 @@
     
     [:octicons-arrow-right-24: 데이터베이스 문서](databases/index.md)
 
--   :fontawesome-brands-linux:{ .lg .middle .category-icon } **Linux**
+-   :fontawesome-brands-linux:{ .lg .middle } **Linux**
 
     ---
     
@@ -82,7 +70,7 @@
     
     [:octicons-arrow-right-24: Linux 문서](linux/index.md)
 
--   :material-console:{ .lg .middle .category-icon } **도구**
+-   :material-console:{ .lg .middle } **도구**
 
     ---
     
@@ -96,37 +84,41 @@
 
 ## :fontawesome-brands-docker: Docker Compose 컬렉션
 
-<div class="docker-section" markdown>
-
 실제 운영에 사용되는 Docker Compose 설정 파일들을 확인하세요.
 
 <div class="grid cards" markdown>
 
--   :material-database-outline: **데이터베이스**
+-   :material-database-outline:{ .lg .middle } **데이터베이스**
 
+    ---
+    
     MariaDB · MongoDB · Supabase
     
     [:octicons-arrow-right-24: 데이터베이스 스택](extra/docker/stacks/databases/)
 
--   :material-cog-outline: **자동화**
+-   :material-cog-outline:{ .lg .middle } **자동화**
 
+    ---
+    
     n8n · Change Detection
     
     [:octicons-arrow-right-24: 자동화 스택](extra/docker/stacks/automation/)
 
--   :material-source-branch: **개발 도구**
+-   :material-source-branch:{ .lg .middle } **개발 도구**
 
+    ---
+    
     Gitea · Sourcebot
     
     [:octicons-arrow-right-24: 개발 도구 스택](extra/docker/stacks/devtools/)
 
--   :material-lock-outline: **보안**
+-   :material-lock-outline:{ .lg .middle } **보안**
 
+    ---
+    
     Vaultwarden · Nginx Proxy
     
     [:octicons-arrow-right-24: 보안 스택](extra/docker/stacks/security/)
-
-</div>
 
 </div>
 
@@ -152,15 +144,15 @@
 !!! info "AI 어시스턴트"
     우측 하단의 챗봇 버튼을 클릭하여 문서에 대해 질문하세요.
 
-<div class="grid cards footer-links" markdown>
+<div class="grid cards" markdown>
 
--   :material-github: **GitHub**
+-   :material-github:{ .lg .middle } **GitHub**
 
     ---
     
     [:octicons-arrow-right-24: 저장소 방문](https://github.com/choisimo/document)
 
--   :material-email: **연락처**
+-   :material-email:{ .lg .middle } **연락처**
 
     ---
     
