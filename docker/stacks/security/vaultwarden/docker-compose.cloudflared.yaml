@@ -1,0 +1,118 @@
+# =============================================================================
+# Vaultwarden + Cloudflare Tunnel Docker Compose 설정
+# =============================================================================
+# Cloudflare Zero Trust를 통한 안전한 외부 접근 구성
+#
+# 사용법:
+#   1. .env.example을 .env로 복사: cp .env.example .env
+#   2. Cloudflare Zero Trust에서 터널 생성 후 토큰 복사
+#   3. .env 파일에서 CLOUDFLARE_TUNNEL_TOKEN 설정
+#   4. docker compose -f docker-compose.cloudflared.yaml up -d
+#
+# Cloudflare 터널 생성 방법:
+#   1. Cloudflare 대시보드 > Zero Trust > Access > Tunnels
+#   2. "Create a tunnel" 클릭
+#   3. 터널 이름 입력 후 "Save tunnel"
+#   4. "Docker" 탭에서 토큰 복사
+#   5. Public Hostname 설정:
+#      - Subdomain: vault (또는 원하는 이름)
+#      - Domain: 자신의 도메인
+#      - Service Type: HTTP
+#      - URL: http://vaultwarden:80
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Vaultwarden 메인 서비스
+  # ---------------------------------------------------------------------------
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      DOMAIN: ${DOMAIN}
+      SIGNUPS_ALLOWED: ${SIGNUPS_ALLOWED:-false}
+      INVITATIONS_ALLOWED: ${INVITATIONS_ALLOWED:-true}
+      SHOW_PASSWORD_HINT: "false"
+      DISABLE_ADMIN_TOKEN: "true"
+      # ADMIN_TOKEN: ${ADMIN_TOKEN}
+      ROCKET_LIMITS: "{json=10485760,data-form=52428800}"
+      LOG_LEVEL: "warn"
+      TZ: ${TZ:-Asia/Seoul}
+    volumes:
+      - ${VW_DATA_PATH:-./data}:/data/
+    expose:
+      - "80"
+    networks:
+      - vaultwarden-internal
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:80/alive" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # Cloudflare Tunnel (cloudflared)
+  # ---------------------------------------------------------------------------
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: vaultwarden-tunnel
+    restart: unless-stopped
+    depends_on:
+      vaultwarden:
+        condition: service_healthy
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - vaultwarden-internal
+    healthcheck:
+      test: [ "CMD", "cloudflared", "tunnel", "info" ]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # 자동 백업 서비스
+  # ---------------------------------------------------------------------------
+  backup:
+    image: bruceforce/vaultwarden-backup
+    container_name: vaultwarden-backup
+    restart: unless-stopped
+    depends_on:
+      vaultwarden:
+        condition: service_healthy
+    environment:
+      CRON_TIME: ${BACKUP_SCHEDULE:-0 4 * * *}
+      BACKUP_DIR: /backup
+      UID: 1000
+      GID: 1000
+      TIMESTAMP: "true"
+      DELETE_AFTER: ${BACKUP_RETENTION_DAYS:-30}
+    volumes:
+      - ${VW_DATA_PATH:-./data}:/data:ro
+      - ${VW_BACKUP_PATH:-./backups}:/backup
+    networks:
+      - vaultwarden-internal
+
+networks:
+  vaultwarden-internal:
+    driver: bridge
+    name: vaultwarden-tunnel-net
+
+# =============================================================================
+# 장점:
+# - 서버 IP가 외부에 노출되지 않음
+# - 포트 포워딩 불필요 (방화벽 인바운드 규칙 불필요)
+# - Cloudflare DDoS 보호 자동 적용
+# - Zero Trust 접근 정책 설정 가능
+# - SSL 인증서 자동 관리
+#
+# 참고:
+# - Cloudflare 무료 플랜에서 100MB 업로드 제한 있음
+# - WebSocket은 자동으로 지원됨
+# =============================================================================

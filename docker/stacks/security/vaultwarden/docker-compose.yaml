@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   vaultwarden:
     image: vaultwarden/server:latest
@@ -19,7 +17,7 @@ services:
     volumes:
       - $PWD/vaultwarden/data/:/data/
     ports:
-      - $VAULTWARDEN__PORT:80  # Changed to avoid conflicts with other services using port 80
+      - $VAULTWARDEN__PORT:80 # Changed to avoid conflicts with other services using port 80
     networks:
       - vaultwarden_network
 
@@ -43,7 +41,6 @@ services:
 networks:
   vaultwarden_network:
     driver: bridge
-
 
 #################################################################
 #    .env parameters : PWD, DOMAIN, VAULTWARDEN__PORT           #
