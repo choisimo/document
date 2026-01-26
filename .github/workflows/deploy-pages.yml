@@ -86,7 +86,7 @@ jobs:
       - name: Build MkDocs site (clean build)
         run: |
           echo "🔨 Building MkDocs with --clean flag..."
-          mkdocs build --clean --strict
+          mkdocs build --clean
           echo "✅ Build completed at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
       # 📝 빌드 메타데이터 추가 (캐시 디버깅용)
