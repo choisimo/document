@@ -160,8 +160,10 @@ nav:
       - infrastructure/proxmox/cluster.md
       - infrastructure/proxmox/email-alerts.md
       - infrastructure/proxmox/cluster-with-sbc.md
+      - infrastructure/proxmox/snapshot-backup-template.md
     - Networking:
       - infrastructure/networking/network-settings.md
+      - infrastructure/networking/nmcli-guide.md
       - infrastructure/networking/rsync.md
       - infrastructure/networking/email-config.md
     - Storage:
