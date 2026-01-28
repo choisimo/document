@@ -201,6 +201,163 @@
 ---
 
 
+
+---
+
+
+# Docker Compose를 이용한 통합 구성 (Cloudflare Tunnel + Nginx)
+
+전통적인 방식(개별 설치)보다 관리하기 쉽고 이식성이 높은 Docker Compose 기반의 구성을 권장합니다. 이 방식은 Nginx와 Cloudflared를 하나의 네트워크로 묶어 보안을 강화하고 배포를 단순화합니다.
+
+## 아키텍처 개요
+
+1.  **Cloudflared Container**: 외부(Cloudflare Edge)와 암호화된 터널을 유지합니다.
+2.  **Nginx Container**: 터널을 통해 들어온 트래픽을 받아 리버스 프록시 역할을 수행하며, 내부의 다른 서비스로 라우팅합니다.
+3.  **Docker Network**: 외부로 포트를 노출하지 않고 컨테이너끼리만 통신하므로 안전합니다.
+
+## 통합 docker-compose.yml 예시
+
+아래 설정은 `nginx`와 `cloudflared`를 하나의 스택으로 실행하며, 호스트(Host) 서비스 연결도 지원하도록 구성되었습니다.
+
+```yaml
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------------------------
+  # 1. Nginx Reverse Proxy
+  # ---------------------------------------------------------------------------
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"       # (선택사항) 내부 네트워크에서 직접 접속이 필요한 경우
+      - "443:443"     # (선택사항) 내부 네트워크에서 직접 접속이 필요한 경우
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/logs:/var/log/nginx
+    networks:
+      - tunnel-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # 리눅스에서 호스트 접근 허용
+
+  # ---------------------------------------------------------------------------
+  # 2. Cloudflare Tunnel
+  # ---------------------------------------------------------------------------
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflare-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - tunnel-net
+
+networks:
+  tunnel-net:
+    driver: bridge
+```
+
+### Cloudflare 대시보드 설정
+
+1.  **Public Hostname** 추가 시:
+    *   **Service Type**: `HTTP`
+    *   **URL**: `nginx:80` (Docker 컨테이너 이름 사용)
+
+이렇게 하면 Cloudflare 터널이 트래픽을 `nginx` 컨테이너의 80 포트로 전달합니다.
+
+---
+
+## 서비스 연결 가이드
+
+Nginx가 트래픽을 받은 후, 최종 목적지(서비스)로 라우팅하는 방법입니다.
+
+### 1. 다른 Docker 컨테이너로 연결하기
+
+같은 Docker 네트워크(`tunnel-net`)에 있는 경우 **컨테이너 이름**으로 접근합니다.
+
+**docker-compose.yml (Target Service)**:
+```yaml
+services:
+  my-web-app:
+    image: my-app:latest
+    container_name: web-app
+    networks:
+      - tunnel-net  # 프록시와 같은 네트워크 사용
+```
+
+**Nginx 설정 (`nginx/conf.d/app.conf`)**:
+```nginx
+server {
+    listen 80;
+    server_name app.example.com;
+
+    location / {
+        # 'web-app'은 대상 컨테이너의 이름입니다.
+        proxy_pass http://web-app:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+```
+
+### 2. 호스트(Systemd 등) 실행 서비스로 연결하기
+
+Docker 컨테이너 내부에서 **호스트 머신 자체**(`localhost`)에서 실행 중인 서비스(DB, Systemd로 띄운 앱 등)에 접근하려면 `host.docker.internal`을 사용합니다.
+
+> **주의**: 리눅스 환경에서는 `docker-compose.yml`에 `extra_hosts` 설정이 필수입니다.
+
+**Nginx 설정 (`nginx/conf.d/host-service.conf`)**:
+```nginx
+server {
+    listen 80;
+    server_name host.example.com;
+
+    location / {
+        # 'host.docker.internal'은 호스트 머신을 가리킵니다.
+        # 예: 호스트의 8080 포트에서 실행 중인 서비스
+        proxy_pass http://host.docker.internal:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+### 3. 다른 Docker Compose 스택의 서비스로 연결하기
+
+다른 `docker-compose.yml` 파일로 실행된 컨테이너와 연결하려면 **외부 네트워크(External Network)**를 사용해야 합니다.
+
+1.  **네트워크 생성**:
+    ```bash
+    docker network create proxy-net
+    ```
+
+2.  **Cloudflare/Nginx 스택 설정**:
+    ```yaml
+    networks:
+      tunnel-net:
+        external: true
+        name: proxy-net
+    ```
+
+3.  **애플리케이션 스택 설정**:
+    ```yaml
+    services:
+      my-app:
+        image: bitnami/wordpress
+        networks:
+          - proxy-net
+
+    networks:
+      proxy-net:
+        external: true
+    ```
+
+---
+
+
 # Cloudflare Zero Trust 접근 관리 구조에서 5xx 오류 해결 방안
 
 ## 오류 발생 원인 종합 분석

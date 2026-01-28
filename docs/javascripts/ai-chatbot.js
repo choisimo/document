@@ -34,8 +34,11 @@ class AIChatbot {
   createUI() {
     // FAB 버튼 - 로봇 아이콘
     const fab = document.createElement('button');
+    fab.type = 'button';
     fab.className = 'ai-chatbot-fab';
     fab.setAttribute('aria-label', 'AI 챗봇 열기');
+    fab.setAttribute('aria-controls', 'ai-chatbot');
+    fab.setAttribute('aria-expanded', 'false');
     fab.innerHTML = `
       <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
         <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2M7.5 13A2.5 2.5 0 0 0 5 15.5 2.5 2.5 0 0 0 7.5 18a2.5 2.5 0 0 0 2.5-2.5A2.5 2.5 0 0 0 7.5 13m9 0a2.5 2.5 0 0 0-2.5 2.5 2.5 2.5 0 0 0 2.5 2.5 2.5 2.5 0 0 0 2.5-2.5 2.5 2.5 0 0 0-2.5-2.5z"/>
@@ -46,6 +49,11 @@ class AIChatbot {
     // 챗봇 컨테이너
     const container = document.createElement('div');
     container.className = 'ai-chatbot-container';
+    container.id = 'ai-chatbot';
+    container.setAttribute('role', 'dialog');
+    container.setAttribute('aria-modal', 'false');
+    container.setAttribute('aria-hidden', 'true');
+    container.hidden = true;
     container.innerHTML = `
       <div class="ai-chatbot-header">
         <div class="ai-chatbot-header-icon">
@@ -153,6 +161,9 @@ class AIChatbot {
    */
   open() {
     this.isOpen = true;
+    this.container.hidden = false;
+    this.container.setAttribute('aria-hidden', 'false');
+    this.fab.setAttribute('aria-expanded', 'true');
     this.container.classList.add('open');
     this.fab.classList.add('open');
     setTimeout(() => this.input.focus(), 100);
@@ -165,6 +176,9 @@ class AIChatbot {
     this.isOpen = false;
     this.container.classList.remove('open');
     this.fab.classList.remove('open');
+    this.container.setAttribute('aria-hidden', 'true');
+    this.fab.setAttribute('aria-expanded', 'false');
+    this.container.hidden = true;
   }
 
   /**
