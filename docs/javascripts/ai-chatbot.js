@@ -12,6 +12,9 @@ class AIChatbot {
     this.isOpen = false;
     this.messages = [];
     this.isTyping = false;
+    this.streamingMessageElement = null;
+    this.streamingBubbleElement = null;
+    this.streamingContentLength = 0;
     this.container = null;
     this.messagesContainer = null;
     this.input = null;
@@ -189,10 +192,11 @@ class AIChatbot {
     if (!content || this.isTyping) return;
 
     // 사용자 메시지 추가
-    this.messages.push({ role: 'user', content });
+    const userMessage = { role: 'user', content };
+    this.messages.push(userMessage);
     this.input.value = '';
     this.sendBtn.disabled = true;
-    this.renderMessages();
+    this.appendMessage(userMessage, { animate: true });
     this.saveHistory();
 
     // 타이핑 표시
@@ -202,41 +206,159 @@ class AIChatbot {
     // AI 응답 생성
     let assistantMessage = { role: 'assistant', content: '' };
     this.messages.push(assistantMessage);
+    this.clearStreamingMessage();
 
     if (window.aiClient) {
       await window.aiClient.sendMessage(
         this.messages.slice(0, -1), // 마지막 빈 어시스턴트 메시지 제외
         (chunk, fullContent) => {
           assistantMessage.content = fullContent;
-          this.hideTyping();
-          this.renderMessages();
+          this.startStreamingMessage(assistantMessage);
+          this.updateStreamingBubble(fullContent);
         },
         (fullContent) => {
+          assistantMessage.content = fullContent;
+          this.startStreamingMessage(assistantMessage);
+          this.updateStreamingBubble(fullContent);
           this.isTyping = false;
           this.hideTyping();
           this.saveHistory();
           this.sendBtn.disabled = !this.input.value.trim();
+          this.clearStreamingMessage();
         },
         (error) => {
           this.isTyping = false;
           this.hideTyping();
           assistantMessage.content = `⚠️ 오류가 발생했습니다: ${error}`;
-          this.renderMessages();
+          this.startStreamingMessage(assistantMessage);
+          this.updateStreamingBubble(assistantMessage.content);
           this.sendBtn.disabled = !this.input.value.trim();
+          this.clearStreamingMessage();
         }
       );
     } else {
       this.isTyping = false;
       this.hideTyping();
       assistantMessage.content = '⚠️ AI 클라이언트가 초기화되지 않았습니다. 페이지를 새로고침해 주세요.';
-      this.renderMessages();
+      this.appendMessage(assistantMessage, { animate: true });
     }
+  }
+
+  /**
+   * 메시지 요소 생성
+   */
+  createMessageElement(message, { animate = false } = {}) {
+    const messageElement = document.createElement('div');
+    messageElement.className = `ai-chatbot-message ${message.role}${animate ? ' is-new' : ''}`;
+    messageElement.innerHTML = `
+      <div class="ai-chatbot-avatar">
+        ${message.role === 'user'
+        ? '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>'
+        : '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2M7.5 13A2.5 2.5 0 0 0 5 15.5 2.5 2.5 0 0 0 7.5 18a2.5 2.5 0 0 0 2.5-2.5A2.5 2.5 0 0 0 7.5 13m9 0a2.5 2.5 0 0 0-2.5 2.5 2.5 2.5 0 0 0 2.5 2.5 2.5 2.5 0 0 0 2.5-2.5 2.5 2.5 0 0 0-2.5-2.5z"/></svg>'
+      }
+      </div>
+      <div class="ai-chatbot-bubble">${this.renderMarkdown(message.content)}</div>
+    `;
+
+    if (animate) {
+      messageElement.addEventListener('animationend', () => {
+        messageElement.classList.remove('is-new');
+      }, { once: true });
+    }
+
+    return messageElement;
+  }
+
+  /**
+   * 메시지 추가
+   */
+  appendMessage(message, { animate = false } = {}) {
+    if (this.messagesContainer.querySelector('.ai-chatbot-welcome')) {
+      this.messagesContainer.innerHTML = '';
+    }
+    const messageElement = this.createMessageElement(message, { animate });
+    this.messagesContainer.appendChild(messageElement);
+  }
+
+  /**
+   * 스트리밍 메시지 시작
+   */
+  startStreamingMessage(message) {
+    if (this.streamingMessageElement) return;
+    this.hideTyping();
+    const messageElement = this.createMessageElement(message, { animate: true });
+    this.messagesContainer.appendChild(messageElement);
+    this.streamingMessageElement = messageElement;
+    this.streamingBubbleElement = messageElement.querySelector('.ai-chatbot-bubble');
+    this.streamingContentLength = 0;
+    if (this.streamingBubbleElement) {
+      this.streamingBubbleElement.classList.add('is-streaming');
+      this.streamingBubbleElement.style.height = `${this.streamingBubbleElement.getBoundingClientRect().height}px`;
+    }
+  }
+
+  /**
+   * 스트리밍 말풍선 업데이트
+   */
+  updateStreamingBubble(content) {
+    if (!this.streamingBubbleElement) return;
+    const bubble = this.streamingBubbleElement;
+    const previousHeight = bubble.getBoundingClientRect().height;
+    const nextLength = content.length;
+    const deltaLength = Math.max(nextLength - this.streamingContentLength, 1);
+    const duration = Math.min(0.36, Math.max(0.12, deltaLength * 0.015));
+    bubble.style.setProperty('--streaming-duration', `${duration.toFixed(3)}s`);
+    bubble.style.height = `${previousHeight}px`;
+    bubble.classList.add('is-streaming');
+    bubble.innerHTML = this.renderMarkdown(content);
+    const nextHeight = bubble.scrollHeight;
+    requestAnimationFrame(() => {
+      bubble.style.height = `${nextHeight}px`;
+    });
+    this.streamingContentLength = nextLength;
+    this.applyStreamingFade(bubble);
+  }
+
+  /**
+   * 스트리밍 메시지 상태 초기화
+   */
+  clearStreamingMessage() {
+    this.finishStreamingBubble();
+    this.streamingMessageElement = null;
+    this.streamingBubbleElement = null;
+    this.streamingContentLength = 0;
+  }
+
+  /**
+   * 스트리밍 말풍선 스타일 정리
+   */
+  finishStreamingBubble() {
+    if (!this.streamingBubbleElement) return;
+    this.streamingBubbleElement.classList.remove('is-streaming');
+    this.streamingBubbleElement.style.height = '';
+    this.streamingBubbleElement.style.removeProperty('--streaming-duration');
+    this.streamingContentLength = 0;
+  }
+
+  /**
+   * 스트리밍 마지막 줄 페이드 인
+   */
+  applyStreamingFade(bubble) {
+    if (!bubble) return;
+    bubble.querySelectorAll('.ai-chatbot-streaming-line').forEach((element) => {
+      element.classList.remove('ai-chatbot-streaming-line');
+    });
+    const lastElement = bubble.lastElementChild || bubble;
+    lastElement.classList.remove('ai-chatbot-streaming-line');
+    void lastElement.offsetWidth;
+    lastElement.classList.add('ai-chatbot-streaming-line');
   }
 
   /**
    * 메시지 렌더링
    */
   renderMessages() {
+    this.clearStreamingMessage();
     if (this.messages.length === 0) {
       this.messagesContainer.innerHTML = `
         <div class="ai-chatbot-welcome">
@@ -266,21 +388,10 @@ class AIChatbot {
       return;
     }
 
-    this.messagesContainer.innerHTML = this.messages.map(msg => `
-      <div class="ai-chatbot-message ${msg.role}">
-        <div class="ai-chatbot-avatar">
-          ${msg.role === 'user'
-        ? '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>'
-        : '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2M7.5 13A2.5 2.5 0 0 0 5 15.5 2.5 2.5 0 0 0 7.5 18a2.5 2.5 0 0 0 2.5-2.5A2.5 2.5 0 0 0 7.5 13m9 0a2.5 2.5 0 0 0-2.5 2.5 2.5 2.5 0 0 0 2.5 2.5 2.5 2.5 0 0 0 2.5-2.5 2.5 2.5 0 0 0-2.5-2.5z"/></svg>'
-      }
-        </div>
-        <div class="ai-chatbot-bubble">${this.renderMarkdown(msg.content)}</div>
-      </div>
-    `).join('');
-
-    // 스크롤 하단으로
-    requestAnimationFrame(() => {
-      this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+    this.messagesContainer.innerHTML = '';
+    this.messages.forEach((msg) => {
+      const messageElement = this.createMessageElement(msg);
+      this.messagesContainer.appendChild(messageElement);
     });
   }
 
@@ -351,6 +462,7 @@ class AIChatbot {
    * 타이핑 인디케이터 표시
    */
   showTyping() {
+    if (this.messagesContainer.querySelector('.ai-chatbot-typing-indicator')) return;
     const typing = document.createElement('div');
     typing.className = 'ai-chatbot-message assistant ai-chatbot-typing-indicator';
     typing.innerHTML = `
@@ -366,7 +478,6 @@ class AIChatbot {
       </div>
     `;
     this.messagesContainer.appendChild(typing);
-    this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
   }
 
   /**
