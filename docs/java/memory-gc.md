@@ -84,16 +84,16 @@ public class LambdaVsPrivate {
 
 ```mermaid
 graph LR
-A[Young Generation] --&gt; B[Eden]
-A --&gt; C[Survivor S0]
-A --&gt; D[Survivor S1]
+A[Young Generation] --> B[Eden]
+A --> C[Survivor S0]
+A --> D[Survivor S1]
 E[Old Generation]
 F[Permanent/Metaspace]
 
-B -- Minor GC --&gt; C
-C -- 객체 Age 증가 --&gt; D
-D -- 임계치 초과 --&gt; E
-E -- Major GC --&gt; F
+B -- Minor GC --> C
+C -- 객체 Age 증가 --> D
+D -- 임계치 초과 --> E
+E -- Major GC --> F
 ```
 
 - **Minor GC**: Young 영역 (Eden → Survivor)[^9]
