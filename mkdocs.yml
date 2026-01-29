@@ -303,5 +303,17 @@ nav:
   
   - Extra Resources:
     - extra/index.md
+    - Docker Compose:
+      - extra/docker/index.md
+      - Stacks Overview: extra/docker/stacks/index.md
+      - Databases: extra/docker/stacks/databases/index.md
+      - Automation: extra/docker/stacks/automation/index.md
+      - Devtools: extra/docker/stacks/devtools/index.md
+      - Security: extra/docker/stacks/security/index.md
+      - Media: extra/docker/stacks/media/index.md
+      - Storage: extra/docker/stacks/storage/index.md
+      - Misc: extra/docker/stacks/misc/index.md
+      - Monitoring: extra/docker/stacks/monitoring/index.md
+      - Proxy: extra/docker/stacks/proxy/index.md
 
 copyright: Copyright &copy; 2026 nodove - All rights reserved

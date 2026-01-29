@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   # ============================================
   # Gluetun VPN Gateway (NordVPN)
@@ -11,11 +13,10 @@ services:
     devices:
       - /dev/net/tun:/dev/net/tun
     ports:
-      - "8080:8080" # qBittorrent WebUI
+      - "8080:8080" # qBittorrent WebUI (Direct access backup)
       - "6881:6881" # qBittorrent TCP
       - "6881:6881/udp" # qBittorrent UDP
-      - "9696:9696" # Prowlarr (VPN 네트워크 사용)
-      # Sonarr(8989), Radarr(7878) 포트는 아래 각 서비스에서 직접 엽니다.
+      - "9696:9696" # Prowlarr (VPN Network)
     volumes:
       - ./data/gluetun:/gluetun
     environment:
@@ -25,8 +26,10 @@ services:
       - WIREGUARD_PUBLIC_KEY=${WIREGUARD_PUBLIC_KEY}
       - WIREGUARD_ENDPOINT_IP=${WIREGUARD_ENDPOINT_IP}
       - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES}
+      - OPENVPN_USER=${OPENVPN_USER}
+      - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}
       - VPN_PORT_FORWARDING=${GLUETUN_PORT_FORWARDING}
-      - FIREWALL_OUTBOUND_SUBNETS=192.168.0.0/16,10.0.0.0/8,172.16.0.0/12
+      - FIREWALL_OUTBOUND_SUBNETS=192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,172.18.0.0/16 # Allow docker subnet access
       - DOT_PROVIDERS=cloudflare,google
       - TZ=Asia/Seoul
     networks:
@@ -73,7 +76,7 @@ services:
     image: lscr.io/linuxserver/sonarr:latest
     container_name: sonarr
     ports:
-      - "8989:8989" # 웹 접속을 위해 필수 (주석 해제됨)
+      - "8989:8989" # Direct Access Backup
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
@@ -92,7 +95,7 @@ services:
     image: lscr.io/linuxserver/radarr:latest
     container_name: radarr
     ports:
-      - "7878:7878" # 웹 접속을 위해 필수
+      - "7878:7878" # Direct Access Backup
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
@@ -105,17 +108,39 @@ services:
     restart: unless-stopped
 
   # ============================================
+  # Nginx Reverse Proxy
+  # ============================================
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    ports:
+      - "80:80"
+    networks:
+      - medianet
+    restart: unless-stopped
+    depends_on:
+      - gluetun
+      - sonarr
+      - radarr
+
+  # ============================================
   # Cloudflared (Remote Access)
   # ============================================
   cloudflared:
     image: cloudflare/cloudflared:latest
-    container_name: cloudflared-qbit
+    container_name: cloudflared-tunnel
     command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN}
-    depends_on:
-      - gluetun
     networks:
       - medianet
     restart: unless-stopped
+    depends_on:
+      - nginx
+    # In Cloudflare Zero Trust:
+    # Point qbittorrent.domain -> http://nginx:80
+    # Point sonarr.domain -> http://nginx:80
+    # Point radarr.domain -> http://nginx:80
 
 networks:
   medianet:
