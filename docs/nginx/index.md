@@ -24,6 +24,14 @@
 
     [:octicons-arrow-right-24: View Guide](proxy-manager.md)
 
+-   :material-docker:{ .lg .middle } **Docker & K8s**
+
+    ---
+
+    Guide for deploying Nginx on Docker and Kubernetes environments.
+
+    [:octicons-arrow-right-24: View Guide](docker-k8s-deployment.md)
+
 </div>
 
 ---

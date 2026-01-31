@@ -48,6 +48,22 @@
 
     [:octicons-arrow-right-24: View Guide](process.md)
 
+-   :material-server-network:{ .lg .middle } **Virtualization**
+
+    ---
+
+    Hypervisor mechanisms and Docker vs VM isolation comparison.
+
+    [:octicons-arrow-right-24: View Guide](virtualization.md)
+
+-   :material-graph:{ .lg .middle } **Distributed Deadlocks**
+
+    ---
+
+    Deadlock handling in distributed systems and Edge Chasing algorithm.
+
+    [:octicons-arrow-right-24: View Guide](distributed-deadlocks.md)
+
 </div>
 
 ---
