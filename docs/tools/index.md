@@ -17,6 +17,7 @@
     - [Tmux](terminal/tmux.md) - 터미널 멀티플렉서
     - [Vim](terminal/vim.md) - 텍스트 에디터
     - [Linux 명령어](terminal/linux-commands.md) - 필수 레퍼런스
+    - [Pet](terminal/pet.md) - CLI 스니펫 매니저
 
 -   :material-remote-desktop:{ .lg .middle } **원격 접근**
 
