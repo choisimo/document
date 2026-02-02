@@ -495,10 +495,10 @@ graph TD
     A --> C[안전성 알고리즘]
     A --> D[자원 요청 알고리즘]
     
-    B --> B1[Available[m]]
-    B --> B2[Max[n×m]]
-    B --> B3[Allocation[n×m]]
-    B --> B4[Need[n×m]]
+    B --> B1["Available[m]"]
+    B --> B2["Max[n×m]"]
+    B --> B3["Allocation[n×m]"]
+    B --> B4["Need[n×m]"]
     
     style A fill:#e1f5fe
     style B fill:#fff3e0

@@ -1,0 +1,25 @@
+---
+- name: Install Samba
+  apt:
+    name: samba
+    state: present
+
+- name: Create share directory
+  file:
+    path: "{{ samba_share_path }}"
+    state: directory
+    owner: nobody
+    group: nogroup
+    mode: '0777'
+
+- name: Configure Samba
+  template:
+    src: smb.conf.j2
+    dest: /etc/samba/smb.conf
+  notify: restart samba
+
+- name: Start and enable Samba
+  service:
+    name: smbd
+    state: started
+    enabled: yes

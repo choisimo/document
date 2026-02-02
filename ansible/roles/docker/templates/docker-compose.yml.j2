@@ -1,0 +1,10 @@
+version: '3.8'
+services:
+  app:
+    image: nginx:latest
+    ports:
+      - "8080:80"
+    restart: always
+  redis:
+    image: redis:alpine
+    restart: always

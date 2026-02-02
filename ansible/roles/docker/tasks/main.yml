@@ -1,0 +1,55 @@
+---
+- name: Install dependencies
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+    state: present
+
+- name: Add Docker GPG key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: Add Docker repository
+  apt_repository:
+    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+    state: present
+
+- name: Install Docker
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+      - python3-docker # For community.docker modules
+    state: present
+
+- name: Start and enable Docker
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Ensure app directory exists
+  file:
+    path: "{{ docker_app_path }}"
+    state: directory
+    mode: '0755'
+
+- name: Copy docker-compose file
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ docker_app_path }}/docker-compose.yml"
+
+# Note: community.docker.docker_compose module or command module can be used
+- name: Run Docker Compose
+  command: docker compose up -d
+  args:
+    chdir: "{{ docker_app_path }}"
+  register: compose_output
+  changed_when: "'Running' not in compose_output.stdout"

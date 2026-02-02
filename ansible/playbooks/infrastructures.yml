@@ -1,0 +1,7 @@
+---
+- hosts: infrastructures
+  become: yes
+  roles:
+    - common
+    - docker
+    - fileserver

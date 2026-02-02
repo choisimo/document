@@ -1,0 +1,5 @@
+---
+db_name: myappdb
+db_user: myappuser
+db_password: securepassword
+postgresql_version: "14"

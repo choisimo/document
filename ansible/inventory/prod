@@ -1,0 +1,13 @@
+[webservers]
+web[1:3].prod.example.com
+
+[dbservers]
+db[1:2].prod.example.com
+
+[infrastructures]
+docker.prod.example.com
+fileserver.prod.example.com
+
+[all:vars]
+ansible_python_interpreter=/usr/bin/python3
+env=prod

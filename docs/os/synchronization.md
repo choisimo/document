@@ -182,16 +182,16 @@ graph TD
 ```mermaid
 graph TD
     subgraph "공유 변수"
-        A[boolean flag[2]<br/>flag[0] = flag[1] = false]
+        A["boolean flag[2]<br/>flag[0] = flag[1] = false"]
         B[int turn<br/>초기값: 0 또는 1]
     end
     
     subgraph "프로세스 i"
-        C[flag[i] = true<br/>다른 프로세스에게 준비됨을 알림]
+        C["flag[i] = true<br/>다른 프로세스에게 준비됨을 알림"]
         D[turn = j<br/>상대방에게 우선권 양보]
-        E[while flag[j] && turn == j<br/>상대방이 준비되고 차례이면 대기]
+        E["while flag[j] && turn == j<br/>상대방이 준비되고 차례이면 대기"]
         F[임계 구역 실행]
-        G[flag[i] = false<br/>임계 구역 종료를 알림]
+        G["flag[i] = false<br/>임계 구역 종료를 알림"]
     end
     
     C --> D --> E --> F --> G

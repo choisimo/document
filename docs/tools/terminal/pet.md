@@ -37,3 +37,7 @@ git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
 *   `pet list`: 등록된 스니펫 목록 확인
 *   `pet edit`: 스니펫 편집 (설정된 에디터 사용)
 *   `pet sync`: Gist 등을 통한 스니펫 동기화 (설정 필요)
+
+## 참고 자료
+
+*   [pet.toml snippets 파일 링크](https://gist.github.com/choisimo/d79c088223050ba40c115b875b241612)
