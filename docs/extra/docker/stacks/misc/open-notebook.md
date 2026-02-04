@@ -26,8 +26,31 @@ services:
     volumes:
       - ./data:/app/data  # 데이터 지속성 보장
     environment:
-      - OPENAI_API_KEY=your_openai_api_key_here  # (선택) 외부 API 사용 시
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434 # (선택) 로컬 Ollama 사용 시
+      # --- 필수/권장 설정 ---
+      - PORT=8090
+      
+      # --- AI Provider Settings (하나 이상 설정 권장) ---
+      
+      # 1. OpenAI
+      - OPENAI_API_KEY=sk-proj-...  # OpenAI API Key
+      
+      # 2. Anthropic (Claude)
+      - ANTHROPIC_API_KEY=sk-ant-...
+      
+      # 3. Google Gemini
+      - GOOGLE_API_KEY=AIzaSy...
+
+      # 4. Ollama (Local LLM)
+      # 호스트 머신의 Ollama에 접속하려면 host.docker.internal 사용 (Linux는 추가 설정 필요할 수 있음)
+      - OLLAMA_API_BASE_URL=http://host.docker.internal:11434
+      
+      # 5. OpenAI Compatible (LocalAI, vLLM, DeepSeek 등)
+      # OpenAI 호환 API를 제공하는 다른 서비스 연결 시 사용
+      - OPENAI_COMPATIBLE_API_KEY=your-api-key # 인증이 필요 없다면 'sk-dummy' 등 임의 값
+      - OPENAI_COMPATIBLE_BASE_URL=http://your-local-ai-host:8080/v1
+      # 모델명 지정이 필요한 경우 (서비스에 따라 다름, UI에서 설정하기도 함)
+      - OPENAI_COMPATIBLE_MODEL_NAME=llama-3-70b
+
     # networks:        # 필요한 경우 네트워크 설정 추가
     #   - my-network
 ```
