@@ -744,9 +744,9 @@
 
         async processMermaidDiagrams(container) {
             // Find all mermaid elements including various formats
-            const mermaidElements = container.querySelectorAll(
+            const mermaidElements = Array.from(container.querySelectorAll(
                 '.mermaid, pre code.language-mermaid, pre.language-mermaid code, .highlight-mermaid pre code'
-            );
+            ));
 
             if (mermaidElements.length === 0) return;
 
@@ -756,28 +756,38 @@
                 return;
             }
 
-            // Process each mermaid element
-            mermaidElements.forEach((el, index) => {
-                const code = el.textContent.trim();
-                if (!code) return;
+            const validTargets = [];
+            const timestamp = Date.now();
 
-                // Create a unique container for the diagram
+            // Process each mermaid element
+            for (const [index, el] of mermaidElements.entries()) {
+                const code = (el.textContent || '').trim();
+                if (!code) continue;
+
                 const wrapper = document.createElement('div');
                 wrapper.className = 'split-view-mermaid-container';
 
-                const mermaidDiv = document.createElement('div');
-                mermaidDiv.className = 'mermaid';
-                mermaidDiv.id = `split-view-mermaid-${Date.now()}-${index}`;
-                mermaidDiv.textContent = code;
-
-                wrapper.appendChild(mermaidDiv);
-
-                // Replace the original element
                 const parent = el.closest('pre') || el.parentElement;
+                const isValid = await this.validateMermaidCode(code);
+
+                if (!isValid) {
+                    this.showMermaidError(wrapper, code);
+                } else {
+                    const mermaidDiv = document.createElement('div');
+                    mermaidDiv.className = 'mermaid';
+                    mermaidDiv.id = `split-view-mermaid-${timestamp}-${index}`;
+                    mermaidDiv.dataset.mermaidSource = code;
+                    mermaidDiv.textContent = code;
+                    wrapper.appendChild(mermaidDiv);
+                    validTargets.push(mermaidDiv);
+                }
+
                 if (parent) {
                     parent.replaceWith(wrapper);
                 }
-            });
+            }
+
+            if (validTargets.length === 0) return;
 
             // Re-render mermaid diagrams using the new API
             try {
@@ -788,18 +798,58 @@
                         suppressErrors: true
                     });
                 } else if (typeof window.mermaid.init === 'function') {
-                    window.mermaid.init(undefined, container.querySelectorAll('.split-view-mermaid-container .mermaid'));
+                    window.mermaid.init(undefined, validTargets);
                 } else if (typeof window.mermaid.contentLoaded === 'function') {
                     window.mermaid.contentLoaded();
                 }
             } catch (e) {
                 console.warn('Split View: Mermaid rendering error:', e);
-                // Show error state for failed diagrams
-                container.querySelectorAll('.split-view-mermaid-container .mermaid:not([data-processed])').forEach(el => {
-                    el.classList.add('split-view-mermaid-error');
-                    el.innerHTML = `<div class="mermaid-error-message">⚠️ 다이어그램 렌더링 실패</div><pre>${el.textContent}</pre>`;
-                });
             }
+
+            this.markMermaidRenderFailures(container);
+        }
+
+        async validateMermaidCode(code) {
+            if (window.mermaid && typeof window.mermaid.parse === 'function') {
+                try {
+                    await Promise.resolve(window.mermaid.parse(code));
+                    return true;
+                } catch (error) {
+                    return false;
+                }
+            }
+
+            const api = window.mermaid?.mermaidAPI;
+            if (api && typeof api.parse === 'function') {
+                try {
+                    api.parse(code);
+                    return true;
+                } catch (error) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        markMermaidRenderFailures(container) {
+            requestAnimationFrame(() => {
+                container.querySelectorAll('.split-view-mermaid-container .mermaid').forEach(el => {
+                    if (el.closest('.split-view-mermaid-error')) return;
+                    if (el.querySelector('svg')) return;
+                    const source = el.dataset.mermaidSource || el.textContent;
+                    this.showMermaidError(el, source);
+                });
+            });
+        }
+
+        showMermaidError(target, code) {
+            const wrapper = target.closest?.('.split-view-mermaid-container') || target;
+            wrapper.classList.add('split-view-mermaid-error');
+            wrapper.innerHTML = `
+          <div class="mermaid-error-message">⚠️ 다이어그램 렌더링 실패</div>
+          <pre>${this.escapeHtml(code)}</pre>
+        `;
         }
 
         processCodeBlocks(container) {
