@@ -11,7 +11,7 @@ int main() {
     std::vector<int> 
 
     for (k = 0; k < n; k++) {
-        
+
     }
     
 } -+

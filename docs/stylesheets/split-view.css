@@ -1,0 +1,886 @@
+/**
+ * Split View Styles for Documentation Hub
+ * Tmux-style multi-session split view
+ */
+
+/* =====================================================
+   CSS Variables
+   ===================================================== */
+:root {
+    --sv-bg: #f8f9fa;
+    --sv-pane-bg: #ffffff;
+    --sv-border: #e0e0e0;
+    --sv-header-bg: #f0f0f0;
+    --sv-active-border: #667eea;
+    --sv-active-glow: rgba(102, 126, 234, 0.2);
+    --sv-text: #333333;
+    --sv-text-muted: #666666;
+    --sv-primary: #667eea;
+    --sv-primary-hover: #5a67d8;
+    --sv-toolbar-height: 48px;
+    --sv-header-height: 36px;
+    --sv-search-height: 44px;
+    --sv-status-height: 28px;
+    --sv-radius: 8px;
+    --sv-transition: 0.2s ease;
+}
+
+[data-md-color-scheme="slate"] {
+    --sv-bg: #1a1a2e;
+    --sv-pane-bg: #16213e;
+    --sv-border: #2a2a4a;
+    --sv-header-bg: #1f1f3a;
+    --sv-active-glow: rgba(102, 126, 234, 0.3);
+    --sv-text: #e0e0e0;
+    --sv-text-muted: #a0a0a0;
+}
+
+/* =====================================================
+   Toggle Button
+   ===================================================== */
+.split-view-toggle {
+    position: fixed;
+    bottom: 100px;
+    right: 24px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    z-index: 9990;
+    color: white;
+}
+
+.split-view-toggle:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 24px rgba(102, 126, 234, 0.5);
+}
+
+.split-view-toggle.active {
+    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+.split-view-toggle svg {
+    width: 22px;
+    height: 22px;
+}
+
+/* =====================================================
+   Main Container
+   ===================================================== */
+.split-view-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--sv-bg);
+    z-index: 9995;
+    display: none;
+    flex-direction: column;
+    opacity: 0;
+    transform: scale(0.98);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.split-view-container.open {
+    display: flex;
+    opacity: 1;
+    transform: scale(1);
+}
+
+body.split-view-active {
+    overflow: hidden;
+}
+
+body.split-view-active .md-header,
+body.split-view-active .md-sidebar,
+body.split-view-active .md-content,
+body.split-view-active .md-footer {
+    display: none !important;
+}
+
+/* =====================================================
+   Toolbar
+   ===================================================== */
+.split-view-toolbar {
+    height: var(--sv-toolbar-height);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.split-view-toolbar-left,
+.split-view-toolbar-center,
+.split-view-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.split-view-title {
+    color: white;
+    font-weight: 600;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.split-view-layout-select {
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 6px;
+    color: white;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.split-view-layout-select:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.split-view-layout-select option {
+    background: #333;
+    color: white;
+}
+
+.split-view-close {
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    border-radius: 6px;
+    padding: 6px;
+    cursor: pointer;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease;
+}
+
+.split-view-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* =====================================================
+   Grid Layout
+   ===================================================== */
+.split-view-grid {
+    flex: 1;
+    display: grid;
+    grid-template-rows: repeat(2, 1fr);
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+    padding: 4px;
+    overflow: hidden;
+}
+
+/* =====================================================
+   Pane
+   ===================================================== */
+.split-view-pane {
+    background: var(--sv-pane-bg);
+    border-radius: var(--sv-radius);
+    border: 2px solid var(--sv-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: border-color var(--sv-transition), box-shadow var(--sv-transition);
+}
+
+.split-view-pane.active {
+    border-color: var(--sv-active-border);
+    box-shadow: 0 0 0 3px var(--sv-active-glow);
+}
+
+/* Pane Header */
+.split-view-pane-header {
+    height: var(--sv-header-height);
+    background: var(--sv-header-bg);
+    border-bottom: 1px solid var(--sv-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    flex-shrink: 0;
+}
+
+.split-view-session-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--sv-text);
+}
+
+.split-view-pane.active .split-view-session-name {
+    color: var(--sv-primary);
+}
+
+.split-view-pane-controls {
+    display: flex;
+    gap: 4px;
+}
+
+.split-view-pane-btn {
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    padding: 4px;
+    cursor: pointer;
+    color: var(--sv-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.split-view-pane-btn:hover {
+    background: rgba(102, 126, 234, 0.1);
+    color: var(--sv-primary);
+}
+
+/* Search Bar */
+.split-view-search-bar {
+    height: var(--sv-search-height);
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--sv-border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.split-view-search-input {
+    flex: 1;
+    background: var(--sv-bg);
+    border: 1px solid var(--sv-border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    color: var(--sv-text);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.split-view-search-input:focus {
+    outline: none;
+    border-color: var(--sv-primary);
+    box-shadow: 0 0 0 2px var(--sv-active-glow);
+}
+
+.split-view-search-input::placeholder {
+    color: var(--sv-text-muted);
+}
+
+.split-view-search-icon {
+    color: var(--sv-text-muted);
+    flex-shrink: 0;
+}
+
+/* Content Area */
+.split-view-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0;
+}
+
+/* Status Bar */
+.split-view-status {
+    height: var(--sv-status-height);
+    background: var(--sv-header-bg);
+    border-top: 1px solid var(--sv-border);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    flex-shrink: 0;
+}
+
+.split-view-status-text {
+    font-size: 0.7rem;
+    color: var(--sv-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* =====================================================
+   Content States
+   ===================================================== */
+
+/* Welcome State */
+.split-view-welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 24px;
+    text-align: center;
+    color: var(--sv-text-muted);
+}
+
+.split-view-welcome-icon {
+    color: var(--sv-border);
+    margin-bottom: 16px;
+}
+
+.split-view-welcome h3 {
+    margin: 0 0 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--sv-text);
+}
+
+.split-view-welcome p {
+    margin: 0;
+    font-size: 0.85rem;
+}
+
+/* Loading State */
+.split-view-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+
+.split-view-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--sv-border);
+    border-top-color: var(--sv-primary);
+    border-radius: 50%;
+    animation: sv-spin 0.8s linear infinite;
+}
+
+@keyframes sv-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Error State */
+.split-view-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 24px;
+    text-align: center;
+    color: #dc3545;
+}
+
+.split-view-error svg {
+    color: #dc3545;
+    margin-bottom: 12px;
+}
+
+.split-view-error p {
+    margin: 0 0 8px;
+    font-weight: 500;
+}
+
+.split-view-error small {
+    color: var(--sv-text-muted);
+    font-size: 0.75rem;
+}
+
+/* No Results */
+.split-view-no-results {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 24px;
+    text-align: center;
+    color: var(--sv-text-muted);
+}
+
+.split-view-no-results svg {
+    color: var(--sv-border);
+    margin-bottom: 12px;
+}
+
+/* =====================================================
+   Search Results
+   ===================================================== */
+.split-view-results {
+    padding: 8px;
+}
+
+.split-view-result-item {
+    padding: 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    margin-bottom: 4px;
+}
+
+.split-view-result-item:hover {
+    background: rgba(102, 126, 234, 0.08);
+}
+
+.split-view-result-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--sv-primary);
+    margin-bottom: 4px;
+}
+
+.split-view-result-path {
+    font-size: 0.7rem;
+    color: var(--sv-text-muted);
+    margin-bottom: 6px;
+    word-break: break-all;
+}
+
+.split-view-result-excerpt {
+    font-size: 0.8rem;
+    color: var(--sv-text);
+    line-height: 1.4;
+}
+
+.split-view-result-item mark {
+    background: rgba(102, 126, 234, 0.25);
+    color: inherit;
+    padding: 1px 2px;
+    border-radius: 2px;
+}
+
+/* =====================================================
+   Document Content
+   ===================================================== */
+.split-view-document {
+    padding: 16px;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--sv-text);
+}
+
+.split-view-document h1,
+.split-view-document h2,
+.split-view-document h3,
+.split-view-document h4 {
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    color: var(--sv-text);
+}
+
+.split-view-document h1 {
+    font-size: 1.5rem;
+}
+
+.split-view-document h2 {
+    font-size: 1.25rem;
+}
+
+.split-view-document h3 {
+    font-size: 1.1rem;
+}
+
+.split-view-document p {
+    margin: 0.75em 0;
+}
+
+.split-view-document code {
+    background: var(--sv-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.85em;
+}
+
+.split-view-document pre {
+    background: var(--sv-bg);
+    padding: 12px;
+    border-radius: 6px;
+    overflow-x: auto;
+}
+
+.split-view-document pre code {
+    background: none;
+    padding: 0;
+}
+
+.split-view-document a {
+    color: var(--sv-primary);
+    text-decoration: none;
+}
+
+.split-view-document a:hover {
+    text-decoration: underline;
+}
+
+.split-view-document ul,
+.split-view-document ol {
+    padding-left: 1.5em;
+}
+
+.split-view-document li {
+    margin: 0.25em 0;
+}
+
+.split-view-document table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+    font-size: 0.85rem;
+}
+
+.split-view-document th,
+.split-view-document td {
+    border: 1px solid var(--sv-border);
+    padding: 8px 12px;
+    text-align: left;
+}
+
+.split-view-document th {
+    background: var(--sv-header-bg);
+    font-weight: 600;
+}
+
+.split-view-document img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+}
+
+/* =====================================================
+   Scrollbar
+   ===================================================== */
+.split-view-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.split-view-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.split-view-content::-webkit-scrollbar-thumb {
+    background: var(--sv-border);
+    border-radius: 4px;
+}
+
+.split-view-content::-webkit-scrollbar-thumb:hover {
+    background: var(--sv-text-muted);
+}
+
+/* =====================================================
+   Responsive
+   ===================================================== */
+@media screen and (max-width: 768px) {
+    .split-view-toggle {
+        bottom: 80px;
+        right: 16px;
+        width: 44px;
+        height: 44px;
+    }
+
+    .split-view-toggle svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    .split-view-grid {
+        grid-template-rows: 1fr;
+        grid-template-columns: 1fr;
+    }
+
+    .split-view-pane:not(.active) {
+        display: none;
+    }
+
+    .split-view-toolbar {
+        padding: 0 12px;
+    }
+
+    .split-view-title {
+        font-size: 0.85rem;
+    }
+}
+
+/* =====================================================
+   Print (Hide in print)
+   ===================================================== */
+@media print {
+
+    .split-view-toggle,
+    .split-view-container {
+        display: none !important;
+    }
+}
+
+/* =====================================================
+   Phase 2: Drag Resize Handles
+   ===================================================== */
+.split-view-grid-wrapper {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+}
+
+.split-view-resize-handle {
+    position: absolute;
+    z-index: 10;
+    background: transparent;
+    transition: background 0.2s ease;
+}
+
+.split-view-resize-horizontal {
+    height: 8px;
+    cursor: row-resize;
+    bottom: -4px;
+    left: 0;
+    right: 0;
+}
+
+.split-view-resize-vertical {
+    width: 8px;
+    cursor: col-resize;
+    right: -4px;
+    top: 0;
+    bottom: 0;
+}
+
+.split-view-resize-handle:hover,
+.split-view-resize-handle:active {
+    background: var(--sv-primary);
+    opacity: 0.5;
+}
+
+body.split-view-resizing {
+    user-select: none;
+    cursor: inherit !important;
+}
+
+body.split-view-resizing * {
+    user-select: none !important;
+}
+
+/* =====================================================
+   Phase 2: Current Page Load Button
+   ===================================================== */
+.split-view-toolbar-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 6px;
+    color: white;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    max-width: 200px;
+}
+
+.split-view-toolbar-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.split-view-current-page {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+}
+
+.split-view-load-current-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.split-view-load-current-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* =====================================================
+   Phase 2: History Indicator
+   ===================================================== */
+.split-view-history-indicator {
+    margin-left: auto;
+    font-size: 0.65rem;
+    color: var(--sv-text-muted);
+    background: var(--sv-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+}
+
+.split-view-pane-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.split-view-pane-btn:disabled:hover {
+    background: transparent;
+    color: var(--sv-text-muted);
+}
+
+/* =====================================================
+   Phase 2: Improved Search Results
+   ===================================================== */
+.split-view-result-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.split-view-result-category {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15));
+    color: var(--sv-primary);
+}
+
+.split-view-result-excerpt code {
+    background: var(--sv-bg);
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 0.8em;
+    font-family: 'SF Mono', Monaco, Consolas, monospace;
+}
+
+.split-view-result-excerpt strong {
+    font-weight: 600;
+    color: var(--sv-text);
+}
+
+.split-view-result-excerpt em {
+    font-style: italic;
+}
+
+/* =====================================================
+   Phase 2: Copy Button for Code Blocks
+   ===================================================== */
+.split-view-copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 4px 8px;
+    background: rgba(102, 126, 234, 0.8);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.split-view-document pre:hover .split-view-copy-btn {
+    opacity: 1;
+}
+
+.split-view-copy-btn:hover {
+    background: var(--sv-primary);
+}
+
+/* =====================================================
+   Phase 2: Mermaid Diagrams
+   ===================================================== */
+.split-view-mermaid {
+    padding: 16px;
+    background: var(--sv-bg);
+    border-radius: 8px;
+    margin: 16px 0;
+    overflow-x: auto;
+}
+
+.split-view-mermaid pre.mermaid {
+    background: transparent;
+    padding: 0;
+}
+
+.split-view-document .mermaid {
+    margin: 16px 0;
+}
+
+.split-view-document .mermaid svg {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Mermaid error state */
+.split-view-mermaid-error {
+    padding: 16px;
+    background: rgba(220, 53, 69, 0.1);
+    border: 1px solid rgba(220, 53, 69, 0.3);
+    border-radius: 8px;
+    color: #dc3545;
+    font-size: 0.85rem;
+}
+
+/* =====================================================
+   Enhanced Responsive - Phase 2 Updates
+   ===================================================== */
+@media screen and (max-width: 768px) {
+    .split-view-toolbar-btn {
+        padding: 6px 8px;
+    }
+
+    .split-view-current-page {
+        display: none;
+    }
+
+    .split-view-resize-handle {
+        display: none;
+    }
+}
+
+/* =====================================================
+   Animations - Phase 2
+   ===================================================== */
+@keyframes sv-pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.split-view-pane.active .split-view-session-name {
+    animation: sv-pulse 2s ease-in-out infinite;
+}
+
+/* Stop animation after load */
+.split-view-pane.active:focus-within .split-view-session-name {
+    animation: none;
+}

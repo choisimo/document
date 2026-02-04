@@ -142,8 +142,10 @@ extra:
 
 extra_css:
   - stylesheets/extra.css
+  - stylesheets/split-view.css
 
 extra_javascript:
+  - javascripts/split-view.js
   - javascripts/ai-config.js
   - javascripts/ai-client.js
   - javascripts/ai-chatbot.js
@@ -242,6 +244,7 @@ nav:
     - AI Tools:
       - tools/ai/gemini-shell.md
       - tools/ai/mcp.md
+    - Split View: tools/split-view.md
   
   - Linux:
     - linux/index.md
