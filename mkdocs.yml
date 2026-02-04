@@ -161,6 +161,7 @@ nav:
       - infrastructure/proxmox/email-alerts.md
       - infrastructure/proxmox/cluster-with-sbc.md
       - infrastructure/proxmox/snapshot-backup-template.md
+      - infrastructure/proxmox/opnsense_vlan_setup.md
     - Networking:
       - infrastructure/networking/network-settings.md
       - infrastructure/networking/nmcli-guide.md
@@ -200,6 +201,7 @@ nav:
       - development/docker/networking.md
       - development/docker/volumes.md
       - development/docker/vaultwarden.md
+      - development/docker/litellm_copilot_guide.md
     - Git:
       - development/git/branch-management.md
       - development/git/deployment.md
@@ -214,6 +216,7 @@ nav:
   - Databases:
     - databases/index.md
     - Installation: databases/installation.md
+    - PostgreSQL: databases/postgresql-guide.md
     - Redis:
       - databases/redis/overview.md
       - databases/redis/springboot-integration.md
@@ -229,6 +232,7 @@ nav:
       - tools/terminal/tmux.md
       - tools/terminal/vim.md
       - tools/terminal/linux-commands.md
+      - tools/terminal/pet.md
     - Remote Access:
       - tools/remote/guacamole.md
     - Automation:
@@ -261,6 +265,8 @@ nav:
     - Deadlocks: os/deadlocks.md
     - Memory Management: os/memory.md
     - Process Management: os/process.md
+    - Virtualization: os/virtualization.md
+    - Distributed Deadlocks: os/distributed-deadlocks.md
   
   - Algorithms:
     - algorithms/index.md
@@ -285,6 +291,10 @@ nav:
     - Core Concepts: java/core-concepts.md
     - Memory & GC: java/memory-gc.md
   
+  - AI Engineering:
+    - ai/bm25-vs-attention.md
+    - ai/langchain-vs-langgraph.md
+  
   - Projects:
     - projects/index.md
     - CBT System: projects/cbt-system.md
@@ -294,6 +304,7 @@ nav:
     - nginx/index.md
     - Configuration: nginx/configuration.md
     - Proxy Manager: nginx/proxy-manager.md
+    - K8s Deployment: nginx/docker-k8s-deployment.md
   
   - Prompts:
     - prompts/index.md
@@ -313,6 +324,7 @@ nav:
       - Media: extra/docker/stacks/media/index.md
       - Storage: extra/docker/stacks/storage/index.md
       - Misc: extra/docker/stacks/misc/index.md
+      - Open Notebook: extra/docker/stacks/misc/open-notebook.md
       - Monitoring: extra/docker/stacks/monitoring/index.md
       - Proxy: extra/docker/stacks/proxy/index.md
 

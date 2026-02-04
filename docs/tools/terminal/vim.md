@@ -110,6 +110,60 @@ stateDiagram-v2
 | `:%s/old/new/g` | Replace all |
 | `:%s/old/new/gc` | Replace with confirmation |
 
+## Command + Object Combinations
+Vim's power comes from combining **Operators** (Verbs) with **Motions/Text Objects** (Nouns).
+
+**Structure:** `[Number] + [Operator] + [Text Object]`
+
+### 1. Operators (Verbs)
+| Key | Action |
+|-----|--------|
+| `d` | Delete (Cut) |
+| `c` | Change (Delete & Enter Insert Mode) |
+| `y` | Yank (Copy) |
+| `v` | Visual Selection |
+
+### 2. Text Objects (Nouns)
+| Key | Context | Description |
+|-----|---------|-------------|
+| **w** | Word | From cursor to start of next word |
+| **b** | Back | From cursor to start of previous word |
+| **e** | End | From cursor to end of current word |
+| **$** | Line End | From cursor to end of line |
+| **0** | Line Start | From cursor to start of line |
+| **G** | File End | From cursor to end of file |
+| **gg** | File Start | From cursor to start of file |
+
+### 3. "Inside" and "Around" Objects
+Use these for structured text like code or paragraphs.
+*   **i** (Inner): The object itself (excluding whitespace/surroundings)
+*   **a** (Around): The object + surrounding whitespace/brackets
+
+| Key | Object | Example Action (`d` + key) |
+|-----|--------|----------------------------|
+| `iw` | Inner Word | `diw` (Delete word under cursor) |
+| `aw` | Around Word | `daw` (Delete word + space) |
+| `ip` | Inner Paragraph | `dip` (Delete current paragraph) |
+| `i"` | Inside Quotes | `di"` (Delete text inside "") |
+| `a"` | Around Quotes | `da"` (Delete "" and text inside) |
+| `i(` | Inside Parentheses | `di(` (Delete text inside ()) |
+| `a(` | Around Parentheses | `da(` (Delete () and text inside) |
+| `i{` | Inside Braces | `di{` (Delete text inside {}) |
+| `it` | Inside Tag | `dit` (Delete text inside HTML tag) |
+
+### 4. Common Examples
+| Combination | Description |
+|-------------|-------------|
+| `ciw` | Change inner word (most common for editing variable names) |
+| `ci"` | Change text inside quotes |
+| `dt"` | Delete until next quote (T for 'Till') |
+| `ct.` | Change until next dot |
+| `d$` | Delete to end of line |
+| `yyp` | Duplicate line (Yank, Yank, Paste) |
+| `yap` | Yank paragraph |
+| `ggVG` | Select entire file |
+
+
 ### File Operations
 
 | Command | Action |
