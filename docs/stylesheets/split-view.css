@@ -557,6 +557,11 @@ body.split-view-active .md-footer {
     border-radius: 4px;
 }
 
+.split-view-document svg {
+    max-width: 100%;
+    height: auto;
+}
+
 /* =====================================================
    Scrollbar
    ===================================================== */
