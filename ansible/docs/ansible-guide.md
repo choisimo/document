@@ -50,7 +50,6 @@ scoop install uv
 ```
 
 #### pip를 통한 설치 (권장하지 않음)
-
 ```bash
 pip install uv
 ```
