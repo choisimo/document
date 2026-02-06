@@ -16,6 +16,11 @@ backup_*/
 thumbs.db
 Thumbs.db
 
+# Environment variables
+.env
+.env.local
+.env.production
+
 # Temporary files
 *.tmp
 *.temp

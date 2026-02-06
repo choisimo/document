@@ -56,6 +56,9 @@ jobs:
           AI_API_BASE_URL: ${{ secrets.AI_API_BASE_URL }}
           AI_API_TOKEN: ${{ secrets.AI_API_TOKEN }}
           AI_MODEL_NAME: ${{ secrets.AI_MODEL_NAME }}
+          OPEN_NOTEBOOK_ENABLED: ${{ secrets.OPEN_NOTEBOOK_ENABLED }}
+          OPEN_NOTEBOOK_URL: ${{ secrets.OPEN_NOTEBOOK_URL }}
+          OPEN_NOTEBOOK_TOKEN: ${{ secrets.OPEN_NOTEBOOK_TOKEN }}
         run: |
           CONFIG_FILE="docs/javascripts/ai-config.js"
           if [ -f "$CONFIG_FILE" ]; then
@@ -68,6 +71,16 @@ jobs:
             fi
             if [ -n "$AI_MODEL_NAME" ]; then
               sed -i "s|%%AI_MODEL_NAME%%|${AI_MODEL_NAME}|g" "$CONFIG_FILE"
+            fi
+            # Open Notebook 설정 주입
+            if [ -n "$OPEN_NOTEBOOK_ENABLED" ]; then
+              sed -i "s|%%OPEN_NOTEBOOK_ENABLED%%|${OPEN_NOTEBOOK_ENABLED}|g" "$CONFIG_FILE"
+            fi
+            if [ -n "$OPEN_NOTEBOOK_URL" ]; then
+              sed -i "s|%%OPEN_NOTEBOOK_URL%%|${OPEN_NOTEBOOK_URL}|g" "$CONFIG_FILE"
+            fi
+            if [ -n "$OPEN_NOTEBOOK_TOKEN" ]; then
+              sed -i "s|%%OPEN_NOTEBOOK_TOKEN%%|${OPEN_NOTEBOOK_TOKEN}|g" "$CONFIG_FILE"
             fi
             echo "AI configuration injected successfully"
           else
