@@ -798,18 +798,24 @@ html {
   background: var(--md-default-bg-color, #fff);
   border-radius: 20px;
   box-shadow: 0 10px 50px rgba(0, 0, 0, 0.2);
-  display: none;
+  display: flex;
   flex-direction: column;
   overflow: hidden;
   z-index: 100002;
   border: 1px solid var(--md-default-fg-color--lightest, #e0e0e0);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(20px) scale(0.95);
+  transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s linear 0.3s;
 }
 
 .ai-chatbot-container.open {
-  display: flex;
   visibility: visible;
   opacity: 1;
-  animation: chatbotSlideIn 0.3s ease;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+  transition-delay: 0s;
 }
 
 @keyframes chatbotSlideIn {

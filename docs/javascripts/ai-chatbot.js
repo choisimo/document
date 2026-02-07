@@ -67,7 +67,6 @@ class AIChatbot {
     container.setAttribute('role', 'dialog');
     container.setAttribute('aria-modal', 'false');
     container.setAttribute('aria-hidden', 'true');
-    container.hidden = true;
     container.innerHTML = `
       <div class="ai-chatbot-header">
         <div class="ai-chatbot-header-icon">
@@ -175,7 +174,6 @@ class AIChatbot {
    */
   open() {
     this.isOpen = true;
-    this.container.hidden = false;
     this.container.setAttribute('aria-hidden', 'false');
     this.fab.setAttribute('aria-expanded', 'true');
     this.container.classList.add('open');
@@ -192,7 +190,6 @@ class AIChatbot {
     this.fab.classList.remove('open');
     this.container.setAttribute('aria-hidden', 'true');
     this.fab.setAttribute('aria-expanded', 'false');
-    this.container.hidden = true;
   }
 
   /**
