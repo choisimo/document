@@ -764,7 +764,7 @@ html {
   align-items: center;
   justify-content: center;
   transition: all 0.3s ease;
-  z-index: 9998;
+  z-index: 100001;
   padding: 0;
 }
 
@@ -801,12 +801,14 @@ html {
   display: none;
   flex-direction: column;
   overflow: hidden;
-  z-index: 9999;
+  z-index: 100002;
   border: 1px solid var(--md-default-fg-color--lightest, #e0e0e0);
 }
 
 .ai-chatbot-container.open {
   display: flex;
+  visibility: visible;
+  opacity: 1;
   animation: chatbotSlideIn 0.3s ease;
 }
 
