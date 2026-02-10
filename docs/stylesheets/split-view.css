@@ -592,7 +592,7 @@ body.split-view-active .md-footer {
 .split-view-document img[src$=".svg"],
 .split-view-document img[src*=".svg?"],
 .split-view-document img[src*=".svg#"] {
-    width: 100%;
+    width: auto;
     max-width: 100%;
     height: auto;
 }
@@ -600,8 +600,9 @@ body.split-view-active .md-footer {
 .split-view-document svg {
     max-width: 100%;
     height: auto;
-    /* Defensive: prevent oversized SVG overflow */
-    overflow: hidden;
+    width: auto;
+    /* Defensive: prevent SVG clipping in resized panes */
+    overflow: visible;
 }
 
 /* Defensive: scrollable table wrappers */
@@ -892,8 +893,10 @@ body.split-view-resizing * {
 .split-view-document .mermaid svg {
     max-width: 100%;
     height: auto;
-    /* Defensive: keep mermaid diagrams contained */
-    overflow: hidden;
+    width: 100%;
+    min-width: 0;
+    /* Defensive: keep mermaid diagrams visible on pane resize */
+    overflow: visible;
 }
 
 /* Mermaid error state */

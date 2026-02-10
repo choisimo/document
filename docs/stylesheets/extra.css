@@ -510,6 +510,9 @@ html {
 .md-typeset table:not([class]) {
   width: 100%;
   margin: 1.5rem 0;
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .md-typeset table:not([class]) th {
@@ -524,7 +527,10 @@ html {
 .md-typeset table:not([class]) a {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.25rem;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 /* ===================================== */
@@ -673,12 +679,18 @@ html {
 }
 
 .stack-links .md-button {
+  display: inline-flex;
+  align-items: center;
   padding: 0.4rem 0.85rem;
   font-size: 0.75rem;
   border-radius: 999px;
   border: 1px solid rgba(139, 126, 200, 0.3);
   background: rgba(139, 126, 200, 0.08);
   color: var(--md-primary-fg-color);
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
 }
 
 .stack-links .md-button--primary {

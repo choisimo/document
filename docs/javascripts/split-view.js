@@ -1057,6 +1057,24 @@
                 }, { once: true });
             });
 
+            container.querySelectorAll('svg').forEach(svg => {
+                const parent = svg.parentElement;
+                const parentWidth = parent?.getBoundingClientRect().width || maxWidth;
+                const widthAttr = Number(svg.getAttribute('width')) || 0;
+
+                if (parentWidth && widthAttr && widthAttr > parentWidth) {
+                    svg.removeAttribute('width');
+                }
+
+                if (!svg.getAttribute('preserveAspectRatio')) {
+                    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+                }
+
+                svg.style.maxWidth = '100%';
+                svg.style.height = 'auto';
+                svg.style.width = svg.style.width || '100%';
+            });
+
             container.querySelectorAll('[style]').forEach(el => {
                 const style = el.getAttribute('style') || '';
                 if (!style) return;

@@ -20,7 +20,45 @@ Thumbs.db
 .env
 .env.local
 .env.production
+.env.*
+!.env.example
+!**/.env.example
 
 # Temporary files
 *.tmp
 *.temp
+
+# MkDocs / docs build artifacts
+site/
+docs/_build/
+
+# Python cache / build artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage*
+htmlcov/
+build/
+dist/
+*.egg-info/
+pip-wheel-metadata/
+.venv/
+venv/
+env/
+
+# Common JavaScript / frontend build artifacts
+node_modules/
+.npm/
+.pnpm-store/
+.yarn/
+.parcel-cache/
+.next/
+.nuxt/
+.svelte-kit/
+coverage/

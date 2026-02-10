@@ -35,14 +35,14 @@ class AIChatbot {
    * UI 요소 생성
    */
   createUI() {
-    const openNotebookEnabled = !!window.AI_CONFIG?.openNotebook?.enabled;
-    const openNotebookBadge = openNotebookEnabled
+    this.openNotebookEnabled = !!window.AI_CONFIG?.openNotebook?.enabled;
+    this.openNotebookBadge = this.openNotebookEnabled
       ? '<span class="ai-chatbot-kb-badge">KB 연결됨</span>'
       : '';
-    const openNotebookNote = openNotebookEnabled
+    this.openNotebookNote = this.openNotebookEnabled
       ? '<p class="ai-chatbot-welcome-note">📚 Open Notebook 지식 베이스가 연결되어 있습니다</p>'
       : '';
-    const openNotebookSuggestion = openNotebookEnabled
+    this.openNotebookSuggestion = this.openNotebookEnabled
       ? '<button class="ai-chatbot-suggestion" data-query="지식 베이스에 어떤 내용이 있나요?">📚 지식 베이스에서 검색</button>'
       : '';
 
@@ -76,7 +76,7 @@ class AIChatbot {
         </div>
         <div class="ai-chatbot-header-text">
           <p class="ai-chatbot-header-title">AI 어시스턴트</p>
-          <p class="ai-chatbot-header-subtitle">문서에 대해 물어보세요${openNotebookBadge}</p>
+          <p class="ai-chatbot-header-subtitle">문서에 대해 물어보세요${this.openNotebookBadge}</p>
         </div>
         <div class="ai-chatbot-header-actions">
           <button class="ai-chatbot-header-btn ai-chatbot-clear-btn" title="대화 기록 삭제">
@@ -377,12 +377,12 @@ class AIChatbot {
           </div>
           <h3>안녕하세요! 👋</h3>
           <p>Documentation Hub AI 어시스턴트입니다.<br>문서에 대해 궁금한 점을 물어보세요.</p>
-          ${openNotebookNote}
+          ${this.openNotebookNote || ''}
           <div class="ai-chatbot-suggestions">
             <button class="ai-chatbot-suggestion" data-query="Docker 설치 방법을 알려주세요">🐳 Docker 설치</button>
             <button class="ai-chatbot-suggestion" data-query="SSH 보안 설정은 어떻게 하나요?">🔐 SSH 보안</button>
             <button class="ai-chatbot-suggestion" data-query="Proxmox 클러스터 구성 방법">🖥️ Proxmox</button>
-            ${openNotebookSuggestion}
+            ${this.openNotebookSuggestion || ''}
           </div>
         </div>
       `;
@@ -539,10 +539,16 @@ class AIChatbot {
 }
 
 // DOM 로드 후 초기화
-document.addEventListener('DOMContentLoaded', () => {
+const initAIChatbot = () => {
   if (window.AI_CONFIG) {
     window.aiChatbot = new AIChatbot();
   } else {
     console.warn('AI_CONFIG not found. AI Chatbot will not be initialized.');
   }
-});
+};
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initAIChatbot);
+} else {
+  initAIChatbot();
+}
