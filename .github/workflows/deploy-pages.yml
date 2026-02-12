@@ -121,23 +121,28 @@ jobs:
         run: |
           mkdir -p site/extra
           
-          cp -rL algorithm/simulator/javascript site/extra/algorithm-simulator
+          # algorithm simulator (optional - may not exist in all branches)
+          if [ -d "algorithm/simulator/javascript" ]; then
+            cp -rL algorithm/simulator/javascript site/extra/algorithm-simulator
+          else
+            echo "⚠️ algorithm/simulator/javascript not found, skipping"
+          fi
           
-          rsync -av --exclude='*.class' --exclude='*.pyc' --exclude='__pycache__' scripts/ site/extra/scripts/
+          rsync -av --exclude='*.class' --exclude='*.pyc' --exclude='__pycache__' scripts/ site/extra/scripts/ 2>/dev/null || true
           
-          rsync -av --exclude='.git' --exclude='*.class' docker/ site/extra/docker/
+          rsync -av --exclude='.git' --exclude='*.class' docker/ site/extra/docker/ 2>/dev/null || true
           
-          rsync -av configs/ site/extra/configs/
+          rsync -av configs/ site/extra/configs/ 2>/dev/null || true
           
-          rsync -av project-docs/ site/extra/project-docs/
+          rsync -av project-docs/ site/extra/project-docs/ 2>/dev/null || true
           
-          rsync -av --exclude='.git' legacy/ site/extra/legacy/
+          rsync -av --exclude='.git' legacy/ site/extra/legacy/ 2>/dev/null || true
           
-          rsync -av prompt/ site/extra/prompts-raw/
+          rsync -av prompt/ site/extra/prompts-raw/ 2>/dev/null || true
           
-          rsync -av --no-links mcp/ site/extra/mcp/
+          rsync -av --no-links mcp/ site/extra/mcp/ 2>/dev/null || true
           
-          rsync -av memo/ site/extra/memo/
+          rsync -av memo/ site/extra/memo/ 2>/dev/null || true
           
           mkdir -p site/extra/algorithm-code
           rsync -av --exclude='*.class' --exclude='*.pyc' --exclude='__pycache__' --exclude='.ruff_cache' algorithm/data-structures/ site/extra/algorithm-code/data-structures/ 2>/dev/null || true
