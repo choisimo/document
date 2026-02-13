@@ -1,0 +1,1085 @@
+{
+  "title": "Architect's Algorithm Mastery - 100 Problems",
+  "description": "Top-down algorithm learning system with cognitive-science study loops",
+  "parts": [
+    {
+      "part": 1,
+      "title": "Array & String Fundamentals",
+      "range": "001-010",
+      "problems": [
+        {
+          "id": "001",
+          "name": "두 수의 합 (Two Sum)",
+          "algorithm": "해시맵",
+          "architectView": "인덱싱 전략과 조회 최적화",
+          "pythonPath": "python/p001_two_sum.py",
+          "javaPath": "java/P001TwoSum.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "002",
+          "name": "배열 회전 (Rotate Array)",
+          "algorithm": "3회 반전",
+          "architectView": "in-place 알고리즘과 메모리 효율성",
+          "pythonPath": "python/p002_rotate_array.py",
+          "javaPath": "java/P002RotateArray.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "003",
+          "name": "중복 제거 (Remove Duplicates)",
+          "algorithm": "투 포인터",
+          "architectView": "포인터 기반 스트림 처리",
+          "pythonPath": "python/p003_remove_duplicates.py",
+          "javaPath": "java/P003RemoveDuplicates.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "004",
+          "name": "최대 부분 배열 합 (Kadane's)",
+          "algorithm": "DP/그리디",
+          "architectView": "온라인 알고리즘과 상태 전이",
+          "pythonPath": "python/p004_max_subarray.py",
+          "javaPath": "java/P004MaxSubarray.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "005",
+          "name": "문자열 뒤집기 (Reverse String)",
+          "algorithm": "양끝 포인터",
+          "architectView": "불변성 vs 가변성 트레이드오프",
+          "pythonPath": "python/p005_reverse_string.py",
+          "javaPath": "java/P005ReverseString.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "006",
+          "name": "애너그램 판별 (Valid Anagram)",
+          "algorithm": "카운팅",
+          "architectView": "데이터 정규화와 동등성 비교",
+          "pythonPath": "python/p006_valid_anagram.py",
+          "javaPath": "java/P006ValidAnagram.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "007",
+          "name": "최장 공통 접두사 (LCP)",
+          "algorithm": "수직/수평 탐색",
+          "architectView": "조기 종료(Early Exit) 전략",
+          "pythonPath": "python/p007_longest_common_prefix.py",
+          "javaPath": "java/P007LongestCommonPrefix.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "008",
+          "name": "배열 합치기 (Merge Sorted)",
+          "algorithm": "역방향 병합",
+          "architectView": "역방향 포인터와 병합 전략",
+          "pythonPath": "python/p008_merge_sorted_arrays.py",
+          "javaPath": "java/P008MergeSortedArrays.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "009",
+          "name": "문자열 압축 (Compression)",
+          "algorithm": "RLE",
+          "architectView": "데이터 직렬화 패턴",
+          "pythonPath": "python/p009_string_compression.py",
+          "javaPath": "java/P009StringCompression.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "010",
+          "name": "파스칼의 삼각형 (Pascal's)",
+          "algorithm": "점화식",
+          "architectView": "메모이제이션과 데이터 생성",
+          "pythonPath": "python/p010_pascals_triangle.py",
+          "javaPath": "java/P010PascalsTriangle.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        }
+      ]
+    },
+    {
+      "part": 2,
+      "title": "Linked List & Stack/Queue",
+      "range": "011-020",
+      "problems": [
+        {
+          "id": "011",
+          "name": "연결 리스트 역순 (Reverse LL)",
+          "algorithm": "포인터 반전",
+          "architectView": "Iterative vs Recursive 설계",
+          "pythonPath": "python/p011_reverse_linked_list.py",
+          "javaPath": "java/P011ReverseLinkedList.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "012",
+          "name": "사이클 탐지 (Cycle Detection)",
+          "algorithm": "Floyd's 알고리즘",
+          "architectView": "이중 속도 포인터와 불변식 탐지",
+          "pythonPath": "python/p012_cycle_detection.py",
+          "javaPath": "java/P012LinkedListCycle.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "013",
+          "name": "두 리스트 병합 (Merge Lists)",
+          "algorithm": "병합",
+          "architectView": "분할 정복과 합병 추상화",
+          "pythonPath": "python/p013_merge_two_sorted_lists.py",
+          "javaPath": "java/P013MergeTwoLists.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "014",
+          "name": "중간 노드 (Middle Node)",
+          "algorithm": "빠른/느린 포인터",
+          "architectView": "포인터 패턴의 일반화",
+          "pythonPath": "python/p014_middle_linked_list.py",
+          "javaPath": "java/P014MiddleOfLinkedList.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "015",
+          "name": "유효한 괄호 (Valid Parentheses)",
+          "algorithm": "스택",
+          "architectView": "상태 머신과 구문 분석",
+          "pythonPath": "python/p015_valid_parentheses.py",
+          "javaPath": "java/P015ValidParentheses.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "016",
+          "name": "최소 스택 (Min Stack)",
+          "algorithm": "보조 스택",
+          "architectView": "CQRS 패턴과 성능 보장",
+          "pythonPath": "python/p016_min_stack.py",
+          "javaPath": "java/P016MinStack.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "017",
+          "name": "큐→스택 (Stack using Queues)",
+          "algorithm": "어댑터",
+          "architectView": "Adapter Pattern과 인터페이스 변환",
+          "pythonPath": "python/p017_stack_using_queues.py",
+          "javaPath": "java/P017QueueUsingStacks.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "018",
+          "name": "일일 온도 (Daily Temperatures)",
+          "algorithm": "모노토닉 스택",
+          "architectView": "이벤트 기반 처리",
+          "pythonPath": "python/p018_daily_temperatures.py",
+          "javaPath": "java/P018DailyTemperatures.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "019",
+          "name": "슬라이딩 윈도우 최대값",
+          "algorithm": "덱(Deque)",
+          "architectView": "덱 기반 윈도우와 스트림 처리",
+          "pythonPath": "python/p019_sliding_window_maximum.py",
+          "javaPath": "java/P019SlidingWindowMax.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "020",
+          "name": "LRU 캐시 (LRU Cache)",
+          "algorithm": "해시맵+DLL",
+          "architectView": "캐시 교체 정책과 복합 자료구조",
+          "pythonPath": "python/p020_lru_cache.py",
+          "javaPath": "java/P020LRUCache.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        }
+      ]
+    },
+    {
+      "part": 3,
+      "title": "Hash Map & Two Pointer & Sliding Window",
+      "range": "021-030",
+      "problems": [
+        {
+          "id": "021",
+          "name": "세 수의 합 (3Sum)",
+          "algorithm": "정렬+투포인터",
+          "architectView": "중복 제거와 탐색 전략",
+          "pythonPath": "python/p021_three_sum.py",
+          "javaPath": "java/P021ThreeSum.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "022",
+          "name": "물 담기 (Container)",
+          "algorithm": "그리디 수축",
+          "architectView": "탐욕적 수축과 최적 부분 구조",
+          "pythonPath": "python/p022_container_with_most_water.py",
+          "javaPath": "java/P022ContainerWithMostWater.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "023",
+          "name": "최장 부분 문자열",
+          "algorithm": "슬라이딩 윈도우",
+          "architectView": "윈도우 기반 스트림 분석",
+          "pythonPath": "python/p023_longest_substring.py",
+          "javaPath": "java/P023LongestSubstringWithoutRepeating.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "024",
+          "name": "부분 배열의 합 (Subarray Sum)",
+          "algorithm": "누적합+해시맵",
+          "architectView": "Prefix Sum과 역 매핑",
+          "pythonPath": "python/p024_subarray_sum.py",
+          "javaPath": "java/P024SubarraySum.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "025",
+          "name": "그룹 애너그램",
+          "algorithm": "정규화 키",
+          "architectView": "Canonical Key Classification",
+          "pythonPath": "python/p025_group_anagrams.py",
+          "javaPath": "java/P025GroupAnagrams.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "026",
+          "name": "최장 연속 수열",
+          "algorithm": "해시셋",
+          "architectView": "시퀀스 시작점 탐지",
+          "pythonPath": "python/p026_longest_consecutive.py",
+          "javaPath": "java/P026LongestConsecutive.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "027",
+          "name": "과반수 원소 (Boyer-Moore)",
+          "algorithm": "투표 알고리즘",
+          "architectView": "스트리밍 알고리즘과 상태 압축",
+          "pythonPath": "python/p027_majority_element.py",
+          "javaPath": "java/P027MajorityElement.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "028",
+          "name": "두 배열 교집합",
+          "algorithm": "해시맵 카운팅",
+          "architectView": "멀티셋 연산과 데이터 조인",
+          "pythonPath": "python/p028_intersection_arrays.py",
+          "javaPath": "java/P028IntersectionOfArrays.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "029",
+          "name": "최소 윈도우 부분 문자열",
+          "algorithm": "슬라이딩 윈도우",
+          "architectView": "조건부 윈도우 최적화",
+          "pythonPath": "python/p029_min_window_substring.py",
+          "javaPath": "java/P029MinWindowSubstring.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "030",
+          "name": "제곱수 판별",
+          "algorithm": "이진 탐색",
+          "architectView": "수학적 이진 탐색과 탐색 공간",
+          "pythonPath": "python/p030_valid_perfect_square.py",
+          "javaPath": "java/P030ValidPerfectSquare.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        }
+      ]
+    },
+    {
+      "part": 4,
+      "title": "Sorting & Binary Search",
+      "range": "031-040",
+      "problems": [
+        {
+          "id": "031",
+          "name": "병합 정렬 (Merge Sort)",
+          "algorithm": "분할 정복",
+          "architectView": "안정 정렬과 Divide & Conquer",
+          "pythonPath": "python/p031_merge_sort.py",
+          "javaPath": "java/P031MergeSort.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "032",
+          "name": "퀵 정렬 (Quick Sort)",
+          "algorithm": "피벗 분할",
+          "architectView": "피벗 전략과 최악 케이스 방어",
+          "pythonPath": "python/p032_quick_sort.py",
+          "javaPath": "java/P032QuickSort.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "033",
+          "name": "K번째 큰 수 (Quick Select)",
+          "algorithm": "부분 정렬",
+          "architectView": "기대 시간 복잡도 분석",
+          "pythonPath": "python/p033_kth_largest.py",
+          "javaPath": "java/P033KthLargest.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "034",
+          "name": "이진 탐색 (Binary Search)",
+          "algorithm": "탐색 공간 축소",
+          "architectView": "루프 불변식과 탐색 전략",
+          "pythonPath": "python/p034_binary_search.py",
+          "javaPath": "java/P034BinarySearch.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "035",
+          "name": "회전 배열 탐색",
+          "algorithm": "변형 이진탐색",
+          "architectView": "조건부 탐색 공간 분할",
+          "pythonPath": "python/p035_search_rotated.py",
+          "javaPath": "java/P035SearchRotatedArray.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "036",
+          "name": "첫/마지막 위치",
+          "algorithm": "lower/upper bound",
+          "architectView": "경계 탐색과 범위 쿼리",
+          "pythonPath": "python/p036_find_first_last.py",
+          "javaPath": "java/P036FindFirstAndLast.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "037",
+          "name": "행렬 탐색 (2D Matrix)",
+          "algorithm": "2D 이진탐색",
+          "architectView": "다차원 매핑과 좌표 변환",
+          "pythonPath": "python/p037_search_2d_matrix.py",
+          "javaPath": "java/P037Search2DMatrix.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "038",
+          "name": "제곱근 (Sqrt)",
+          "algorithm": "이진 탐색",
+          "architectView": "연속 공간의 이산화",
+          "pythonPath": "python/p038_sqrt.py",
+          "javaPath": "java/P038Sqrt.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "039",
+          "name": "정렬 색깔 (Dutch Flag)",
+          "algorithm": "3-way partition",
+          "architectView": "다중 분류와 단일 패스",
+          "pythonPath": "python/p039_sort_colors.py",
+          "javaPath": "java/P039SortColors.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "040",
+          "name": "구간 병합 (Merge Intervals)",
+          "algorithm": "정렬+스캔",
+          "architectView": "이벤트 기반 구간 관리",
+          "pythonPath": "python/p040_merge_intervals.py",
+          "javaPath": "java/P040MergeIntervals.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        }
+      ]
+    },
+    {
+      "part": 5,
+      "title": "Recursion & Backtracking",
+      "range": "041-050",
+      "problems": [
+        {
+          "id": "041",
+          "name": "부분 집합 (Subsets)",
+          "algorithm": "포함/배제 재귀",
+          "architectView": "비트마스크와 재귀적 열거",
+          "pythonPath": "python/p041_subsets.py",
+          "javaPath": "java/P041Subsets.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "042",
+          "name": "순열 (Permutations)",
+          "algorithm": "백트래킹",
+          "architectView": "상태 공간 트리와 탐색",
+          "pythonPath": "python/p042_permutations.py",
+          "javaPath": "java/P042Permutations.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "043",
+          "name": "조합 (Combinations)",
+          "algorithm": "가지치기",
+          "architectView": "Pruning 기반 탐색 최적화",
+          "pythonPath": "python/p043_combinations.py",
+          "javaPath": "java/P043Combinations.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "044",
+          "name": "전화번호 조합",
+          "algorithm": "재귀 매핑",
+          "architectView": "카티전 프로덕트와 매핑",
+          "pythonPath": "python/p044_phone_combinations.py",
+          "javaPath": "java/P044PhoneLetterCombinations.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "045",
+          "name": "N-Queens",
+          "algorithm": "CSP+백트래킹",
+          "architectView": "제약 만족 문제의 본질",
+          "pythonPath": "python/p045_n_queens.py",
+          "javaPath": "java/P045NQueens.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "046",
+          "name": "스도쿠 풀기",
+          "algorithm": "제약 전파",
+          "architectView": "제약 전파+탐색 결합",
+          "pythonPath": "python/p046_sudoku_solver.py",
+          "javaPath": "java/P046SudokuSolver.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "047",
+          "name": "단어 탐색 (Word Search)",
+          "algorithm": "DFS+백트래킹",
+          "architectView": "패턴 매칭과 상태 관리",
+          "pythonPath": "python/p047_word_search.py",
+          "javaPath": "java/P047WordSearch.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "048",
+          "name": "거듭제곱 (Pow)",
+          "algorithm": "분할 정복",
+          "architectView": "지수적 축소와 재귀 깊이",
+          "pythonPath": "python/p048_pow.py",
+          "javaPath": "java/P048Pow.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "049",
+          "name": "괄호 생성",
+          "algorithm": "문법 생성",
+          "architectView": "Grammar Production과 카탈란 수",
+          "pythonPath": "python/p049_generate_parentheses.py",
+          "javaPath": "java/P049GenerateParentheses.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "050",
+          "name": "섬의 개수 (Islands)",
+          "algorithm": "플러드 필",
+          "architectView": "연결 컴포넌트 분석",
+          "pythonPath": "python/p050_number_of_islands.py",
+          "javaPath": "java/P050NumberOfIslands.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        }
+      ]
+    },
+    {
+      "part": 6,
+      "title": "Tree & Binary Search Tree",
+      "range": "051-060",
+      "problems": [
+        {
+          "id": "051",
+          "name": "트리 순회 (Traversal)",
+          "algorithm": "전위/중위/후위/레벨",
+          "architectView": "Visitor Pattern과 순회 전략",
+          "pythonPath": "python/p051_tree_traversal.py",
+          "javaPath": "java/P051TreeTraversal.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "052",
+          "name": "최대 깊이 (Max Depth)",
+          "algorithm": "재귀",
+          "architectView": "트리 속성의 재귀적 분해",
+          "pythonPath": "python/p052_max_depth.py",
+          "javaPath": "java/P052MaxDepth.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "053",
+          "name": "대칭 트리 (Symmetric)",
+          "algorithm": "거울 비교",
+          "architectView": "구조적 동등성 비교",
+          "pythonPath": "python/p053_symmetric_tree.py",
+          "javaPath": "java/P053SymmetricTree.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "054",
+          "name": "경로 합 (Path Sum)",
+          "algorithm": "DFS",
+          "architectView": "경로 탐색과 목표 분해",
+          "pythonPath": "python/p054_path_sum.py",
+          "javaPath": "java/P054PathSum.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "055",
+          "name": "BST 유효성",
+          "algorithm": "범위 검증",
+          "architectView": "불변식 검증과 범위 제약",
+          "pythonPath": "python/p055_validate_bst.py",
+          "javaPath": "java/P055ValidateBST.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "056",
+          "name": "BST K번째 (Kth)",
+          "algorithm": "중위 순회",
+          "architectView": "Order-Statistic과 이터레이터",
+          "pythonPath": "python/p056_kth_smallest_bst.py",
+          "javaPath": "java/P056KthSmallestBST.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "057",
+          "name": "최소 공통 조상 (LCA)",
+          "algorithm": "재귀 분기",
+          "architectView": "트리 쿼리와 분기점 탐색",
+          "pythonPath": "python/p057_lca.py",
+          "javaPath": "java/P057LCA.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "058",
+          "name": "트리 직렬화",
+          "algorithm": "직렬화/역직렬화",
+          "architectView": "데이터 교환 프로토콜 설계",
+          "pythonPath": "python/p058_serialize_tree.py",
+          "javaPath": "java/P058SerializeTree.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "059",
+          "name": "우측 뷰 (Right View)",
+          "algorithm": "레벨 순회",
+          "architectView": "View Projection 패턴",
+          "pythonPath": "python/p059_right_side_view.py",
+          "javaPath": "java/P059RightSideView.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "060",
+          "name": "트리→연결리스트 (Flatten)",
+          "algorithm": "전위 기반",
+          "architectView": "구조의 선형화와 모리스 순회",
+          "pythonPath": "python/p060_flatten_tree.py",
+          "javaPath": "java/P060FlattenTree.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        }
+      ]
+    },
+    {
+      "part": 7,
+      "title": "Heap & Graph Basics",
+      "range": "061-070",
+      "problems": [
+        {
+          "id": "061",
+          "name": "힙 구현 (Min Heap)",
+          "algorithm": "배열 기반 힙",
+          "architectView": "완전 이진 트리의 배열 표현",
+          "pythonPath": "python/p061_min_heap.py",
+          "javaPath": "java/P061MinHeap.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "062",
+          "name": "Top K 빈출 요소",
+          "algorithm": "힙+해시맵",
+          "architectView": "부분 정렬과 우선순위 필터링",
+          "pythonPath": "python/p062_top_k_frequent.py",
+          "javaPath": "java/P062TopKFrequent.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "063",
+          "name": "스트림 중앙값",
+          "algorithm": "이중 힙",
+          "architectView": "실시간 통계 시스템",
+          "pythonPath": "python/p063_stream_median.py",
+          "javaPath": "java/P063StreamMedian.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "064",
+          "name": "회의실 배정",
+          "algorithm": "이벤트 정렬",
+          "architectView": "자원 할당 최적화",
+          "pythonPath": "python/p064_meeting_rooms.py",
+          "javaPath": "java/P064MeetingRooms.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "065",
+          "name": "그래프 표현",
+          "algorithm": "인접 리스트/행렬",
+          "architectView": "공간-시간 트레이드오프",
+          "pythonPath": "python/p065_graph_representation.py",
+          "javaPath": "java/P065GraphRepresentation.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "066",
+          "name": "BFS",
+          "algorithm": "레벨 탐색",
+          "architectView": "계층적 탐색과 최단 경로",
+          "pythonPath": "python/p066_bfs.py",
+          "javaPath": "java/P066BFS.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "067",
+          "name": "DFS",
+          "algorithm": "깊이 탐색",
+          "architectView": "스택 기반 탐색과 속성 발견",
+          "pythonPath": "python/p067_dfs.py",
+          "javaPath": "java/P067DFS.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "068",
+          "name": "이진 그래프 (Bipartite)",
+          "algorithm": "2-색칠",
+          "architectView": "그래프 색칠과 분류",
+          "pythonPath": "python/p068_bipartite.py",
+          "javaPath": "java/P068Bipartite.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "069",
+          "name": "그래프 복제 (Clone)",
+          "algorithm": "DFS+해시",
+          "architectView": "깊은 복사와 순환 참조",
+          "pythonPath": "python/p069_clone_graph.py",
+          "javaPath": "java/P069CloneGraph.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "070",
+          "name": "단어 사다리 (Word Ladder)",
+          "algorithm": "BFS",
+          "architectView": "암묵적 그래프와 상태 공간",
+          "pythonPath": "python/p070_word_ladder.py",
+          "javaPath": "java/P070WordLadder.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        }
+      ]
+    },
+    {
+      "part": 8,
+      "title": "Graph Advanced",
+      "range": "071-080",
+      "problems": [
+        {
+          "id": "071",
+          "name": "다익스트라 (Dijkstra)",
+          "algorithm": "탐욕+우선순위큐",
+          "architectView": "라우팅과 최단 경로",
+          "pythonPath": "python/p071_dijkstra.py",
+          "javaPath": "java/P071Dijkstra.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "072",
+          "name": "벨만-포드 (Bellman-Ford)",
+          "algorithm": "완화 기반 수렴",
+          "architectView": "음수 사이클 탐지",
+          "pythonPath": "python/p072_bellman_ford.py",
+          "javaPath": "java/P072BellmanFord.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "073",
+          "name": "플로이드-워셜 (Floyd)",
+          "algorithm": "전이적 DP",
+          "architectView": "모든 쌍 최단 경로",
+          "pythonPath": "python/p073_floyd_warshall.py",
+          "javaPath": "java/P073FloydWarshall.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "074",
+          "name": "위상 정렬 (Topological)",
+          "algorithm": "Kahn's/DFS",
+          "architectView": "의존성 해결과 스케줄링",
+          "pythonPath": "python/p074_topological_sort.py",
+          "javaPath": "java/P074TopologicalSort.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "075",
+          "name": "크루스칼 (Kruskal)",
+          "algorithm": "탐욕+Union-Find",
+          "architectView": "간선 기반 MST",
+          "pythonPath": "python/p075_kruskal.py",
+          "javaPath": "java/P075Kruskal.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "076",
+          "name": "프림 (Prim)",
+          "algorithm": "힙 기반 확장",
+          "architectView": "정점 기반 네트워크 최적화",
+          "pythonPath": "python/p076_prim.py",
+          "javaPath": "java/P076Prim.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "077",
+          "name": "SCC (강한 연결)",
+          "algorithm": "타잔/코사라주",
+          "architectView": "시스템 순환 탐지",
+          "pythonPath": "python/p077_scc.py",
+          "javaPath": "java/P077SCC.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "078",
+          "name": "네트워크 지연",
+          "algorithm": "다익스트라 응용",
+          "architectView": "전파 시뮬레이션",
+          "pythonPath": "python/p078_network_delay.py",
+          "javaPath": "java/P078NetworkDelay.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "079",
+          "name": "경로 존재 여부",
+          "algorithm": "BFS/DFS",
+          "architectView": "도달 가능성과 서비스 가용성",
+          "pythonPath": "python/p079_path_exists.py",
+          "javaPath": "java/P079PathExists.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "080",
+          "name": "K 경유 최소 비용",
+          "algorithm": "BFS+DP",
+          "architectView": "제약 조건부 멀티홉 라우팅",
+          "pythonPath": "python/p080_cheapest_flights.py",
+          "javaPath": "java/P080CheapestFlights.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        }
+      ]
+    },
+    {
+      "part": 9,
+      "title": "Dynamic Programming",
+      "range": "081-090",
+      "problems": [
+        {
+          "id": "081",
+          "name": "피보나치 최적화",
+          "algorithm": "메모이제이션/행렬",
+          "architectView": "Top-down vs Bottom-up",
+          "pythonPath": "python/p081_fibonacci.py",
+          "javaPath": "java/P081Fibonacci.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "082",
+          "name": "계단 오르기 (Stairs)",
+          "algorithm": "1D DP",
+          "architectView": "상태 전이와 점화식",
+          "pythonPath": "python/p082_climbing_stairs.py",
+          "javaPath": "java/P082ClimbingStairs.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "083",
+          "name": "동전 교환 (Coin Change)",
+          "algorithm": "완전 배낭",
+          "architectView": "완전 탐색→DP 사고 전환",
+          "pythonPath": "python/p083_coin_change.py",
+          "javaPath": "java/P083CoinChange.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "084",
+          "name": "0/1 배낭 (Knapsack)",
+          "algorithm": "2D DP",
+          "architectView": "제약 하 최적화",
+          "pythonPath": "python/p084_knapsack.py",
+          "javaPath": "java/P084Knapsack.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "085",
+          "name": "LIS (최장 증가 부분수열)",
+          "algorithm": "DP+이진탐색",
+          "architectView": "Patience Sorting",
+          "pythonPath": "python/p085_lis.py",
+          "javaPath": "java/P085LIS.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "086",
+          "name": "LCS (최장 공통 부분수열)",
+          "algorithm": "2D DP",
+          "architectView": "diff 알고리즘의 기초",
+          "pythonPath": "python/p086_lcs.py",
+          "javaPath": "java/P086LCS.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "087",
+          "name": "편집 거리 (Edit Distance)",
+          "algorithm": "2D DP",
+          "architectView": "문자열 유사도 측정",
+          "pythonPath": "python/p087_edit_distance.py",
+          "javaPath": "java/P087EditDistance.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "088",
+          "name": "집 도둑 (House Robber)",
+          "algorithm": "선택/비선택 DP",
+          "architectView": "상태 정의의 핵심",
+          "pythonPath": "python/p088_house_robber.py",
+          "javaPath": "java/P088HouseRobber.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "089",
+          "name": "고유 경로 (Unique Paths)",
+          "algorithm": "격자 DP",
+          "architectView": "격자 DP와 조합론",
+          "pythonPath": "python/p089_unique_paths.py",
+          "javaPath": "java/P089UniquePaths.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "090",
+          "name": "단어 분리 (Word Break)",
+          "algorithm": "문자열 DP",
+          "architectView": "트라이 기반 최적화",
+          "pythonPath": "python/p090_word_break.py",
+          "javaPath": "java/P090WordBreak.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        }
+      ]
+    },
+    {
+      "part": 10,
+      "title": "Advanced Topics",
+      "range": "091-100",
+      "problems": [
+        {
+          "id": "091",
+          "name": "트라이 (Trie)",
+          "algorithm": "접두사 트리",
+          "architectView": "검색 엔진과 자동 완성",
+          "pythonPath": "python/p091_trie.py",
+          "javaPath": "java/P091Trie.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "092",
+          "name": "유니온 파인드",
+          "algorithm": "경로 압축+랭크",
+          "architectView": "동적 연결성 관리",
+          "pythonPath": "python/p092_union_find.py",
+          "javaPath": "java/P092UnionFind.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "093",
+          "name": "세그먼트 트리",
+          "algorithm": "구간 쿼리",
+          "architectView": "구간 쿼리와 지연 전파",
+          "pythonPath": "python/p093_segment_tree.py",
+          "javaPath": "java/P093SegmentTree.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "094",
+          "name": "활동 선택 (Greedy)",
+          "algorithm": "탐욕 선택",
+          "architectView": "최적성 증명과 스케줄링",
+          "pythonPath": "python/p094_activity_selection.py",
+          "javaPath": "java/P094ActivitySelection.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "095",
+          "name": "허프만 코딩",
+          "algorithm": "탐욕+힙",
+          "architectView": "데이터 압축과 인코딩",
+          "pythonPath": "python/p095_huffman.py",
+          "javaPath": "java/P095HuffmanCoding.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "096",
+          "name": "비트 조작",
+          "algorithm": "XOR/AND/OR",
+          "architectView": "공간 효율적 상태 표현",
+          "pythonPath": "python/p096_bit_manipulation.py",
+          "javaPath": "java/P096BitManipulation.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "097",
+          "name": "카운팅 비트",
+          "algorithm": "DP+비트",
+          "architectView": "DP와 비트 연산 결합",
+          "pythonPath": "python/p097_counting_bits.py",
+          "javaPath": "java/P097CountingBits.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "098",
+          "name": "구간 DP (행렬 곱셈)",
+          "algorithm": "Interval DP",
+          "architectView": "최적 분할 전략",
+          "pythonPath": "python/p098_matrix_chain.py",
+          "javaPath": "java/P098MatrixChain.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "099",
+          "name": "최대 사각형 (Maximal Square)",
+          "algorithm": "2D DP",
+          "architectView": "기하학적 DP 최적화",
+          "pythonPath": "python/p099_maximal_square.py",
+          "javaPath": "java/P099MaximalSquare.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        },
+        {
+          "id": "100",
+          "name": "LRU+TTL 캐시 시스템",
+          "algorithm": "복합 자료구조",
+          "architectView": "실무 시스템 설계 종합",
+          "pythonPath": "python/p100_lru_ttl_cache.py",
+          "javaPath": "java/P100LRUTTLCache.java",
+          "pythonAvailable": true,
+          "javaAvailable": true
+        }
+      ]
+    }
+  ],
+  "stats": {
+    "partCount": 10,
+    "problemCount": 100,
+    "pythonCount": 100,
+    "javaCount": 100,
+    "fullyMappedCount": 100,
+    "pythonMissing": [],
+    "javaMissing": []
+  }
+}
