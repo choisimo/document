@@ -1,0 +1,12 @@
+- name: Deploy application project to app nodes
+  hosts: app
+  gather_facts: true
+  pre_tasks:
+    - name: Ensure vault token is provided
+      ansible.builtin.assert:
+        that:
+          - vault_token is defined
+          - vault_token | length > 0
+        fail_msg: "vault_token is required. Pass with -e vault_token=<token>"
+  roles:
+    - project_deploy

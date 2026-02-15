@@ -1,0 +1,9 @@
+- name: Set system timezone
+  community.general.timezone:
+    name: "{{ platform_timezone }}"
+
+- name: Ensure chronyd is enabled
+  ansible.builtin.service:
+    name: chronyd
+    state: started
+    enabled: true

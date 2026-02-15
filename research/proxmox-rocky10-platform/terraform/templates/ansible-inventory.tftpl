@@ -1,0 +1,34 @@
+all:
+  children:
+    infra_core:
+      hosts:
+%{ for vm_name, vm in vm_definitions ~}
+%{ if vm.role == "infra_core" ~}
+        ${vm_name}:
+          ansible_host: ${vm.ipv4_address}
+%{ endif ~}
+%{ endfor ~}
+    infra_minio:
+      hosts:
+%{ for vm_name, vm in vm_definitions ~}
+%{ if vm.role == "infra_minio" ~}
+        ${vm_name}:
+          ansible_host: ${vm.ipv4_address}
+%{ endif ~}
+%{ endfor ~}
+    infra_headscale:
+      hosts:
+%{ for vm_name, vm in vm_definitions ~}
+%{ if vm.role == "infra_headscale" ~}
+        ${vm_name}:
+          ansible_host: ${vm.ipv4_address}
+%{ endif ~}
+%{ endfor ~}
+    app:
+      hosts:
+%{ for vm_name, vm in vm_definitions ~}
+%{ if vm.role == "app" ~}
+        ${vm_name}:
+          ansible_host: ${vm.ipv4_address}
+%{ endif ~}
+%{ endfor ~}
