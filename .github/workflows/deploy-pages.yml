@@ -1,0 +1,241 @@
+name: Deploy Documentation to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+env:
+  # 빌드 타임스탬프 - 캐시 버스팅용
+  BUILD_TIMESTAMP: ${{ github.run_id }}-${{ github.run_number }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # 클린 체크아웃 보장
+          clean: true
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install MkDocs and dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Inject AI configuration from secrets
+        env:
+          AI_API_BASE_URL: ${{ secrets.AI_API_BASE_URL }}
+          AI_API_TOKEN: ${{ secrets.AI_API_TOKEN }}
+          AI_MODEL_NAME: ${{ secrets.AI_MODEL_NAME }}
+          OPEN_NOTEBOOK_ENABLED: ${{ secrets.OPEN_NOTEBOOK_ENABLED }}
+          OPEN_NOTEBOOK_URL: ${{ secrets.OPEN_NOTEBOOK_URL }}
+          OPEN_NOTEBOOK_TOKEN: ${{ secrets.OPEN_NOTEBOOK_TOKEN }}
+        run: |
+          CONFIG_FILE="docs/javascripts/ai-config.js"
+          if [ -f "$CONFIG_FILE" ]; then
+            # Replace placeholders with actual values from secrets
+            if [ -n "$AI_API_BASE_URL" ]; then
+              sed -i "s|%%AI_API_BASE_URL%%|${AI_API_BASE_URL}|g" "$CONFIG_FILE"
+            fi
+            if [ -n "$AI_API_TOKEN" ]; then
+              sed -i "s|%%AI_API_TOKEN%%|${AI_API_TOKEN}|g" "$CONFIG_FILE"
+            fi
+            if [ -n "$AI_MODEL_NAME" ]; then
+              sed -i "s|%%AI_MODEL_NAME%%|${AI_MODEL_NAME}|g" "$CONFIG_FILE"
+            fi
+            # Open Notebook 설정 주입
+            if [ -n "$OPEN_NOTEBOOK_ENABLED" ]; then
+              sed -i "s|%%OPEN_NOTEBOOK_ENABLED%%|${OPEN_NOTEBOOK_ENABLED}|g" "$CONFIG_FILE"
+            fi
+            if [ -n "$OPEN_NOTEBOOK_URL" ]; then
+              sed -i "s|%%OPEN_NOTEBOOK_URL%%|${OPEN_NOTEBOOK_URL}|g" "$CONFIG_FILE"
+            fi
+            if [ -n "$OPEN_NOTEBOOK_TOKEN" ]; then
+              sed -i "s|%%OPEN_NOTEBOOK_TOKEN%%|${OPEN_NOTEBOOK_TOKEN}|g" "$CONFIG_FILE"
+            fi
+            echo "AI configuration injected successfully"
+          else
+            echo "Warning: AI config file not found at $CONFIG_FILE"
+          fi
+
+      # 🧹 빌드 전 site 폴더 완전 삭제 (클린 빌드 보장)
+      - name: Clean previous build artifacts
+        run: |
+          echo "🧹 Cleaning previous build artifacts..."
+          rm -rf site/
+          rm -rf .cache/
+          echo "✅ Clean completed"
+
+      # 🔨 MkDocs 클린 빌드 (--clean 플래그 사용)
+      - name: Build MkDocs site (clean build)
+        run: |
+          echo "🔨 Building MkDocs with --clean flag..."
+          mkdocs build --clean
+          echo "✅ Build completed at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+      # 📝 빌드 메타데이터 추가 (캐시 디버깅용)
+      - name: Add build metadata
+        run: |
+          BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          cat > site/build-info.json << EOF
+          {
+            "buildTime": "$BUILD_TIME",
+            "buildId": "${{ github.run_id }}",
+            "buildNumber": "${{ github.run_number }}",
+            "commit": "${{ github.sha }}",
+            "ref": "${{ github.ref }}"
+          }
+          EOF
+          echo "📝 Build metadata added: $BUILD_TIME"
+
+      - name: Copy extra static content to site (post-build)
+        run: |
+          mkdir -p site/extra
+          
+          # algorithm simulator (optional - may not exist in all branches)
+          if [ -d "algorithm/simulator/javascript" ]; then
+            cp -rL algorithm/simulator/javascript site/extra/algorithm-simulator
+          else
+            echo "⚠️ algorithm/simulator/javascript not found, skipping"
+          fi
+          
+          rsync -av --exclude='*.class' --exclude='*.pyc' --exclude='__pycache__' scripts/ site/extra/scripts/ 2>/dev/null || true
+          
+          rsync -av --exclude='.git' --exclude='*.class' docker/ site/extra/docker/ 2>/dev/null || true
+          
+          rsync -av configs/ site/extra/configs/ 2>/dev/null || true
+          
+          rsync -av project-docs/ site/extra/project-docs/ 2>/dev/null || true
+          
+          rsync -av --exclude='.git' legacy/ site/extra/legacy/ 2>/dev/null || true
+          
+          rsync -av prompt/ site/extra/prompts-raw/ 2>/dev/null || true
+          
+          rsync -av --no-links mcp/ site/extra/mcp/ 2>/dev/null || true
+          
+          rsync -av memo/ site/extra/memo/ 2>/dev/null || true
+          
+          mkdir -p site/extra/algorithm-code
+          rsync -av --exclude='*.class' --exclude='*.pyc' --exclude='__pycache__' --exclude='.ruff_cache' algorithm/data-structures/ site/extra/algorithm-code/data-structures/ 2>/dev/null || true
+          rsync -av --exclude='*.class' algorithm/code/ site/extra/algorithm-code/code/ 2>/dev/null || true
+          rsync -av algorithm/C-lang/ site/extra/algorithm-code/C-lang/ 2>/dev/null || true
+          rsync -av --exclude='*.pyc' --exclude='__pycache__' algorithm/simulator/python/ site/extra/algorithm-code/simulator-python/ 2>/dev/null || true
+          rsync -av --exclude='*.class' algorithm/simulator/java/ site/extra/algorithm-code/simulator-java/ 2>/dev/null || true
+          cp algorithm/README.md site/extra/algorithm-code/ 2>/dev/null || true
+          cp algorithm/REVIEW_REPORT.md site/extra/algorithm-code/ 2>/dev/null || true
+
+      - name: Create CNAME file
+        run: echo 'docs.nodove.com' > site/CNAME
+
+      # 🔄 GitHub Pages 캐시 헤더 설정 (Netlify/Cloudflare 스타일)
+      - name: Create cache headers configuration
+        run: |
+          cat > site/_headers << 'EOF'
+          # 캐시 제어 헤더 설정
+          # CSS/JS 파일 - 빌드마다 새로운 해시가 붙으므로 장기 캐싱 가능
+          /assets/*
+            Cache-Control: public, max-age=31536000, immutable
+
+          # 커스텀 CSS/JS - 빈번히 변경되므로 재검증 필요
+          /stylesheets/*
+            Cache-Control: public, max-age=0, must-revalidate
+
+          /javascripts/*
+            Cache-Control: public, max-age=0, must-revalidate
+
+          # HTML 파일 - 항상 최신 버전 확인
+          /*.html
+            Cache-Control: public, max-age=0, must-revalidate
+
+          /*/index.html
+            Cache-Control: public, max-age=0, must-revalidate
+
+          # 빌드 정보 - 캐시 안함
+          /build-info.json
+            Cache-Control: no-store
+          EOF
+          echo "📄 Cache headers configuration created"
+
+      # ✅ 빌드 완료 확인
+      - name: Verify build output
+        run: |
+          echo "📊 Build output statistics:"
+          echo "   - Total files: $(find site -type f | wc -l)"
+          echo "   - Total size: $(du -sh site | cut -f1)"
+          echo "   - CSS files: $(find site -name '*.css' | wc -l)"
+          echo "   - JS files: $(find site -name '*.js' | wc -l)"
+          echo "   - HTML files: $(find site -name '*.html' | wc -l)"
+          
+          # 핵심 파일 존재 확인
+          if [ -f "site/stylesheets/extra.css" ]; then
+            echo "✅ extra.css exists ($(wc -l < site/stylesheets/extra.css) lines)"
+          else
+            echo "⚠️ WARNING: extra.css not found!"
+          fi
+          
+          if [ -f "site/javascripts/ai-chatbot.js" ]; then
+            echo "✅ ai-chatbot.js exists"
+          else
+            echo "⚠️ WARNING: ai-chatbot.js not found!"
+          fi
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Deployment Summary
+        run: |
+          echo "🚀 Deployment completed successfully!"
+          echo "   - URL: ${{ steps.deployment.outputs.page_url }}"
+          echo "   - Commit: ${{ github.sha }}"
+          echo "   - Time: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo ""
+          echo "💡 If you still see old content, try:"
+          echo "   - Hard refresh: Ctrl+Shift+R (Windows/Linux) or Cmd+Shift+R (Mac)"
+          echo "   - Clear browser cache"
+          echo "   - Check /build-info.json to verify latest build"
