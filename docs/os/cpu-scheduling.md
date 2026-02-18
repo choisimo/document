@@ -892,16 +892,19 @@ CPU 스케줄링 알고리즘은 여러 기준에 따라 평가됩니다:
 ### 🎯 성능 지표의 중요도
 
 ```mermaid
-radar
-    title 시스템 유형별 성능 지표 중요도
-    options
-      scale: 0-10
+graph TD
+    A[시스템 유형별 성능 지표 중요도]
 
-    CPU활용률 : 8 : 6 : 9 : 7
-    처리량 : 9 : 5 : 8 : 6
-    반환시간 : 7 : 9 : 6 : 8
-    대기시간 : 6 : 8 : 7 : 9
-    응답시간 : 5 : 10 : 4 : 8
+    A --> B[Batch: CPU 8 / 처리량 9 / 반환 7 / 대기 6 / 응답 5]
+    A --> C[Interactive: CPU 6 / 처리량 5 / 반환 9 / 대기 8 / 응답 10]
+    A --> D[Real-time: CPU 9 / 처리량 8 / 반환 6 / 대기 7 / 응답 4]
+    A --> E[Mixed: CPU 7 / 처리량 6 / 반환 8 / 대기 9 / 응답 8]
+
+    style A fill:#1976d2,color:#fff
+    style B fill:#e3f2fd
+    style C fill:#e8f5e9
+    style D fill:#fff3e0
+    style E fill:#f3e5f5
 ```
 
 ### 5.6.2 지표 간의 관계 (Metric Relationships)
@@ -1479,13 +1482,16 @@ graph TD
 #### 📈 시간 할당량별 성능 비교
 
 ```mermaid
-xychart-beta
-    title "시간 할당량에 따른 성능 변화"
-    x-axis [1ms, 2ms, 4ms, 8ms, 16ms, 32ms]
-    y-axis "성능 지표" 0 --> 100
-    line [20, 40, 80, 90, 70, 50] "응답 시간"
-    line [90, 80, 60, 40, 30, 20] "컨텍스트 스위치"
-    line [30, 50, 70, 85, 80, 60] "전체 처리율"
+graph LR
+    A[시간 할당량] --> B1[1ms: 응답 20 / 스위치 90 / 처리율 30]
+    A --> B2[2ms: 응답 40 / 스위치 80 / 처리율 50]
+    A --> B3[4ms: 응답 80 / 스위치 60 / 처리율 70]
+    A --> B4[8ms: 응답 90 / 스위치 40 / 처리율 85]
+    A --> B5[16ms: 응답 70 / 스위치 30 / 처리율 80]
+    A --> B6[32ms: 응답 50 / 스위치 20 / 처리율 60]
+
+    style A fill:#1565c0,color:#fff
+    style B4 fill:#c8e6c9
 ```
 
 #### 🎯 라운드 로빈 최적화 기법
@@ -1893,14 +1899,15 @@ graph TD
 #### 📈 성능 비교: 다단계 vs 단일 큐
 
 ```mermaid
-xychart-beta
-    title "스케줄링 알고리즘 성능 비교"
-    x-axis [응답시간, 처리율, 공정성, 적응성]
-    y-axis "성능 점수 (1-10)" 0 --> 10
-    bar [6, 7, 5, 3] "FCFS"
-    bar [8, 6, 9, 4] "Round Robin"
-    bar [7, 8, 6, 5] "Priority"
-    bar [9, 8, 8, 9] "Multilevel Feedback"
+graph TD
+    A[스케줄링 알고리즘 성능 비교]
+    A --> B[FCFS: 응답 6 / 처리율 7 / 공정성 5 / 적응성 3]
+    A --> C[Round Robin: 응답 8 / 처리율 6 / 공정성 9 / 적응성 4]
+    A --> D[Priority: 응답 7 / 처리율 8 / 공정성 6 / 적응성 5]
+    A --> E[MLFQ: 응답 9 / 처리율 8 / 공정성 8 / 적응성 9]
+
+    style A fill:#1976d2,color:#fff
+    style E fill:#c8e6c9
 ```
 
 #### 🔍 실제 시스템 적용 사례
@@ -2165,13 +2172,14 @@ int main() {
 #### 📊 친화성 유형별 성능 비교
 
 ```mermaid
-xychart-beta
-    title "프로세서 친화성별 성능 비교"
-    x-axis [캐시적중률, 컨텍스트스위치, 메모리지연, 전체성능]
-    y-axis "성능 점수 (0-100)" 0 --> 100
-    bar [30, 60, 40, 45] "친화성 없음"
-    bar [70, 80, 70, 75] "Soft Affinity"
-    bar [90, 70, 85, 85] "Hard Affinity"
+graph TD
+    A[프로세서 친화성별 성능 비교]
+    A --> B[친화성 없음: 캐시 30 / 스위치 60 / 지연 40 / 전체 45]
+    A --> C[Soft Affinity: 캐시 70 / 스위치 80 / 지연 70 / 전체 75]
+    A --> D[Hard Affinity: 캐시 90 / 스위치 70 / 지연 85 / 전체 85]
+
+    style A fill:#1565c0,color:#fff
+    style D fill:#c8e6c9
 ```
 
 ### 5.8.3 부하 균형 (Load Balancing)
@@ -2661,11 +2669,19 @@ if __name__ == "__main__":
 #### 📈 RM 스케줄가능성 분석
 
 ```mermaid
-xychart-beta
-    title "태스크 수에 따른 RM 사용률 상한"
-    x-axis [1, 2, 3, 4, 5, 6, 7, 8, ∞]
-    y-axis "사용률 상한" 0.5 --> 1.0
-    line [1.0, 0.828, 0.779, 0.756, 0.743, 0.735, 0.729, 0.724, 0.693] "Liu & Layland 상한"
+graph LR
+    A[태스크 수 n] --> B[n=1: 1.000]
+    A --> C[n=2: 0.828]
+    A --> D[n=3: 0.779]
+    A --> E[n=4: 0.756]
+    A --> F[n=5: 0.743]
+    A --> G[n=6: 0.735]
+    A --> H[n=7: 0.729]
+    A --> I[n=8: 0.724]
+    A --> J[n→∞: 0.693]
+
+    style A fill:#1565c0,color:#fff
+    style J fill:#ffe0b2
 ```
 
 **수식:**

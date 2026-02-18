@@ -1088,18 +1088,31 @@
                 const parent = svg.parentElement;
                 const parentWidth = parent?.getBoundingClientRect().width || maxWidth;
                 const widthAttr = Number(svg.getAttribute('width')) || 0;
+                const heightAttr = Number(svg.getAttribute('height')) || 0;
+                const isInlineIcon = Boolean(svg.closest('.twemoji'));
 
                 if (parentWidth && widthAttr && widthAttr > parentWidth) {
                     svg.removeAttribute('width');
+                }
+
+                if (parentWidth && heightAttr && heightAttr > parentWidth * 1.5) {
+                    svg.removeAttribute('height');
                 }
 
                 if (!svg.getAttribute('preserveAspectRatio')) {
                     svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
                 }
 
+                if (isInlineIcon) {
+                    svg.style.maxWidth = '1em';
+                    svg.style.width = '1em';
+                    svg.style.height = '1em';
+                    return;
+                }
+
                 svg.style.maxWidth = '100%';
                 svg.style.height = 'auto';
-                svg.style.width = svg.style.width || '100%';
+                svg.style.width = svg.style.width || 'auto';
             });
 
             container.querySelectorAll('[style]').forEach(el => {

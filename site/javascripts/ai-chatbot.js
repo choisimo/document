@@ -35,14 +35,14 @@ class AIChatbot {
    * UI 요소 생성
    */
   createUI() {
-    const openNotebookEnabled = !!window.AI_CONFIG?.openNotebook?.enabled;
-    const openNotebookBadge = openNotebookEnabled
+    this.openNotebookEnabled = !!window.AI_CONFIG?.openNotebook?.enabled;
+    this.openNotebookBadge = this.openNotebookEnabled
       ? '<span class="ai-chatbot-kb-badge">KB 연결됨</span>'
       : '';
-    const openNotebookNote = openNotebookEnabled
+    this.openNotebookNote = this.openNotebookEnabled
       ? '<p class="ai-chatbot-welcome-note">📚 Open Notebook 지식 베이스가 연결되어 있습니다</p>'
       : '';
-    const openNotebookSuggestion = openNotebookEnabled
+    this.openNotebookSuggestion = this.openNotebookEnabled
       ? '<button class="ai-chatbot-suggestion" data-query="지식 베이스에 어떤 내용이 있나요?">📚 지식 베이스에서 검색</button>'
       : '';
 
@@ -54,7 +54,7 @@ class AIChatbot {
     fab.setAttribute('aria-controls', 'ai-chatbot');
     fab.setAttribute('aria-expanded', 'false');
     fab.innerHTML = `
-      <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+      <svg viewBox="0 0 24 24" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
         <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2M7.5 13A2.5 2.5 0 0 0 5 15.5 2.5 2.5 0 0 0 7.5 18a2.5 2.5 0 0 0 2.5-2.5A2.5 2.5 0 0 0 7.5 13m9 0a2.5 2.5 0 0 0-2.5 2.5 2.5 2.5 0 0 0 2.5 2.5 2.5 2.5 0 0 0 2.5-2.5 2.5 2.5 0 0 0-2.5-2.5z"/>
       </svg>
     `;
@@ -67,24 +67,23 @@ class AIChatbot {
     container.setAttribute('role', 'dialog');
     container.setAttribute('aria-modal', 'false');
     container.setAttribute('aria-hidden', 'true');
-    container.hidden = true;
     container.innerHTML = `
       <div class="ai-chatbot-header">
         <div class="ai-chatbot-header-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2M7.5 13A2.5 2.5 0 0 0 5 15.5 2.5 2.5 0 0 0 7.5 18a2.5 2.5 0 0 0 2.5-2.5A2.5 2.5 0 0 0 7.5 13m9 0a2.5 2.5 0 0 0-2.5 2.5 2.5 2.5 0 0 0 2.5 2.5 2.5 2.5 0 0 0 2.5-2.5 2.5 2.5 0 0 0-2.5-2.5z"/>
           </svg>
         </div>
         <div class="ai-chatbot-header-text">
           <p class="ai-chatbot-header-title">AI 어시스턴트</p>
-          <p class="ai-chatbot-header-subtitle">문서에 대해 물어보세요${openNotebookBadge}</p>
+          <p class="ai-chatbot-header-subtitle">문서에 대해 물어보세요${this.openNotebookBadge}</p>
         </div>
         <div class="ai-chatbot-header-actions">
           <button class="ai-chatbot-header-btn ai-chatbot-clear-btn" title="대화 기록 삭제">
-            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
           </button>
           <button class="ai-chatbot-header-btn ai-chatbot-close-btn" title="닫기">
-            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
           </button>
         </div>
       </div>
@@ -92,7 +91,7 @@ class AIChatbot {
       <div class="ai-chatbot-input-area">
         <input type="text" class="ai-chatbot-input" placeholder="${window.AI_CONFIG?.chatbot?.placeholder || '메시지를 입력하세요...'}">
         <button class="ai-chatbot-send-btn" disabled>
-          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
         </button>
       </div>
     `;
@@ -175,7 +174,6 @@ class AIChatbot {
    */
   open() {
     this.isOpen = true;
-    this.container.hidden = false;
     this.container.setAttribute('aria-hidden', 'false');
     this.fab.setAttribute('aria-expanded', 'true');
     this.container.classList.add('open');
@@ -192,7 +190,6 @@ class AIChatbot {
     this.fab.classList.remove('open');
     this.container.setAttribute('aria-hidden', 'true');
     this.fab.setAttribute('aria-expanded', 'false');
-    this.container.hidden = true;
   }
 
   /**
@@ -264,8 +261,8 @@ class AIChatbot {
     messageElement.innerHTML = `
       <div class="ai-chatbot-avatar">
         ${message.role === 'user'
-        ? '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>'
-        : '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2M7.5 13A2.5 2.5 0 0 0 5 15.5 2.5 2.5 0 0 0 7.5 18a2.5 2.5 0 0 0 2.5-2.5A2.5 2.5 0 0 0 7.5 13m9 0a2.5 2.5 0 0 0-2.5 2.5 2.5 2.5 0 0 0 2.5 2.5 2.5 2.5 0 0 0 2.5-2.5 2.5 2.5 0 0 0-2.5-2.5z"/></svg>'
+        ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>'
+        : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2M7.5 13A2.5 2.5 0 0 0 5 15.5 2.5 2.5 0 0 0 7.5 18a2.5 2.5 0 0 0 2.5-2.5A2.5 2.5 0 0 0 7.5 13m9 0a2.5 2.5 0 0 0-2.5 2.5 2.5 2.5 0 0 0 2.5 2.5 2.5 2.5 0 0 0 2.5-2.5 2.5 2.5 0 0 0-2.5-2.5z"/></svg>'
       }
       </div>
       <div class="ai-chatbot-bubble">${this.renderMarkdown(message.content)}</div>
@@ -374,18 +371,18 @@ class AIChatbot {
       this.messagesContainer.innerHTML = `
         <div class="ai-chatbot-welcome">
           <div class="ai-chatbot-welcome-icon">
-            <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2M7.5 13A2.5 2.5 0 0 0 5 15.5 2.5 2.5 0 0 0 7.5 18a2.5 2.5 0 0 0 2.5-2.5A2.5 2.5 0 0 0 7.5 13m9 0a2.5 2.5 0 0 0-2.5 2.5 2.5 2.5 0 0 0 2.5 2.5 2.5 2.5 0 0 0 2.5-2.5 2.5 2.5 0 0 0-2.5-2.5z"/>
             </svg>
           </div>
           <h3>안녕하세요! 👋</h3>
           <p>Documentation Hub AI 어시스턴트입니다.<br>문서에 대해 궁금한 점을 물어보세요.</p>
-          ${openNotebookNote}
+          ${this.openNotebookNote || ''}
           <div class="ai-chatbot-suggestions">
             <button class="ai-chatbot-suggestion" data-query="Docker 설치 방법을 알려주세요">🐳 Docker 설치</button>
             <button class="ai-chatbot-suggestion" data-query="SSH 보안 설정은 어떻게 하나요?">🔐 SSH 보안</button>
             <button class="ai-chatbot-suggestion" data-query="Proxmox 클러스터 구성 방법">🖥️ Proxmox</button>
-            ${openNotebookSuggestion}
+            ${this.openNotebookSuggestion || ''}
           </div>
         </div>
       `;
@@ -483,7 +480,7 @@ class AIChatbot {
       : '';
     typing.innerHTML = `
       <div class="ai-chatbot-avatar">
-        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2M7.5 13A2.5 2.5 0 0 0 5 15.5 2.5 2.5 0 0 0 7.5 18a2.5 2.5 0 0 0 2.5-2.5A2.5 2.5 0 0 0 7.5 13m9 0a2.5 2.5 0 0 0-2.5 2.5 2.5 2.5 0 0 0 2.5 2.5 2.5 2.5 0 0 0 2.5-2.5 2.5 2.5 0 0 0-2.5-2.5z"/>
         </svg>
       </div>
@@ -542,10 +539,16 @@ class AIChatbot {
 }
 
 // DOM 로드 후 초기화
-document.addEventListener('DOMContentLoaded', () => {
+const initAIChatbot = () => {
   if (window.AI_CONFIG) {
     window.aiChatbot = new AIChatbot();
   } else {
     console.warn('AI_CONFIG not found. AI Chatbot will not be initialized.');
   }
-});
+};
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initAIChatbot);
+} else {
+  initAIChatbot();
+}

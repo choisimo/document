@@ -253,9 +253,14 @@
   background: var(--md-code-bg-color);
   border-radius: var(--card-border-radius);
   margin: 1rem 0;
-  /* Defensive: prevent diagram overflow */
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   max-width: 100%;
+}
+
+.mermaid svg {
+  max-width: 100%;
+  height: auto;
 }
 
 /* ===================================== */
@@ -378,6 +383,38 @@ html {
 .md-typeset a:hover .twemoji,
 .md-typeset a:hover svg {
   transform: translateX(2px);
+}
+
+/* ===================================== */
+/* SVG Defensive Sizing */
+/* ===================================== */
+
+.md-typeset svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.md-typeset .twemoji svg,
+.md-typeset .emojione svg,
+.md-typeset .lg.middle svg {
+  width: 1em;
+  height: 1em;
+  max-width: 1em;
+}
+
+.md-typeset p > svg,
+.md-typeset li > svg,
+.md-typeset a > svg,
+.md-typeset h1 > svg,
+.md-typeset h2 > svg,
+.md-typeset h3 > svg,
+.md-typeset h4 > svg,
+.md-typeset h5 > svg,
+.md-typeset h6 > svg {
+  width: 1em;
+  height: 1em;
+  max-width: 1em;
+  vertical-align: -0.125em;
 }
 
 /* ===================================== */

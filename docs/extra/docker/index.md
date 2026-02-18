@@ -23,85 +23,85 @@
 
 <div class="grid cards compose-grid" markdown>
 
-- <div class="stack-card" markdown>
-  :material-view-grid:{ .lg .middle } **Stacks Overview**
+-   :material-view-grid:{ .lg .middle } **Stacks Overview**
 
-  전체 스택과 공통 실행 규칙
+    ---
 
-  [:octicons-arrow-right-24: 전체 보기](stacks/index.md)
-  </div>
+    전체 스택과 공통 실행 규칙
 
-- <div class="stack-card" markdown>
-  :material-database-outline:{ .lg .middle } **Databases**
+    [:octicons-arrow-right-24: 전체 보기](stacks/index.md)
 
-  MariaDB · MongoDB · Supabase
+-   :material-database-outline:{ .lg .middle } **Databases**
 
-  [:octicons-arrow-right-24: 데이터베이스](stacks/databases/index.md)
-  </div>
+    ---
 
-- <div class="stack-card" markdown>
-  :material-cog-outline:{ .lg .middle } **Automation**
+    MariaDB · MongoDB · Supabase
 
-  n8n · Kimai
+    [:octicons-arrow-right-24: 데이터베이스](stacks/databases/index.md)
 
-  [:octicons-arrow-right-24: 자동화](stacks/automation/index.md)
-  </div>
+-   :material-cog-outline:{ .lg .middle } **Automation**
 
-- <div class="stack-card" markdown>
-  :material-source-branch:{ .lg .middle } **Devtools**
+    ---
 
-  Gitea · Sourcebot · Termix
+    n8n · Kimai
 
-  [:octicons-arrow-right-24: 개발 도구](stacks/devtools/index.md)
-  </div>
+    [:octicons-arrow-right-24: 자동화](stacks/automation/index.md)
 
-- <div class="stack-card" markdown>
-  :material-lock-outline:{ .lg .middle } **Security**
+-   :material-source-branch:{ .lg .middle } **Devtools**
 
-  Vaultwarden 및 변형 구성
+    ---
 
-  [:octicons-arrow-right-24: 보안](stacks/security/index.md)
-  </div>
+    Gitea · Sourcebot · Termix
 
-- <div class="stack-card" markdown>
-  :material-playlist-music:{ .lg .middle } **Media**
+    [:octicons-arrow-right-24: 개발 도구](stacks/devtools/index.md)
 
-  Ghost · qBittorrent 스택
+-   :material-lock-outline:{ .lg .middle } **Security**
 
-  [:octicons-arrow-right-24: 미디어](stacks/media/index.md)
-  </div>
+    ---
 
-- <div class="stack-card" markdown>
-  :material-folder-outline:{ .lg .middle } **Storage**
+    Vaultwarden 및 변형 구성
 
-  Droppy · PicoShare
+    [:octicons-arrow-right-24: 보안](stacks/security/index.md)
 
-  [:octicons-arrow-right-24: 스토리지](stacks/storage/index.md)
-  </div>
+-   :material-playlist-music:{ .lg .middle } **Media**
 
-- <div class="stack-card" markdown>
-  :material-chart-line:{ .lg .middle } **Monitoring**
+    ---
 
-  ChangeDetection · Prometheus 구성
+    Ghost · qBittorrent 스택
 
-  [:octicons-arrow-right-24: 모니터링](stacks/monitoring/index.md)
-  </div>
+    [:octicons-arrow-right-24: 미디어](stacks/media/index.md)
 
-- <div class="stack-card" markdown>
-  :material-web:{ .lg .middle } **Proxy**
+-   :material-folder-outline:{ .lg .middle } **Storage**
 
-  Nginx Reverse Proxy
+    ---
 
-  [:octicons-arrow-right-24: 프록시](stacks/proxy/index.md)
-  </div>
+    Droppy · PicoShare
 
-- <div class="stack-card" markdown>
-  :material-shape-outline:{ .lg .middle } **Misc**
+    [:octicons-arrow-right-24: 스토리지](stacks/storage/index.md)
 
-  ChangeDetection · Ghost · Kimai
+-   :material-chart-line:{ .lg .middle } **Monitoring**
 
-  [:octicons-arrow-right-24: 기타](stacks/misc/index.md)
-  </div>
+    ---
+
+    ChangeDetection · Prometheus 구성
+
+    [:octicons-arrow-right-24: 모니터링](stacks/monitoring/index.md)
+
+-   :material-web:{ .lg .middle } **Proxy**
+
+    ---
+
+    Nginx Reverse Proxy
+
+    [:octicons-arrow-right-24: 프록시](stacks/proxy/index.md)
+
+-   :material-shape-outline:{ .lg .middle } **Misc**
+
+    ---
+
+    ChangeDetection · Ghost · Kimai
+
+    [:octicons-arrow-right-24: 기타](stacks/misc/index.md)
 
 </div>
 

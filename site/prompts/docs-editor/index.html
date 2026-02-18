@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.2">
     
     
       
@@ -3320,6 +3320,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../tools/terminal/modern-cli-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    모던 터미널 에뮬레이터 &amp; CLI 도구 완벽 가이드
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../tools/terminal/tmux/" class="md-nav__link">
         
   
@@ -3529,7 +3557,7 @@
   <span class="md-ellipsis">
     
   
-    Guacamole
+    Guacamole Docker Compose 설정 및 Nginx Reverse Proxy 구성
   
 
     
@@ -6340,7 +6368,7 @@
   <a href="#_53" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ✅ 검증
+        🎨 시각적 개선 예시
       
     </span>
   </a>
@@ -7844,41 +7872,40 @@
 </span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">   </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/your-repo/project.git
 </span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="w">   </span><span class="nb">cd</span><span class="w"> </span>project
 </span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="sb">   ```</span>
+</span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a>
+</span><span id="__span-4-21"><a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="k">2.</span> <span class="gs">**종속성 설치**</span>
+</span><span id="__span-4-22"><a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a>
+</span><span id="__span-4-23"><a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="sb">   ```bash</span>
+</span><span id="__span-4-24"><a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="w">   </span>npm<span class="w"> </span>install
+</span><span id="__span-4-25"><a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="sb">   ```</span>
+</span><span id="__span-4-26"><a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a>
+</span><span id="__span-4-27"><a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a><span class="k">3.</span> <span class="gs">**환경 구성**</span>
+</span><span id="__span-4-28"><a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a>
+</span><span id="__span-4-29"><a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a><span class="sb">   ```bash</span>
+</span><span id="__span-4-30"><a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a><span class="w">   </span>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
+</span><span id="__span-4-31"><a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a><span class="w">   </span><span class="c1"># 데이터베이스 자격 증명으로 .env 편집</span>
+</span><span id="__span-4-32"><a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a><span class="sb">   ```</span>
+</span><span id="__span-4-33"><a id="__codelineno-4-33" name="__codelineno-4-33" href="#__codelineno-4-33"></a>
+</span><span id="__span-4-34"><a id="__codelineno-4-34" name="__codelineno-4-34" href="#__codelineno-4-34"></a><span class="k">4.</span> <span class="gs">**애플리케이션 시작**</span>
+</span><span id="__span-4-35"><a id="__codelineno-4-35" name="__codelineno-4-35" href="#__codelineno-4-35"></a><span class="sb">   ```bash</span>
+</span><span id="__span-4-36"><a id="__codelineno-4-36" name="__codelineno-4-36" href="#__codelineno-4-36"></a><span class="w">   </span>npm<span class="w"> </span>start
+</span><span id="__span-4-37"><a id="__codelineno-4-37" name="__codelineno-4-37" href="#__codelineno-4-37"></a><span class="sb">   ```</span>
+</span><span id="__span-4-38"><a id="__codelineno-4-38" name="__codelineno-4-38" href="#__codelineno-4-38"></a>
+</span><span id="__span-4-39"><a id="__codelineno-4-39" name="__codelineno-4-39" href="#__codelineno-4-39"></a><span class="gu">### ✅ 검증</span>
+</span><span id="__span-4-40"><a id="__codelineno-4-40" name="__codelineno-4-40" href="#__codelineno-4-40"></a>
+</span><span id="__span-4-41"><a id="__codelineno-4-41" name="__codelineno-4-41" href="#__codelineno-4-41"></a>이제 애플리케이션이 <span class="sb">`http://localhost:3000`</span>에서 실행되고 있어야 합니다.
+</span><span id="__span-4-42"><a id="__codelineno-4-42" name="__codelineno-4-42" href="#__codelineno-4-42"></a>
+</span><span id="__span-4-43"><a id="__codelineno-4-43" name="__codelineno-4-43" href="#__codelineno-4-43"></a><span class="k">&gt; </span><span class="ge">💡 **문제가 발생하나요?** [문제 해결 가이드](link)를 확인하거나 [지원팀에 문의](link)하세요.</span>
 </span></code></pre></div>
-<ol>
-<li><strong>종속성 설치</strong></li>
-</ol>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>npm<span class="w"> </span>install
-</span></code></pre></div>
-<ol>
-<li><strong>환경 구성</strong></li>
-</ol>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="c1"># 데이터베이스 자격 증명으로 .env 편집</span>
-</span></code></pre></div>
-<ol>
-<li><strong>애플리케이션 시작</strong>
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>npm<span class="w"> </span>start
-</span></code></pre></div></li>
-</ol>
-<h3 id="_53">✅ 검증<a class="headerlink" href="#_53" title="Permanent link">&para;</a></h3>
-<p>이제 애플리케이션이 <code>http://localhost:3000</code>에서 실행되고 있어야 합니다.</p>
-<blockquote>
-<p>💡 <strong>문제가 발생하나요?</strong> <a href="link">문제 해결 가이드</a>를 확인하거나 <a href="link">지원팀에 문의</a>하세요.</p>
-</blockquote>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>### 🎨 시각적 개선 예시
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>#### Mermaid 다이어그램 템플릿
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>**프로세스 흐름:**
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>```mermaid
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>flowchart TD
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    A[시작] --&gt; B{결정?}
-</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    B --&gt;|예| C[행동 1]
-</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>    B --&gt;|아니오| D[행동 2]
-</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>    C --&gt; E[끝]
-</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    D --&gt; E
-</span></code></pre></div>
+<h3 id="_53">🎨 시각적 개선 예시<a class="headerlink" href="#_53" title="Permanent link">&para;</a></h3>
+<h4 id="mermaid_1">Mermaid 다이어그램 템플릿<a class="headerlink" href="#mermaid_1" title="Permanent link">&para;</a></h4>
+<p><strong>프로세스 흐름:</strong>
+<pre class="mermaid"><code>flowchart TD
+    A[시작] --&gt; B{결정?}
+    B --&gt;|예| C[행동 1]
+    B --&gt;|아니오| D[행동 2]
+    C --&gt; E[끝]
+    D --&gt; E</code></pre></p>
 <p><strong>사용자 여정:</strong></p>
 <pre class="mermaid"><code>journey
     title 사용자 온보딩 경험
@@ -8101,6 +8128,10 @@
         <script src="../../javascripts/ai-client.js"></script>
       
         <script src="../../javascripts/ai-chatbot.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+      
+        <script src="../../javascripts/mermaid-init.js"></script>
       
         <script src="../../javascripts/mathjax.js"></script>
       

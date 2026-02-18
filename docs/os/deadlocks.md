@@ -422,10 +422,10 @@ sequenceDiagram
 graph TD
     A[순환 대기 무효화] --> B[자원에 순서 부여]
     
-    B --> C[총 순서 정의<br/>F: R → ℕ]
+    B --> C["총 순서 정의<br/>F: R → N"]
     C --> D[오름차순 요청 규칙]
     
-    D --> E[예시: F(printer) = 1<br/>F(tape) = 2<br/>F(disk) = 3]
+    D --> E["예시: F_printer = 1<br/>F_tape = 2<br/>F_disk = 3"]
     
     style A fill:#e1f5fe
     style B fill:#fff3e0
@@ -600,7 +600,7 @@ graph TD
         P2_w --> P1_w
     end
     
-    B --> C[사이클 탐지<br/>O(n²)]
+    B --> C["사이클 탐지<br/>O(n^2)"]
     
     style C fill:#ffebee
 ```

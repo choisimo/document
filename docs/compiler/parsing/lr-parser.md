@@ -108,52 +108,13 @@ graph TD
 
 ```mermaid
 graph TD
-    subgraph I0 [State 0]
-        direction LR
-        S0["S' → .S"]
-        S1["S → .(S)S"]
-        S2["S → ."]
-    end
-
-    subgraph I1 [State 1]
-        direction LR
-        S3["S' → S."]
-    end
-
-    subgraph I2 [State 2]
-        direction LR
-        S4["S → (.S)S"]
-        S5["S → .(S)S"]
-        S6["S → ."]
-    end
-
-    subgraph I3 [State 3]
-        direction LR
-        S7["S → (S.)S"]
-    end
-
-    subgraph I4 [State 4]
-        direction LR
-        S8["S → (S).S"]
-        S9["S → .(S)S"]
-        S10["S → ."]
-    end
-
-    subgraph I5 [State 5]
-        direction LR
-        S11["S → (S)S."]
-    end
-
-    I0 -- S --> I1;
-    I0 -- "(" --> I2;
-
-    I2 -- S --> I3;
-    I2 -- "(" --> I2;
-
-    I3 -- ")" --> I4;
-
-    I4 -- S --> I5;
-    I4 -- "(" --> I2;
+    I0["I0"] -->|S| I1["I1"]
+    I0 -->|open| I2["I2"]
+    I2 -->|S| I3["I3"]
+    I2 -->|open| I2
+    I3 -->|close| I4["I4"]
+    I4 -->|S| I5["I5"]
+    I4 -->|open| I2
 ```
 
 #### DFA 상태 및 전이 상세 정보

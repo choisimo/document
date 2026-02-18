@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.2">
     
     
       
@@ -1229,8 +1229,30 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#gmail" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gmail 앱 비밀번호 생성 절차
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#curl-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        curl을 사용한 이메일 API 활용
+      
+    </span>
+  </a>
   
 </li>
       
@@ -3513,6 +3535,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../tools/terminal/modern-cli-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    모던 터미널 에뮬레이터 &amp; CLI 도구 완벽 가이드
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../tools/terminal/tmux/" class="md-nav__link">
         
   
@@ -3722,7 +3772,7 @@
   <span class="md-ellipsis">
     
   
-    Guacamole
+    Guacamole Docker Compose 설정 및 Nginx Reverse Proxy 구성
   
 
     
@@ -6845,38 +6895,40 @@
 </span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>cat<span class="w"> </span>파일명.txt<span class="w"> </span><span class="p">|</span><span class="w"> </span>mail<span class="w"> </span>-s<span class="w"> </span><span class="s2">&quot;제목&quot;</span><span class="w"> </span>수신자@example.com
 </span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
 </span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1"># 첨부 파일 보내기</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>mail<span class="w"> </span>-s<span class="w"> </span><span class="s2">&quot;제목&quot;</span><span class="w"> </span>-a<span class="w"> </span>첨부파일.pdf<span class="w"> </span>수신자@example.com<span class="w">  </span>2단계<span class="w"> </span>인증<span class="w"> </span>&gt;<span class="w"> </span>앱<span class="w"> </span>비밀번호<span class="w"> </span>선택
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="m">3</span>.<span class="w"> </span><span class="s1">&#39;앱 선택&#39;</span><span class="w"> </span>드롭다운에서<span class="w"> </span><span class="s1">&#39;기타(맞춤 이름)&#39;</span>을<span class="w"> </span>선택하고<span class="w"> </span>이름<span class="w"> </span>입력<span class="w"> </span><span class="o">(</span>예:<span class="w"> </span><span class="s2">&quot;Linux Server&quot;</span><span class="o">)</span>
-</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="m">4</span>.<span class="w"> </span><span class="s1">&#39;생성&#39;</span><span class="w"> </span>버튼을<span class="w"> </span>클릭하여<span class="w"> </span>16자리<span class="w"> </span>앱<span class="w"> </span>비밀번호<span class="w"> </span>생성
-</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="m">5</span>.<span class="w"> </span>이<span class="w"> </span>비밀번호를<span class="w"> </span>SMTP<span class="w"> </span>설정의<span class="w"> </span>AuthPass<span class="w"> </span>또는<span class="w"> </span>password<span class="w"> </span>항목에<span class="w"> </span>사용
-</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>
-</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="c1">## curl을 사용한 이메일 API 활용</span>
-</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>
-</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>외부<span class="w"> </span>이메일<span class="w"> </span>API를<span class="w"> </span>사용하여<span class="w"> </span>이메일을<span class="w"> </span>보낼<span class="w"> </span>수도<span class="w"> </span>있습니다.<span class="w"> </span>Mailtrap<span class="w"> </span>예시:
-</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>
-</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="sb">```</span>bash
-</span><span id="__span-7-18"><a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="c1">#!/bin/bash</span>
-</span><span id="__span-7-19"><a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a>
-</span><span id="__span-7-20"><a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a><span class="nv">api_key</span><span class="o">=</span><span class="s2">&quot;your_Mailtrap_api_token&quot;</span>
-</span><span id="__span-7-21"><a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a>
-</span><span id="__span-7-22"><a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s2">&quot;https://send.api.mailtrap.io/api/send&quot;</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-7-23"><a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a>--header<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="nv">$api_key</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-7-24"><a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a>--header<span class="w"> </span><span class="s1">&#39;Content-Type: application/json&#39;</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-7-25"><a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a>--data-raw<span class="w"> </span><span class="s1">&#39;{</span>
-</span><span id="__span-7-26"><a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a><span class="s1">  &quot;from&quot;: {&quot;email&quot;: &quot;youremail@example.com&quot;, &quot;name&quot;: &quot;서버 알림&quot;},</span>
-</span><span id="__span-7-27"><a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a><span class="s1">  &quot;to&quot;: [{&quot;email&quot;: &quot;recipient@example.com&quot;}],</span>
-</span><span id="__span-7-28"><a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a><span class="s1">  &quot;subject&quot;: &quot;서버 백업 완료&quot;,</span>
-</span><span id="__span-7-29"><a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a><span class="s1">  &quot;text&quot;: &quot;백업이 성공적으로 완료되었습니다.&quot;,</span>
-</span><span id="__span-7-30"><a id="__codelineno-7-30" name="__codelineno-7-30" href="#__codelineno-7-30"></a><span class="s1">  &quot;category&quot;: &quot;백업&quot;</span>
-</span><span id="__span-7-31"><a id="__codelineno-7-31" name="__codelineno-7-31" href="#__codelineno-7-31"></a><span class="s1">}&#39;</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>mail<span class="w"> </span>-s<span class="w"> </span><span class="s2">&quot;제목&quot;</span><span class="w"> </span>-a<span class="w"> </span>첨부파일.pdf<span class="w"> </span>수신자@example.com
+</span></code></pre></div>
+<h3 id="gmail">Gmail 앱 비밀번호 생성 절차<a class="headerlink" href="#gmail" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Google 계정 보안 설정으로 이동</li>
+<li>2단계 인증 활성화 후 <code>앱 비밀번호</code> 메뉴 선택</li>
+<li><code>앱 선택</code>에서 <code>기타(맞춤 이름)</code>을 선택하고 이름 입력 (예: <code>Linux Server</code>)</li>
+<li><code>생성</code> 버튼을 클릭하여 16자리 앱 비밀번호 생성</li>
+<li>생성된 비밀번호를 SMTP 설정의 <code>AuthPass</code> 또는 <code>password</code> 항목에 사용</li>
+</ol>
+<h2 id="curl-api">curl을 사용한 이메일 API 활용<a class="headerlink" href="#curl-api" title="Permanent link">&para;</a></h2>
+<p>외부 이메일 API를 사용하여 이메일을 보낼 수도 있습니다. Mailtrap 예시:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="ch">#!/bin/bash</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="nv">api_key</span><span class="o">=</span><span class="s2">&quot;your_Mailtrap_api_token&quot;</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s2">&quot;https://send.api.mailtrap.io/api/send&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>--header<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="nv">$api_key</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>--header<span class="w"> </span><span class="s1">&#39;Content-Type: application/json&#39;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>--data-raw<span class="w"> </span><span class="s1">&#39;{</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="s1">  &quot;from&quot;: {&quot;email&quot;: &quot;youremail@example.com&quot;, &quot;name&quot;: &quot;서버 알림&quot;},</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="s1">  &quot;to&quot;: [{&quot;email&quot;: &quot;recipient@example.com&quot;}],</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="s1">  &quot;subject&quot;: &quot;서버 백업 완료&quot;,</span>
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="s1">  &quot;text&quot;: &quot;백업이 성공적으로 완료되었습니다.&quot;,</span>
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="s1">  &quot;category&quot;: &quot;백업&quot;</span>
+</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="s1">}&#39;</span>
 </span></code></pre></div>
 <h2 id="cron">자동 실행 설정 (cron)<a class="headerlink" href="#cron" title="Permanent link">&para;</a></h2>
 <p>정기적으로 이메일을 보내려면 cron 작업을 설정합니다:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># crontab 편집</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>crontab<span class="w"> </span>-e
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># 매일 자정에 백업 스크립트 실행 및 이메일 전송</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>/opt/backup-tool/linuxbackups<span class="w"> </span>backups:mysql<span class="w"> </span>--backup-file-prefix<span class="o">=</span><span class="s2">&quot;daily&quot;</span><span class="w"> </span>--notifications-when-done
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># crontab 편집</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>crontab<span class="w"> </span>-e
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># 매일 자정에 백업 스크립트 실행 및 이메일 전송</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>/opt/backup-tool/linuxbackups<span class="w"> </span>backups:mysql<span class="w"> </span>--backup-file-prefix<span class="o">=</span><span class="s2">&quot;daily&quot;</span><span class="w"> </span>--notifications-when-done
 </span></code></pre></div>
 <h2 id="_4">문제 해결<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h2>
 <ol>
@@ -7015,6 +7067,10 @@
         <script src="../../../javascripts/ai-client.js"></script>
       
         <script src="../../../javascripts/ai-chatbot.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+      
+        <script src="../../../javascripts/mermaid-init.js"></script>
       
         <script src="../../../javascripts/mathjax.js"></script>
       
