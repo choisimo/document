@@ -93,10 +93,16 @@ echo "이메일 내용" | mail -s "제목" 수신자@example.com
 cat 파일명.txt | mail -s "제목" 수신자@example.com
 
 # 첨부 파일 보내기
-mail -s "제목" -a 첨부파일.pdf 수신자@example.com  2단계 인증 > 앱 비밀번호 선택
-3. '앱 선택' 드롭다운에서 '기타(맞춤 이름)'을 선택하고 이름 입력 (예: "Linux Server")
-4. '생성' 버튼을 클릭하여 16자리 앱 비밀번호 생성
-5. 이 비밀번호를 SMTP 설정의 AuthPass 또는 password 항목에 사용
+mail -s "제목" -a 첨부파일.pdf 수신자@example.com
+```
+
+### Gmail 앱 비밀번호 생성 절차
+
+1. Google 계정 보안 설정으로 이동
+2. 2단계 인증 활성화 후 `앱 비밀번호` 메뉴 선택
+3. `앱 선택`에서 `기타(맞춤 이름)`을 선택하고 이름 입력 (예: `Linux Server`)
+4. `생성` 버튼을 클릭하여 16자리 앱 비밀번호 생성
+5. 생성된 비밀번호를 SMTP 설정의 `AuthPass` 또는 `password` 항목에 사용
 
 ## curl을 사용한 이메일 API 활용
 

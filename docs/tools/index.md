@@ -14,6 +14,7 @@
 
     커맨드라인 생산성 도구
 
+    - [모던 CLI 도구 가이드](terminal/modern-cli-tools.md) - 터미널 에뮬레이터 & CLI 도구 종합
     - [Tmux](terminal/tmux.md) - 터미널 멀티플렉서
     - [Vim](terminal/vim.md) - 텍스트 에디터
     - [Linux 명령어](terminal/linux-commands.md) - 필수 레퍼런스

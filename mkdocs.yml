@@ -231,6 +231,7 @@ nav:
   - Tools:
     - tools/index.md
     - Terminal:
+      - tools/terminal/modern-cli-tools.md
       - tools/terminal/tmux.md
       - tools/terminal/vim.md
       - tools/terminal/linux-commands.md

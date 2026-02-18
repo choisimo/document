@@ -1,6 +1,3 @@
-아래는 요청하신 내용을 기반으로 작성된 Markdown 파일입니다.
-
-```markdown
 # Guacamole Docker Compose 설정 및 Nginx Reverse Proxy 구성
 
 이 문서는 Guacamole을 Docker Compose로 설치하고, Nginx Reverse Proxy를 설정하여 8080 포트를 매핑하는 방법을 설명합니다. 또한, 데이터베이스 비밀번호를 변경하는 방법도 포함되어 있습니다.

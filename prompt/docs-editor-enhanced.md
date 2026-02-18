@@ -857,7 +857,6 @@ pie title 현재 vs 목표 품질 점수
    git clone https://github.com/your-repo/project.git
    cd project
    ```
-````
 
 2. **종속성 설치**
 
@@ -897,7 +896,7 @@ flowchart TD
     B -->|아니오| D[행동 2]
     C --> E[끝]
     D --> E
-````
+```
 
 **사용자 여정:**
 

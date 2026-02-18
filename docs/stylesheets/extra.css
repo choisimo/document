@@ -12,6 +12,12 @@
   --color-primary-dim: rgba(139, 126, 200, 0.15);
   --color-accent: #6b7280;
   --color-text-secondary: #8a8a9a;
+  --chatbot-icon-fab: 20px;
+  --chatbot-icon-header: 22px;
+  --chatbot-icon-action: 18px;
+  --chatbot-icon-avatar: 18px;
+  --chatbot-icon-send: 22px;
+  --chatbot-icon-welcome: 40px;
 }
 
 /* Dark mode variables */
@@ -807,10 +813,11 @@ html {
 }
 
 .ai-chatbot-fab svg {
-  width: 20px;
-  height: 20px;
+  inline-size: var(--chatbot-icon-fab);
+  block-size: var(--chatbot-icon-fab);
   fill: white;
   transition: transform 0.3s ease;
+  flex-shrink: 0;
 }
 
 .ai-chatbot-fab.open svg {
@@ -883,9 +890,10 @@ html {
 }
 
 .ai-chatbot-header-icon svg {
-  width: 22px;
-  height: 22px;
+  inline-size: var(--chatbot-icon-header);
+  block-size: var(--chatbot-icon-header);
   fill: white;
+  flex-shrink: 0;
 }
 
 .ai-chatbot-header-text {
@@ -943,9 +951,10 @@ html {
 }
 
 .ai-chatbot-header-btn svg {
-  width: 18px;
-  height: 18px;
+  inline-size: var(--chatbot-icon-action);
+  block-size: var(--chatbot-icon-action);
   fill: white;
+  flex-shrink: 0;
 }
 
 /* Messages Container */
@@ -1035,9 +1044,10 @@ html {
 }
 
 .ai-chatbot-avatar svg {
-  width: 18px;
-  height: 18px;
+  inline-size: var(--chatbot-icon-avatar);
+  block-size: var(--chatbot-icon-avatar);
   fill: white;
+  flex-shrink: 0;
 }
 
 .ai-chatbot-bubble {
@@ -1256,10 +1266,11 @@ html {
 }
 
 .ai-chatbot-send-btn svg {
-  width: 22px;
-  height: 22px;
+  inline-size: var(--chatbot-icon-send);
+  block-size: var(--chatbot-icon-send);
   fill: white;
   margin-left: 2px;
+  flex-shrink: 0;
 }
 
 /* Welcome Screen */
@@ -1287,8 +1298,8 @@ html {
 }
 
 .ai-chatbot-welcome-icon svg {
-  width: 40px;
-  height: 40px;
+  inline-size: var(--chatbot-icon-welcome);
+  block-size: var(--chatbot-icon-welcome);
   fill: white;
 }
 

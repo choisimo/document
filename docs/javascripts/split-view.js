@@ -122,7 +122,7 @@
             const btn = document.createElement('button');
             btn.className = 'split-view-toggle';
             btn.innerHTML = `
-        <svg viewBox="0 0 24 24" width="24" height="24">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
           <path fill="currentColor" d="M3 3h8v8H3V3m2 2v4h4V5H5m8-2h8v8h-8V3m2 2v4h4V5h-4M3 13h8v8H3v-8m2 2v4h4v-4H5m8-2h8v8h-8v-8m2 2v4h4v-4h-4z"/>
         </svg>
       `;
@@ -140,7 +140,7 @@
         <div class="split-view-toolbar">
           <div class="split-view-toolbar-left">
             <span class="split-view-title">
-              <svg viewBox="0 0 24 24" width="18" height="18">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path fill="currentColor" d="M3 3h8v8H3V3m2 2v4h4V5H5m8-2h8v8h-8V3m2 2v4h4V5h-4M3 13h8v8H3v-8m2 2v4h4v-4H5m8-2h8v8h-8v-8m2 2v4h4v-4h-4z"/>
               </svg>
               Split View
@@ -148,7 +148,7 @@
           </div>
           <div class="split-view-toolbar-center">
             <button class="split-view-toolbar-btn" data-action="load-current" title="현재 페이지 로드">
-              <svg viewBox="0 0 24 24" width="16" height="16">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path fill="currentColor" d="M19 12h-2v3h-3v2h5v-5M7 9h3V7H5v5h2V9m14-6H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16.01H3V4.99h18v14.02z"/>
               </svg>
               <span class="split-view-current-page">${this.escapeHtml(this.originalPageTitle || 'Current Page')}</span>
@@ -162,7 +162,7 @@
           </div>
           <div class="split-view-toolbar-right">
             <button class="split-view-close" title="닫기 (ESC)">
-              <svg viewBox="0 0 24 24" width="20" height="20">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
               </svg>
             </button>
@@ -401,22 +401,22 @@
           <span class="split-view-session-name">Session ${index}</span>
           <div class="split-view-pane-controls">
             <button class="split-view-pane-btn" data-action="back" title="뒤로 (Alt+←)" disabled>
-              <svg viewBox="0 0 24 24" width="14" height="14">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
               </svg>
             </button>
             <button class="split-view-pane-btn" data-action="forward" title="앞으로 (Alt+→)" disabled>
-              <svg viewBox="0 0 24 24" width="14" height="14">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path fill="currentColor" d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/>
               </svg>
             </button>
             <button class="split-view-pane-btn" data-action="home" title="홈">
-              <svg viewBox="0 0 24 24" width="14" height="14">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path fill="currentColor" d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
               </svg>
             </button>
             <button class="split-view-pane-btn" data-action="load-current" title="현재 페이지 로드">
-              <svg viewBox="0 0 24 24" width="14" height="14">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path fill="currentColor" d="M19 12h-2v3h-3v2h5v-5M7 9h3V7H5v5h2V9m14-6H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16.01H3V4.99h18v14.02z"/>
               </svg>
             </button>
@@ -424,21 +424,21 @@
         </div>
         <div class="split-view-search-bar">
           <input type="text" class="split-view-search-input" placeholder="검색... (Ctrl+/)">
-          <svg class="split-view-search-icon" viewBox="0 0 24 24" width="18" height="18">
+          <svg class="split-view-search-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path fill="currentColor" d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"/>
           </svg>
         </div>
         <div class="split-view-content">
           <div class="split-view-welcome">
             <div class="split-view-welcome-icon">
-              <svg viewBox="0 0 24 24" width="48" height="48">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path fill="currentColor" d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/>
               </svg>
             </div>
             <h3>Session ${index}</h3>
             <p>검색하거나 문서를 선택하세요</p>
             <button class="split-view-load-current-btn" data-action="load-current-inline">
-              <svg viewBox="0 0 24 24" width="16" height="16">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path fill="currentColor" d="M19 12h-2v3h-3v2h5v-5M7 9h3V7H5v5h2V9m14-6H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16.01H3V4.99h18v14.02z"/>
               </svg>
               현재 보고 있는 페이지 로드
@@ -607,7 +607,7 @@
             if (results.length === 0) {
                 content.innerHTML = `
           <div class="split-view-no-results">
-            <svg viewBox="0 0 24 24" width="48" height="48">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
               <path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
             </svg>
             <p>"${this.escapeHtml(query)}"에 대한 결과가 없습니다</p>
@@ -684,14 +684,14 @@
             pane.querySelector('.split-view-content').innerHTML = `
         <div class="split-view-welcome">
           <div class="split-view-welcome-icon">
-            <svg viewBox="0 0 24 24" width="48" height="48">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
               <path fill="currentColor" d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/>
             </svg>
           </div>
           <h3>Session ${index}</h3>
           <p>검색하거나 문서를 선택하세요</p>
           <button class="split-view-load-current-btn" data-action="load-current-inline">
-            <svg viewBox="0 0 24 24" width="16" height="16">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
               <path fill="currentColor" d="M19 12h-2v3h-3v2h5v-5M7 9h3V7H5v5h2V9m14-6H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16.01H3V4.99h18v14.02z"/>
             </svg>
             현재 보고 있는 페이지 로드
@@ -796,7 +796,7 @@
                 console.error('Split View: Error loading content', error);
                 content.innerHTML = `
           <div class="split-view-error">
-            <svg viewBox="0 0 24 24" width="48" height="48">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
               <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
             </svg>
             <p>콘텐츠를 불러올 수 없습니다</p>
@@ -808,10 +808,7 @@
         }
 
         async processMermaidDiagrams(container) {
-            // Find all mermaid elements including various formats
-            const mermaidElements = Array.from(container.querySelectorAll(
-                '.mermaid, pre code.language-mermaid, pre.language-mermaid code, .highlight-mermaid pre code'
-            ));
+            const mermaidElements = this.collectMermaidSourceElements(container);
 
             if (mermaidElements.length === 0) return;
 
@@ -837,7 +834,7 @@
                 const wrapper = document.createElement('div');
                 wrapper.className = 'split-view-mermaid-container';
 
-                const parent = el.closest('pre') || el.parentElement;
+                const replaceTarget = this.getMermaidReplaceTarget(el);
                 const isValid = await this.validateMermaidCode(code);
 
                 if (!isValid) {
@@ -853,14 +850,41 @@
                     validTargets.push(mermaidDiv);
                 }
 
-                if (parent) {
-                    parent.replaceWith(wrapper);
+                if (replaceTarget) {
+                    replaceTarget.replaceWith(wrapper);
                 }
             }
 
             if (validTargets.length === 0) return;
 
             await this.renderMermaidWithRetries(container, validTargets, 0);
+        }
+
+        collectMermaidSourceElements(container) {
+            if (!container) return [];
+
+            const codeBlocks = Array.from(container.querySelectorAll(
+                'pre code.language-mermaid, pre.language-mermaid code, .highlight-mermaid pre code'
+            ));
+
+            const rawMermaidBlocks = Array.from(container.querySelectorAll('.mermaid')).filter(el => {
+                if (el.closest('.split-view-mermaid-container')) return false;
+                if (el.querySelector('svg')) return false;
+                return Boolean((el.textContent || '').trim());
+            });
+
+            return Array.from(new Set([...codeBlocks, ...rawMermaidBlocks]));
+        }
+
+        getMermaidReplaceTarget(el) {
+            if (!el) return null;
+            if (el.matches('code')) {
+                return el.closest('pre') || el;
+            }
+            if (el.matches('.mermaid')) {
+                return el;
+            }
+            return el.closest('pre') || el;
         }
 
         async validateMermaidCode(code) {
@@ -937,9 +961,12 @@
         async renderMermaidWithRetries(container, targets, attempt) {
             if (!targets || targets.length === 0) return;
 
+            const connectedTargets = targets.filter(el => el && el.isConnected);
+            if (connectedTargets.length === 0) return;
+
             const mermaidReady = await this.waitForMermaid();
             if (!mermaidReady) {
-                targets.forEach(el => {
+                connectedTargets.forEach(el => {
                     const source = el.dataset.mermaidSource || el.textContent;
                     this.showMermaidFallback(el, source, '다이어그램 렌더링 실패 - 코드 보기');
                 });
@@ -953,11 +980,11 @@
 
                 if (typeof window.mermaid.run === 'function') {
                     await window.mermaid.run({
-                        querySelector: '.split-view-mermaid-container .mermaid',
+                        nodes: connectedTargets,
                         suppressErrors: true
                     });
                 } else if (typeof window.mermaid.init === 'function') {
-                    window.mermaid.init(undefined, targets);
+                    window.mermaid.init(undefined, connectedTargets);
                 } else if (typeof window.mermaid.contentLoaded === 'function') {
                     window.mermaid.contentLoaded();
                 }
@@ -967,7 +994,7 @@
 
             await this.waitForAnimationFrame();
 
-            const failedTargets = targets.filter(el => !this.isMermaidSvgHealthy(el));
+            const failedTargets = connectedTargets.filter(el => !this.isMermaidSvgHealthy(el));
             if (failedTargets.length === 0) {
                 return;
             }
@@ -1124,7 +1151,7 @@
                     const copyBtn = document.createElement('button');
                     copyBtn.className = 'split-view-copy-btn';
                     copyBtn.innerHTML = `
-            <svg viewBox="0 0 24 24" width="14" height="14">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
               <path fill="currentColor" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
             </svg>
           `;
@@ -1133,13 +1160,13 @@
                         e.stopPropagation();
                         navigator.clipboard.writeText(code.textContent);
                         copyBtn.innerHTML = `
-              <svg viewBox="0 0 24 24" width="14" height="14">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
               </svg>
             `;
                         setTimeout(() => {
                             copyBtn.innerHTML = `
-                <svg viewBox="0 0 24 24" width="14" height="14">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path fill="currentColor" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
                 </svg>
               `;
