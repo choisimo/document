@@ -280,6 +280,34 @@ nav:
     - Pointers: algorithms/pointers.md
     - Function Pointers: algorithms/function-pointers.md
     - OOP Patterns: algorithms/oop-patterns.md
+    - Algorithm Architect Visual Docs:
+      - algorithms/algorithm-architect/index.md
+      - Index: algorithms/algorithm-architect/README.md
+      - Graph:
+        - BFS: algorithms/algorithm-architect/01-graph/01-bfs.md
+        - DFS: algorithms/algorithm-architect/01-graph/02-dfs.md
+        - Dijkstra: algorithms/algorithm-architect/01-graph/03-dijkstra.md
+        - Bellman-Ford: algorithms/algorithm-architect/01-graph/04-bellman-ford.md
+        - Floyd-Warshall: algorithms/algorithm-architect/01-graph/05-floyd-warshall.md
+      - Sorting & Searching:
+        - Binary Search: algorithms/algorithm-architect/02-sorting-searching/01-binary-search.md
+        - Quick Sort: algorithms/algorithm-architect/02-sorting-searching/02-quick-sort.md
+        - Merge Sort: algorithms/algorithm-architect/02-sorting-searching/03-merge-sort.md
+      - Dynamic Programming:
+        - DP 1D: algorithms/algorithm-architect/03-dynamic-programming/01-dp-1d.md
+        - DP 2D: algorithms/algorithm-architect/03-dynamic-programming/02-dp-2d.md
+        - Knapsack: algorithms/algorithm-architect/03-dynamic-programming/03-knapsack.md
+      - Greedy: algorithms/algorithm-architect/04-greedy/01-greedy.md
+      - Tree:
+        - Tree Traversal: algorithms/algorithm-architect/05-tree/01-tree-traversal.md
+        - LCA: algorithms/algorithm-architect/05-tree/02-lca.md
+      - Union-Find: algorithms/algorithm-architect/06-union-find/01-union-find.md
+      - Two Pointers: algorithms/algorithm-architect/07-two-pointers/01-two-pointers.md
+      - Sliding Window: algorithms/algorithm-architect/08-sliding-window/01-sliding-window.md
+      - Backtracking: algorithms/algorithm-architect/09-backtracking/01-backtracking.md
+      - Topological Sort: algorithms/algorithm-architect/10-topological-sort/01-topological-sort.md
+      - Bit Masking: algorithms/algorithm-architect/11-bit-masking/01-bit-masking.md
+      - Tooling: algorithms/algorithm-architect/convert_md_to_pdf.sh.md
   
   - Compiler Theory:
     - compiler/index.md
