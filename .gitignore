@@ -4,6 +4,7 @@
 .vscode/
 .idea/
 
+.sispyus/
 .node_modules/
 node_modules/
 # History
