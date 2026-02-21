@@ -246,6 +246,7 @@ nav:
       - tools/automation/change-detection.md
       - tools/automation/schedule-manager.md
     - AI Tools:
+      - tools/ai/langflow.md
       - tools/ai/gemini-shell.md
       - tools/ai/mcp.md
     - Split View: tools/split-view.md
