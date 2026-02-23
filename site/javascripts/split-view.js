@@ -188,6 +188,21 @@
             this.grid = this.container.querySelector('.split-view-grid');
             this.gridWrapper = this.container.querySelector('.split-view-grid-wrapper');
             this.observeGridResize();
+
+            // Global capture-phase guard: prevent MkDocs instant-navigation from intercepting
+            // any internal link click that originates inside the split-view container.
+            // This runs before MkDocs' document-level click handler (navigation.instant).
+            document.addEventListener('click', (e) => {
+                if (!this.isOpen) return;
+                if (!this.container.contains(e.target)) return;
+                const link = e.target.closest('a[href]');
+                if (!link) return;
+                const href = link.getAttribute('href');
+                if (!href) return;
+                if (!href.startsWith('http') || href.includes(window.location.hostname)) {
+                    e.stopImmediatePropagation();
+                }
+            }, true); // capture=true so this runs before MkDocs' document-level handler
         }
 
         // ----- Load Current Page Feature -----
@@ -765,18 +780,41 @@
                     // Process code blocks
                     this.processCodeBlocks(content);
 
-                    // Update links to load in same pane
+                    // Update links to load in same pane — use capture phase to beat MkDocs instant-navigation
                     content.querySelectorAll('a[href]').forEach(link => {
                         const href = link.getAttribute('href');
                         if (href && !href.startsWith('http') && !href.startsWith('#') && !href.startsWith('mailto:')) {
                             link.addEventListener('click', (e) => {
                                 e.preventDefault();
+                                e.stopPropagation();
+                                e.stopImmediatePropagation();
                                 // Resolve relative URLs
                                 const resolvedUrl = new URL(href, fullUrl).pathname;
                                 this.loadContent(resolvedUrl, sessionId);
-                            });
+                            }, true); // capture phase: runs before MkDocs document-level handler
+                        } else if (href && href.startsWith('#')) {
+                            link.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                e.stopImmediatePropagation();
+                                const target = content.querySelector(href);
+                                if (target) target.scrollIntoView({ behavior: 'smooth' });
+                            }, true);
                         }
                     });
+
+                    // Capture-phase guard: stop MkDocs instant-navigation from acting on any click inside this pane
+                    content.addEventListener('click', (e) => {
+                        const link = e.target.closest('a[href]');
+                        if (!link) return;
+                        const href = link.getAttribute('href');
+                        if (!href) return;
+                        // Block propagation for internal links so MkDocs won't navigate the parent page
+                        if (!href.startsWith('http') || href.includes(window.location.hostname)) {
+                            e.stopPropagation();
+                            e.stopImmediatePropagation();
+                        }
+                    }, true);
 
                     session.currentUrl = url;
                     session.currentTitle = title;

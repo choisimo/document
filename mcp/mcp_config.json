@@ -27,6 +27,18 @@
           "/workspace"
         ],
         "env": {}
+      },
+      "perplexity": {
+        "command": "docker",
+        "args": [
+          "exec",
+          "-i",
+          "perplexity-mcp",
+          "python",
+          "-m",
+          "perplexity_mcp.server"
+        ],
+        "env": {}
       }
     },
     "recommended_extensions": {

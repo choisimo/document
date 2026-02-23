@@ -1,0 +1,177 @@
+[
+  {
+    "path": "/",
+    "url": "http://localhost:8000/",
+    "screenshot": "qa-shots/home-finalcheck.png",
+    "raw_pattern_matches": [],
+    "raw_blocks": [],
+    "overflowing": []
+  },
+  {
+    "path": "/extra/docker/",
+    "url": "http://localhost:8000/extra/docker/",
+    "screenshot": "qa-shots/extra_docker-finalcheck.png",
+    "raw_pattern_matches": [],
+    "raw_blocks": [],
+    "overflowing": []
+  },
+  {
+    "path": "/extra/docker/stacks/",
+    "url": "http://localhost:8000/extra/docker/stacks/",
+    "screenshot": "qa-shots/extra_docker_stacks-finalcheck.png",
+    "raw_pattern_matches": [],
+    "raw_blocks": [],
+    "overflowing": []
+  },
+  {
+    "path": "/extra/docker/stacks/databases/",
+    "url": "http://localhost:8000/extra/docker/stacks/databases/",
+    "screenshot": "qa-shots/extra_docker_stacks_databases-finalcheck.png",
+    "raw_pattern_matches": [],
+    "raw_blocks": [
+      {
+        "display": "none",
+        "visibility": "visible",
+        "hasOffset": false,
+        "text": "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/databases/mongodb/docker-compose."
+      },
+      {
+        "display": "none",
+        "visibility": "visible",
+        "hasOffset": false,
+        "text": "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/databases/supabase/docker-compose"
+      }
+    ],
+    "overflowing": []
+  },
+  {
+    "path": "/extra/docker/stacks/automation/",
+    "url": "http://localhost:8000/extra/docker/stacks/automation/",
+    "screenshot": "qa-shots/extra_docker_stacks_automation-finalcheck.png",
+    "raw_pattern_matches": [],
+    "raw_blocks": [
+      {
+        "display": "none",
+        "visibility": "visible",
+        "hasOffset": false,
+        "text": "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/automation/kimai/docker-compose.y"
+      }
+    ],
+    "overflowing": []
+  },
+  {
+    "path": "/extra/docker/stacks/devtools/",
+    "url": "http://localhost:8000/extra/docker/stacks/devtools/",
+    "screenshot": "qa-shots/extra_docker_stacks_devtools-finalcheck.png",
+    "raw_pattern_matches": [],
+    "raw_blocks": [
+      {
+        "display": "none",
+        "visibility": "visible",
+        "hasOffset": false,
+        "text": "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/devtools/sourcebot/docker-compose"
+      },
+      {
+        "display": "none",
+        "visibility": "visible",
+        "hasOffset": false,
+        "text": "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/devtools/termix/docker-compose.ya"
+      }
+    ],
+    "overflowing": []
+  },
+  {
+    "path": "/extra/docker/stacks/security/",
+    "url": "http://localhost:8000/extra/docker/stacks/security/",
+    "screenshot": "qa-shots/extra_docker_stacks_security-finalcheck.png",
+    "raw_pattern_matches": [],
+    "raw_blocks": [],
+    "overflowing": []
+  },
+  {
+    "path": "/extra/docker/stacks/media/",
+    "url": "http://localhost:8000/extra/docker/stacks/media/",
+    "screenshot": "qa-shots/extra_docker_stacks_media-finalcheck.png",
+    "raw_pattern_matches": [],
+    "raw_blocks": [
+      {
+        "display": "none",
+        "visibility": "visible",
+        "hasOffset": false,
+        "text": "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/media/gluetun-qbittorrent/docker-"
+      },
+      {
+        "display": "none",
+        "visibility": "visible",
+        "hasOffset": false,
+        "text": "[:octicons-file-code-24: docker-compose.yml](/extra/docker/stacks/media/qbittorrent-advanced/docker-"
+      },
+      {
+        "display": "none",
+        "visibility": "visible",
+        "hasOffset": false,
+        "text": "[:octicons-file-code-24: docker-compose.yml](/extra/docker/stacks/media/qbittorrent-mediamanager/doc"
+      }
+    ],
+    "overflowing": []
+  },
+  {
+    "path": "/extra/docker/stacks/storage/",
+    "url": "http://localhost:8000/extra/docker/stacks/storage/",
+    "screenshot": "qa-shots/extra_docker_stacks_storage-finalcheck.png",
+    "raw_pattern_matches": [],
+    "raw_blocks": [
+      {
+        "display": "none",
+        "visibility": "visible",
+        "hasOffset": false,
+        "text": "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/storage/picoshare/docker-compose."
+      }
+    ],
+    "overflowing": []
+  },
+  {
+    "path": "/extra/docker/stacks/misc/",
+    "url": "http://localhost:8000/extra/docker/stacks/misc/",
+    "screenshot": "qa-shots/extra_docker_stacks_misc-finalcheck.png",
+    "raw_pattern_matches": [],
+    "raw_blocks": [
+      {
+        "display": "none",
+        "visibility": "visible",
+        "hasOffset": false,
+        "text": "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/misc/ghost-blog/docker-compose.ya"
+      },
+      {
+        "display": "none",
+        "visibility": "visible",
+        "hasOffset": false,
+        "text": "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/misc/kamai/docker-compose.yaml){ "
+      }
+    ],
+    "overflowing": []
+  },
+  {
+    "path": "/extra/docker/stacks/monitoring/",
+    "url": "http://localhost:8000/extra/docker/stacks/monitoring/",
+    "screenshot": "qa-shots/extra_docker_stacks_monitoring-finalcheck.png",
+    "raw_pattern_matches": [],
+    "raw_blocks": [
+      {
+        "display": "none",
+        "visibility": "visible",
+        "hasOffset": false,
+        "text": "[:material-file-cog: prometheus.yml](/extra/docker/stacks/monitoring/prometheus-grafana/prometheus.y"
+      }
+    ],
+    "overflowing": []
+  },
+  {
+    "path": "/extra/docker/stacks/proxy/",
+    "url": "http://localhost:8000/extra/docker/stacks/proxy/",
+    "screenshot": "qa-shots/extra_docker_stacks_proxy-finalcheck.png",
+    "raw_pattern_matches": [],
+    "raw_blocks": [],
+    "overflowing": []
+  }
+]

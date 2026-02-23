@@ -1,0 +1,86 @@
+[
+  {
+    "path": "/",
+    "screenshot": "qa-shots/home-final.png",
+    "rawPattern": [],
+    "rawVisible": false,
+    "overflow": []
+  },
+  {
+    "path": "/extra/docker/",
+    "screenshot": "qa-shots/extra_docker-final.png",
+    "rawPattern": [],
+    "rawVisible": false,
+    "overflow": []
+  },
+  {
+    "path": "/extra/docker/stacks/",
+    "screenshot": "qa-shots/extra_docker_stacks-final.png",
+    "rawPattern": [],
+    "rawVisible": false,
+    "overflow": []
+  },
+  {
+    "path": "/extra/docker/stacks/databases/",
+    "screenshot": "qa-shots/extra_docker_stacks_databases-final.png",
+    "rawPattern": [],
+    "rawVisible": false,
+    "overflow": []
+  },
+  {
+    "path": "/extra/docker/stacks/automation/",
+    "screenshot": "qa-shots/extra_docker_stacks_automation-final.png",
+    "rawPattern": [],
+    "rawVisible": false,
+    "overflow": []
+  },
+  {
+    "path": "/extra/docker/stacks/devtools/",
+    "screenshot": "qa-shots/extra_docker_stacks_devtools-final.png",
+    "rawPattern": [],
+    "rawVisible": false,
+    "overflow": []
+  },
+  {
+    "path": "/extra/docker/stacks/security/",
+    "screenshot": "qa-shots/extra_docker_stacks_security-final.png",
+    "rawPattern": [],
+    "rawVisible": false,
+    "overflow": []
+  },
+  {
+    "path": "/extra/docker/stacks/media/",
+    "screenshot": "qa-shots/extra_docker_stacks_media-final.png",
+    "rawPattern": [],
+    "rawVisible": false,
+    "overflow": []
+  },
+  {
+    "path": "/extra/docker/stacks/storage/",
+    "screenshot": "qa-shots/extra_docker_stacks_storage-final.png",
+    "rawPattern": [],
+    "rawVisible": false,
+    "overflow": []
+  },
+  {
+    "path": "/extra/docker/stacks/misc/",
+    "screenshot": "qa-shots/extra_docker_stacks_misc-final.png",
+    "rawPattern": [],
+    "rawVisible": false,
+    "overflow": []
+  },
+  {
+    "path": "/extra/docker/stacks/monitoring/",
+    "screenshot": "qa-shots/extra_docker_stacks_monitoring-final.png",
+    "rawPattern": [],
+    "rawVisible": false,
+    "overflow": []
+  },
+  {
+    "path": "/extra/docker/stacks/proxy/",
+    "screenshot": "qa-shots/extra_docker_stacks_proxy-final.png",
+    "rawPattern": [],
+    "rawVisible": false,
+    "overflow": []
+  }
+]

@@ -1,0 +1,275 @@
+[
+  {
+    "path": "/",
+    "url": "http://localhost:8000/",
+    "screenshot": "qa-shots/home-postbuild.png",
+    "raw_pattern_matches": [],
+    "raw_candidates": [],
+    "overflowing": [],
+    "markdown_block_state": []
+  },
+  {
+    "path": "/extra/docker/",
+    "url": "http://localhost:8000/extra/docker/",
+    "screenshot": "qa-shots/extra_docker-postbuild.png",
+    "raw_pattern_matches": [],
+    "raw_candidates": [
+      "\uc2a4\ud0dd \uc804\uccb4 \ubcf4\uae30\n Raw \ub514\ub809\ud1a0\ub9ac"
+    ],
+    "overflowing": [],
+    "markdown_block_state": []
+  },
+  {
+    "path": "/extra/docker/stacks/",
+    "url": "http://localhost:8000/extra/docker/stacks/",
+    "screenshot": "qa-shots/extra_docker_stacks-postbuild.png",
+    "raw_pattern_matches": [],
+    "raw_candidates": [
+      "Raw Docker \ub514\ub809\ud1a0\ub9ac\n Docker Compose \ud648"
+    ],
+    "overflowing": [],
+    "markdown_block_state": []
+  },
+  {
+    "path": "/extra/docker/stacks/databases/",
+    "url": "http://localhost:8000/extra/docker/stacks/databases/",
+    "screenshot": "qa-shots/extra_docker_stacks_databases-postbuild.png",
+    "raw_pattern_matches": [
+      "\\[:octicons-file-code-24:.*?\\]",
+      "\\.md-button",
+      "md-button--primary"
+    ],
+    "raw_candidates": [
+      "Raw \ub514\ub809\ud1a0\ub9ac\n Stacks Overview\n Docker Compose \ud648",
+      "docker-compose.yaml\n   README\n   .env.example",
+      "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/databases/mongodb/docker-compose.yaml){ .md-button .md-button--primary }\n  [:material-file-document: README](/extra/docker/stacks/databases/mongodb/README.md){ .md-button }\n  [:material-file-cog: .env.example](/extra/docker/stacks/databases/mongodb/.env.example){ .md-button }\n  [:material-script: init-keyfile.sh](/extra/docker/stacks/databases/mongodb/scripts/init-keyfile.sh){ .md-button }",
+      "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/databases/supabase/docker-compose.yaml){ .md-button .md-button--primary }\n  [:material-file-document: README](/extra/docker/stacks/databases/supabase/README.md){ .md-button }\n  [:material-file-cog: .env.example](/extra/docker/stacks/databases/supabase/.env.example){ .md-button }"
+    ],
+    "overflowing": [
+      {
+        "cls": "stack-links",
+        "sw": 431,
+        "cw": 149,
+        "right": 525.34375
+      }
+    ],
+    "markdown_block_state": [
+      {
+        "display": "flex",
+        "visibility": "visible",
+        "text": "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/databases/mongodb/docker-compose.yaml){ .md-button .md-button--primary }\n"
+      },
+      {
+        "display": "flex",
+        "visibility": "visible",
+        "text": "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/databases/supabase/docker-compose.yaml){ .md-button .md-button--primary }"
+      }
+    ]
+  },
+  {
+    "path": "/extra/docker/stacks/automation/",
+    "url": "http://localhost:8000/extra/docker/stacks/automation/",
+    "screenshot": "qa-shots/extra_docker_stacks_automation-postbuild.png",
+    "raw_pattern_matches": [
+      "\\[:octicons-file-code-24:.*?\\]",
+      "\\.md-button",
+      "md-button--primary"
+    ],
+    "raw_candidates": [
+      "Raw \ub514\ub809\ud1a0\ub9ac\n Stacks Overview\n Docker Compose \ud648",
+      "full compose\n   simple compose\n   README\n   .env.example",
+      "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/automation/kimai/docker-compose.yaml){ .md-button .md-button--primary }"
+    ],
+    "overflowing": [],
+    "markdown_block_state": [
+      {
+        "display": "flex",
+        "visibility": "visible",
+        "text": "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/automation/kimai/docker-compose.yaml){ .md-button .md-button--primary }"
+      }
+    ]
+  },
+  {
+    "path": "/extra/docker/stacks/devtools/",
+    "url": "http://localhost:8000/extra/docker/stacks/devtools/",
+    "screenshot": "qa-shots/extra_docker_stacks_devtools-postbuild.png",
+    "raw_pattern_matches": [
+      "\\[:octicons-file-code-24:.*?\\]",
+      "\\.md-button",
+      "md-button--primary"
+    ],
+    "raw_candidates": [
+      "Raw \ub514\ub809\ud1a0\ub9ac\n Stacks Overview\n Docker Compose \ud648",
+      "docker-compose.yaml",
+      "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/devtools/sourcebot/docker-compose.yaml){ .md-button .md-button--primary }\n  [:material-file-document: README](/extra/docker/stacks/devtools/sourcebot/README.md){ .md-button }\n  [:material-file-cog: env.example](/extra/docker/stacks/devtools/sourcebot/env.example){ .md-button }\n  [:material-file-settings: config.json](/extra/docker/stacks/devtools/sourcebot/config.json){ .md-button }",
+      "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/devtools/termix/docker-compose.yaml){ .md-button .md-button--primary }"
+    ],
+    "overflowing": [
+      {
+        "cls": "stack-links",
+        "sw": 417,
+        "cw": 253,
+        "right": 629.390625
+      }
+    ],
+    "markdown_block_state": [
+      {
+        "display": "flex",
+        "visibility": "visible",
+        "text": "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/devtools/sourcebot/docker-compose.yaml){ .md-button .md-button--primary }"
+      },
+      {
+        "display": "flex",
+        "visibility": "visible",
+        "text": "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/devtools/termix/docker-compose.yaml){ .md-button .md-button--primary }"
+      }
+    ]
+  },
+  {
+    "path": "/extra/docker/stacks/security/",
+    "url": "http://localhost:8000/extra/docker/stacks/security/",
+    "screenshot": "qa-shots/extra_docker_stacks_security-postbuild.png",
+    "raw_pattern_matches": [],
+    "raw_candidates": [
+      "Raw \ub514\ub809\ud1a0\ub9ac\n Stacks Overview\n Docker Compose \ud648",
+      "\uae30\ubcf8 compose\n   nginx compose\n   cloudflared compose\n   full compose\n   .env.example\n   nginx.conf"
+    ],
+    "overflowing": [],
+    "markdown_block_state": []
+  },
+  {
+    "path": "/extra/docker/stacks/media/",
+    "url": "http://localhost:8000/extra/docker/stacks/media/",
+    "screenshot": "qa-shots/extra_docker_stacks_media-postbuild.png",
+    "raw_pattern_matches": [
+      "\\[:octicons-file-code-24:.*?\\]",
+      "\\.md-button",
+      "md-button--primary"
+    ],
+    "raw_candidates": [
+      "Raw \ub514\ub809\ud1a0\ub9ac\n Stacks Overview\n Docker Compose \ud648",
+      "docker-compose.yaml",
+      "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/media/gluetun-qbittorrent/docker-compose.yaml){ .md-button .md-button--primary }\n  [:material-file-document: README](/extra/docker/stacks/media/gluetun-qbittorrent/README.md){ .md-button }\n  [:material-file-cog: .env.example](/extra/docker/stacks/media/gluetun-qbittorrent/.env.example){ .md-button }\n  [:material-file-cog: wireguard.yaml](/extra/docker/stacks/media/gluetun-qbittorrent/wireguard.yaml){ .md-button }",
+      "[:octicons-file-code-24: docker-compose.yml](/extra/docker/stacks/media/qbittorrent-advanced/docker-compose.yml){ .md-button .md-button--primary }",
+      "[:octicons-file-code-24: docker-compose.yml](/extra/docker/stacks/media/qbittorrent-mediamanager/docker-compose.yml){ .md-button .md-button--primary }\n  [:octicons-file-code-24: arr compose](/extra/docker/stacks/media/qbittorrent-mediamanager/docker-compose.arr.yml){ .md-button }\n  [:octicons-file-code-24: mediamanager compose](/extra/docker/stacks/media/qbittorrent-mediamanager/docker-compose.mediamanager.yml){ .md-button }\n  [:octicons-file-code-24: rclone compose](/extra/docker/stacks/media/qbittorrent-mediamanager/docker-compose.rclone.yml){ .md-button }\n  [:material-file-cog: .env.example](/extra/docker/stacks/media/qbittorrent-mediamanager/.env.example){ .md-button }\n  [:material-file-cog: .env.example.arr](/extra/docker/stacks/media/qbittorrent-mediamanager/.env.example.arr){ .md-button }\n  [:material-file-cog: .env.example.rclone](/extra/docker/stacks/media/qbittorrent-mediamanager/.env.example.rclone){ .md-button }"
+    ],
+    "overflowing": [
+      {
+        "cls": "stack-links",
+        "sw": 281,
+        "cw": 233,
+        "right": 609.328125
+      }
+    ],
+    "markdown_block_state": [
+      {
+        "display": "flex",
+        "visibility": "visible",
+        "text": "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/media/gluetun-qbittorrent/docker-compose.yaml){ .md-button .md-button--pr"
+      },
+      {
+        "display": "flex",
+        "visibility": "visible",
+        "text": "[:octicons-file-code-24: docker-compose.yml](/extra/docker/stacks/media/qbittorrent-advanced/docker-compose.yml){ .md-button .md-button--pri"
+      },
+      {
+        "display": "flex",
+        "visibility": "visible",
+        "text": "[:octicons-file-code-24: docker-compose.yml](/extra/docker/stacks/media/qbittorrent-mediamanager/docker-compose.yml){ .md-button .md-button-"
+      }
+    ]
+  },
+  {
+    "path": "/extra/docker/stacks/storage/",
+    "url": "http://localhost:8000/extra/docker/stacks/storage/",
+    "screenshot": "qa-shots/extra_docker_stacks_storage-postbuild.png",
+    "raw_pattern_matches": [
+      "\\[:octicons-file-code-24:.*?\\]",
+      "\\.md-button",
+      "md-button--primary"
+    ],
+    "raw_candidates": [
+      "Raw \ub514\ub809\ud1a0\ub9ac\n Stacks Overview\n Docker Compose \ud648",
+      "docker-compose.yaml\n   README\n   .env.example",
+      "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/storage/picoshare/docker-compose.yaml){ .md-button .md-button--primary }\n  [:material-file-document: README](/extra/docker/stacks/storage/picoshare/README.md){ .md-button }\n  [:material-file-cog: .env.example](/extra/docker/stacks/storage/picoshare/.env.example){ .md-button }"
+    ],
+    "overflowing": [],
+    "markdown_block_state": [
+      {
+        "display": "flex",
+        "visibility": "visible",
+        "text": "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/storage/picoshare/docker-compose.yaml){ .md-button .md-button--primary }\n"
+      }
+    ]
+  },
+  {
+    "path": "/extra/docker/stacks/misc/",
+    "url": "http://localhost:8000/extra/docker/stacks/misc/",
+    "screenshot": "qa-shots/extra_docker_stacks_misc-postbuild.png",
+    "raw_pattern_matches": [
+      "\\[:octicons-file-code-24:.*?\\]",
+      "\\.md-button",
+      "md-button--primary"
+    ],
+    "raw_candidates": [
+      "Raw \ub514\ub809\ud1a0\ub9ac\n Stacks Overview\n Docker Compose \ud648",
+      "docker-compose.yaml\n   README\n   .env.example",
+      "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/misc/ghost-blog/docker-compose.yaml){ .md-button .md-button--primary }\n  [:material-file-document: README](/extra/docker/stacks/misc/ghost-blog/README.md){ .md-button }\n  [:material-file-cog: .env.example](/extra/docker/stacks/misc/ghost-blog/.env.example){ .md-button }",
+      "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/misc/kamai/docker-compose.yaml){ .md-button .md-button--primary }\n  [:material-file-document: README](/extra/docker/stacks/misc/kamai/README.md){ .md-button }\n  [:material-file-cog: .env.example](/extra/docker/stacks/misc/kamai/.env.example){ .md-button }"
+    ],
+    "overflowing": [
+      {
+        "cls": "stack-links",
+        "sw": 253,
+        "cw": 177,
+        "right": 552.890625
+      }
+    ],
+    "markdown_block_state": [
+      {
+        "display": "flex",
+        "visibility": "visible",
+        "text": "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/misc/ghost-blog/docker-compose.yaml){ .md-button .md-button--primary }\n  "
+      },
+      {
+        "display": "flex",
+        "visibility": "visible",
+        "text": "[:octicons-file-code-24: docker-compose.yaml](/extra/docker/stacks/misc/kamai/docker-compose.yaml){ .md-button .md-button--primary }\n  [:mat"
+      }
+    ]
+  },
+  {
+    "path": "/extra/docker/stacks/monitoring/",
+    "url": "http://localhost:8000/extra/docker/stacks/monitoring/",
+    "screenshot": "qa-shots/extra_docker_stacks_monitoring-postbuild.png",
+    "raw_pattern_matches": [
+      "\\.md-button",
+      "md-button--primary"
+    ],
+    "raw_candidates": [
+      "Raw \ub514\ub809\ud1a0\ub9ac\n Stacks Overview\n Docker Compose \ud648",
+      "docker-compose.yaml",
+      "[:material-file-cog: prometheus.yml](/extra/docker/stacks/monitoring/prometheus-grafana/prometheus.yml){ .md-button .md-button--primary }"
+    ],
+    "overflowing": [],
+    "markdown_block_state": [
+      {
+        "display": "flex",
+        "visibility": "visible",
+        "text": "[:material-file-cog: prometheus.yml](/extra/docker/stacks/monitoring/prometheus-grafana/prometheus.yml){ .md-button .md-button--primary }"
+      }
+    ]
+  },
+  {
+    "path": "/extra/docker/stacks/proxy/",
+    "url": "http://localhost:8000/extra/docker/stacks/proxy/",
+    "screenshot": "qa-shots/extra_docker_stacks_proxy-postbuild.png",
+    "raw_pattern_matches": [],
+    "raw_candidates": [
+      "Raw \ub514\ub809\ud1a0\ub9ac\n Stacks Overview\n Docker Compose \ud648",
+      "docker-compose.yaml\n   nginx.conf"
+    ],
+    "overflowing": [],
+    "markdown_block_state": []
+  }
+]

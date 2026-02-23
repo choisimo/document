@@ -608,16 +608,27 @@ html {
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 0.75rem;
+  align-items: center;
+  font-size: 0;
 }
 
-.compose-actions .md-button {
+.compose-actions .md-button,
+.compose-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 0.35rem;
   padding: 0.4rem 0.7rem;
   font-size: 0.78rem;
   line-height: 1.25;
+  text-decoration: none;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
-.compose-actions .md-button:not(.md-button--primary) {
+.compose-actions .md-button:not(.md-button--primary),
+.compose-actions a:not(.md-button--primary) {
   border: 1px solid var(--md-default-fg-color--lightest);
   background: transparent;
   color: var(--md-default-fg-color);
@@ -628,7 +639,8 @@ html {
   background: rgba(255, 255, 255, 0.04);
 }
 
-.compose-actions .md-button--primary {
+.compose-actions .md-button--primary,
+.compose-actions a.md-button--primary {
   box-shadow: none;
   background: var(--md-default-fg-color);
   color: var(--md-default-bg-color);
@@ -642,14 +654,21 @@ html {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 0.8rem;
+  list-style: none;
+  margin: 0;
+  padding-left: 0;
+  min-width: 0;
 }
 
 .compose-grid > ul > li {
+  margin: 0;
   padding: 1rem;
   border-radius: 0.45rem;
   border: 1px solid var(--md-default-fg-color--lightest);
   background: var(--md-default-bg-color);
   box-shadow: none;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 [data-md-color-scheme="slate"] .compose-grid > ul > li {
@@ -672,6 +691,7 @@ html {
   flex-direction: column;
   gap: 0.55rem;
   height: 100%;
+  min-width: 0;
 }
 
 .stack-card h3 {
@@ -713,9 +733,20 @@ html {
   flex-wrap: wrap;
   gap: 0.4rem;
   margin-top: 0.35rem;
+  align-items: center;
+  font-size: 0;
 }
 
-.stack-links .md-button {
+.stack-links[markdown="block"] {
+  display: none;
+}
+
+.stack-links:not(:has(a)) {
+  display: none;
+}
+
+.stack-links .md-button,
+.stack-links a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -727,8 +758,9 @@ html {
   color: var(--md-default-fg-color);
   max-width: 100%;
   white-space: normal;
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
   line-height: 1.25;
+  text-decoration: none;
 }
 
 .stack-links .md-button--primary {

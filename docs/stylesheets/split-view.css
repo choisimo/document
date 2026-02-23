@@ -137,7 +137,7 @@ body.split-view-active .md-header,
 body.split-view-active .md-sidebar,
 body.split-view-active .md-content,
 body.split-view-active .md-footer {
-    display: none !important;
+    display: none;
 }
 
 /* =====================================================
@@ -650,11 +650,12 @@ body.split-view-active .md-footer {
 
 .split-view-document .compose-grid > ul {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
     gap: 0.6rem;
     list-style: none;
     margin: 0.8rem 0 0;
     padding-left: 0;
+    min-width: 0;
 }
 
 .split-view-document .compose-grid > ul > li {
@@ -663,6 +664,8 @@ body.split-view-active .md-footer {
     border: 1px solid var(--sv-border);
     border-radius: 6px;
     background: var(--sv-pane-bg);
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .split-view-document .stack-card {
@@ -670,6 +673,7 @@ body.split-view-active .md-footer {
     flex-direction: column;
     gap: 0.45rem;
     height: 100%;
+    min-width: 0;
 }
 
 .split-view-document .stack-card h3 {
@@ -726,8 +730,8 @@ body.split-view-active .md-footer {
 }
 
 .split-view-document > * {
-    overflow: visible !important;
-    height: auto !important;
+    overflow: visible;
+    height: auto;
 }
 
 .split-view-document img {
@@ -832,7 +836,7 @@ body.split-view-active .md-footer {
 
     .split-view-toggle,
     .split-view-container {
-        display: none !important;
+        display: none;
     }
 }
 
@@ -882,11 +886,11 @@ body.split-view-resizing .split-view-resize-handle {
 
 body.split-view-resizing {
     user-select: none;
-    cursor: inherit !important;
+    cursor: inherit;
 }
 
 body.split-view-resizing * {
-    user-select: none !important;
+    user-select: none;
 }
 
 /* =====================================================
