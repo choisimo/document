@@ -146,6 +146,7 @@ extra_css:
 
 extra_javascript:
   - javascripts/split-view.js
+  - javascripts/cs-reference-filter.js
   - javascripts/ai-config.js
   - javascripts/ai-client.js
   - javascripts/ai-chatbot.js
@@ -330,6 +331,11 @@ nav:
   - AI Engineering:
     - ai/bm25-vs-attention.md
     - ai/langchain-vs-langgraph.md
+
+  - Books Library:
+    - books/index.md
+    - CS References (EN/KR): books/cs-reference/index.md
+    - cs-references: books/cs-references/index.md
   
   - Projects:
     - projects/index.md

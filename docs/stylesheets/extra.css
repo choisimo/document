@@ -1478,3 +1478,41 @@ html {
   background: rgba(139, 126, 200, 0.15);
   border-color: rgba(139, 126, 200, 0.3);
 }
+
+/* CS Reference index controls */
+.cs-reference-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 12px 0 18px;
+  padding: 12px;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 10px;
+  background: var(--md-code-bg-color);
+}
+
+.cs-reference-controls label {
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.cs-reference-controls select {
+  min-width: 210px;
+}
+
+.cs-reference-table [data-lang][hidden] {
+  display: none !important;
+}
+
+@media (max-width: 700px) {
+  .cs-reference-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cs-reference-controls select {
+    min-width: 0;
+    width: 100%;
+  }
+}

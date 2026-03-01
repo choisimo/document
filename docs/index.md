@@ -58,6 +58,14 @@
     
     [:octicons-arrow-right-24: 도구 문서](tools/index.md)
 
+-   :material-bookshelf: **Books Library**
+
+    ---
+    
+    Systems · Algorithms · CS References (EN/KR)
+    
+    [:octicons-arrow-right-24: Books 문서](books/index.md)
+
 </div>
 
 ---

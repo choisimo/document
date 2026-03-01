@@ -13,7 +13,7 @@
 | [Distributed Systems](#distributed-systems) | 2 | Consensus, replication, CAP, CRDTs; distributed computing principles |
 | [Kafka / Messaging](#kafka--messaging) | 11 | Kafka internals, streams, RabbitMQ, event-driven systems, Effective Kafka |
 | [DevOps](#devops) | 6 | Docker/K8s, Jenkins, Consul, edge computing, K8s orchestration, Java+K8s |
-| [CS Reference](#cs-reference) | 26 | Architecture, compilers, networking, security, ML, and more |
+| [CS Reference](cs-references/index.md) | 26 | Architecture, compilers, networking, security, ML, and more |
 
 **Total: 59 files**
 
@@ -100,6 +100,8 @@
 ## CS Reference
 
 > Broad computer science reference covering architecture, compilers, networking, databases, security, ML, and more — derived from ~494 CS reference books.
+
+- [CS References (EN/KR) 인덱스 바로가기](cs-references/index.md)
 
 ### Core Systems
 
