@@ -3,10 +3,15 @@
 # IDE
 .vscode/
 .idea/
+.cursor/
+*.iml
+.project
+.classpath
+.settings/
 
+# Sisyphus internal
 .sispyus/
-.node_modules/
-node_modules/
+
 # History
 .history/
 
@@ -18,6 +23,8 @@ backup_*/
 .DS_Store
 thumbs.db
 Thumbs.db
+ehthumbs.db
+desktop.ini
 
 # Environment variables
 .env
@@ -30,12 +37,46 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+*.swp
+*.swo
+*~
 
-# MkDocs / docs build artifacts
-site/
-docs/_build/
+# ====================
+# Build Artifacts
+# ====================
 
-# Python cache / build artifacts
+# Rust
+target/
+Cargo.lock
+**/*.rs.bk
+
+# Java / Kotlin / JVM
+*.class
+*.jar
+*.war
+*.ear
+out/
+.gradle/
+.kotlin/
+
+# C / C++
+*.o
+*.a
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.out
+*.obj
+*.lib
+*.d
+
+# ====================
+# Language Cache / Incremental
+# ====================
+
+# Python
 __pycache__/
 *.py[cod]
 *.pyo
@@ -47,16 +88,32 @@ __pycache__/
 .nox/
 .coverage*
 htmlcov/
-build/
-dist/
 *.egg-info/
 pip-wheel-metadata/
 .venv/
 venv/
 env/
 
-# Common JavaScript / frontend build artifacts
+# ====================
+# Build Output Directories
+# ====================
+
+build/
+dist/
+release/
+debug/
+
+# Docs
+site/
+docs/_build/
+
+# ====================
+# Package Managers
+# ====================
+
+# Node / JS
 node_modules/
+.node_modules/
 .npm/
 .pnpm-store/
 .yarn/
@@ -65,3 +122,64 @@ node_modules/
 .nuxt/
 .svelte-kit/
 coverage/
+
+# ====================
+# Compiled / Binary file extensions (Rust incremental, LLVM, etc.)
+# ====================
+
+*.rlib
+*.rmeta
+*.bin
+*.wasm
+*.timestamp
+*.cargo-lock
+
+# ====================
+# Media / Documents (large binary assets)
+# ====================
+
+# Images
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.ico
+*.bmp
+*.tiff
+*.tif
+# SVG is text-based - intentionally NOT ignored
+
+# Videos
+*.mp4
+*.mkv
+*.avi
+*.mov
+*.wmv
+*.flv
+*.webm
+
+# Audio
+*.mp3
+*.wav
+*.flac
+*.aac
+*.ogg
+
+# Documents / Archives
+*.pdf
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.ppt
+*.pptx
+*.zip
+*.tar
+*.tar.gz
+*.tar.bz2
+*.tgz
+*.rar
+*.7z
+*.gz
+*.bz2
