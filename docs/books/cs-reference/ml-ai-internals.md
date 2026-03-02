@@ -92,23 +92,27 @@ flowchart TD
 ```mermaid
 flowchart LR
     subgraph SGD with Momentum
-        m_t["m_t = β·m_{t-1} + (1-β)·∇L\n(exponential moving avg of grad)"]
-        θ_t["θ_t = θ_{t-1} - α·m_t\n(β=0.9, α=0.01)"]
+        m_t["m_t = beta*m_{t-1} + (1-beta)*grad\n(exponential moving avg of grad)"]
+        theta_t["theta_t = theta_{t-1} - alpha*m_t\n(beta=0.9, alpha=0.01)"]
         State["State per param:\nm (momentum buffer)"]
     end
 
     subgraph Adam
-        g["g_t = ∇L (gradient)"]
-        m1["m_t = β1·m_{t-1} + (1-β1)·g_t\n(1st moment, β1=0.9)"]
-        v1["v_t = β2·v_{t-1} + (1-β2)·g_t²\n(2nd moment, β2=0.999)"]
-        bc["m̂_t = m_t/(1-β1^t)\nv̂_t = v_t/(1-β2^t)\n(bias correction for cold start)"]
-        up["θ_t = θ_{t-1} - α·m̂_t/(√v̂_t + ε)\n(ε=1e-8, α=0.001)"]
-        g --> m1 & v1 --> bc --> up
+        g["g_t = grad L (gradient)"]
+        m1["m_t = beta1*m_{t-1} + (1-beta1)*g_t\n(1st moment, beta1=0.9)"]
+        v1["v_t = beta2*v_{t-1} + (1-beta2)*g_t^2\n(2nd moment, beta2=0.999)"]
+        bc["m_hat_t = m_t/(1-beta1^t)\nv_hat_t = v_t/(1-beta2^t)\n(bias correction for cold start)"]
+        up["theta_t = theta_{t-1} - alpha*m_hat_t/(sqrt(v_hat_t) + eps)\n(eps=1e-8, alpha=0.001)"]
+        g --> m1
+        g --> v1
+        m1 --> bc
+        v1 --> bc
+        bc --> up
         State2["State per param:\nm, v (2× memory vs SGD)"]
     end
 
     subgraph AdamW (decoupled weight decay)
-        WD["θ_t = θ_{t-1} - α·m̂_t/(√v̂_t+ε) - α·λ·θ_{t-1}\n(weight decay applied directly\n NOT through gradient)"]
+        WD["theta_t = theta_{t-1} - alpha*m_hat_t/(sqrt(v_hat_t)+eps) - alpha*lambda*theta_{t-1}\n(weight decay applied directly\nNOT through gradient)"]
         Note2["L2 regularization via gradient:\n∇L += λθ (changes Adam moments)\nAdamW: decay separate from Adam update\n→ better generalization"]
     end
 ```

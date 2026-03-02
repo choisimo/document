@@ -1,0 +1,1 @@
+/home/nodove/workspace/document/tools/docs-validator-rs/target/release/docs-validator-rs: /home/nodove/workspace/document/tools/docs-validator-rs/src/lib.rs /home/nodove/workspace/document/tools/docs-validator-rs/src/main.rs

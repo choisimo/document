@@ -11,14 +11,13 @@
 ```mermaid
 flowchart TD
     subgraph "GPU Rendering Pipeline"
-        IA["Input Assembler\nvertex/index buffer fetch"] -->
-        VS["Vertex Shader\nper-vertex: MVP transform\nclip space position"] -->
-        TC["Tessellation Control\npatch subdivision factor"] -->
-        TE["Tessellation Evaluation\nnew vertex positions"] -->
-        GS["Geometry Shader (optional)\nper-primitive emission"] -->
-        RS["Rasterizer\ntriangle → fragment coverage\nbary coords, interpolation"] -->
-        FS["Fragment Shader\nper-pixel color computation\ntexture sampling"] -->
-        OM["Output Merger\ndepth test + stencil test\nblend: src*srcAlpha + dst*(1-srcAlpha)"]
+        IA["Input Assembler\nvertex/index buffer fetch"] --> VS["Vertex Shader\nper-vertex: MVP transform\nclip space position"]
+        VS --> TC["Tessellation Control\npatch subdivision factor"]
+        TC --> TE["Tessellation Evaluation\nnew vertex positions"]
+        TE --> GS["Geometry Shader (optional)\nper-primitive emission"]
+        GS --> RS["Rasterizer\ntriangle -> fragment coverage\nbary coords, interpolation"]
+        RS --> FS["Fragment Shader\nper-pixel color computation\ntexture sampling"]
+        FS --> OM["Output Merger\ndepth test + stencil test\nblend: src*srcAlpha + dst*(1-srcAlpha)"]
     end
 ```
 
@@ -49,13 +48,12 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-    subgraph "Forward: O(objects × lights)"
+    subgraph "Forward: O(objects x lights)"
         FR_Geo["Render each object\nwith ALL lights in FS"] --> FR_Out["Final color buffer"]
     end
     subgraph "Deferred: O(objects + lights)"
-        DR_Geo["Geometry Pass\nwrite G-buffer: albedo, normal, depth"] -->
-        DR_Light["Lighting Pass\nper-light: read G-buffer\ncompute only lit fragments"] -->
-        DR_Out["Final color buffer"]
+        DR_Geo["Geometry Pass\nwrite G-buffer: albedo, normal, depth"] --> DR_Light["Lighting Pass\nper-light: read G-buffer\ncompute only lit fragments"]
+        DR_Light --> DR_Out["Final color buffer"]
     end
 ```
 
@@ -69,11 +67,11 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    Ray["Ray origin + direction"] -->
-    BVH_Root["BVH Root AABB intersection test"] -->|hit| BVH_L["Left Child AABB"]
+    Ray["Ray origin + direction"] --> BVH_Root["BVH Root AABB intersection test"]
+    BVH_Root -->|hit| BVH_L["Left Child AABB"]
     BVH_Root -->|miss| Discard["No intersection"]
     BVH_L -->|hit| Leaf["Leaf: triangle list"]
-    Leaf --> MollerTrumbore["Möller–Trumbore algorithm\nbary coords u,v,t\nray = O + tD"]
+    Leaf --> MollerTrumbore["Moller-Trumbore algorithm\nbary coords u,v,t\nray = O + tD"]
     MollerTrumbore -->|t > 0| Hit["Record hit: (t, u, v, tri_id)"]
 ```
 
@@ -287,8 +285,7 @@ Modules must implement idempotent `get_state` → compare → `set_state` logic.
 
 ```mermaid
 flowchart TD
-    SLO["SLO: 99.9% availability\n= 43.8 min downtime/month allowed"] -->
-    EB["Error Budget = 1 - SLO\n= 0.1% = 43.8 min/month"]
+    SLO["SLO: 99.9% availability\n= 43.8 min downtime/month allowed"] --> EB["Error Budget = 1 - SLO\n= 0.1% = 43.8 min/month"]
 
     Request["Request outcomes"] -->|success| Good["Good events"]
     Request -->|error/timeout| Bad["Bad events"]
@@ -299,7 +296,7 @@ flowchart TD
 
     subgraph "Multi-window alert"
         MWA1["1h window: burn rate > 14.4\n(consumes 2% budget in 1h)"] -->|AND| MWA2["5min window: burn rate > 14.4\nConfirms ongoing burn"]
-        MWA1 & MWA2 --> Page["Page on-call"]
+        MWA2 --> Page["Page on-call"]
     end
 ```
 
@@ -359,8 +356,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    Property["Property: ∀ list xs. sort(sort(xs)) == sort(xs)"] -->
-    Generator["Generator: arbitrary List<Int>\nrandom size, random elements"]
+    Property["Property: for all lists xs, sort(sort(xs)) == sort(xs)"] --> Generator["Generator: arbitrary List<Int>\nrandom size, random elements"]
     Generator -->|100 samples| Runner["Run property for each"]
     Runner -->|failure found| Shrink["Shrink: find minimal counterexample\nbinary search on size + element values"]
     Shrink -->|minimal case| Report["Report: failing case [5, 3, 1]"]
@@ -403,7 +399,7 @@ flowchart TD
 ### Compute Shader Thread Hierarchy (CUDA/Vulkan Compute)
 
 ```mermaid
-block-betting
+block-beta
     columns 1
     block:hierarchy:1
         columns 1
@@ -424,13 +420,12 @@ block-betting
 
 ```mermaid
 flowchart TD
-    SQL["SELECT * FROM orders o JOIN customers c ON o.cust_id = c.id WHERE c.country='US'"] -->
-    Parse["Parse → AST"] -->
-    Bind["Bind → resolve table/column refs"] -->
-    Transform["Logical Plan: Filter → Join → Scan"] -->
-    Enumerate["Plan Enumeration\nDP: enumerate join orderings\nO(3^N) with pruning"] -->
-    CostModel["Cost Model\nI/O cost: #pages × seq_cost\nCPU cost: #rows × cpu_cost\nStats: table cardinality, column NDV, histograms"] -->
-    BestPlan["Best Physical Plan\n(NestLoop vs HashJoin vs MergeJoin)\n(SeqScan vs IndexScan)"]
+    SQL["SELECT * FROM orders o JOIN customers c ON o.cust_id = c.id WHERE c.country='US'"] --> Parse["Parse -> AST"]
+    Parse --> Bind["Bind -> resolve table/column refs"]
+    Bind --> Transform["Logical Plan: Filter -> Join -> Scan"]
+    Transform --> Enumerate["Plan Enumeration\nDP: enumerate join orderings\nO(3^N) with pruning"]
+    Enumerate --> CostModel["Cost Model\nI/O cost: #pages x seq_cost\nCPU cost: #rows x cpu_cost\nStats: table cardinality, column NDV, histograms"]
+    CostModel --> BestPlan["Best Physical Plan\n(NestLoop vs HashJoin vs MergeJoin)\n(SeqScan vs IndexScan)"]
 ```
 
 **Statistics** drive cost estimation: `pg_statistic` histograms, most common values (MCV), and null fractions. Stale stats → wrong cardinality estimates → wrong plan.

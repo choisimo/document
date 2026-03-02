@@ -1,0 +1,14 @@
+/home/nodove/workspace/document/tools/docs-validator-rs/target/release/deps/thiserror-1dae1d2dc6e297b0.d: /home/nodove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/lib.rs /home/nodove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/aserror.rs /home/nodove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/display.rs /home/nodove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/var.rs /home/nodove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/private.rs /home/nodove/workspace/document/tools/docs-validator-rs/target/release/build/thiserror-2084674853410f83/out/private.rs
+
+/home/nodove/workspace/document/tools/docs-validator-rs/target/release/deps/libthiserror-1dae1d2dc6e297b0.rlib: /home/nodove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/lib.rs /home/nodove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/aserror.rs /home/nodove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/display.rs /home/nodove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/var.rs /home/nodove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/private.rs /home/nodove/workspace/document/tools/docs-validator-rs/target/release/build/thiserror-2084674853410f83/out/private.rs
+
+/home/nodove/workspace/document/tools/docs-validator-rs/target/release/deps/libthiserror-1dae1d2dc6e297b0.rmeta: /home/nodove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/lib.rs /home/nodove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/aserror.rs /home/nodove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/display.rs /home/nodove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/var.rs /home/nodove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/private.rs /home/nodove/workspace/document/tools/docs-validator-rs/target/release/build/thiserror-2084674853410f83/out/private.rs
+
+/home/nodove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/lib.rs:
+/home/nodove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/aserror.rs:
+/home/nodove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/display.rs:
+/home/nodove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/var.rs:
+/home/nodove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/private.rs:
+/home/nodove/workspace/document/tools/docs-validator-rs/target/release/build/thiserror-2084674853410f83/out/private.rs:
+
+# env-dep:OUT_DIR=/home/nodove/workspace/document/tools/docs-validator-rs/target/release/build/thiserror-2084674853410f83/out

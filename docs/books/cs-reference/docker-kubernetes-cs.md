@@ -32,7 +32,7 @@ sequenceDiagram
     Containerd->>Shim: Start()
     Shim->>Runc: runc start
     Runc->>Kernel: execve("/entrypoint")
-    Note over Shim,Runc: runc exits; shim adopts container process
+    Note over Shim,Runc: runc exits, shim adopts container process
 ```
 
 ### OCI Bundle Layout
@@ -160,9 +160,9 @@ sequenceDiagram
     CRI->>Netns: ip netns add cni-{uuid}
     CRI->>CNI: ADD cmd (env: CNI_NETNS, CNI_IFNAME=eth0)
     CNI->>HostNS: ip link add veth0 type veth peer name veth1
-    CNI->>Netns: ip link set veth1 netns cni-{uuid}; rename eth0
-    CNI->>Netns: ip addr add 10.244.1.5/24 dev eth0; ip link set eth0 up
-    CNI->>HostNS: ip link set veth0 master cni0; ip link set veth0 up
+    CNI->>Netns: ip link set veth1 netns cni-{uuid}, rename eth0
+    CNI->>Netns: ip addr add 10.244.1.5/24 dev eth0, ip link set eth0 up
+    CNI->>HostNS: ip link set veth0 master cni0, ip link set veth0 up
     CNI->>HostNS: ip route add 10.244.1.5/32 dev veth0
     CNI-->>CRI: {"ip": "10.244.1.5/24", "gateway": "10.244.1.1"}
     CRI-->>kubelet: PodSandboxStatus
@@ -235,9 +235,9 @@ sequenceDiagram
     F1-->>Leader: AppendEntriesResponse (success)
     F2-->>Leader: AppendEntriesResponse (success)
     Note over Leader: quorum achieved (2/3 nodes)
-    Leader->>Leader: commit entry; apply to boltdb (bbolt)
+    Leader->>Leader: commit entry, apply to boltdb (bbolt)
     Leader-->>API: PutResponse (revision=12345)
-    API->>API: update watch cache; fan out watch events
+    API->>API: update watch cache, fan out watch events
     Note over F1,F2: followers commit asynchronously
 ```
 
@@ -248,7 +248,7 @@ sequenceDiagram
 ```mermaid
 stateDiagram-v2
     [*] --> Pending : kubectl apply
-    Pending --> Pending : scheduler: filter/score nodes
+    Pending --> Pending : scheduler filters and scores nodes
     Pending --> Scheduled : spec.nodeName written
     Scheduled --> ContainerCreating : kubelet picks up pod
     ContainerCreating --> Running : all containers started
@@ -438,9 +438,7 @@ sequenceDiagram
     Ctrl->>API: delete Pod-1
     Note over PVC: PVCs retained (not deleted on scale-down)
 
-    subgraph Stable Network Identity
-        DNS["web-0.web-svc.default.svc.cluster.local\nweb-1.web-svc.default.svc.cluster.local\n(Headless Service: clusterIP=None)\n→ DNS A record per pod IP"]
-    end
+    Note over Pod: Stable network identity\nweb-0.web-svc.default.svc.cluster.local\nweb-1.web-svc.default.svc.cluster.local\nHeadless Service (clusterIP=None) gives one DNS A record per pod IP
 ```
 
 ---

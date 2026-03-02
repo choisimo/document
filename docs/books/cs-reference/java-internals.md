@@ -219,9 +219,9 @@ stateDiagram-v2
     [*] --> Unlocked
     Unlocked --> Biased: First thread locks\n(no CAS needed, just write threadID)
     Biased --> Unlocked: Thread exits synchronized block
-    Biased --> Lightweight: Different thread tries to lock\n(bias revocation: STW safepoint)
+    Biased --> Lightweight: Different thread tries to lock\n(bias revocation at STW safepoint)
     Lightweight --> Lightweight: Same thread re-enters (recursive)
-    Lightweight --> Heavyweight: CAS fails (contention)\nInflate: allocate ObjectMonitor
+    Lightweight --> Heavyweight: CAS fails (contention)\nInflate and allocate ObjectMonitor
     Heavyweight --> Heavyweight: wait()/notify()
     Heavyweight --> Unlocked: All threads release
 ```

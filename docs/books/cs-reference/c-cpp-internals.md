@@ -124,13 +124,13 @@ Virtual call overhead: 1 memory load (vptr) + 1 indirect jump + branch predictor
 
 ```mermaid
 flowchart TD
-    subgraph MI_Object["struct C : A, B { int c; };"]
+    subgraph MI_Object["struct C : A, B (int c)"]
         direction TB
-        VPTR_A["vptr_A → C's vtable for A\n(slots: A's virtual funcs overridden by C)"]
+        VPTR_A["vptr_A -> C vtable for A\n(slots: A virtual funcs overridden by C)"]
         A_DATA["int a (from A)"]
-        VPTR_B["vptr_B → C's vtable for B\n(second vtable for B subobject)"]
+        VPTR_B["vptr_B -> C vtable for B\n(second vtable for B subobject)"]
         B_DATA["int b (from B)"]
-        C_DATA["int c (C's own)"]
+        C_DATA["int c (owned by C)"]
     end
 ```
 
@@ -432,9 +432,9 @@ Amortized O(1) push_back. Growth factor: 2× (GCC) or 1.5× (MSVC). `reserve(n)`
 ```mermaid
 flowchart TD
     subgraph Buckets["Bucket Array (vector<list<pair<K,V>>>)"]
-        B0["bucket[0]: → {key="a",val=1} → null"]
+        B0["bucket[0]: -> {key='a',val=1} -> null"]
         B1["bucket[1]: → null"]
-        B2["bucket[2]: → {key="c",val=3} → {key="g",val=7} → null"]
+        B2["bucket[2]: -> {key='c',val=3} -> {key='g',val=7} -> null"]
         B3["bucket[3]: → null"]
     end
 

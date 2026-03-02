@@ -134,7 +134,7 @@ sequenceDiagram
     participant TX1005 as Transaction 1005 (writer)
     participant TRX_SYS as trx_sys (active list)
 
-    Note over TX100: BEGIN; → ReadView created\nup_limit_id=999, low_limit_id=1000\nids_list=[998,999]
+    Note over TX100: BEGIN, ReadView created\nup_limit_id=999, low_limit_id=1000\nids_list=[998,999]
 
     TX1005->>TRX_SYS: UPDATE row (trx_id=1005)
     TX1005->>TRX_SYS: COMMIT

@@ -69,7 +69,7 @@ flowchart LR
         LRQ -->|yes| GRQ[Check Global RunQ]
         GRQ -->|empty| Netpoll[Check epoll netpoller]
         Netpoll -->|empty| Steal[Steal from random P]
-        Steal -->|take half| VictimQ[Victim P's RunQ]
+        Steal -->|take half| VictimQ[Victim P RunQ]
     end
 ```
 
@@ -110,10 +110,9 @@ flowchart TD
         Black -->|write barrier: new ptr| Gray2[Re-gray if needed]
     end
     subgraph "GC Phases"
-        P1[STW: mark setup + enable write barrier] -->
-        P2[Concurrent mark: scan roots + heap] -->
-        P3[STW: mark termination] -->
-        P4[Concurrent sweep: return white spans to allocator]
+        P1[STW mark setup + enable write barrier] --> P2[Concurrent mark: scan roots + heap]
+        P2 --> P3[STW mark termination]
+        P3 --> P4[Concurrent sweep: return white spans to allocator]
     end
 ```
 
@@ -129,9 +128,9 @@ GOGC=100 means GC triggers when live heap doubles. GC target: `goal = live * (1 
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Owned: let x = T::new()
+    [*] --> Owned: let x = T.new()
     Owned --> Moved: let y = x (move semantics)
-    Moved --> [*]: y drops (T::drop called)
+    Moved --> [*]: y drops (drop called)
     Owned --> BorrowedShared: &x (multiple allowed)
     Owned --> BorrowedMut: &mut x (exclusive)
     BorrowedShared --> Owned: borrow expires (NLL)
@@ -303,7 +302,7 @@ flowchart LR
         D_Unconf["Dispatchers.Unconfined\nCaller thread until first suspend"]
     end
     subgraph "Scheduling"
-        Resume[Continuation.resume()] --> Dispatch[dispatcher.dispatch(context, Runnable)]
+        Resume["Continuation.resume()"] --> Dispatch["dispatcher.dispatch(context, runnable)"]
         Dispatch --> ThreadPool[Thread executes block]
         ThreadPool -->|hits suspend| Park[Thread released back to pool]
     end

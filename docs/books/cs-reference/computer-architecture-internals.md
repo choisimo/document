@@ -96,7 +96,7 @@ flowchart TD
 stateDiagram-v2
     [*] --> Fetch_Branch: BEQ instruction fetched
     Fetch_Branch --> Decode_Branch: Pipeline progresses
-    Decode_Branch --> Evaluate_Branch: EX stage: compute condition
+    Decode_Branch --> Evaluate_Branch: EX stage - compute condition
     Evaluate_Branch --> Branch_Taken: Zero=1, jump to target
     Evaluate_Branch --> Branch_Not_Taken: Zero=0, continue
     Branch_Taken --> Flush_2: Flush 2 instructions already fetched
@@ -285,7 +285,7 @@ stateDiagram-v2
     Exclusive --> Shared: Another CPU reads\nDowngrade to Shared
     Exclusive --> Invalid: Another CPU writes\nBus invalidation
     
-    Shared --> Modified: Local write\nBus: Invalidate others\nBecome sole owner
+    Shared --> Modified: Local write\nBus invalidates others\nBecome sole owner
     Shared --> Invalid: Another CPU writes\nBus invalidation
     
     Modified --> Invalid: Another CPU reads/writes\nWrite-back to memory first\nThen transition

@@ -51,7 +51,7 @@ stateDiagram-v2
     ID_CONT --> [*]: non-id char → check keyword table → emit ID or KEYWORD
     
     START --> OP: + - * / = < > ! & |
-    OP --> OP2: = (compound: +=, ==, !=)
+    OP --> OP2: = (compound ops += / == / !=)
     OP --> [*]: single-char op
     OP2 --> [*]: emit compound op token
     

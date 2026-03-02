@@ -58,8 +58,8 @@ a is b   # False — separate objects (outside cache range)
 
 ```mermaid
 flowchart LR
-    subgraph static_ints["CPython static array: small_ints[-5..256]"]
-        INT_5["PyLongObject(-5)\nob_refcnt = ∞ (immortal)"]
+    subgraph static_ints["CPython static array: small_ints_-5_to_256"]
+        INT_5["PyLongObject(-5)\nob_refcnt = IMMORTAL"]
         INT0["PyLongObject(0)"]
         INT1["PyLongObject(1)"]
         INT256["PyLongObject(256)"]

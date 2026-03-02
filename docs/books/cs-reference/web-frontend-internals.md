@@ -125,7 +125,7 @@ sequenceDiagram
     Note over IC: Called 10000× with integers
     IC->>TF: Type feedback: a=Smi, b=Smi (small ints)
     Note over TF: Speculate: always integers
-    Note over TF: Emit: MOV rax, [a]; ADD rax, [b]; RET
+    Note over TF: Emit MOV rax,[a], ADD rax,[b], RET
     Note over TF: Insert guard: CHECK type(a)==Smi
     TF-->>JS: Optimized machine code
 
