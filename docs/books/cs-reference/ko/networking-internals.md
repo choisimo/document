@@ -390,13 +390,13 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    subgraph NAT_Mode
+    subgraph "NAT_Mode"
         C1["Client"] -->|dst=VIP:443| LB1["Load Balancer\nDNAT: dst→RIP\nSNAT: src→LB_IP"]
         LB1 -->|dst=RIP:443\nsrc=LB_IP| S1["Backend Server"]
         S1 -->|response| LB1
         LB1 -->|undo NAT\ndst=Client| C1
     end
-    subgraph DSR_Mode
+    subgraph "DSR_Mode"
         C2["Client"] -->|dst=VIP:443| LB2["Load Balancer\nL2 rewrite: dst_MAC→server_MAC\nIP dst stays = VIP"]
         LB2 --> S2["Backend Server\nLoopback: 127.0.0.1 → VIP\nAccepts packet, responds directly"]
         S2 -->|src=VIP, dst=Client\nBypasses LB| C2
@@ -411,12 +411,12 @@ DSR은 반환 경로 병목 현상을 제거합니다. LB는 수신만 처리합
 
 ```mermaid
 flowchart TD
-    subgraph Host_Netns
+    subgraph "Host_Netns"
         H_eth0["eth0\n192.168.1.1"] 
         H_bridge["docker0 bridge\n172.17.0.1/16"]
         H_iptables["iptables MASQUERADE\nfor 172.17.0.0/16"]
     end
-    subgraph Container_Netns
+    subgraph "Container_Netns"
         C_eth0["veth0\n172.17.0.2/16\n(veth pair endpoint)"]
         C_lo["lo 127.0.0.1"]
     end
@@ -510,7 +510,7 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    subgraph Single_TCP_Connection
+    subgraph "Single_TCP_Connection"
         direction LR
         A["Stream 1\nGET /api/user"] --> M["HTTP/2 Framing Layer\nFrame header: 3B length\n1B type | 1B flags\n4B stream_id"]
         B["Stream 3\nGET /api/orders"] --> M
@@ -572,3 +572,351 @@ block-beta
 ```
 
 모든 바이트는 애플리케이션 버퍼 → 소켓 전송 큐 → TCP 분할 → IP 헤더 스탬핑 → 넷필터 후크 → QDisc → NIC DMA 링 → 와이어를 순회합니다. 수신 측에서 정확한 역방향 경로: DMA → NAPI 폴 → 프로토콜 demux → sk_receive_queue → 사용자 공간 복사. 이 전체 sk_buff 수명 주기(메모리 내 위치, 어떤 커널 기능이 이를 변경하는지, 어떤 후크가 이를 가로채는지)를 이해하는 것이 모든 Linux 네트워크 성능 분석 및 문제 해결의 기초입니다.
+
+
+---
+
+## 설계적 고민
+
+### 구조와 모델링
+
+네트워크 프로토콜 설계의 근본 모델은 **계층화(Layering)**다. OSI 7계층 모델은 각 계층이 하위 계층의 서비스만 사용하고 상위 계층에 서비스를 제공하는 엄격한 추상화 경계를 정의한다. 그러나 현실의 프로토콜 스택은 이 순수한 계층 모델을 위반하는 경우가 많다.
+
+**HTTP/3/QUIC**는 이 계층 위반의 대표 사례다. 전통적으로 HTTP는 TCP 위에 있었지만, QUIC은 UDP 위에서 TCP의 신뢰성·흐름 제어·TLS를 통합 구현한다. 이는 L4(TCP)의 HOL(Head-of-Line) 블로킹 문제를 L7에서 해결하기 위한 의도적인 계층 위반이다.
+
+```mermaid
+flowchart TB
+    subgraph TRAD["전통적 HTTP 스택"]
+        direction TB
+        HTTP1["HTTP/1.1, HTTP/2"]
+        TLS_T["TLS 1.2/1.3"]
+        TCP_T["TCP"]
+        IP_T["IP"]
+        HTTP1 --> TLS_T --> TCP_T --> IP_T
+    end
+
+    subgraph QUIC_S["HTTP/3 스택 (QUIC)"]
+        direction TB
+        HTTP3["HTTP/3"]
+        QUIC["QUIC\n(신뢰성 + 흐름제어 + TLS 1.3 통합)"]
+        UDP_Q["UDP"]
+        IP_Q["IP"]
+        HTTP3 --> QUIC --> UDP_Q --> IP_Q
+    end
+
+    TRAD -->|"문제: TCP HOL 블로킹\n하나의 패킷 손실이\n모든 스트림 차단"| PROBLEM["설계 문제"]
+    PROBLEM -->|"해결: 계층 통합\nQUIC이 스트림별 독립 복구"| QUIC_S
+```
+
+TCP와 UDP의 구조적 츨이는 **신뢰성을 어느 계층에서 책임지는가**라는 설계 선택에서 비롯된다. TCP는 커널이 신뢰성을 보장하고, UDP는 애플리케이션에 신뢰성 책임을 위임한다. QUIC은 그 중간 — 애플리케이션 레벨에서 신뢰성을 구현하되 커널 TCP의 제약을 우회한다.
+
+### 트레이드오프와 의사결정
+
+#### TCP vs UDP: 신뢰성 vs 지연
+
+프로토콜 선택은 애플리케이션의 **손실 허용도(loss tolerance)**와 **지연 민감도(latency sensitivity)**에 의해 결정된다.
+
+- **실시간 게임**: UDP 선호. 50ms 단위 네트워크 틱에서 TCP 재전송(~200ms RTO)은 치명적. 1-2프레임 손실은 보간 가능.
+- **금융 거래**: TCP 필수. 단 하나의 주문도 손실되면 안 된다. 지연보다 정확성이 우선.
+- **HTTP/3 (QUIC)**: UDP 위에 신뢰성 구현. TCP의 HOL 블로킹 해결 + 0-RTT 연결 재개 가능.
+- **DNS**: 기본 UDP(512B 미만). DNSSEC/대형 응답은 TCP 폴백. 단순 조회에 3-way 핸드셸이크는 과대한 오버헤드.
+
+```mermaid
+flowchart TD
+    START{"애플리케이션 요구사항"}
+
+    START -->|"패킷 손실 허용?"| LOSS_OK{"손실 허용"}
+    START -->|"패킷 손실 불가?"| LOSS_NO{"신뢰성 필수"}
+
+    LOSS_OK -->|"최소 지연 우선"| UDP_PICK["UDP\n(게임, VoIP, 실시간 스트리밍)"]
+    LOSS_OK -->|"부분 신뢰성 필요"| QUIC_PICK["QUIC/UDP\n(스트림별 독립 복구)"]
+
+    LOSS_NO -->|"단순 요청-응답"| TCP_PICK["TCP\n(HTTP/1.1, HTTP/2, DB 연결)"]
+    LOSS_NO -->|"대량 동시 스트림"| QUIC_PICK2["QUIC/HTTP3\n(HOL 블로킹 해결)"]
+```
+
+#### DNS TTL: 캐싱 효율 vs 변경 전파 속도
+
+DNS TTL 설정은 **캐싱에 의한 성능 향상**과 **변경 사항의 빠른 전파** 사이의 전형적인 트레이드오프다. TTL을 높이면(3600초) 리줄버 부하가 줄고 클라이언트 응답이 빨라지지만, DNS 레코드 변경 시 전 세계 전파에 최대 1시간이 걸린다. TTL을 낮추면(60초) 장애 시 빠른 페일오버가 가능하지만 리줄버 부하가 급증한다.
+
+**실무 전략**: 평상시 TTL=300초, 계획된 마이그레이션 전 TTL을 60초로 낮추고 전파 후 복규. Cloudflare/AWS Route53은 낮은 TTL이라도 Anycast와 엣지 캐시로 성능 저하를 완화한다.
+
+#### L4 vs L7 로드밸런서: 처리 비용 vs 라우팅 유연성
+
+```mermaid
+flowchart LR
+    subgraph L4["트러스트종량 L4 로드밸런서"]
+        L4_LB["IP + Port 기반 분배\n• 패킷 내용 미해석\n• 처리량: ~10Gbps+\n• DSR(Direct Server Return) 가능\n• 예: IPVS, NLB, HAProxy TCP"]
+    end
+
+    subgraph L7["애플리케이션 L7 로드밸런서"]
+        L7_LB["HTTP 헤더/URL 기반 분배\n• TLS 종단, 쿠키/세션 인식\n• A/B 테스트, 카나리 배포\n• 처리량: ~1-2Gbps\n• 예: Envoy, nginx, ALB"]
+    end
+
+    CLIENT["클라이언트"] --> L4_LB & L7_LB
+    L4_LB -->|"장점: 높은 처리량\n단점: 컨텍스트 무지"| BACKEND["백엔드 서버"]
+    L7_LB -->|"장점: 지능형 라우팅\n단점: TLS/HTTP 파싱 비용"| BACKEND
+```
+
+**실무 아키텍처**에서는 2단계 로드밸런싱이 일반적이다. L4(IPVS/NLB)로 1차 분배 후, 각 백엔드 그룹 앞에 L7(Envoy/nginx)를 두어 컨텍스트 기반 라우팅을 수행한다. Netflix, Google 모두 이 패턴을 사용한다.
+
+### 리팩토링과 설계 원칙
+
+#### NAT의 설계적 문제점과 IPv6로의 진화
+
+**NAT(Network Address Translation)**은 IPv4 주소 고갈을 해결하기 위한 임시 방편이었지만, 인터넷의 근본 설계 원칙인 **end-to-end 원칙**을 파괴했다.
+
+- **연결 상태 유지**: NAT 장비가 모든 활성 연결의 매핑 테이블을 유지해야 한다 → 상태적(stateful) 병목
+- **P2P 통신 불가**: 내부 호스트가 외부에서 접근 불가능 → STUN/TURN/ICE 같은 NAT 트래버실 기술 필요
+- **프로토콜 간섭**: FTP, SIP 등 페이로드에 IP를 포함하는 프로토콜이 NAT 뒤에서 깨짐
+
+**IPv6**는 이 문제들을 원래 설계 의도대로 해결한다. 128비트 주소로 NAT 자체가 불필요해지며, 모든 디바이스가 고유 전역 주소를 가진다.
+
+```mermaid
+flowchart TD
+    subgraph NAT_WORLD["IPv4 + NAT 세계"]
+        PRIV["사설 IP (192.168.x.x)"]
+        NAT_BOX["NAT 장비\n• 연결 매핑 테이블 유지\n• 상태적 병목\n• end-to-end 원칙 파괴"]
+        PUB["공인 IP (1개)"]
+        WORKAROUND["NAT 트래버실:\nSTUN / TURN / ICE\nUPnP / NAT-PMP"]
+        PRIV --> NAT_BOX --> PUB
+        NAT_BOX -.-> WORKAROUND
+    end
+
+    subgraph IPV6_WORLD["IPv6 세계"]
+        GLOBAL["고유 전역 주소\n(2^128 주소 공간)"]
+        E2E["진정한 end-to-end 연결\n• NAT 불필요\n• P2P 직접 통신\n• 프로토콜 순수성 보존"]
+        GLOBAL --> E2E
+    end
+
+    NAT_WORLD -->|"설계 부채 누적"| LESSON["설계 교훈:\n임시 방편이 영구적 복잡성이 될 수 있다\n→ 근본적 해결(IPv6) 설계의 가치"]
+    IPV6_WORLD -->|"원래 설계 복원"| LESSON
+```
+
+이는 소프트웨어 엔지니어링에서 말하는 **기술 부채(technical debt)**의 네트워크 버전이다. NAT라는 임시 해결책이 30년 넓게 인터넷의 복잡성을 누적시켰다.
+
+#### HTTP 버전 진화: 병목 해결의 역사
+
+HTTP의 각 버전은 이전 버전의 구체적인 병목을 해결하기 위해 등장했다:
+
+| 버전 | 핵심 병목 | 해결 방법 | 새로운 문제 |
+|--------|------------|------------|------------|
+| HTTP/1.0 | 연결당 1 요청 | - | 연결 오버헤드 |
+| HTTP/1.1 | 연결 오버헤드 | Keep-Alive, 파이프라이닝 | HOL 블로킹(응답 순서 강제) |
+| HTTP/2 | 응답 순서 HOL | 멀티플렉싱(스트림) | TCP HOL 블로킹 |
+| HTTP/3 | TCP HOL 블로킹 | QUIC(UDP 기반) | UDP 차단/뮿습 문제 |
+
+각 세대는 하위 계층의 제약을 상위에서 우회하거나, 아예 계층 구조를 재설계하는 방식으로 발전했다. 이는 소프트웨어 설계에서도 **레이어드 아키텍처의 병목을 레이어 통합으로 해결**하는 패턴과 일치한다.
+
+### 디자인 패턴 적용
+
+#### 네트워크 스택의 책임 연쇄 패턴 (Chain of Responsibility)
+
+네트워크 패킷 처리는 **책임 연쇄(Chain of Responsibility)** 패턴의 전형적 적용이다. 리눅스 커널의 Netfilter 훅 체인(PREROUTING → INPUT → FORWARD → OUTPUT → POSTROUTING)에서 각 훅은 패킷을 검사하고 ACCEPT, DROP, 또는 다음 훅으로 전달한다.
+
+```mermaid
+flowchart LR
+    subgraph NETFILTER["리눅스 Netfilter 훅 체인"]
+        PRE["PREROUTING\n• DNAT\n• conntrack"]
+        ROUTE{"라우팅 결정"}
+        INPUT["INPUT\n• 방화벽 필터링\n• 로컬 전달"]
+        FWD["FORWARD\n• 포워딩 정책"]
+        OUTPUT["OUTPUT\n• 로컬 생성 패킷"]
+        POST["POSTROUTING\n• SNAT/MASQUERADE"]
+
+        PRE --> ROUTE
+        ROUTE -->|"로컬"| INPUT
+        ROUTE -->|"포워드"| FWD
+        INPUT --> OUTPUT
+        FWD --> POST
+        OUTPUT --> POST
+    end
+```
+
+이 체인 구조의 설계 가치는 **각 훅이 독립적으로 모듈을 등록/해제**할 수 있다는 점이다. iptables, conntrack, NAT, 사용자 정의 모듈이 모두 동일한 훅 인터페이스에 연결된다. **개방-폐쇄 원칙(OCP)**의 커널 네트워크 적용이다.
+
+#### 연결 풀링: 프록시 + 플라이웨이트 패턴
+
+데이터베이스 연결 풀링은 **Object Pool** 패턴의 전형적 적용이며, 로드밸런서의 연결 재활용은 **Flyweight** 패턴과 유사하다. TCP 3-way 핸드셸이크의 비용(~1.5RTT)을 상각하면, 연결을 생성하고 버리는 것이 아니라 풀에서 재사용하는 것이 성능에 결정적이다.
+
+HTTP/1.1의 `Keep-Alive`는 연결 풀링의 프로토콜 레벨 구현이고, HTTP/2의 단일 연결 멀티플렉싱은 풀링의 극단적 형태 — **연결 1개를 극한까지 재활용**하는 것이다.
+
+---
+
+## 연습 문제
+
+### 1. 시스템 구조와 모델링
+
+**문제 1-1. HTTPS 연결 수립의 전체 흐름**
+
+사용자가 브라우저에서 `https://api.example.com/data`를 입력했다. 첫 번째 요청이 도착하기까지 TCP 3-way handshake, TLS 1.3 handshake, HTTP/2 멀티플렉싱이 순차적으로 수행된다.
+
+- TCP 3-way handshake(SYN → SYN-ACK → ACK)의 각 단계에서 클라이언트와 서버의 **상태 전이**를 서술하라.
+- TLS 1.3에서 handshake가 1-RTT로 줄어든 이유를 TLS 1.2의 2-RTT와 비교하여 설명하라. 0-RTT 모드의 작동 원리와 **보안 위험(replay attack)**은 무엇인가?
+- HTTP/2 멀티플렉싱이 HTTP/1.1의 **Head-of-Line Blocking** 문제를 어떻게 해결하는지, 그리고 TCP 계층에서 여전히 남아있는 HoL Blocking 문제는 무엇인지 설명하라.
+
+<details><summary>힌트 보기</summary>
+
+TCP 상태: 클라이언트 SYN_SENT → ESTABLISHED, 서버 LISTEN → SYN_RECEIVED → ESTABLISHED. TLS 1.3은 ClientHello에 키 공유(key_share)를 포함하여 서버가 ServerHello와 함께 암호화를 시작할 수 있다. 0-RTT는 이전 세션의 PSK(Pre-Shared Key)로 첫 메시지를 암호화하지만, 공격자가 이 데이터를 재전송(replay)할 수 있어 먱등성(idempotent)이 보장된 요청에만 사용해야 한다. HTTP/2는 단일 TCP 연결 위에 여러 스트림을 독립적으로 다중화하지만, TCP 자체의 패킷 손실 시 모든 스트림이 차단된다 — 이것이 HTTP/3(QUIC)의 동기이다.
+
+</details>
+
+**문제 1-2. DNS 재귀 조회 전체 흐름**
+
+클라이언트가 `api.shop.example.com`을 조회할 때, DNS 시스템의 각 구성 요소가 어떻게 동작하는지 추적하라.
+
+- **Stub Resolver** → **Recursive Resolver** → **Root Nameserver** → **TLD(.com) Nameserver** → **Authoritative Nameserver** 각각의 역할과 반환 데이터를 서술하라.
+- Recursive Resolver가 이미 `example.com`의 NS 레코드를 캐시하고 있다면, 전체 흐름이 어떻게 달라지는가?
+- DNS 응답의 TTL(Time-To-Live)이 0으로 설정된 레코드가 있다면, 이것은 어떤 용도로 사용되며 어떤 성능 영향이 있는가?
+
+<details><summary>힌트 보기</summary>
+
+Stub Resolver는 OS의 `/etc/resolv.conf`에 설정된 Recursive Resolver에 질의한다. Recursive Resolver는 캐시에 없으면 Root(`.`)에서 시작하여 하향식으로 조회한다. Root는 `.com` 네임서버를, `.com` TLD는 `example.com`의 authoritative NS를, authoritative NS는 `api.shop.example.com`의 실제 IP를 반환한다. `example.com` NS가 캐시되어 있으면 Root/TLD 조회를 건너뛴다. TTL=0은 항상 최신 데이터를 반환하지만(동적 DNS, 로드 밸런싱 등), 매번 전체 조회가 필요하므로 지연 시간이 증가한다.
+
+</details>
+
+**문제 1-3. TCP 상태 변화와 4-way 종료 흐름**
+
+웹 서버에서 `netstat -an | grep TIME_WAIT` 명령을 실행하니 `TIME_WAIT` 상태의 소켓이 수천 개 존재한다.
+
+- TCP 4-way 종료 과정(FIN → ACK → FIN → ACK)에서 각 단계의 상태 전이(`ESTABLISHED` → `FIN_WAIT_1` → `FIN_WAIT_2` → `TIME_WAIT` → `CLOSED`)를 서술하라.
+- `TIME_WAIT`이 2MSL(Maximum Segment Lifetime) 동안 유지되는 **설계 이유** 두 가지를 설명하라.
+- 대량의 `TIME_WAIT`이 서버 성능에 미치는 영향과, `SO_REUSEADDR`/`tcp_tw_reuse` 설정의 역할을 설명하라.
+
+<details><summary>힌트 보기</summary>
+
+능동 종료 측(먼저 FIN을 보낸 측)이 `TIME_WAIT`에 진입한다. 2MSL 대기 이유: ① 마지막 ACK이 손실되었을 때 상대방의 FIN 재전송에 응답 ② 이전 연결의 지연된 패킷이 새 연결에 혼입되는 것을 방지. 대량 TIME_WAIT은 소켓 자원을 점유하지만 메모리 소바은 적다. `SO_REUSEADDR`는 TIME_WAIT 상태의 소켓을 재사용 가능하게 하고, `tcp_tw_reuse`는 아웃바운드 연결에 TIME_WAIT 소켓 재활용을 허용한다.
+
+</details>
+
+### 2. 트레이드오프와 의사결정
+
+**문제 2-1. 실시간 멀티플레이어 게임: TCP vs UDP**
+
+당신은 100명이 동시에 접속하는 실시간 멀티플레이어 FPS 게임의 네트워크 아키텍처를 설계하고 있다. 플레이어의 위치/동작 데이터는 초당 60회 전송되어야 한다.
+
+- TCP를 사용할 경우 패킷 손실 시 **재전송대기**가 후속 패킷을 막는 HoL Blocking이 왜 심각한 문제인지 설명하라.
+- UDP + 애플리케이션 계층 재전송을 선택할 경우, 어떤 데이터는 재전송하고 어떤 데이터는 버리는 것이 합리적인가? (예: 위치 데이터 vs 채팅 메시지 vs 피격 판정)
+- 이 게임에서 QUIC(UDP 기반)을 사용하면 어떤 이점이 있으며, 여전히 순수 UDP를 선호하는 이유는 무엇인가?
+
+<details><summary>힌트 보기</summary>
+
+TCP의 순서 보장/재전송은 패킷 리오더링 대기 시간을 만든다. 16ms 프레임 간격에서 200ms 재전송 대기는 12프레임 지연을 의미한다. UDP에서는 위치 데이터는 최신 값만 중요하므로 손실 시 버리고, 채팅/피격 판정은 신뢰성이 필요하므로 애플리케이션 레벨 ACK/재전송을 구현한다. QUIC은 스트림별 독립적 HoL 처리가 가능하지만, 게임 서버는 전통적으로 최소 오버헤드의 순수 UDP를 선호한다 — QUIC의 핸드셰이크/암호화 오버헤드가 불필요하기 때문이다.
+
+</details>
+
+**문제 2-2. CDN의 DNS TTL 설정 전략**
+
+대규모 CDN 서비스를 운영하고 있다. 전 세계 여러 엣지 서버로 트래픽을 분산하기 위해 DNS TTL 설정을 고민 중이다.
+
+- TTL을 **60초**로 설정하는 것과 **86,400초(24시간)**로 설정하는 것 각각의 **장단점**을 장애 복구 속도, DNS 조회 비용, 사용자 경험 관점에서 분석하라.
+- 평상시 TTL=86400을 사용하다가 장애 발생 시 TTL=60으로 전환하는 전략이 있다. 이 전략의 **한계**는 무엇인가?
+- Cloudflare나 AWS CloudFront 같은 CDN이 DNS TTL 대신 **Anycast**를 사용하는 이유를 설명하라.
+
+<details><summary>힌트 보기</summary>
+
+TTL=60은 레코드 변경이 1분 내 전파되어 장애 복구가 빠르지만, 매 60초마다 DNS 조회가 발생하여 지연이 증가하고 DNS 서버 부하가 높다. TTL=86400은 캐시 효율이 높지만 장애 시 최대 24시간 동안 나쁜 레코드가 캐시된다. TTL을 동적 전환하는 전략의 한계는 “이미 캐시된 높은 TTL 레코드”가 만료될 때까지 전환 효과가 없다는 점이다. Anycast는 동일 IP를 전 세계에 광고하여 BGP 라우팅이 자동으로 가장 가까운 서버로 연결하므로 DNS TTL에 의존하지 않는다.
+
+</details>
+
+**문제 2-3. 로드 밸런싱 알고리즘 선택**
+
+전자상거래 사이트의 로드 밸런서가 4대의 백엔드 서버로 트래픽을 분산한다. 두 서버는 CPU 8코어, 나머지 두 서버는 CPU 4코어이다. 사용자는 로그인 후 장바구니에 상품을 담고 결제하는 세션을 유지한다.
+
+- **Round Robin** vs **Weighted Round Robin** vs **Least Connections** vs **IP Hash** 중 이 시나리오에 가장 적합한 알고리즘을 선택하고 근거를 제시하라.
+- IP Hash를 선택하면 세션 유지 문제는 해결되지만, 어떤 새로운 문제가 발생하는가?
+- 세션 유지와 로드 밸런싱 유연성을 모두 달성하기 위한 **세션 외부화**(Redis 등) 전략을 설명하라.
+
+<details><summary>힌트 보기</summary>
+
+서버 사양이 다르므로 Weighted Round Robin이 Round Robin보다 적절하다(8코어 서버에 2배 가중치). 세션 유지가 필요하므로 Least Connections도 좋은 선택이다. IP Hash는 세션 지속성을 보장하지만, 특정 IP 대역(대기업 NAT 등)에서 들어오는 트래픽이 한 서버에 집중되는 **핵신 불균형** 문제가 있다. 최선의 해결책은 세션을 Redis 같은 외부 저장소에 저장하여 어떤 서버에 라우팅되든 세션을 읽을 수 있게 하는 것이다.
+
+</details>
+
+### 3. 문제 해결 및 리팩토링
+
+**문제 3-1. HTTP/1.1 성능 병목 단계적 해결**
+
+웹 애플리케이션이 하나의 페이지를 렌더링하기 위해 80개의 HTTP 요청(CSS, JS, 이미지 등)을 보내야 한다. 현재 HTTP/1.1을 사용 중이며, 페이지 로드가 느리다는 불만이 있다.
+
+- HTTP/1.1에서 80개 요청을 처리할 때 브라우저가 사용하는 **우회적 최적화 방법**(domain sharding, sprite sheet, bundling)과 그 한계를 설명하라.
+- HTTP/2로 업그레이드하면 위 최적화들이 오히려 **역효과**를 낼 수 있는 것은 어떤 것이며 왜인가?
+- HTTP/3(QUIC)로의 마이그레이션이 추가로 해결하는 문제는 무엇이며, 마이그레이션 시 고려해야 할 **호환성 문제**는 무엇인가?
+
+<details><summary>힌트 보기</summary>
+
+HTTP/1.1 브라우저는 도메인당 6개 연결 제한이 있어 domain sharding으로 여러 도메인에 자원을 분산한다. HTTP/2는 단일 연결에서 모든 요청을 멀티플렉싱하므로 domain sharding은 오히려 연결 수를 늘려 성능을 저하시킨다(각 도메인별 TLS 핸드셰이크 비용). HTTP/3는 QUIC을 사용해 TCP 계층 HoL Blocking을 제거하지만, UDP 443 포트를 차단하는 방화벽/기업 프록시가 있을 수 있으므로 TCP fallback이 필수이다.
+
+</details>
+
+**문제 3-2. NAT 환경에서 P2P 연결 실패 해결**
+
+P2P 화상통화 애플리케이션을 개발했지만, 두 사용자 모두 가정용 공유기(NAT) 뒤에 있어 직접 연결이 되지 않는다.
+
+- NAT 뒤의 호스트가 외부에서 접속을 받을 수 없는 **기술적 이유**를 NAT의 매핑 테이블 동작 관점에서 설명하라.
+- **STUN** 서버가 NAT의 공인 IP/포트를 발견하는 과정과, **hole punching** 기법으로 두 NAT를 통과하는 원리를 서술하라.
+- Symmetric NAT 환경에서는 hole punching이 실패한다. 이 때 **TURN** 서버가 필요한 이유와, TURN 사용 시 성능/비용 트레이드오프를 설명하라.
+
+<details><summary>힌트 보기</summary>
+
+NAT는 내부→외부 패킷에 대해 매핑(private IP:port → public IP:port)을 생성하지만, 외부에서 먼저 들어오는 패킷은 매핑이 없어 드롭된다. STUN은 외부 서버를 통해 자신의 공인 IP:port를 확인하고, 양쪽이 동시에 상대의 공인 주소로 패킷을 보내 NAT 매핑을 생성하는 것이 hole punching이다. Symmetric NAT는 목적지마다 다른 포트를 할당하므로 STUN으로 예측이 불가능하다. TURN은 모든 트래픽을 릴레이 서버 경유로 전달하여 확실하지만, 서버 대역폭/비용이 증가하고 지연이 늘어난다. WebRTC의 ICE는 STUN을 먼저 시도하고 실패 시 TURN으로 fallback하는 전략이다.
+
+</details>
+
+**문제 3-3. DNS 장애로 인한 서비스 중단 대응**
+
+마이크로서비스 아키텍처에서 서비스 A가 서비스 B의 도메인(`service-b.internal`)을 DNS로 조회하여 통신한다. 내부 DNS 서버가 30초간 장애를 겪었고, 그 동안 서비스 A의 요청이 모두 실패했다.
+
+- DNS 장애가 서비스 통신 실패로 이어진 이유를 분석하라. 서비스 A의 DNS 캐시 TTL이 어떤 역할을 했는가?
+- 이 문제를 해결하기 위한 방법을 3가지 이상 제시하라. (힌트: 클라이언트 측 캐싱, 서비스 디스커버리, health check)
+- Service Mesh(Istio/Envoy)가 이 유형의 DNS 의존성 문제를 어떻게 우회하는지 설명하라.
+
+<details><summary>힌트 보기</summary>
+
+DNS TTL이 짧거나 캐시가 만료된 상태였다면, 새 요청마다 DNS 조회가 필요해 실패한다. 해결책: ① 클라이언트 측 DNS 캐싱을 강화하여 TTL 만료 시에도 stale 레코드를 사용(serve-stale) ② 여러 DNS 서버를 설정하여 failover ③ 서비스 디스커버리(Consul, etcd)로 DNS 의존성을 대체 ④ health check + circuit breaker로 장애 서비스 우회. Envoy 프록시는 DNS를 자체 해석하고 엔드포인트를 직접 관리하므로 외부 DNS 장애에 덮 강건하다.
+
+</details>
+
+### 4. 개념 간의 연결성
+
+**문제 4-1. BGP + Anycast: CDN의 글로벌 트래픽 라우팅**
+
+Cloudflare는 전 세계 300개 이상의 데이터 센터에서 **동일한 IP 주소**로 서비스를 제공한다. 한국의 사용자와 브라질의 사용자가 같은 IP로 접속하지만 다른 서버에 도달한다.
+
+- **Anycast**의 동작 원리를 BGP 라우팅 관점에서 설명하라. 동일 IP가 여러 AS(Autonomous System)에서 광고될 때, 라우터는 어떤 기준으로 경로를 선택하는가?
+- Anycast는 UDP 프로토콜(DNS)에서 잘 동작하지만, TCP에서는 **라우팅 변경 시 연결이 끊어지는 문제**가 있다. CDN이 TCP Anycast를 성공적으로 사용할 수 있는 이유를 설명하라.
+- Anycast 기반 CDN에서 특정 데이터 센터가 장애로 다운되면, 이미 연결된 TCP 세션은 어떻게 되는가?
+
+<details><summary>힌트 보기</summary>
+
+BGP에서 동일 IP를 여러 PoP(엣지)이 광고하면, 라우터는 AS path 길이, local preference, MED 등으로 최적 경로를 선택해 가장 가까운(네트워크 혹 수 기준) 서버로 전달한다. TCP에서 Anycast가 작동하는 이유는 BGP 라우팅이 대체로 안정적이고, 연결 수명 동안 경로가 변경되는 일이 드물기 때문이다. 하지만 장애 시 BGP 철회(withdrawal)가 전파되면 해당 PoP의 TCP 연결은 끊어지고 클라이언트는 재연결 시 다른 PoP로 라우팅된다.
+
+</details>
+
+**문제 4-2. TCP BBR + QUIC: 동영상 스트리밍 성능 최적화**
+
+YouTube에서 4K 동영상을 스트리밍할 때, 네트워크 경로에 0.1% 패킷 손실률과 50ms RTT가 있는 상황을 가정하라.
+
+- 전통적인 TCP 혼잡 제어(CUBIC)가 패킷 손실을 **네트워크 혼잡의 신호**로 해석하는 반면, Google의 BBR(Bottleneck Bandwidth and RTT)은 어떻게 다르게 동작하는가?
+- HTTP/3(QUIC)에서 BBR을 사용할 때, TCP + CUBIC 대비 동영상 스트리밍 품질이 나아지는 **구체적인 메커니즘**을 설명하라.
+- BBR이 다른 TCP 흐름과 공존할 때 발생하는 **공정성 문제**를 설명하라.
+
+<details><summary>힌트 보기</summary>
+
+CUBIC은 패킷 손실을 혼잡 신호로 보고 윈도를 대폭 감소시키지만, BBR은 병목 대역폭과 RTT를 지속적으로 측정하여 최적 전송률을 유지한다. 0.1% 손실에 CUBIC은 윈도를 급격히 줄이지만 BBR은 거의 영향을 받지 않는다. QUIC + BBR은 스트림별 독립적 혼잡 제어로 동영상 스트림이 다른 스트림의 손실에 영향받지 않는다. 다만 BBR은 손실을 무시하고 전송률을 유지하므로, 손실 기반 알고리즘(CUBIC)의 흐름을 압도하는 공정성 문제가 있다.
+
+</details>
+
+**문제 4-3. 마이크로서비스 통신에서 gRPC + Protocol Buffers의 역할**
+
+REST API(JSON over HTTP/1.1)로 통신하는 마이크로서비스 시스템에서 내부 서비스 간 통신 지연이 문제가 되고 있다.
+
+- **gRPC(HTTP/2 + Protocol Buffers)**로 전환할 때 얻는 성능 이점을 직렬화 크기, 연결 효율성, 타입 안전성 관점에서 설명하라.
+- gRPC의 4가지 통신 패턴(Unary, Server Streaming, Client Streaming, Bidirectional Streaming) 중 **실시간 주식 가격 피드**에 가장 적합한 것은 무엇이며 왜인가?
+- gRPC가 브라우저 클라이언트와 통신하는 데 **적합하지 않은 이유**와 gRPC-Web이 이를 어떻게 해결하는지 설명하라.
+
+<details><summary>힌트 보기</summary>
+
+Protocol Buffers는 바이너리 직렬화로 JSON 대비 크기가 60~80% 작고 파싱 속도가 수십 배 빠르다. HTTP/2 멀티플렉싱으로 단일 연결을 재사용하고, 스키마(.proto)로 타입 안전성을 보장한다. 주식 가격 피드는 Server Streaming이 적합하다 — 클라이언트가 한 번 구독하면 서버가 지속적으로 가격 업데이트를 push한다. 브라우저는 HTTP/2 프레이밍을 직접 제어할 수 없으므로 순수 gRPC를 사용할 수 없다. gRPC-Web은 중간 프록시(Envoy)가 HTTP/2 ↔ HTTP/1.1 변환을 수행하여 이 문제를 해결한다.
+
+</details>

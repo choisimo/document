@@ -247,7 +247,7 @@ class ObjectMonitor {
 
 ```mermaid
 flowchart TD
-    subgraph HashMap_Structure
+    subgraph "HashMap_Structure"
         BA["Node[] table\n(bucket array, power of 2 size)"]
         B0["table[0]: null"]
         B1["table[1]: Node{hash,key,val,next}"]
@@ -419,3 +419,332 @@ sequenceDiagram
 | 클래스 로딩(콜드) | ~1~50ms | 구문 분석 + 확인 + 초기화 |
 | 반사 호출(처음 15x) | ~500ns | 통역 |
 | 반사 호출(팽창 후) | ~5-10ns | JIT 컴파일된 접근자 |
+
+
+---
+
+## 설계적 고민
+
+### 구조와 모델링
+
+#### GC 선택: 워크로드에 따른 가비지 컬렉터 아키텍처 결정
+
+JVM의 가비지 컬렉터 선택은 단순한 설정 변경이 아니라 **시스템 아키텍처 수준의 의사결정**이다. 각 GC는 서로 다른 설계 철학을 반영하며, 애플리케이션의 지연 시간 요구사항, 처리량 목표, 메모리 풋프린트에 따라 최적의 선택이 달라진다.
+
+- **SerialGC**: 단일 스레드로 동작하며, 설계가 가장 단순하다. 임베디드 시스템이나 힙이 수백 MB 이하인 마이크로서비스에 적합하다. Stop-the-World 시간이 길지만 스레드 동기화 오버헤드가 없다.
+- **G1GC**: 힙을 리전(region) 단위로 분할하고, 가비지가 많은 리전을 우선 수집한다. 예측 가능한 일시정지 시간(-XX:MaxGCPauseMillis)을 목표로 설계되어, 범용 서버 애플리케이션의 기본 선택지다.
+- **ZGC**: 동시(concurrent) 수집을 극대화하여 일시정지를 10ms 이하로 유지한다. 컬러드 포인터(colored pointer)와 로드 배리어(load barrier)를 사용하여 애플리케이션 스레드와 GC 스레드가 동시에 동작한다.
+- **Shenandoah**: ZGC와 유사한 저지연 목표를 가지지만, 브룩스 포인터(Brooks pointer) 기반의 다른 구현 방식을 사용한다. OpenJDK에서 개발되어 더 넓은 플랫폼 지원을 제공한다.
+
+```mermaid
+flowchart TD
+    START["워크로드 분석"] --> Q1{"힙 크기?"}
+    Q1 -->|"< 256MB"| SERIAL["SerialGC\n단일 스레드, 최소 오버헤드\n-XX:+UseSerialGC"]
+    Q1 -->|"256MB ~ 8GB"| Q2{"지연 시간 요구?"}
+    Q1 -->|"> 8GB"| Q3{"최우선 목표?"}
+    
+    Q2 -->|"일반적 (50-200ms 허용)"| G1["G1GC\n리전 기반, 예측 가능한 일시정지\n-XX:+UseG1GC"]
+    Q2 -->|"엄격 (< 10ms)"| ZGC_SMALL["ZGC\n동시 수집, 컬러드 포인터\n-XX:+UseZGC"]
+    
+    Q3 -->|"최대 처리량"| G1_LARGE["G1GC\n큰 힙에서도 안정적\n리전 단위 점진적 수집"]
+    Q3 -->|"초저지연 (< 1ms p99)"| ZGC_LARGE["ZGC / Shenandoah\n테라바이트 힙에서도\n일시정지 < 10ms"]
+    Q3 -->|"메모리 효율"| SHEN["Shenandoah\n브룩스 포인터 기반\n동시 압축(concurrent compaction)"]
+    
+    SERIAL --> NOTE1["설계 원칙: 단순함이 최선일 때"]
+    G1 --> NOTE2["설계 원칙: 예측 가능성과 균형"]
+    ZGC_SMALL --> NOTE3["설계 원칙: 지연 시간 최소화"]
+    ZGC_LARGE --> NOTE3
+    G1_LARGE --> NOTE2
+    SHEN --> NOTE3
+```
+
+#### JIT 티어링: 빠른 시작과 최고 성능 사이의 균형
+
+JVM의 JIT 컴파일 시스템은 **적응적 최적화(adaptive optimization)** 모델을 채택한다. 인터프리터에서 시작하여 핫스팟을 감지하면 점진적으로 더 공격적인 최적화를 적용한다. 이 설계는 "시작은 빠르게, 실행은 최적화하여"라는 상충하는 목표를 동시에 달성한다.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Interpreter: 메서드 최초 실행
+    Interpreter --> C1: 호출 횟수 > 임계값\n(~1,500회)
+    C1 --> C2: 프로파일링 데이터 충분\n(~10,000회 + 타입 피드백)
+    C2 --> Deopt: 투기적 최적화 가정 위반\n(uncommon trap)
+    Deopt --> Interpreter: 탈최적화 → 재해석
+    Interpreter --> C1: 새 프로파일링 데이터로 재컴파일
+    
+    state Interpreter {
+        [*] --> BytecodeDispatch: 바이트코드 해석 실행\n~100ns/opcode
+    }
+    state C1 {
+        [*] --> QuickCompile: 빠른 컴파일 (~1ms)\n기본 최적화 + 프로파일링 코드 삽입
+    }
+    state C2 {
+        [*] --> AggressiveOpt: 공격적 최적화 (~100ms)\n인라이닝, 탈출 분석, 루프 최적화\n벡터화, 투기적 최적화
+    }
+```
+
+### 트레이드오프와 의사결정
+
+#### Java 메모리 모델(JMM): happens-before 규칙과 동시성 설계
+
+JMM은 멀티스레드 프로그램의 **가시성(visibility)**과 **순서(ordering)** 보장을 정의한다. 설계자가 동시성 코드를 작성할 때 반드시 이해해야 하는 핵심 규칙은 happens-before 관계다. 이 규칙을 위반하면 데이터 레이스가 발생하고, 이는 플랫폼과 JIT 최적화 수준에 따라 비결정적으로 나타나 디버깅이 극도로 어렵다.
+
+**흔한 위반 패턴과 올바른 설계**:
+
+1. **Double-Checked Locking 없는 싱글턴**: `volatile` 없이 인스턴스 필드를 사용하면 부분 초기화된 객체를 다른 스레드가 참조할 수 있다.
+2. **비동기 플래그**: `boolean running = true`를 스레드 종료 신호로 사용할 때, `volatile` 선언 없이는 JIT가 루프 불변(loop-invariant)으로 최적화하여 스레드가 영원히 종료되지 않을 수 있다.
+3. **ConcurrentHashMap의 복합 연산**: `map.containsKey()` → `map.put()`은 원자적이지 않다. `computeIfAbsent()`를 사용해야 한다.
+
+```mermaid
+sequenceDiagram
+    participant T1 as Thread-1 (Writer)
+    participant MEM as 공유 메모리
+    participant T2 as Thread-2 (Reader)
+    
+    Note over T1,T2: ❌ 위반 패턴: volatile 없는 플래그
+    T1->>MEM: flag = true (CPU 캐시에만 기록)
+    T2->>MEM: flag 읽기 (자체 캐시에서 stale 값 false 반환)
+    Note over T2: 무한 루프 — JIT가 flag를 레지스터에 고정
+    
+    Note over T1,T2: ✅ 올바른 설계: volatile 선언
+    T1->>MEM: volatile flag = true (store barrier → 메인 메모리 플러시)
+    MEM->>T2: flag 읽기 (load barrier → 캐시 무효화, true 반환)
+    Note over T2: happens-before 보장으로 즉시 감지
+```
+
+#### 가상 스레드(Project Loom) vs 플랫폼 스레드: I/O 집약 vs CPU 집약
+
+Java 21의 가상 스레드는 JVM이 관리하는 경량 스레드로, OS 스레드와 1:1 매핑되는 플랫폼 스레드와 근본적으로 다른 설계 결정이다. 핵심 트레이드오프는 다음과 같다:
+
+- **I/O 집약적 워크로드**: 가상 스레드가 압도적으로 유리하다. 수백만 개의 동시 연결을 처리할 수 있으며, 블로킹 I/O 호출 시 캐리어 스레드에서 자동으로 언마운트되어 다른 가상 스레드가 실행된다.
+- **CPU 집약적 워크로드**: 가상 스레드의 이점이 제한적이다. CPU 코어 수 이상의 스레드를 생성해도 컨텍스트 스위칭만 증가할 뿐 처리량이 향상되지 않는다.
+- **주의사항**: `synchronized` 블록 내에서 블로킹 I/O를 수행하면 캐리어 스레드가 고정(pinning)되어 가상 스레드의 장점이 사라진다. `ReentrantLock`으로 대체해야 한다.
+
+```mermaid
+flowchart LR
+    subgraph PLATFORM["플랫폼 스레드 모델"]
+        PT1["Thread-1\n(OS 스레드)"] --> OS1["커널 스케줄러"]
+        PT2["Thread-2\n(OS 스레드)"] --> OS1
+        PT3["Thread-N\n(OS 스레드)"] --> OS1
+        OS1 --> CPU["CPU 코어 (4-64개)"]
+    end
+    
+    subgraph VIRTUAL["가상 스레드 모델 (Project Loom)"]
+        VT1["VThread-1"] --> CT1["캐리어 스레드-1\n(ForkJoinPool)"]
+        VT2["VThread-2"] --> CT1
+        VT3["VThread-1000"] --> CT1
+        VT4["VThread-1001"] --> CT2["캐리어 스레드-2"]
+        VT5["VThread-1M"] --> CT2
+        CT1 --> CPU2["CPU 코어 (4-64개)"]
+        CT2 --> CPU2
+    end
+    
+    PLATFORM -.->|"~4000 스레드 한계\n각 1MB 스택"| LIMIT1["메모리 제약"]
+    VIRTUAL -.->|"수백만 스레드 가능\n각 ~1KB 스택"| LIMIT2["I/O 대기 시 자동 양보"]
+```
+
+### 리팩토링과 설계 원칙
+
+#### Optional 설계: null 대신 Optional — 의도와 오용 패턴
+
+Java 8에서 도입된 `Optional`은 **값이 없을 수 있음을 타입 시스템으로 명시**하는 설계 도구다. 그러나 잘못된 사용은 오히려 코드 품질을 떨어뜨린다. 설계 원칙은 다음과 같다:
+
+**올바른 사용 원칙**:
+1. **반환 타입에만 사용**: 메서드가 값을 반환하지 않을 수 있음을 명시한다.
+2. **필드, 파라미터, 컬렉션 원소에 사용 금지**: Optional을 감싸면 불필요한 힙 할당이 발생하고 직렬화 문제가 생긴다.
+3. **`Optional.get()` 직접 호출 금지**: `isPresent()` + `get()` 패턴은 null 체크와 다를 바 없다. `orElse()`, `map()`, `flatMap()`을 사용한다.
+
+```mermaid
+flowchart TD
+    A["메서드 반환값이 null 가능?"] -->|Yes| B{"호출자가 빈 값을\n처리해야 하는가?"}
+    A -->|No| C["일반 반환 타입 사용"]
+    
+    B -->|"명시적 처리 강제"| D["Optional<T> 반환"]
+    B -->|"기본값 존재"| E["기본값 직접 반환\n(Optional 불필요)"]
+    
+    D --> F{"사용 패턴"}
+    F -->|"✅ 올바름"| G["map/flatMap/orElse\n함수형 체이닝"]
+    F -->|"❌ 안티패턴"| H["isPresent + get\n= null 체크와 동일"]
+    F -->|"❌ 안티패턴"| I["Optional을 필드에 저장\n= 불필요한 래핑 + 직렬화 실패"]
+    F -->|"❌ 안티패턴"| J["Optional<List<T>>\n= 빈 리스트를 반환하라"]
+```
+
+### 디자인 패턴 적용
+
+#### JVM 내부 설계에서 발견되는 패턴들
+
+JVM 자체의 설계에는 다양한 GoF 디자인 패턴이 적용되어 있다. 이를 이해하면 JVM의 내부 동작을 더 깊이 파악할 수 있고, 애플리케이션 설계에도 동일한 원칙을 적용할 수 있다.
+
+- **전략 패턴(Strategy)**: GC 알고리즘 선택. JVM은 동일한 인터페이스(GC 정책) 뒤에 SerialGC, G1GC, ZGC 등 서로 다른 전략을 교체 가능하게 구현한다. `-XX:+UseG1GC` 플래그 하나로 전체 메모리 관리 전략이 교체된다.
+- **관찰자 패턴(Observer)**: JMX MBean 알림 시스템. GC 이벤트, 스레드 데드락 감지 등이 발생하면 등록된 리스너에게 통지한다.
+- **플라이웨이트 패턴(Flyweight)**: String Pool과 Integer Cache(-128~127). 동일한 값의 객체를 공유하여 메모리를 절약한다.
+- **템플릿 메서드 패턴(Template Method)**: ClassLoader의 `loadClass()` 메서드. 클래스 로딩의 전체 흐름(위임 → 찾기 → 정의)은 고정되어 있고, `findClass()`만 하위 클래스에서 오버라이드한다.
+- **프록시 패턴(Proxy)**: 동적 프록시(`java.lang.reflect.Proxy`)와 JIT 디옵티마이제이션 스텁. 실제 메서드 호출을 가로채어 추가 동작(프로파일링, 접근 제어)을 삽입한다.
+
+```mermaid
+classDiagram
+    class GCPolicy {
+        <<interface>>
+        +collect(region) void
+        +shouldCollect() boolean
+        +getMaxPauseMillis() long
+    }
+    
+    class SerialGC {
+        +collect(region) void
+        -markSweepCompact()
+    }
+    
+    class G1GC {
+        +collect(region) void
+        -mixedCollection()
+        -youngCollection()
+        -predictPauseTime() long
+    }
+    
+    class ZGC {
+        +collect(region) void
+        -concurrentMark()
+        -concurrentRelocate()
+        -loadBarrier() Reference
+    }
+    
+    class JVM_Runtime {
+        -gcPolicy: GCPolicy
+        +setGCPolicy(policy: GCPolicy)
+        +allocate(size: long) Object
+        +triggerGC() void
+    }
+    
+    GCPolicy <|.. SerialGC
+    GCPolicy <|.. G1GC
+    GCPolicy <|.. ZGC
+    JVM_Runtime --> GCPolicy: strategy 패턴\n런타임에 교체 가능
+
+## 연습 문제
+
+### 1. 시스템 구조와 모델링
+
+**문제 1-1.** 당신은 Spring Boot 애플리케이션의 시작 시간이 예상보다 오래 걸리는 상황을 디버깅하고 있다. `.class` 파일이 클래스 로더에 의해 로딩된 후, 바이트코드 검증기를 거쳐, JIT 컴파일러(C1 → C2)에 의해 네이티브 코드로 변환되는 전체 과정을 설명하라. 특히 애플리케이션 시작 직후에는 C1 컴파일러가 주로 동작하고, 충분한 프로파일링 데이터가 쌓인 후에야 C2가 개입하는 이유는 무엇인가?
+
+<details><summary>힌트 보기</summary>
+
+C1은 빠른 컴파일 속도를 우선시하고, C2는 최적화 품질을 우선시한다. JVM은 **계층형 컴파일(Tiered Compilation)** 전략을 사용하여 인터프리터 → C1(레벨 1~3) → C2(레벨 4)로 점진적으로 전환한다. C2가 효과적으로 최적화하려면 메서드 호출 빈도, 분기 확률 등 프로파일링 데이터가 필요하므로, 시작 직후에는 C1이 "워밍업" 역할을 담당한다. `-XX:+PrintCompilation` 플래그로 컴파일 로그를 확인할 수 있다.
+
+</details>
+
+**문제 1-2.** G1GC를 사용하는 서비스에서 힙 크기를 8GB로 설정하고, `-XX:MaxGCPauseMillis=200`을 지정했다. 운영 중 Humongous Object(리전 크기의 50% 이상인 객체)가 빈번하게 할당되면서, Young GC → Mixed GC → Full GC로 전환되는 빈도가 급격히 증가했다. G1GC의 리전 기반 메모리 구조에서 Humongous Object 할당이 GC 성능에 어떤 영향을 미치며, `MaxGCPauseMillis` 설정과 어떻게 상충하는가?
+
+<details><summary>힌트 보기</summary>
+
+Humongous Object는 연속된 여러 리전을 점유하므로 힙 단편화를 유발한다. G1GC는 예측 모델에 기반하여 목표 정지 시간을 맞추려 하지만, Humongous 할당이 많으면 Old 리전이 빠르게 차서 Mixed GC 빈도가 증가한다. `-XX:G1HeapRegionSize`를 늘려 Humongous 임계값을 높이거나, 객체 풀링으로 대형 객체 할당을 줄이는 전략을 고려해야 한다. Full GC는 G1GC에서 최후의 수단이며, 발생 시 STW(Stop-The-World) 시간이 급증한다.
+
+</details>
+
+**문제 1-3.** JVM의 클래스 로딩은 Bootstrap → Extension → Application 클래스 로더로 이어지는 위임 모델(Parent Delegation Model)을 따른다. 한 개발 팀이 톰캣 기반 웹 애플리케이션에서 서로 다른 버전의 라이브러리를 사용하는 두 WAR 파일을 배포했는데, 클래스 충돌이 발생했다. 톰캣의 클래스 로더 계층 구조가 표준 위임 모델과 어떻게 다르며, 이 차이가 라이브러리 격리에 어떤 역할을 하는가?
+
+<details><summary>힌트 보기</summary>
+
+톰캣은 표준 위임 모델을 **반전(inverse)**시킨다. 각 웹 애플리케이션마다 고유한 `WebAppClassLoader`가 있으며, 부모에게 먼저 위임하는 대신 자신의 `WEB-INF/lib`와 `WEB-INF/classes`를 먼저 탐색한다(단, `java.*`와 같은 핵심 패키지는 예외). 이를 통해 WAR 간 라이브러리 버전 격리가 가능하다. 문제가 발생한다면 `shared/lib` 경로에 공통 라이브러리가 잘못 배치된 경우를 의심해야 한다.
+
+</details>
+
+### 2. 트레이드오프와 의사결정
+
+**문제 2-1.** 금융 결제 API를 개발하고 있다. 요구사항은 99th percentile 응답 시간 10ms 이하, 초당 처리량 50,000 TPS, 힙 크기 32GB이다. ZGC, G1GC, ParallelGC 세 가지 GC 중 어떤 것을 선택하겠는가? 각 GC의 STW 특성, 처리량, 메모리 오버헤드를 비교하여 근거를 제시하라.
+
+<details><summary>힌트 보기</summary>
+
+ZGC는 STW를 수 밀리초 이내로 유지하지만 약간의 처리량 감소와 메모리 오버헤드(컬러 포인터용 추가 메모리)가 있다. ParallelGC는 처리량이 가장 높지만 STW가 수백 밀리초에 달할 수 있다. G1GC는 두 특성의 중간이다. 99p 10ms 요구사항이 있으므로 ZGC가 유력하지만, 32GB 힙에서 ZGC의 메모리 매핑 오버헤드(힙의 3배까지 가상 메모리 예약)를 고려해야 한다. 실제로는 부하 테스트를 통한 검증이 필수적이다.
+
+</details>
+
+**문제 2-2.** 기존에 Thread-per-request 모델로 동작하는 HTTP 서버(최대 200개 플랫폼 스레드)를 Project Loom의 가상 스레드로 전환하려 한다. 동시 연결 수가 10,000개로 증가할 때 어떤 이점이 있는가? 그리고 기존 코드에 `synchronized` 블록과 `ThreadLocal`이 광범위하게 사용되고 있다면, 전환 시 어떤 문제가 발생하며 어떻게 대응해야 하는가?
+
+<details><summary>힌트 보기</summary>
+
+가상 스레드는 캐리어 스레드(플랫폼 스레드) 위에서 스케줄링되며, I/O 블로킹 시 캐리어를 해제하여 다른 가상 스레드가 실행될 수 있다. 그러나 `synchronized` 블록 안에서 블로킹하면 캐리어 스레드가 **고정(pinning)**되어 전체 처리량이 급감한다. `ReentrantLock`으로 교체하면 pinning을 피할 수 있다. `ThreadLocal`은 가상 스레드마다 복사되므로 메모리 낭비가 심해질 수 있으며, `ScopedValue`(JEP 429)로의 전환을 고려해야 한다.
+
+</details>
+
+**문제 2-3.** 마이크로서비스 아키텍처에서 서비스 간 통신에 gRPC를 사용하고 있다. 직렬화/역직렬화 성능이 중요한 상황에서, 기본 Protobuf 직렬화 대신 Java 네이티브 직렬화(Serializable)를 사용하면 어떤 문제가 발생하는가? JVM의 ObjectOutputStream 내부 동작과 보안 취약점 관점에서 설명하라.
+
+<details><summary>힌트 보기</summary>
+
+Java 네이티브 직렬화는 `ObjectOutputStream`이 객체 그래프를 순회하며 리플렉션을 통해 필드를 읽는다. 이 과정은 Protobuf의 코드 생성 기반 직렬화보다 10~100배 느리다. 또한 역직렬화 시 `readObject()`를 통해 임의 코드 실행이 가능한 **역직렬화 공격**(Apache Commons Collections 가젯 체인 등)의 위험이 있다. JEP 290(역직렬화 필터)으로 완화할 수 있지만, 근본적으로 Protobuf/Avro 같은 스키마 기반 직렬화를 사용하는 것이 안전하다.
+
+</details>
+
+### 3. 문제 해결 및 리팩토링
+
+**문제 3-1.** Java 7 환경의 레거시 시스템에서 `HashMap`을 멀티스레드 환경에서 동기화 없이 사용하고 있었다. 운영 중 특정 스레드가 CPU 100%를 점유하며 무한 루프에 빠지는 현상이 발생했다. Java 7의 `HashMap` 리사이징 과정에서 연결 리스트의 순서가 역전되면서 어떻게 순환 참조가 발생하는지 설명하고, `ConcurrentHashMap`의 세그먼트 락(Java 7) 또는 CAS + 동기화(Java 8+) 방식이 이 문제를 어떻게 해결하는지 분석하라.
+
+<details><summary>힌트 보기</summary>
+
+Java 7의 `HashMap.resize()`는 연결 리스트를 **헤드 삽입(head insertion)**으로 재배치한다. 두 스레드가 동시에 리사이징하면 노드 A→B가 B→A로 역전되면서 A→B→A 순환 참조가 생긴다. `get()` 호출 시 이 순환 리스트를 무한 순회한다. Java 8에서는 **테일 삽입(tail insertion)**으로 변경하여 순환을 방지했고, `ConcurrentHashMap`은 Java 8부터 각 버킷 단위로 `synchronized` + CAS를 사용하여 세밀한 동시성 제어를 제공한다.
+
+</details>
+
+**문제 3-2.** 다음 코드가 반복 호출되는 핫 경로에 있다:
+```java
+String result = "";
+for (int i = 0; i < 10000; i++) {
+    result = result + data[i] + ",";
+}
+```
+이 코드의 성능 문제를 JIT 컴파일러의 인라이닝, 이스케이프 분석, String pool 관점에서 분석하라. `StringBuilder`로 전환하면 JVM 내부에서 어떤 차이가 발생하는가?
+
+<details><summary>힌트 보기</summary>
+
+각 `+` 연산은 컴파일러에 의해 `new StringBuilder().append(result).append(data[i]).append(",").toString()`으로 변환된다. 루프 내에서 매번 새로운 `StringBuilder`가 생성되고 `toString()`이 새 `String` 객체를 만든다. JIT가 이를 최적화하려 해도, 루프 경계를 넘는 이스케이프 분석은 제한적이다. 루프 밖에서 `StringBuilder`를 한 번 생성하면 객체 할당이 1회로 줄고, JIT가 `append()` 호출을 인라이닝하여 내부 배열 복사로 최적화할 수 있다.
+
+</details>
+
+**문제 3-3.** 프로덕션 환경에서 `-Xmx4g`로 설정된 서비스가 `OutOfMemoryError: Metaspace`를 발생시켰다. 힙 메모리는 여유가 있는 상태다. 이 서비스는 동적 프록시와 CGLIB를 광범위하게 사용하는 Spring AOP 기반이다. Metaspace 영역이 무엇을 저장하며, 왜 동적 프록시 사용이 Metaspace 고갈을 유발할 수 있는지 설명하라. 어떻게 진단하고 해결하겠는가?
+
+<details><summary>힌트 보기</summary>
+
+Metaspace는 클래스 메타데이터(클래스 구조, 메서드 바이트코드, 상수 풀 등)를 네이티브 메모리에 저장한다. CGLIB는 런타임에 바이트코드를 생성하여 새로운 클래스를 만드는데, 이 클래스들이 Metaspace를 점유한다. 캐싱 없이 매번 새 프록시 클래스를 생성하면 Metaspace가 고갈된다. `jcmd <pid> VM.classloader_stats`로 로드된 클래스 수를 확인하고, `-XX:MaxMetaspaceSize`를 설정하며, 프록시 클래스 캐싱 전략을 검토해야 한다.
+
+</details>
+
+### 4. 개념 간의 연결성
+
+**문제 4-1.** 다음은 Double-Checked Locking 기반 싱글턴 패턴이다:
+```java
+public class Singleton {
+    private static Singleton instance;
+    public static Singleton getInstance() {
+        if (instance == null) {
+            synchronized (Singleton.class) {
+                if (instance == null) {
+                    instance = new Singleton();
+                }
+            }
+        }
+        return instance;
+    }
+}
+```
+Java Memory Model(JMM)에서 `volatile` 키워드 없이 이 패턴이 깨지는 이유를 명령어 재정렬(instruction reordering) 관점에서 설명하라. `instance = new Singleton()`이 실제로 어떤 단계로 분해되며, 다른 스레드가 "부분 초기화된" 객체를 볼 수 있는 시나리오를 구체적으로 기술하라.
+
+<details><summary>힌트 보기</summary>
+
+`instance = new Singleton()`은 (1) 메모리 할당, (2) 생성자 실행(필드 초기화), (3) `instance` 참조에 주소 할당의 3단계로 분해된다. JMM은 `synchronized` 블록 밖의 읽기에 대해 happens-before 관계를 보장하지 않으므로, 컴파일러나 CPU가 (2)와 (3)의 순서를 바꿀 수 있다. 스레드 B가 (3) 이후 (2) 이전에 `instance`를 읽으면 non-null이지만 필드가 초기화되지 않은 객체를 사용하게 된다. `volatile`은 StoreStore + LoadLoad 메모리 배리어를 삽입하여 이 재정렬을 금지한다.
+
+</details>
+
+**문제 4-2.** `CompletableFuture`를 사용하여 I/O 집약 작업(외부 API 호출)과 CPU 집약 작업(데이터 변환)을 파이프라인으로 조합하는 시스템을 설계하고 있다. Project Loom의 가상 스레드가 도입된 환경에서, I/O 작업과 CPU 작업 각각에 어떤 스레드 풀(또는 실행 모델)을 할당해야 하는가? `CompletableFuture.supplyAsync(task, executor)`의 executor를 어떻게 구성할지 구체적인 설계를 제시하라.
+
+<details><summary>힌트 보기</summary>
+
+I/O 집약 작업은 가상 스레드(`Executors.newVirtualThreadPerTaskExecutor()`)에 적합하다. 가상 스레드는 블로킹 I/O에서 캐리어를 해제하므로 수천 개의 동시 I/O를 효율적으로 처리한다. 반면 CPU 집약 작업은 물리 코어 수에 바인딩된 `ForkJoinPool` 또는 `Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())`이 적합하다. 가상 스레드로 CPU 작업을 실행하면 캐리어 스레드 경쟁만 증가하고 이점이 없다. 파이프라인은 `.thenApplyAsync(cpuTask, cpuPool)`과 `.thenComposeAsync(ioTask, virtualPool)`로 분리한다.
+
+</details>
+
+**문제 4-3.** 대규모 이벤트 소싱 시스템에서 매초 수만 건의 이벤트를 직렬화하여 Kafka에 전송하고 있다. `record` 클래스(Java 16+)로 이벤트를 정의했을 때, JVM의 이스케이프 분석(Escape Analysis)이 이 레코드 객체들을 스택 할당(Scalar Replacement)할 수 있는 조건은 무엇인가? 그리고 직렬화를 위해 객체를 외부로 전달하는 순간 이스케이프 분석이 무효화되는 이유와 이에 대한 대안을 설명하라.
+
+<details><summary>힌트 보기</summary>
+
+이스케이프 분석은 객체가 메서드 스코프를 벗어나지 않을 때(NoEscape) 힙 대신 스택에 할당하거나 필드를 지역 변수로 분해(Scalar Replacement)할 수 있다. 그러나 Kafka Producer에 객체를 전달하면 메서드 경계를 넘으므로(GlobalEscape) 반드시 힙에 할당된다. 대안으로는 (1) 직렬화 로직을 인라이닝 가능한 작은 메서드로 분리하여 JIT가 더 넓은 범위에서 이스케이프를 분석하게 하거나, (2) 객체 생성 자체를 피하고 `ByteBuffer`에 직접 직렬화하는 zero-copy 접근을 사용할 수 있다.
+
+</details>

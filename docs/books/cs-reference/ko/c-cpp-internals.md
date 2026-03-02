@@ -476,10 +476,10 @@ int x = data.load(std::memory_order_relaxed); // guaranteed to see 42
 
 ```mermaid
 flowchart LR
-    subgraph Thread1
+    subgraph "Thread1"
         A["data = 42\n(relaxed)"] --> B["flag = 1\n(release)\n= SFENCE on x86"]
     end
-    subgraph Thread2
+    subgraph "Thread2"
         C["while(flag != 1)\n(acquire)\n= LFENCE on x86"] --> D["x = data\n(relaxed)\nGuaranteed: x == 42"]
     end
     B -.->|"happens-before\nsynchronizes-with"| C
@@ -526,3 +526,373 @@ flowchart TD
 | 표준::지도 찾기 | O(log n) ~100ns(n=1M) | 캐시에 적합하지 않은 나무 산책 |
 | std::unordered_map 찾기 | O(1) ~50-100ns | 해시 + 연결 목록 순회 |
 | std::벡터 push_back(상환) | ~2-5ns | 직접 메모리 쓰기 |
+
+---
+
+## 설계적 고민
+
+### 구조와 모델링
+
+#### RAII: 자원 수명을 스코프에 바인딩하는 설계 가치
+
+RAII(Resource Acquisition Is Initialization)는 C++의 가장 강력한 설계 원칙이다. **자원 획득을 객체 초기화와 결합하고, 자원 해제를 소멸자와 결합**한다. 이를 통해 다음을 보장한다:
+
+1. **예외 안전성**: 예외가 발생해도 스택 언와인딩 시 소멸자가 호출되어 자원이 누수되지 않는다.
+2. **소유권 명확화**: 자원의 소유자가 명확하여 누가 해제 책임을 지는지 코드로 표현된다.
+3. **결정적 해제**: GC 기반 언어와 달리 자원 해제 시점이 예측 가능하다.
+
+C언어에서는 RAII가 없으므로 `malloc/free` 쌍을 수동 관리해야 하며, 이는 메모리 누수와 이중 해제(double-free)의 주요 원인이다. C++의 RAII는 이 문제를 구조적으로 해결한다.
+
+```mermaid
+flowchart TD
+    subgraph C_STYLE["C 스타일 - 수동 자원 관리"]
+        C_ALLOC["malloc/fopen"] --> C_USE["자원 사용"]
+        C_USE --> C_ERR{"에러 발생?"}
+        C_ERR -->|No| C_FREE["free/fclose"]
+        C_ERR -->|Yes| C_LEAK["자원 누수 위험\ngoto cleanup 패턴 필요"]
+        C_LEAK --> C_CLEANUP["cleanup:\nfree/fclose"]
+    end
+    
+    subgraph RAII_STYLE["C++ RAII - 자동 자원 관리"]
+        RAII_CTOR["생성자에서 자원 획득\nunique_ptr, lock_guard, fstream"] --> RAII_USE["자원 사용"]
+        RAII_USE --> RAII_SCOPE{"스코프 종료?"}
+        RAII_SCOPE -->|"정상 반환"| RAII_DTOR["소멸자 자동 호출\n자원 해제 보장"]
+        RAII_SCOPE -->|"예외 발생"| RAII_UNWIND["스택 언와인딩\n소멸자 자동 호출\n자원 누수 없음"]
+    end
+    
+    C_STYLE -.->|"수동 관리\n실수 가능"| RAII_STYLE
+    RAII_STYLE -.->|"컴파일러가\n자원 해제 보장"| SAFE["제로 비용 추상화\n런타임 오버헤드 없음"]
+```
+
+#### 스마트 포인터 선택 결정 트리
+
+C++11의 스마트 포인터는 소유권 모델을 타입 시스템으로 표현한다. 올바른 선택을 위한 결정 트리는 다음과 같다:
+
+- **`unique_ptr`**: 단독 소유권. 복사 불가, 이동만 가능. 가장 가벼운 스마트 포인터로 대부분의 경우 기본 선택이다. 팔 크기 오버헤드가 없다(deleter가 상태 없을 때).
+- **`shared_ptr`**: 공유 소유권. 참조 카운팅 기반으로 마지막 소유자가 사라질 때 자원 해제. 원자적 연산 오버헤드와 컨트롤 블록(control block) 할당 비용이 있다.
+- **`weak_ptr`**: `shared_ptr`의 순환 참조 방지. 소유권을 증가시키지 않고 관찰만 한다. 캠시, 관찰자 패턴, 트리 구조의 부모 참조에 사용한다.
+
+```mermaid
+flowchart TD
+    START["동적 할당 필요"] --> Q1{"소유자가 한 명?"}
+    Q1 -->|Yes| UNIQUE["unique_ptr\n단독 소유권\n제로 오버헤드"]
+    Q1 -->|No| Q2{"소유권 공유 필요?"}
+    Q2 -->|Yes| Q3{"순환 참조 가능성?"}
+    Q2 -->|No| Q4["원시 포인터 또는\n스택 할당 고려"]
+    Q3 -->|No| SHARED["shared_ptr\n참조 카운팅 기반\n원자적 연산 오버헤드 있음"]
+    Q3 -->|Yes| WEAK["shared_ptr + weak_ptr\n순환 방지\nlock 후 사용"]
+    
+    UNIQUE --> U_USE["팩토리, 트리 노드\nPimpl 이디엄"]
+    SHARED --> S_USE["캠시, 공유 상태\n멀티스레드 접근"]
+    WEAK --> W_USE["관찰자 패턴\n트리 부모 참조\nLRU 캐시"]
+```
+
+### 트레이드오프와 의사결정
+
+#### 이동 의미론(Move Semantics): 복사 비용 제거와 소유권 명확화
+
+C++11의 이동 의미론은 불필요한 깊은 복사(deep copy)를 제거하여 성능을 향상시키는 동시에 **소유권 이전**의 의도를 명확히 표현한다.
+
+**설계 트레이드오프**:
+- **복사(copy)**: 안전하지만 비용이 크다. `std::vector`의 복사는 모든 요소를 새 메모리에 복제한다.
+- **이동(move)**: 불안전(moved-from 객체는 유효하지만 불확정 상태)하지만 성능이 우수하다. 내부 포인터만 이전하므로 O(1)이다.
+
+**예외 처리 vs 에러 코드** 선택도 중요한 트레이드오프이다:
+
+| 기준 | C++ 예외 (throw/catch) | 에러 코드 (int/enum) |
+|------|----------------------|---------------------|
+| 정상 경로 비용 | 거의 제로 (제로 비용 예외) | 매 호출 시 검사 비용 |
+| 예외 경로 비용 | 매우 높음 (DWARF unwind) | 고정 비용 |
+| 코드 가독성 | 높음 (happy path 중심) | 낮음 (if 체크 반복) |
+| 실시간 시스템 | 부적합 (비결정적 시간) | 적합 (예측 가능한 시간) |
+| 현대 C++ 추세 | std::expected (C++23) | 계속 사용 |
+
+```mermaid
+sequenceDiagram
+    participant CALLER as 호출자
+    participant VEC as std::vector
+    participant MEM as 힙 메모리
+    
+    Note over CALLER,MEM: 복사 의미론 (Copy)
+    CALLER->>VEC: vector b = a (copy ctor)
+    VEC->>MEM: new allocation (N bytes)
+    VEC->>MEM: memcpy all N elements
+    Note over MEM: O(N) 비용, a와 b 모두 유효
+    
+    Note over CALLER,MEM: 이동 의미론 (Move)
+    CALLER->>VEC: vector b = std::move(a) (move ctor)
+    VEC->>VEC: b.data = a.data (pointer swap)
+    VEC->>VEC: a.data = nullptr, a.size = 0
+    Note over MEM: O(1) 비용, a는 moved-from 상태
+```
+
+#### 템플릿 메타프로그래밍: 컴파일 타임 vs 런타임 연산
+
+템플릿 메타프로그래밍(TMP)은 컴파일 타임에 계산을 수행하여 런타임 비용을 제거한다. C++20의 `consteval`과 `concepts`는 TMP를 더 접근 가능하게 만들었다.
+
+| 기준 | 템플릿/constexpr | 런타임 계산 |
+|------|------------------|------------|
+| 실행 시점 | 컴파일 타임 | 런타임 |
+| 런타임 비용 | 제로 | 정상 |
+| 컴파일 시간 | 증가 | 정상 |
+| 디버깅 | 매우 어려움 | 쉽음 |
+| 에러 메시지 | 난해 (C++20 concepts로 개선) | 명확 |
+
+```mermaid
+flowchart TD
+    A["연산 유형 결정"] --> B{"컴파일 타임에\n결정 가능?"}
+    B -->|Yes| C{"복잡도?"}
+    B -->|No| D["런타임 계산\n일반 함수/루프"]
+    
+    C -->|"단순한 값"| E["constexpr / consteval\n컴파일러가 계산"]
+    C -->|"타입 수준 로직"| F["if constexpr + concepts\nC++20 방식 권장"]
+    C -->|"고도 메타 로직"| G["템플릿 메타프로그래밍\nSFINAE, 타입 트레잇"]
+    
+    E --> RESULT1["런타임 비용: 0\n디버깅: 용이"]
+    F --> RESULT2["런타임 비용: 0\n가독성: 양호"]
+    G --> RESULT3["런타임 비용: 0\n디버깅: 극도로 어려움"]
+```
+
+### 리팩토링과 설계 원칙
+
+#### 예외 안전성 보장 수준과 설계 기준
+
+C++의 예외 안전성은 세 가지 수준으로 분류된다. 코드를 작성할 때 각 함수가 어떤 수준의 보장을 제공하는지 명확히 문서화해야 한다.
+
+1. **기본 보장(Basic Guarantee)**: 예외 발생 시 자원 누수 없음. 객체는 유효하지만 상태가 변경될 수 있다.
+2. **강력한 보장(Strong Guarantee)**: 예외 발생 시 상태가 원래대로 되돌아간다 (commit-or-rollback). `copy-and-swap` 이디엄으로 구현한다.
+3. **무예외 보장(Nothrow Guarantee)**: 예외를 절대 던지지 않는다. `noexcept` 지정. 소멸자, 이동 생성자, swap은 반드시 이 수준이어야 한다.
+
+```mermaid
+flowchart TD
+    A["함수 설계"] --> B{"예외 발생 시\n요구사항?"}
+    B -->|"상태 복원 필요"| STRONG["강력한 보장\ncopy-and-swap 이디엄\n임시 복사본에 작업 후 swap"]
+    B -->|"누수 방지만"| BASIC["기본 보장\nRAII로 자원 보호\n객체 상태 복원 보장 없음"]
+    B -->|"절대 실패 불가"| NOTHROW["noexcept 보장\n소멸자, 이동 생성자\nswap 함수"]
+    
+    STRONG --> S_COST["비용: 임시 복사 필요\n장점: 트랜잭션 의미론"]
+    BASIC --> B_COST["비용: 최소\n장점: 대부분 충분"]
+    NOTHROW --> N_COST["비용: 제약 커짐\n장점: 다른 보장의 기반"]
+```
+
+### 디자인 패턴 적용
+
+#### C++ 표준 라이브러리와 시스템 설계에서 발견되는 패턴들
+
+C++의 언어 기능과 표준 라이브러리에는 다양한 디자인 패턴이 녹아 있다:
+
+- **RAII 가드(Scope Guard)**: `lock_guard`, `unique_lock`, `fstream`은 모두 RAII 패턴의 구현체다. 생성자에서 자원 획득, 소멸자에서 해제를 보장한다.
+- **Pimpl 이디엄(Bridge 패턴)**: 구현 세부를 `unique_ptr<Impl>`로 숨겨 컴파일 의존성을 줄인다. ABI 안정성을 확보하고 컴파일 시간을 단축한다.
+- **CRTP(Curiously Recurring Template Pattern)**: 정적 다형성. `class Derived : public Base<Derived>`로 가상 함수 호출 없이 다형성을 구현한다. vtable 오버헤드를 제거한다.
+- **팅탉 패턴(Mixin via Templates)**: 다중 상속 없이 기능을 조합한다. 정책(policy) 클래스를 템플릿 파라미터로 전달하여 컴파일 타임에 행동을 결정한다.
+- **방문자 패턴(Visitor via std::variant + std::visit)**: C++17의 `std::variant`와 `std::visit`를 사용하면 타입 안전한 방문자 패턴을 구현할 수 있다.
+
+```mermaid
+classDiagram
+    class Widget {
+        -pImpl: unique_ptr~WidgetImpl~
+        +Widget()
+        +~Widget()
+        +doWork() void
+    }
+    
+    class WidgetImpl {
+        -data: vector~int~
+        -cache: unordered_map
+        +doWorkImpl() void
+    }
+    
+    class LockGuard {
+        -mutex_ref: mutex&
+        +LockGuard(m: mutex&)
+        +~LockGuard()
+    }
+    
+    class UniquePtr~T~ {
+        -ptr: T*
+        +UniquePtr(raw: T*)
+        +~UniquePtr()
+        +operator->() T*
+        +release() T*
+        +reset(p: T*) void
+    }
+    
+    Widget --> WidgetImpl: Pimpl 이디엄\n컴파일 방화벽\nABI 안정성
+    Widget --> UniquePtr~WidgetImpl~: RAII 소유권\n자동 해제 보장
+    LockGuard --> LockGuard: RAII 가드\n스코프 종료 시 자동 unlock
+
+
+## 연습 문제
+
+### 1. 시스템 구조와 모델링
+
+**문제 1.** 대형 게임 엔진 팀이 캐릭터 AI 컴포넌트를 설계하고 있다. 기획자는 `CharacterAI` 클래스가 `Pathfinding`, `CombatBehavior`, `DialogueSystem`의 기능을 모두 갖추길 원한다. 한 개발자는 세 클래스를 모두 상속받는 다중 상속을 제안했고, 다른 개발자는 각 기능을 멤버 객체로 구성(Composition)하자고 했다. 두 접근의 구조적 차이를 분석하고, 다이아몬드 상속 문제가 발생하는 시나리오를 구체적으로 설명하라.
+
+<details>
+<summary>힌트 보기</summary>
+
+- C++ 다중 상속 시 `virtual` 상속과 vtable 구조 변화를 고려하라
+- 다이아몬드 문제: A → B, A → C, D → B+C 구조에서 A의 인스턴스가 2개 생기는 이유
+- Composition의 경우 각 컴포넌트의 생명주기가 독립적으로 관리됨을 분석하라
+- `has-a` vs `is-a` 관계가 설계 선택에 어떤 영향을 미치는지 생각해보라
+
+</details>
+
+**문제 2.** 임베디드 시스템 팀이 센서 데이터 처리 라이브러리를 작성하고 있다. 팀원 A는 모든 처리 함수를 전역 함수로 작성했고, 팀원 B는 `SensorProcessor` 클래스에 정적/인스턴스 메서드로 캡슐화했다. 팀원 C는 네임스페이스로 전역 함수들을 구조화했다. 세 가지 방식이 **스택/힙 메모리**, **링크 단위(translation unit)**, **ODR(One Definition Rule)** 관점에서 어떻게 다른지 비교하라.
+
+<details>
+<summary>힌트 보기</summary>
+
+- 전역 함수는 BSS/data 세그먼트, 클래스 인스턴스는 스택 또는 힙에 위치
+- 정적 멤버 함수는 `this` 포인터 없이 호출 가능 — 실질적으로 전역 함수와 같은 어셈블리 생성
+- 네임스페이스는 이름 충돌 방지이지 캡슐화가 아님 (내부 상태 없음)
+- ODR: 동일 정의가 여러 TU에 존재할 때의 문제, `inline`과 `static` 키워드의 역할
+
+</details>
+
+**문제 3.** 네트워크 라이브러리에서 `Buffer` 클래스가 힙 메모리를 관리한다. 복사 생성자와 이동 생성자를 모두 정의했는데, `std::vector<Buffer>` 에 push_back 시 성능 프로파일러가 예상보다 많은 복사가 발생한다고 보고했다. RAII, 이동 시맨틱, `noexcept` 선언이 어떻게 상호작용하는지 분석하고, 문제의 근본 원인을 설명하라.
+
+<details>
+<summary>힌트 보기</summary>
+
+- `std::vector` 재할당 시 이동 생성자를 사용하려면 반드시 `noexcept` 선언 필요
+- `noexcept` 없는 이동 생성자는 강한 예외 보증을 깨뜨릴 수 있어 `std::move_if_noexcept`가 복사를 선택
+- Rule of Five: 소멸자/복사생성자/이동생성자/복사대입/이동대입 중 하나 정의 시 나머지도 명시적으로 관리 필요
+
+</details>
+
+### 2. 트레이드오프와 의사결정
+
+**문제 4.** 실시간 음성 처리 시스템에서 10ms마다 오디오 버퍼를 처리해야 한다. 팀은 `std::shared_ptr`를 사용한 자동 메모리 관리와 원시 포인터(raw pointer) + 수동 관리 중 선택해야 한다. 레퍼런스 카운팅의 원자적 연산이 10ms 실시간 요구사항에 미치는 영향을 분석하고, 이 맥락에서 어떤 선택이 적합한지 근거를 제시하라.
+
+<details>
+<summary>힌트 보기</summary>
+
+- `shared_ptr` 복사/해제 시 `std::atomic` 증감 발생 — 멀티코어에서 캐시 라인 경쟁 유발 가능
+- 실시간 시스템에서는 메모리 할당/해제 자체도 비결정론적 (힙 단편화, OS 개입)
+- 대안: 커스텀 풀 할당자(pool allocator) + `unique_ptr` 또는 `arena allocator`
+- 안전성(메모리 누수 방지) vs 예측 가능한 지연 시간(determinism) 트레이드오프 고려
+
+</details>
+
+**문제 5.** 고성능 시뮬레이션 프레임워크에서 `update()` 가 매 프레임 10,000번 호출되는 `Entity` 클래스 계층이 있다. 현재 가상 함수(virtual)를 사용한 다형성 구조인데 프로파일러가 vtable 간접 참조로 인한 캐시 미스를 지적했다. CRTP(Curiously Recurring Template Pattern)를 적용한 정적 다형성으로 전환하면 어떤 이점과 비용이 발생하는지 설계 관점에서 평가하라.
+
+<details>
+<summary>힌트 보기</summary>
+
+- vtable 간접 참조: `entity->update()` → vtable 조회 → 실제 함수 → 컴파일러가 인라인 불가
+- CRTP: `template<typename Derived> class Base { void update() { static_cast<Derived*>(this)->updateImpl(); } }` — 컴파일 타임 결정
+- CRTP의 비용: 각 파생 클래스마다 별도 타입 인스턴스화 → 코드 크기 증가 (code bloat)
+- 런타임 다형성(heterogeneous container)이 필요한 경우 CRTP 단독으로는 한계
+
+</details>
+
+**문제 6.** 멀티스레드 서버 애플리케이션에서 공유 설정(config) 객체에 빈번한 읽기와 가끔씩의 쓰기가 발생한다. 팀은 `std::mutex`, `std::shared_mutex`, lock-free 원자적 참조(atomic reference) 세 가지 동기화 전략을 검토 중이다. 각 전략의 읽기/쓰기 성능, 기아 현상(starvation), 구현 복잡도를 비교하고 이 시나리오에 가장 적합한 선택을 제안하라.
+
+<details>
+<summary>힌트 보기</summary>
+
+- `std::mutex`: 읽기도 exclusive lock — 동시 읽기 불가로 병목 발생
+- `std::shared_mutex`: 다수 동시 읽기(shared_lock) + 단독 쓰기(unique_lock) — 읽기 많은 경우 적합
+- 작가 기아(writer starvation): 지속적 읽기로 쓰기 잠금이 계속 밀리는 현상
+- lock-free atomic: `std::atomic<std::shared_ptr<Config>>` — 가장 낮은 지연이지만 ABA 문제 고려
+
+</details>
+
+### 3. 문제 해결 및 리팩토링
+
+**문제 7.** 다음 코드에서 메모리 안전 문제를 찾아라. 레거시 C++ 코드베이스에서 발견된 함수다:
+```cpp
+std::string* processData(const char* input) {
+    std::string* result = new std::string(input);
+    if (result->empty()) {
+        return nullptr;  // 메모리 누수
+    }
+    transform(result);  // 예외 가능성
+    return result;
+}
+```
+이 코드의 문제점을 모두 식별하고, 현대 C++ 관용구(idiom)로 완전히 재작성하라.
+
+<details>
+<summary>힌트 보기</summary>
+
+- `result->empty()` 분기에서 `new`로 할당한 메모리를 `delete` 없이 `nullptr` 반환 → 누수
+- `transform(result)` 예외 발생 시 `result` 메모리 해제 없음 → 예외 안전성 위반
+- 수정 방향: `std::unique_ptr<std::string>` 또는 `std::optional<std::string>` 반환
+- 더 나아가 값으로 반환 + NRVO 최적화 활용 (`std::string` 직접 반환)
+
+</details>
+
+**문제 8.** 신입 개발자가 다음과 같이 작성한 템플릿 코드가 특정 타입에서 링크 오류를 발생시킨다:
+```cpp
+// math.h
+template<typename T>
+T square(T x);
+
+// math.cpp
+template<typename T>
+T square(T x) { return x * x; }
+```
+`square<double>` 호출 시 링크 오류가 발생하는 이유를 C++ 템플릿 인스턴스화 모델 관점에서 설명하고, 세 가지 해결 방법을 제시하라.
+
+<details>
+<summary>힌트 보기</summary>
+
+- 템플릿은 컴파일 타임에 인스턴스화됨 → 정의가 같은 TU(Translation Unit)에 있어야 함
+- `math.cpp`에서만 정의 → 다른 TU에서 `square<double>` 호출 시 인스턴스화 불가
+- 해결 1: 헤더에 전체 정의 포함 (가장 일반적)
+- 해결 2: `math.cpp`에 명시적 인스턴스화 `template double square<double>(double);`
+- 해결 3: `export` 모듈 (C++20)
+
+</details>
+
+**문제 9.** 대규모 C++ 프로젝트에서 빌드 시간이 45분으로 증가했다. 코드 분석 결과 헤더 파일에 과도한 `#include`가 있고, 일부 클래스는 완전한 타입 대신 전방 선언(forward declaration)으로 충분한 곳에도 헤더를 포함하고 있었다. Pimpl 이디엄이 어떻게 빌드 시간을 줄이는지 설명하고, 어떤 상황에서 Pimpl 적용이 오히려 역효과를 낳는지도 논하라.
+
+<details>
+<summary>힌트 보기</summary>
+
+- Pimpl: 구현 세부사항을 별도 `.cpp`로 이동 → 공개 헤더에서 `#include` 제거 → 의존 파일 재컴파일 감소
+- 전방 선언 가능 조건: 포인터나 참조만 사용하는 경우, 크기/멤버 접근 불필요한 경우
+- 역효과: 힙 할당 강제 (스택 할당 불가) → 캐시 미스 증가, 함수 호출당 포인터 역참조 오버헤드
+- 언제 부적합: 내부 타입이 자주 노출되어야 하는 경우, 성능 임계 컴포넌트
+
+</details>
+
+### 4. 개념 간의 연결성
+
+**문제 10.** 현대 JIT 컴파일러(JVM, V8)는 핫 코드를 기계어로 컴파일할 때 C++ 컴파일러처럼 인라인 확장과 상수 전파를 수행한다. C++ `constexpr`/`inline` 최적화와 JIT 인라인의 근본적 차이는 무엇이며, C++의 템플릿 메타프로그래밍이 JIT 최적화와 어떤 공통 목표를 공유하는지 설명하라.
+
+<details>
+<summary>힌트 보기</summary>
+
+- C++ 컴파일 타임: 타입 정보 완전 가용, 인라인 결정 정적 → 바이너리 크기 대가
+- JIT: 런타임 프로파일 기반 최적화 → 실제 실행 경로 특화 가능 (adaptive optimization)
+- 공통 목표: 간접 참조(indirection) 제거, 반복 계산 컴파일 타임으로 이동
+- 차이: C++는 모든 타입에 대한 인스턴스화 필요 vs JIT는 실제 관찰된 타입만 최적화
+
+</details>
+
+**문제 11.** Rust의 소유권 시스템과 C++의 RAII/스마트 포인터는 모두 메모리 안전을 목표로 한다. 그러나 C++ 코드베이스에서 여전히 `use-after-free`와 `double-free` 버그가 발생한다. 두 언어의 메모리 안전 메커니즘이 **컴파일러 보증** 관점에서 어떻게 다른지 분석하고, C++에서 Rust 수준의 보증을 달성하기 어려운 근본 이유를 설명하라.
+
+<details>
+<summary>힌트 보기</summary>
+
+- Rust borrow checker: 컴파일 타임에 소유권/생명주기를 완전히 추적 — 런타임 오버헤드 제로
+- C++ `unique_ptr`: 소유권 이동을 표현하지만 컴파일러가 강제하지 않음 (여전히 `get()` 노출, 수동 raw ptr 혼용 가능)
+- C++의 근본 한계: 기존 C 코드와의 호환성 유지, `void*` 캐스팅, 산술 포인터
+- Rust의 비용: 학습 곡선, FFI 경계에서의 unsafe 블록
+
+</details>
+
+**문제 12.** 운영체제 커널 개발자가 C++ 예외(`try/catch`)를 사용하지 않고 에러 처리를 설계해야 한다. `errno` 기반 C 스타일, `std::expected<T,E>` (C++23), 커스텀 `Result<T,E>` 타입 세 가지 접근을 비교하고, 커널 컨텍스트에서 예외 메커니즘이 금지되는 기술적 이유를 설명하라.
+
+<details>
+<summary>힌트 보기</summary>
+
+- C++ 예외: 스택 언와인딩을 위한 런타임 지원(`libgcc_s`, DWARF 메타데이터) 필요 → 커널 환경 부적합
+- `errno`: 스레드 로컬 전역 변수 — 망각 가능, 체인 불가
+- `std::expected<T,E>`: 함수형 에러 전파 (`and_then`, `transform`), 타입 시스템에 에러 표현 내재
+- 커널에서 예외 금지 이유: 인터럽트 핸들러, NMI 컨텍스트에서 스택 언와인딩 불가능
+
+</details>
