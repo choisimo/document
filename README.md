@@ -20,6 +20,9 @@ open http://localhost:8000
 # Build static site
 docker compose -f docker-compose.docs.yml --profile build up docs-build
 
+# Sync extra raw assets into site/extra
+bash scripts/site/sync-extra-assets.sh
+
 # Serve with nginx
 docker compose -f docker-compose.docs.yml --profile production up nginx
 ```

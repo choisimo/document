@@ -104,7 +104,7 @@ release/
 debug/
 
 # Docs
-site/
+/site/
 docs/_build/
 
 # ====================

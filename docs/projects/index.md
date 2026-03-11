@@ -52,7 +52,7 @@ mindmap
 | Project | Stack | Status |
 |---------|-------|--------|
 | [CBT System](cbt-system.md) | Spring Boot, React, PostgreSQL | Active |
-| [Emotion Diary](emotion-diary.md) | Flutter, Firebase | Active |
+| [Emotion Diary](emotion-diary.md) | React, TypeScript, Spring Boot, MySQL | Active |
 
 ---
 

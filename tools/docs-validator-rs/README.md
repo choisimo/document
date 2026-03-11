@@ -4,6 +4,7 @@ Rust CLI binary for strict documentation validation:
 
 - strict Mermaid parsing (`merman_core::ParseOptions::strict()`)
 - strict markdown/html document link resolution + anchor validation
+- markdown format convention analysis (headings, blank lines, tabs, fenced code blocks)
 
 ## Run
 
@@ -30,6 +31,13 @@ cargo run --manifest-path tools/docs-validator-rs/Cargo.toml -- \
 
 # mermaid only
 cargo run --manifest-path tools/docs-validator-rs/Cargo.toml -- --check mermaid
+
+# full-repo format analysis, summary only
+cargo run --manifest-path tools/docs-validator-rs/Cargo.toml -- \
+  --root . \
+  --docs-base docs \
+  --check format \
+  --summary-only
 ```
 
 ## Tests

@@ -150,6 +150,7 @@ extra_javascript:
   - javascripts/ai-config.js
   - javascripts/ai-client.js
   - javascripts/ai-chatbot.js
+  - javascripts/ux-enhancements.js
   - https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js
   - javascripts/mermaid-init.js
   - javascripts/mathjax.js

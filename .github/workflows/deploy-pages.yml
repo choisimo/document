@@ -51,6 +51,12 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Test docs validator tooling
+        run: cargo test -q --manifest-path tools/docs-validator-rs/Cargo.toml
+
       - name: Inject AI configuration from secrets
         env:
           AI_API_BASE_URL: ${{ secrets.AI_API_BASE_URL }}
@@ -119,39 +125,7 @@ jobs:
 
       - name: Copy extra static content to site (post-build)
         run: |
-          mkdir -p site/extra
-          
-          # algorithm simulator (optional - may not exist in all branches)
-          if [ -d "algorithm/simulator/javascript" ]; then
-            cp -rL algorithm/simulator/javascript site/extra/algorithm-simulator
-          else
-            echo "⚠️ algorithm/simulator/javascript not found, skipping"
-          fi
-          
-          rsync -av --exclude='*.class' --exclude='*.pyc' --exclude='__pycache__' scripts/ site/extra/scripts/ 2>/dev/null || true
-          
-          rsync -av --exclude='.git' --exclude='*.class' docker/ site/extra/docker/ 2>/dev/null || true
-          
-          rsync -av configs/ site/extra/configs/ 2>/dev/null || true
-          
-          rsync -av project-docs/ site/extra/project-docs/ 2>/dev/null || true
-          
-          rsync -av --exclude='.git' legacy/ site/extra/legacy/ 2>/dev/null || true
-          
-          rsync -av prompt/ site/extra/prompts-raw/ 2>/dev/null || true
-          
-          rsync -av --no-links mcp/ site/extra/mcp/ 2>/dev/null || true
-          
-          rsync -av memo/ site/extra/memo/ 2>/dev/null || true
-          
-          mkdir -p site/extra/algorithm-code
-          rsync -av --exclude='*.class' --exclude='*.pyc' --exclude='__pycache__' --exclude='.ruff_cache' algorithm/data-structures/ site/extra/algorithm-code/data-structures/ 2>/dev/null || true
-          rsync -av --exclude='*.class' algorithm/code/ site/extra/algorithm-code/code/ 2>/dev/null || true
-          rsync -av algorithm/C-lang/ site/extra/algorithm-code/C-lang/ 2>/dev/null || true
-          rsync -av --exclude='*.pyc' --exclude='__pycache__' algorithm/simulator/python/ site/extra/algorithm-code/simulator-python/ 2>/dev/null || true
-          rsync -av --exclude='*.class' algorithm/simulator/java/ site/extra/algorithm-code/simulator-java/ 2>/dev/null || true
-          cp algorithm/README.md site/extra/algorithm-code/ 2>/dev/null || true
-          cp algorithm/REVIEW_REPORT.md site/extra/algorithm-code/ 2>/dev/null || true
+          bash scripts/site/sync-extra-assets.sh site/extra
 
       - name: Create CNAME file
         run: echo 'docs.nodove.com' > site/CNAME

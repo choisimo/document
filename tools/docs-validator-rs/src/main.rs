@@ -9,6 +9,7 @@ enum CheckMode {
     All,
     Mermaid,
     Links,
+    Format,
 }
 
 #[derive(Debug, Parser)]
@@ -26,6 +27,10 @@ struct Cli {
     /// Which checks to run
     #[arg(long, value_enum, default_value = "all")]
     check: CheckMode,
+
+    /// Print only pass/fail summary lines, not every issue
+    #[arg(long, default_value_t = false)]
+    summary_only: bool,
 }
 
 fn main() -> Result<()> {
@@ -34,10 +39,11 @@ fn main() -> Result<()> {
     let source_root = resolve_input_path(&repo_root, cli.root);
     let docs_base = resolve_input_path(&repo_root, cli.docs_base);
 
-    let (check_mermaid, check_links) = match cli.check {
-        CheckMode::All => (true, true),
-        CheckMode::Mermaid => (true, false),
-        CheckMode::Links => (false, true),
+    let (check_mermaid, check_links, check_format) = match cli.check {
+        CheckMode::All => (true, true, true),
+        CheckMode::Mermaid => (true, false, false),
+        CheckMode::Links => (false, true, false),
+        CheckMode::Format => (false, false, true),
     };
 
     let report = validate(&ValidationOptions {
@@ -45,6 +51,7 @@ fn main() -> Result<()> {
         docs_base,
         check_mermaid,
         check_links,
+        check_format,
     })?;
 
     let mermaid_issues = report
@@ -56,6 +63,11 @@ fn main() -> Result<()> {
         .issues
         .iter()
         .filter(|i| i.kind == CheckKind::Links)
+        .count();
+    let format_issues = report
+        .issues
+        .iter()
+        .filter(|i| i.kind == CheckKind::Format)
         .count();
 
     if check_mermaid {
@@ -86,11 +98,26 @@ fn main() -> Result<()> {
         }
     }
 
-    if !report.issues.is_empty() {
+    if check_format {
+        if format_issues == 0 {
+            println!(
+                "PASS markdown format conventions: {} files checked",
+                report.format_files_checked
+            );
+        } else {
+            println!(
+                "FAIL markdown format conventions: {} issues across {} files",
+                format_issues, report.format_files_checked
+            );
+        }
+    }
+
+    if !report.issues.is_empty() && !cli.summary_only {
         for issue in &report.issues {
             let kind = match issue.kind {
                 CheckKind::Mermaid => "mermaid",
                 CheckKind::Links => "links",
+                CheckKind::Format => "format",
             };
             let line = issue
                 .line
@@ -103,6 +130,9 @@ fn main() -> Result<()> {
                 issue.detail
             );
         }
+    }
+
+    if !report.issues.is_empty() {
         std::process::exit(1);
     }
 

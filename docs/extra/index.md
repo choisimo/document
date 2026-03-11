@@ -110,8 +110,8 @@
 | Resource | Description | Type |
 |----------|-------------|------|
 | [Algorithm Simulator](/extra/algorithm-simulator/index.html){ target="_blank" } | 인터랙티브 알고리즘 시각화 | :material-web: Web App |
-| [Python Simulators](/extra/algorithm-code/simulator-python/){ target="_blank" } | CLI 기반 시뮬레이터 | :material-language-python: Python |
-| [Java Simulators](/extra/algorithm-code/simulator-java/){ target="_blank" } | CLI 기반 시뮬레이터 | :material-language-java: Java |
+| [Simulator Sources](/extra/algorithm-code/simulator/){ target="_blank" } | Python/JavaScript/Java 시뮬레이터 소스 | :material-source-repository: Source |
+| [Architect Code](/extra/algorithm-code/code/){ target="_blank" } | 알고리즘 풀이 아카이브 | :material-code-braces: Code |
 | [BST Implementation](/extra/algorithm-code/data-structures/tree/binary-search-tree/){ target="_blank" } | 4개 언어 BST 구현 | :material-code-braces: Multi-lang |
 | [Deploy Script](/extra/scripts/deployment/deploy.sh){ target="_blank" } | 배포 스크립트 | :material-bash: Shell |
 | [Docker Images](/extra/docker/images/){ target="_blank" } | 개발 환경 Docker 이미지 | :material-docker: Docker |

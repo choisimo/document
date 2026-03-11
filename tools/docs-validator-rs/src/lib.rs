@@ -12,6 +12,7 @@ use walkdir::WalkDir;
 pub enum CheckKind {
     Mermaid,
     Links,
+    Format,
 }
 
 #[derive(Debug, Clone)]
@@ -28,6 +29,7 @@ pub struct ValidationOptions {
     pub docs_base: PathBuf,
     pub check_mermaid: bool,
     pub check_links: bool,
+    pub check_format: bool,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -35,6 +37,7 @@ pub struct ValidationReport {
     pub scanned_files: usize,
     pub mermaid_blocks: usize,
     pub links_checked: usize,
+    pub format_files_checked: usize,
     pub issues: Vec<ValidationIssue>,
 }
 
@@ -43,6 +46,7 @@ struct ScannedDoc {
     anchors: HashSet<String>,
     links: Vec<LinkRef>,
     mermaid_blocks: Vec<MermaidBlock>,
+    format_issues: Vec<ValidationIssue>,
 }
 
 #[derive(Debug)]
@@ -76,7 +80,13 @@ pub fn validate(options: &ValidationOptions) -> Result<ValidationReport> {
         );
     }
 
-    let all_docs = collect_markdown_files(&docs_base)?;
+    let mut all_docs = collect_markdown_files(&docs_base)?;
+    let mut seen_docs: HashSet<PathBuf> = all_docs.iter().cloned().collect();
+    for file in &source_files {
+        if seen_docs.insert(file.clone()) {
+            all_docs.push(file.clone());
+        }
+    }
     let mut anchor_index: HashMap<PathBuf, HashSet<String>> = HashMap::new();
     let mut source_scans: HashMap<PathBuf, ScannedDoc> = HashMap::new();
 
@@ -86,6 +96,7 @@ pub fn validate(options: &ValidationOptions) -> Result<ValidationReport> {
             file,
             options.check_links && is_source,
             options.check_mermaid && is_source,
+            options.check_format && is_source,
         )?;
 
         anchor_index.insert(file.clone(), scanned.anchors.clone());
@@ -146,6 +157,17 @@ pub fn validate(options: &ValidationOptions) -> Result<ValidationReport> {
         }
     }
 
+    if options.check_format {
+        report.format_files_checked = source_files.len();
+        for file in &source_files {
+            let Some(scanned) = source_scans.get(file) else {
+                continue;
+            };
+
+            report.issues.extend(scanned.format_issues.clone());
+        }
+    }
+
     report.issues.sort_by(|a, b| {
         a.file
             .cmp(&b.file)
@@ -156,7 +178,12 @@ pub fn validate(options: &ValidationOptions) -> Result<ValidationReport> {
     Ok(report)
 }
 
-fn scan_markdown(path: &Path, collect_links: bool, collect_mermaid: bool) -> Result<ScannedDoc> {
+fn scan_markdown(
+    path: &Path,
+    collect_links: bool,
+    collect_mermaid: bool,
+    collect_format: bool,
+) -> Result<ScannedDoc> {
     let content = fs::read_to_string(path)
         .with_context(|| format!("failed to read markdown file: {}", path.display()))?;
 
@@ -227,7 +254,158 @@ fn scan_markdown(path: &Path, collect_links: bool, collect_mermaid: bool) -> Res
         });
     }
 
+    if collect_format {
+        doc.format_issues = collect_format_issues(path, &content);
+    }
+
     Ok(doc)
+}
+
+fn collect_format_issues(path: &Path, content: &str) -> Vec<ValidationIssue> {
+    let lines: Vec<&str> = content.lines().collect();
+    let mut issues = Vec::new();
+    let mut in_fence = false;
+    let mut fence_delim = String::new();
+    let mut fence_start_line: Option<usize> = None;
+    let mut blank_run = 0usize;
+    let mut h1_count = 0usize;
+    let mut previous_heading_level: Option<usize> = None;
+
+    for (idx, line) in lines.iter().enumerate() {
+        let line_no = idx + 1;
+        let trimmed = line.trim();
+        let trimmed_start = line.trim_start();
+
+        if !in_fence {
+            if line.ends_with('\t') || (line.ends_with(' ') && !line.ends_with("  ")) {
+                issues.push(ValidationIssue {
+                    kind: CheckKind::Format,
+                    file: path.to_path_buf(),
+                    line: Some(line_no),
+                    detail: "trailing whitespace".to_string(),
+                });
+            }
+
+            if line.contains('\t') {
+                issues.push(ValidationIssue {
+                    kind: CheckKind::Format,
+                    file: path.to_path_buf(),
+                    line: Some(line_no),
+                    detail: "tab character used for indentation/alignment".to_string(),
+                });
+            }
+
+            if trimmed.is_empty() {
+                blank_run += 1;
+                if blank_run == 2 {
+                    issues.push(ValidationIssue {
+                        kind: CheckKind::Format,
+                        file: path.to_path_buf(),
+                        line: Some(line_no),
+                        detail: "multiple consecutive blank lines".to_string(),
+                    });
+                }
+            } else {
+                blank_run = 0;
+            }
+
+            if let Some((delim, _info)) = parse_fence_open(trimmed_start) {
+                if line_no > 1 {
+                    let previous = lines[idx - 1].trim();
+                    if !previous.is_empty() && !is_single_line_html_comment(previous) {
+                        issues.push(ValidationIssue {
+                            kind: CheckKind::Format,
+                            file: path.to_path_buf(),
+                            line: Some(line_no),
+                            detail: "missing blank line before fenced code block".to_string(),
+                        });
+                    }
+                }
+                in_fence = true;
+                fence_delim = delim.to_string();
+                fence_start_line = Some(line_no);
+                continue;
+            }
+
+            if let Some(level) = heading_level(trimmed_start) {
+                if line_no > 1 {
+                    let previous = lines[idx - 1].trim();
+                    if !previous.is_empty() && !is_single_line_html_comment(previous) {
+                        issues.push(ValidationIssue {
+                            kind: CheckKind::Format,
+                            file: path.to_path_buf(),
+                            line: Some(line_no),
+                            detail: "missing blank line before heading".to_string(),
+                        });
+                    }
+                }
+
+                if level == 1 {
+                    h1_count += 1;
+                    if h1_count > 1 {
+                        issues.push(ValidationIssue {
+                            kind: CheckKind::Format,
+                            file: path.to_path_buf(),
+                            line: Some(line_no),
+                            detail: "multiple top-level headings".to_string(),
+                        });
+                    }
+                }
+
+                if let Some(previous_level) = previous_heading_level {
+                    if level > previous_level + 1 {
+                        issues.push(ValidationIssue {
+                            kind: CheckKind::Format,
+                            file: path.to_path_buf(),
+                            line: Some(line_no),
+                            detail: format!(
+                                "heading level jumps from h{} to h{}",
+                                previous_level, level
+                            ),
+                        });
+                    }
+                }
+
+                previous_heading_level = Some(level);
+            }
+        } else if is_fence_close(trimmed_start, &fence_delim) {
+            in_fence = false;
+            fence_delim.clear();
+            fence_start_line = None;
+
+            if idx + 1 < lines.len() {
+                let next = lines[idx + 1].trim();
+                if !next.is_empty() {
+                    issues.push(ValidationIssue {
+                        kind: CheckKind::Format,
+                        file: path.to_path_buf(),
+                        line: Some(line_no),
+                        detail: "missing blank line after fenced code block".to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    if h1_count == 0 {
+        issues.push(ValidationIssue {
+            kind: CheckKind::Format,
+            file: path.to_path_buf(),
+            line: Some(1),
+            detail: "missing top-level heading (# ...)".to_string(),
+        });
+    }
+
+    if in_fence {
+        issues.push(ValidationIssue {
+            kind: CheckKind::Format,
+            file: path.to_path_buf(),
+            line: Some(fence_start_line.unwrap_or(1)),
+            detail: "unclosed fenced code block".to_string(),
+        });
+    }
+
+    issues
 }
 
 fn validate_link_target(
@@ -355,6 +533,14 @@ fn parse_fence_open(trimmed: &str) -> Option<(&str, &str)> {
     let delim = &trimmed[..len];
     let rest = trimmed[len..].trim();
     Some((delim, rest))
+}
+
+fn heading_level(trimmed: &str) -> Option<usize> {
+    heading_re().captures(trimmed).map(|caps| caps[1].len())
+}
+
+fn is_single_line_html_comment(trimmed: &str) -> bool {
+    trimmed.starts_with("<!--") && trimmed.ends_with("-->")
 }
 
 fn is_fence_close(trimmed: &str, delim: &str) -> bool {
@@ -600,6 +786,7 @@ mod tests {
             docs_base: docs,
             check_mermaid: true,
             check_links: false,
+            check_format: false,
         })
         .expect("validate");
 
@@ -649,6 +836,7 @@ Bad anchor link: [Bad Anchor](target.md#does-not-exist)
             docs_base: docs,
             check_mermaid: false,
             check_links: true,
+            check_format: false,
         })
         .expect("validate");
 
@@ -664,5 +852,71 @@ Bad anchor link: [Bad Anchor](target.md#does-not-exist)
         assert!(link_issues
             .iter()
             .any(|i| i.detail.contains("missing anchor")));
+    }
+
+    #[test]
+    fn format_validation_detects_common_markdown_style_issues() {
+        let dir = tempdir().expect("tempdir");
+        let docs = dir.path().join("docs");
+        fs::create_dir_all(&docs).expect("mkdir");
+
+        fs::write(
+            docs.join("format.md"),
+            "# Title\n### Too Deep\n\nParagraph with trailing space \n\n\n```rust\nfn main() {}\n",
+        )
+        .expect("write source");
+
+        let report = validate(&ValidationOptions {
+            source_root: docs.clone(),
+            docs_base: docs,
+            check_mermaid: false,
+            check_links: false,
+            check_format: true,
+        })
+        .expect("validate");
+
+        let issues: Vec<&ValidationIssue> = report
+            .issues
+            .iter()
+            .filter(|i| i.kind == CheckKind::Format)
+            .collect();
+
+        assert!(issues
+            .iter()
+            .any(|i| i.detail == "missing blank line before heading"));
+        assert!(issues
+            .iter()
+            .any(|i| i.detail == "heading level jumps from h1 to h3"));
+        assert!(issues.iter().any(|i| i.detail == "trailing whitespace"));
+        assert!(issues
+            .iter()
+            .any(|i| i.detail == "multiple consecutive blank lines"));
+        assert!(issues
+            .iter()
+            .any(|i| i.detail == "unclosed fenced code block"));
+    }
+
+    #[test]
+    fn format_validation_accepts_clean_markdown() {
+        let dir = tempdir().expect("tempdir");
+        let docs = dir.path().join("docs");
+        fs::create_dir_all(&docs).expect("mkdir");
+
+        fs::write(
+            docs.join("clean.md"),
+            "# Title\n\n## Section\n\n- Item\n\n```bash\necho ok\n```\n",
+        )
+        .expect("write clean");
+
+        let report = validate(&ValidationOptions {
+            source_root: docs.clone(),
+            docs_base: docs,
+            check_mermaid: false,
+            check_links: false,
+            check_format: true,
+        })
+        .expect("validate");
+
+        assert!(!report.issues.iter().any(|i| i.kind == CheckKind::Format));
     }
 }
