@@ -111,9 +111,6 @@ extra:
       link: https://github.com/choisimo
       name: GitHub
   
-  version:
-    provider: mike
-  
   # SEO 및 Open Graph 설정
   generator: false
   

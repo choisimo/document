@@ -11,6 +11,10 @@ window.MathJax = {
   }
 };
 
-document$.subscribe(() => {
-  MathJax.typesetPromise()
+document$.subscribe(({ body }) => {
+  if (!body.querySelector('.arithmatex')) return;
+  MathJax.startup.output.clearCache();
+  MathJax.typesetClear();
+  MathJax.texReset();
+  MathJax.typesetPromise();
 })

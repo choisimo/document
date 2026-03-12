@@ -183,3 +183,5 @@ coverage/
 *.7z
 *.gz
 *.bz2
+
+**/.sisyphus/

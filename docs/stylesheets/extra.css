@@ -1383,7 +1383,6 @@ html {
 }
 
 .ai-chatbot-bubble.is-streaming {
-  transition: height var(--streaming-duration, 0.18s) ease;
   overflow: hidden;
 }
 

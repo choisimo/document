@@ -1,11 +1,131 @@
 /**
  * Split View Manager for Documentation Hub
  * Tmux-style multi-session split view functionality
- * Phase 2: Drag resize, history, current page load, improved rendering
+ *
+ * Architecture:
+ *   - MkDocs Platform Adapter  — all theme-version-sensitive selectors/paths in one place
+ *   - ContentPipeline          — stateless fetch → parse → extract helpers
+ *   - Session                  — per-pane navigation history and state
+ *   - SplitViewManager         — orchestrates layout, panes, content, and UI
  */
 
 (function () {
     'use strict';
+
+    // =====================================================
+    // MkDocs Platform Adapter
+    // =====================================================
+    // All MkDocs/Material-specific selectors, paths, and lifecycle hooks live here.
+    // When upgrading mkdocs-material, audit this section first.
+    const MkDocs = {
+        /** Root-relative URL of the MkDocs Material search index */
+        SEARCH_INDEX_URL: '/search/search_index.json',
+
+        /** Suffix appended by MkDocs to every <title>; stripped for display */
+        SITE_TITLE_SUFFIX: ' - Documentation Hub',
+
+        /** CSS selectors tried in order to locate the main content element in fetched pages */
+        CONTENT_SELECTORS: ['.md-content__inner', 'article', 'main'],
+
+        /**
+         * Return the current page's path and human-readable title.
+         * Reads live from window/document so the result is always fresh.
+         * @returns {{ url: string, title: string }}
+         */
+        captureCurrentPage() {
+            return {
+                url: window.location.pathname,
+                title: document.title.replace(MkDocs.SITE_TITLE_SUFFIX, '').trim()
+            };
+        },
+
+        /**
+         * Find the best content root element from a parsed HTML document.
+         * Tries CONTENT_SELECTORS in order; falls back to document.body.
+         * @param {Document} parsedDoc
+         * @returns {Element}
+         */
+        extractContent(parsedDoc) {
+            for (const sel of MkDocs.CONTENT_SELECTORS) {
+                const el = parsedDoc.querySelector(sel);
+                if (el) return el;
+            }
+            return parsedDoc.body;
+        },
+
+        /**
+         * Extract a display title from a parsed HTML document.
+         * @param {Document} parsedDoc
+         * @returns {string}
+         */
+        extractTitle(parsedDoc) {
+            return (
+                parsedDoc.querySelector('h1')?.textContent?.trim() ||
+                parsedDoc.querySelector('title')?.textContent
+                    ?.replace(MkDocs.SITE_TITLE_SUFFIX, '').trim() ||
+                'Document'
+            );
+        },
+
+        /**
+         * Register a callback for every page-ready event.
+         * Uses document$ (MkDocs instant navigation) when available,
+         * falling back to DOMContentLoaded / immediate call otherwise.
+         *
+         * document$ fires on the initial page load AND on every subsequent
+         * instant-navigation update — so fn will be called multiple times.
+         * Callers are responsible for idempotent or one-shot logic.
+         *
+         * @param {() => void} fn
+         */
+        subscribePageReady(fn) {
+            if (typeof document$ !== 'undefined' && typeof document$.subscribe === 'function') {
+                // document$ covers both initial load and every instant-nav update
+                document$.subscribe(fn);
+            } else if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', fn, { once: true });
+            } else {
+                fn();
+            }
+        }
+    };
+
+    // =====================================================
+    // ContentPipeline
+    // =====================================================
+    // Stateless helpers for each stage of the fetch-and-render process.
+    // Stage order: normalizeUrl → fetchAndParse → (MkDocs.extractContent/extractTitle) → sanitize → enhance
+    const ContentPipeline = {
+        /**
+         * Normalize a relative or absolute URL path to a fetchable string.
+         * @param {string} url
+         * @returns {string}
+         */
+        normalizeUrl(url) {
+            let fullUrl = url;
+            if (!url.startsWith('http') && !url.startsWith('/')) {
+                fullUrl = '/' + url;
+            }
+            if (!fullUrl.endsWith('.html') && !fullUrl.endsWith('/') && !fullUrl.includes('.')) {
+                fullUrl = fullUrl + '/';
+            }
+            return fullUrl;
+        },
+
+        /**
+         * Fetch a URL and return a parsed HTML Document.
+         * @param {string} url - Normalized fetch-ready URL
+         * @param {AbortSignal} [signal] - Optional signal for request cancellation
+         * @returns {Promise<Document>}
+         */
+        async fetchAndParse(url, signal) {
+            const opts = signal ? { signal } : undefined;
+            const response = await fetch(url, opts);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const html = await response.text();
+            return new DOMParser().parseFromString(html, 'text/html');
+        }
+    };
 
     // =====================================================
     // Configuration
@@ -18,6 +138,8 @@
             '2x2': { rows: 2, cols: 2 }
         },
         defaultLayout: '2x2',
+        mobileLayout: '1x1',
+        mobileBreakpoint: 768,
         minPaneSize: 150,
         storageKey: 'splitview-state',
         searchDebounceMs: 300
@@ -93,11 +215,18 @@
             this.originalPageTitle = null;
             this.contentObservers = new Map();
 
+            // Per-session AbortControllers: cancel stale fetches when a new load starts
+            this._fetchAbortControllers = new Map();
+
+            // Session restore data from localStorage; applied after panes are created in open()
+            this._savedSessionData = null;
+
             // Drag resize state
             this.isDragging = false;
             this.dragDirection = null;
             this.dragStartPos = 0;
             this.paneSizes = { rows: [], cols: [] };
+            this._dragRafId = null;
 
             this.init();
         }
@@ -113,9 +242,22 @@
         }
 
         captureCurrentPage() {
-            // Capture current page URL and title for "load current page" feature
-            this.originalPageUrl = window.location.pathname;
-            this.originalPageTitle = document.title.replace(' - Documentation Hub', '').trim();
+            const page = MkDocs.captureCurrentPage();
+            this.originalPageUrl = page.url;
+            this.originalPageTitle = page.title;
+        }
+
+        /**
+         * Called by the document$ subscription on every instant-navigation update.
+         * Re-captures the current page so "load current page" always refers to the
+         * page the user is actually viewing.
+         */
+        onNavigation() {
+            this.captureCurrentPage();
+            const currentPageSpan = this.container?.querySelector('.split-view-current-page');
+            if (currentPageSpan) {
+                currentPageSpan.textContent = this.originalPageTitle || 'Current Page';
+            }
         }
 
         createToggleButton() {
@@ -228,13 +370,16 @@
             this.grid.innerHTML = '';
             this.sessions.clear();
 
+            // Cancel any in-flight fetches for sessions being discarded
+            this._fetchAbortControllers.forEach(ctrl => { ctrl.abort(); });
+            this._fetchAbortControllers.clear();
+
             // Reset sizes for new layout
             this.paneSizes = {
                 rows: Array(rows).fill(100 / rows),
                 cols: Array(cols).fill(100 / cols)
             };
 
-            // Update grid CSS
             this.updateGridTemplate();
 
             // Create panes
@@ -261,8 +406,7 @@
         }
 
         createResizeHandles(rows, cols) {
-            // Remove existing handles
-            this.grid.querySelectorAll('.split-view-resize-handle').forEach(h => h.remove());
+            this.grid.querySelectorAll('.split-view-resize-handle').forEach(h => { h.remove(); });
 
             // Create horizontal handles (between rows)
             for (let r = 0; r < rows - 1; r++) {
@@ -361,31 +505,47 @@
                 document.addEventListener('mouseup', onMouseUp);
             };
 
+            // rAF-throttled mousemove: captures event coordinates immediately,
+            // defers layout computation to the next animation frame.
             const onMouseMove = (e) => {
                 if (!this.isDragging) return;
+                if (this._dragRafId !== null) return; // already a frame queued
 
-                const currentPos = this.dragDirection === 'row' ? e.clientY : e.clientX;
-                const delta = currentPos - this.dragStartPos;
-                const deltaPercent = (delta / this.dragGridSize) * 100;
+                const x = e.clientX;
+                const y = e.clientY;
 
-                const sizes = this.dragDirection === 'row' ? this.paneSizes.rows : this.paneSizes.cols;
-                const idx = this.dragIndex;
+                this._dragRafId = requestAnimationFrame(() => {
+                    this._dragRafId = null;
+                    if (!this.isDragging) return;
 
-                // Calculate new sizes
-                const minSize = (CONFIG.minPaneSize / this.dragGridSize) * 100;
-                const newSize1 = sizes[idx] + deltaPercent;
-                const newSize2 = sizes[idx + 1] - deltaPercent;
+                    const currentPos = this.dragDirection === 'row' ? y : x;
+                    const delta = currentPos - this.dragStartPos;
+                    const deltaPercent = (delta / this.dragGridSize) * 100;
 
-                if (newSize1 >= minSize && newSize2 >= minSize) {
-                    sizes[idx] = newSize1;
-                    sizes[idx + 1] = newSize2;
-                    this.dragStartPos = currentPos;
-                    this.updateGridTemplate();
-                }
+                    const sizes = this.dragDirection === 'row' ? this.paneSizes.rows : this.paneSizes.cols;
+                    const idx = this.dragIndex;
+
+                    // Calculate new sizes
+                    const minSize = (CONFIG.minPaneSize / this.dragGridSize) * 100;
+                    const newSize1 = sizes[idx] + deltaPercent;
+                    const newSize2 = sizes[idx + 1] - deltaPercent;
+
+                    if (newSize1 >= minSize && newSize2 >= minSize) {
+                        sizes[idx] = newSize1;
+                        sizes[idx + 1] = newSize2;
+                        this.dragStartPos = currentPos;
+                        this.updateGridTemplate();
+                    }
+                });
             };
 
             const onMouseUp = () => {
                 this.isDragging = false;
+                // Cancel any pending rAF to avoid a stale update after drag ends
+                if (this._dragRafId !== null) {
+                    cancelAnimationFrame(this._dragRafId);
+                    this._dragRafId = null;
+                }
                 document.body.style.cursor = '';
                 document.body.classList.remove('split-view-resizing');
                 document.removeEventListener('mousemove', onMouseMove);
@@ -508,6 +668,19 @@
             const content = pane.querySelector('.split-view-content');
             if (content) {
                 this.observeContentMutations(content);
+                // Persistent capture-phase guard for this pane's content area.
+                // Stops MkDocs instant-navigation from acting on any internal link
+                // click inside loaded content. Bound once here (not on every load).
+                content.addEventListener('click', (e) => {
+                    const link = e.target.closest('a[href]');
+                    if (!link) return;
+                    const href = link.getAttribute('href');
+                    if (!href) return;
+                    if (!href.startsWith('http') || href.includes(window.location.hostname)) {
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+                    }
+                }, true);
             }
 
             // Select first pane by default
@@ -521,16 +694,18 @@
             if (!session) return;
 
             switch (action) {
-                case 'back':
+                case 'back': {
                     const backItem = session.goBack();
                     if (backItem) this.loadContent(backItem.url, sessionId, false);
                     this.updateHistoryButtons(sessionId);
                     break;
-                case 'forward':
+                }
+                case 'forward': {
                     const forwardItem = session.goForward();
                     if (forwardItem) this.loadContent(forwardItem.url, sessionId, false);
                     this.updateHistoryButtons(sessionId);
                     break;
+                }
                 case 'home':
                     this.loadContent('/', sessionId);
                     break;
@@ -581,7 +756,7 @@
         // ----- Search Functionality -----
         async loadSearchIndex() {
             try {
-                const response = await fetch('/search/search_index.json');
+                const response = await fetch(MkDocs.SEARCH_INDEX_URL);
                 this.searchIndex = await response.json();
             } catch (error) {
                 console.warn('Split View: Could not load search index', error);
@@ -721,7 +896,8 @@
             });
         }
 
-        // ----- Content Loading with Improved Rendering -----
+        // ----- Content Loading -----
+        // Pipeline: normalizeUrl → fetchAndParse → extractContent/extractTitle → sanitize → enhance → bindLinks
         async loadContent(url, sessionId, addToHistory = true) {
             const session = this.sessions.get(sessionId);
             const pane = this.grid.querySelector(`[data-session-id="${sessionId}"]`);
@@ -734,103 +910,78 @@
             status.textContent = '로딩 중...';
             content.innerHTML = '<div class="split-view-loading"><div class="split-view-spinner"></div></div>';
 
+            // Cancel any previous in-flight request for this session
+            if (this._fetchAbortControllers.has(sessionId)) {
+                this._fetchAbortControllers.get(sessionId).abort();
+            }
+            const abortController = new AbortController();
+            this._fetchAbortControllers.set(sessionId, abortController);
+
             try {
-                // Normalize URL
-                let fullUrl = url;
-                if (!url.startsWith('http') && !url.startsWith('/')) {
-                    fullUrl = '/' + url;
-                }
-                if (!fullUrl.endsWith('.html') && !fullUrl.endsWith('/') && !fullUrl.includes('.')) {
-                    fullUrl = fullUrl + '/';
-                }
+                // Stage 1: normalize URL
+                const fullUrl = ContentPipeline.normalizeUrl(url);
 
-                const response = await fetch(fullUrl);
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                // Stage 2: fetch and parse
+                const doc = await ContentPipeline.fetchAndParse(fullUrl, abortController.signal);
+                this._fetchAbortControllers.delete(sessionId);
 
-                const html = await response.text();
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
+                // Stage 3: extract title and content root
+                const title = MkDocs.extractTitle(doc);
+                const mainContent = MkDocs.extractContent(doc);
 
-                // Extract title
-                const title = doc.querySelector('h1')?.textContent ||
-                    doc.querySelector('title')?.textContent?.replace(' - Documentation Hub', '') ||
-                    'Document';
+                // Stage 4: clone and remove unwanted Material chrome
+                const contentClone = mainContent.cloneNode(true);
+                contentClone.querySelectorAll('script, .md-source, .md-footer').forEach(el => { el.remove(); });
 
-                // Extract main content
-                const mainContent = doc.querySelector('.md-content__inner') ||
-                    doc.querySelector('article') ||
-                    doc.querySelector('main') ||
-                    doc.body;
+                // Stage 5: inject into pane
+                content.innerHTML = `<div class="split-view-document">${contentClone.innerHTML}</div>`;
+                const documentContainer = content.querySelector('.split-view-document');
 
-                if (mainContent) {
-                    // Clone and clean the content
-                    const contentClone = mainContent.cloneNode(true);
+                // Stage 6: sanitize (tables, images, SVG, fixed positioning, scripts)
+                this.sanitizeLoadedContent(documentContainer);
 
-                    // Remove unwanted elements
-                    contentClone.querySelectorAll('script, .md-source, .md-footer').forEach(el => el.remove());
+                // Stage 7: enhance (Mermaid, code blocks)
+                this.processMermaidDiagrams(content);
+                this.processCodeBlocks(content);
 
-                    content.innerHTML = `<div class="split-view-document">${contentClone.innerHTML}</div>`;
-
-                    const documentContainer = content.querySelector('.split-view-document');
-                    this.sanitizeLoadedContent(documentContainer);
-
-                    // Process mermaid diagrams
-                    this.processMermaidDiagrams(content);
-
-                    // Process code blocks
-                    this.processCodeBlocks(content);
-
-                    // Update links to load in same pane — use capture phase to beat MkDocs instant-navigation
-                    content.querySelectorAll('a[href]').forEach(link => {
-                        const href = link.getAttribute('href');
-                        if (href && !href.startsWith('http') && !href.startsWith('#') && !href.startsWith('mailto:')) {
-                            link.addEventListener('click', (e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                e.stopImmediatePropagation();
-                                // Resolve relative URLs
-                                const resolvedUrl = new URL(href, fullUrl).pathname;
-                                this.loadContent(resolvedUrl, sessionId);
-                            }, true); // capture phase: runs before MkDocs document-level handler
-                        } else if (href && href.startsWith('#')) {
-                            link.addEventListener('click', (e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                e.stopImmediatePropagation();
-                                const target = content.querySelector(href);
-                                if (target) target.scrollIntoView({ behavior: 'smooth' });
-                            }, true);
-                        }
-                    });
-
-                    // Capture-phase guard: stop MkDocs instant-navigation from acting on any click inside this pane
-                    content.addEventListener('click', (e) => {
-                        const link = e.target.closest('a[href]');
-                        if (!link) return;
-                        const href = link.getAttribute('href');
-                        if (!href) return;
-                        // Block propagation for internal links so MkDocs won't navigate the parent page
-                        if (!href.startsWith('http') || href.includes(window.location.hostname)) {
+                // Stage 8: bind internal links to load in same pane
+                content.querySelectorAll('a[href]').forEach(link => {
+                    const href = link.getAttribute('href');
+                    if (href && !href.startsWith('http') && !href.startsWith('#') && !href.startsWith('mailto:')) {
+                        link.addEventListener('click', (e) => {
+                            e.preventDefault();
                             e.stopPropagation();
                             e.stopImmediatePropagation();
-                        }
-                    }, true);
-
-                    session.currentUrl = url;
-                    session.currentTitle = title;
-
-                    if (addToHistory) {
-                        session.addToHistory(url, title);
+                            // Resolve relative URLs against the page that was loaded
+                            const resolvedUrl = new URL(href, fullUrl).pathname;
+                            this.loadContent(resolvedUrl, sessionId);
+                        }, true); // capture phase: runs before MkDocs document-level handler
+                    } else if (href && href.startsWith('#')) {
+                        link.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            e.stopImmediatePropagation();
+                            const target = content.querySelector(href);
+                            if (target) target.scrollIntoView({ behavior: 'smooth' });
+                        }, true);
                     }
+                });
 
-                    // Update UI
-                    sessionName.textContent = title.length > 30 ? title.substring(0, 30) + '...' : title;
-                    status.textContent = url;
-                    this.updateHistoryButtons(sessionId);
-                } else {
-                    throw new Error('Content not found');
+                session.currentUrl = url;
+                session.currentTitle = title;
+
+                if (addToHistory) {
+                    session.addToHistory(url, title);
                 }
+
+                sessionName.textContent = title.length > 30 ? title.substring(0, 30) + '...' : title;
+                status.textContent = url;
+                this.updateHistoryButtons(sessionId);
+
             } catch (error) {
+                // Ignore aborted requests (user navigated away before fetch completed)
+                if (error.name === 'AbortError') return;
+
                 console.error('Split View: Error loading content', error);
                 content.innerHTML = `
           <div class="split-view-error">
@@ -1178,7 +1329,7 @@
                 }
             });
 
-            container.querySelectorAll('script').forEach(script => script.remove());
+            container.querySelectorAll('script').forEach(script => { script.remove(); });
         }
 
         observeContentMutations(content) {
@@ -1237,7 +1388,10 @@
         open() {
             if (this.isOpen) return;
 
-            // Re-capture current page when opening
+            if (window.aiChatbot?.isOpen) {
+                window.aiChatbot.close();
+            }
+
             this.captureCurrentPage();
 
             this.isOpen = true;
@@ -1245,22 +1399,27 @@
             this.container.classList.add('open');
             this.toggleBtn.classList.add('active');
 
-            // Update current page display
             const currentPageSpan = this.container.querySelector('.split-view-current-page');
             if (currentPageSpan) {
                 currentPageSpan.textContent = this.originalPageTitle || 'Current Page';
             }
 
-            // Initialize layout if empty
+            // Initialize layout if empty, then restore saved session content
             if (this.sessions.size === 0) {
-                this.setLayout(this.currentLayout);
+                const effectiveLayout = window.innerWidth <= CONFIG.mobileBreakpoint
+                    ? CONFIG.mobileLayout
+                    : this.currentLayout;
+                this.setLayout(effectiveLayout);
+                this._applySavedSessionData();
             }
 
             this.positionResizeHandles();
 
-            // Focus first session
-            const firstSession = this.sessions.keys().next().value;
-            if (firstSession) this.selectSession(firstSession);
+            // If no session was selected by restore, select first
+            if (!this.activeSessionId) {
+                const firstSession = this.sessions.keys().next().value;
+                if (firstSession) this.selectSession(firstSession);
+            }
         }
 
         close() {
@@ -1395,17 +1554,60 @@
         restoreState() {
             try {
                 const state = JSON.parse(localStorage.getItem(CONFIG.storageKey));
-                if (state) {
-                    this.currentLayout = state.layout || CONFIG.defaultLayout;
-                    if (state.paneSizes) {
-                        this.paneSizes = state.paneSizes;
-                    }
-                    const select = this.container.querySelector('.split-view-layout-select');
-                    if (select) select.value = this.currentLayout;
+                if (!state) return;
+
+                // Restore layout and pane sizes immediately (needed before setLayout is called in open())
+                const isMobile = window.innerWidth <= CONFIG.mobileBreakpoint;
+                this.currentLayout = isMobile
+                    ? CONFIG.mobileLayout
+                    : (state.layout || CONFIG.defaultLayout);
+                if (state.paneSizes) {
+                    this.paneSizes = state.paneSizes;
                 }
+                const select = this.container?.querySelector('.split-view-layout-select');
+                if (select) select.value = this.currentLayout;
+
+                // Defer session content restore until panes are created in open()
+                this._savedSessionData = state;
             } catch (e) {
                 console.warn('Split View: Could not restore state', e);
             }
+        }
+
+        /**
+         * Apply saved session data after panes have been created by setLayout().
+         * Restores each session's history and reloads the last viewed URL.
+         * Called from open() immediately after setLayout().
+         */
+        _applySavedSessionData() {
+            const saved = this._savedSessionData;
+            if (!saved?.sessions?.length) return;
+
+            for (const savedSession of saved.sessions) {
+                const session = this.sessions.get(savedSession.id);
+                if (!session) continue;
+
+                // Restore in-memory session state
+                session.history = savedSession.history || [];
+                session.historyIndex = savedSession.historyIndex ?? -1;
+                session.currentUrl = savedSession.url || null;
+                session.currentTitle = savedSession.title || '';
+                session.searchQuery = savedSession.query || '';
+
+                // Reload the last viewed URL if one was saved
+                if (savedSession.url) {
+                    this.loadContent(savedSession.url, savedSession.id, false);
+                }
+
+                this.updateHistoryButtons(savedSession.id);
+            }
+
+            // Restore which session was active
+            if (saved.activeSession && this.sessions.has(saved.activeSession)) {
+                this.selectSession(saved.activeSession);
+            }
+
+            this._savedSessionData = null;
         }
 
         // ----- Utilities -----
@@ -1425,11 +1627,19 @@
     }
 
     // =====================================================
-    // Initialize on DOM Ready
+    // Initialize
     // =====================================================
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => new SplitViewManager());
-    } else {
-        new SplitViewManager();
-    }
+    // The manager is created exactly once. Subsequent document$ fires (instant navigation)
+    // call onNavigation() to update the current-page reference without reinitializing.
+    let _instance = null;
+
+    MkDocs.subscribePageReady(() => {
+        if (!_instance) {
+            _instance = new SplitViewManager();
+            window._splitViewInstance = _instance;
+        } else {
+            _instance.onNavigation();
+        }
+    });
+
 })();

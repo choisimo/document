@@ -173,6 +173,9 @@ class AIChatbot {
    * 챗봇 열기
    */
   open() {
+    if (window._splitViewInstance?.isOpen) {
+      window._splitViewInstance.close();
+    }
     this.isOpen = true;
     this.container.setAttribute('aria-hidden', 'false');
     this.fab.setAttribute('aria-expanded', 'true');
@@ -301,37 +304,27 @@ class AIChatbot {
     this.streamingContentLength = 0;
     if (this.streamingBubbleElement) {
       this.streamingBubbleElement.classList.add('is-streaming');
-      this.streamingBubbleElement.style.height = `${this.streamingBubbleElement.getBoundingClientRect().height}px`;
     }
   }
 
-  /**
-   * 스트리밍 말풍선 업데이트
-   */
   updateStreamingBubble(content) {
     if (!this.streamingBubbleElement) return;
     const bubble = this.streamingBubbleElement;
-    const previousHeight = bubble.getBoundingClientRect().height;
-    const nextLength = content.length;
-    const deltaLength = Math.max(nextLength - this.streamingContentLength, 1);
-    const duration = Math.min(0.36, Math.max(0.12, deltaLength * 0.015));
-    bubble.style.setProperty('--streaming-duration', `${duration.toFixed(3)}s`);
-    bubble.style.height = `${previousHeight}px`;
+
     bubble.classList.add('is-streaming');
     bubble.innerHTML = this.renderMarkdown(content);
-    const nextHeight = bubble.scrollHeight;
+    this.streamingContentLength = content.length;
+    this._applyStreamingFade(bubble);
     requestAnimationFrame(() => {
-      bubble.style.height = `${nextHeight}px`;
+      this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
     });
-    this.streamingContentLength = nextLength;
-    this.applyStreamingFade(bubble);
   }
 
   /**
    * 스트리밍 메시지 상태 초기화
    */
   clearStreamingMessage() {
-    this.finishStreamingBubble();
+    this._finishStreamingBubble();
     this.streamingMessageElement = null;
     this.streamingBubbleElement = null;
     this.streamingContentLength = 0;
@@ -340,26 +333,18 @@ class AIChatbot {
   /**
    * 스트리밍 말풍선 스타일 정리
    */
-  finishStreamingBubble() {
+  _finishStreamingBubble() {
     if (!this.streamingBubbleElement) return;
     this.streamingBubbleElement.classList.remove('is-streaming');
-    this.streamingBubbleElement.style.height = '';
-    this.streamingBubbleElement.style.removeProperty('--streaming-duration');
     this.streamingContentLength = 0;
   }
 
-  /**
-   * 스트리밍 마지막 줄 페이드 인
-   */
-  applyStreamingFade(bubble) {
+  _applyStreamingFade(bubble) {
     if (!bubble) return;
-    bubble.querySelectorAll('.ai-chatbot-streaming-line').forEach((element) => {
-      element.classList.remove('ai-chatbot-streaming-line');
-    });
-    const lastElement = bubble.lastElementChild || bubble;
-    lastElement.classList.remove('ai-chatbot-streaming-line');
-    void lastElement.offsetWidth;
-    lastElement.classList.add('ai-chatbot-streaming-line');
+    const lastElement = bubble.lastElementChild;
+    if (lastElement) {
+      lastElement.classList.add('ai-chatbot-streaming-line');
+    }
   }
 
   /**

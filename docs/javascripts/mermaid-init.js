@@ -57,6 +57,9 @@
   }
 
   async function onReady() {
+    const hasMermaid =
+      document.querySelector('.mermaid, pre.mermaid-source, pre.mermaid-source > code, pre > code.mermaid-source');
+    if (!hasMermaid) return;
     try {
       await renderMermaid(document);
     } catch (error) {
