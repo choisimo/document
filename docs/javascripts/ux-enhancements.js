@@ -11,16 +11,29 @@
     bar.setAttribute('aria-valuemax', '100');
     document.body.prepend(bar);
 
+    let rafId = null;
+    let lastRatio = -1;
+
     function updateProgress() {
-      const doc = document.documentElement;
-      const scrollTop = doc.scrollTop || document.body.scrollTop;
-      const scrollHeight = doc.scrollHeight - doc.clientHeight;
-      const progress = scrollHeight > 0 ? Math.round((scrollTop / scrollHeight) * 100) : 0;
-      bar.style.width = progress + '%';
-      bar.setAttribute('aria-valuenow', progress);
+      const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+      const max   = scrollHeight - clientHeight;
+      const ratio = max > 0 ? scrollTop / max : 0;
+
+      if (Math.abs(ratio - lastRatio) < 0.001) return;
+      lastRatio = ratio;
+
+      bar.style.transform = `scaleX(${ratio})`;
+      bar.setAttribute('aria-valuenow', Math.round(ratio * 100));
     }
 
-    window.addEventListener('scroll', updateProgress, { passive: true });
+    window.addEventListener('scroll', () => {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        updateProgress();
+        rafId = null;
+      });
+    }, { passive: true });
+
     updateProgress();
   }
 

@@ -486,8 +486,11 @@
         }
 
         bindResizeHandle(handle, direction, index) {
-            const onMouseDown = (e) => {
+            handle.style.touchAction = 'none';
+
+            const onPointerDown = (e) => {
                 e.preventDefault();
+                handle.setPointerCapture(e.pointerId);
                 this.isDragging = true;
                 this.dragDirection = direction;
                 this.dragIndex = index;
@@ -500,16 +503,11 @@
 
                 document.body.style.cursor = direction === 'row' ? 'row-resize' : 'col-resize';
                 document.body.classList.add('split-view-resizing');
-
-                document.addEventListener('mousemove', onMouseMove);
-                document.addEventListener('mouseup', onMouseUp);
             };
 
-            // rAF-throttled mousemove: captures event coordinates immediately,
-            // defers layout computation to the next animation frame.
-            const onMouseMove = (e) => {
+            const onPointerMove = (e) => {
                 if (!this.isDragging) return;
-                if (this._dragRafId !== null) return; // already a frame queued
+                if (this._dragRafId !== null) return;
 
                 const x = e.clientX;
                 const y = e.clientY;
@@ -525,7 +523,6 @@
                     const sizes = this.dragDirection === 'row' ? this.paneSizes.rows : this.paneSizes.cols;
                     const idx = this.dragIndex;
 
-                    // Calculate new sizes
                     const minSize = (CONFIG.minPaneSize / this.dragGridSize) * 100;
                     const newSize1 = sizes[idx] + deltaPercent;
                     const newSize2 = sizes[idx + 1] - deltaPercent;
@@ -539,21 +536,21 @@
                 });
             };
 
-            const onMouseUp = () => {
+            const onPointerUp = () => {
                 this.isDragging = false;
-                // Cancel any pending rAF to avoid a stale update after drag ends
                 if (this._dragRafId !== null) {
                     cancelAnimationFrame(this._dragRafId);
                     this._dragRafId = null;
                 }
                 document.body.style.cursor = '';
                 document.body.classList.remove('split-view-resizing');
-                document.removeEventListener('mousemove', onMouseMove);
-                document.removeEventListener('mouseup', onMouseUp);
                 this.saveState();
             };
 
-            handle.addEventListener('mousedown', onMouseDown);
+            handle.addEventListener('pointerdown', onPointerDown);
+            handle.addEventListener('pointermove', onPointerMove);
+            handle.addEventListener('pointerup', onPointerUp);
+            handle.addEventListener('pointercancel', onPointerUp);
         }
 
         createPane(index) {

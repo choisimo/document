@@ -18,6 +18,7 @@ class AIChatbot {
     this.container = null;
     this.messagesContainer = null;
     this.input = null;
+    this._focusTrapHandler = null;
 
     this.loadHistory();
     this.init();
@@ -169,9 +170,6 @@ class AIChatbot {
     }
   }
 
-  /**
-   * 챗봇 열기
-   */
   open() {
     if (window._splitViewInstance?.isOpen) {
       window._splitViewInstance.close();
@@ -181,18 +179,50 @@ class AIChatbot {
     this.fab.setAttribute('aria-expanded', 'true');
     this.container.classList.add('open');
     this.fab.classList.add('open');
+    this._installFocusTrap();
     setTimeout(() => this.input.focus(), 100);
   }
 
-  /**
-   * 챗봇 닫기
-   */
   close() {
     this.isOpen = false;
     this.container.classList.remove('open');
     this.fab.classList.remove('open');
     this.container.setAttribute('aria-hidden', 'true');
     this.fab.setAttribute('aria-expanded', 'false');
+    this._removeFocusTrap();
+    this.fab.focus();
+  }
+
+  _installFocusTrap() {
+    const focusable = Array.from(this.container.querySelectorAll(
+      'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    ));
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last  = focusable[focusable.length - 1];
+
+    this._focusTrapHandler = (e) => {
+      if (e.key !== 'Tab') return;
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    this.container.addEventListener('keydown', this._focusTrapHandler);
+  }
+
+  _removeFocusTrap() {
+    if (this._focusTrapHandler) {
+      this.container.removeEventListener('keydown', this._focusTrapHandler);
+      this._focusTrapHandler = null;
+    }
   }
 
   /**
@@ -453,9 +483,6 @@ class AIChatbot {
     return html;
   }
 
-  /**
-   * 타이핑 인디케이터 표시
-   */
   showTyping() {
     if (this.messagesContainer.querySelector('.ai-chatbot-typing-indicator')) return;
     const typing = document.createElement('div');
@@ -469,7 +496,7 @@ class AIChatbot {
           <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2M7.5 13A2.5 2.5 0 0 0 5 15.5 2.5 2.5 0 0 0 7.5 18a2.5 2.5 0 0 0 2.5-2.5A2.5 2.5 0 0 0 7.5 13m9 0a2.5 2.5 0 0 0-2.5 2.5 2.5 2.5 0 0 0 2.5 2.5 2.5 2.5 0 0 0 2.5-2.5 2.5 2.5 0 0 0-2.5-2.5z"/>
         </svg>
       </div>
-      <div class="ai-chatbot-bubble">
+      <div class="ai-chatbot-bubble ai-chatbot-skeleton-bubble">
         ${openNotebookStatus}
         <div class="ai-chatbot-typing">
           <span></span><span></span><span></span>
@@ -477,6 +504,9 @@ class AIChatbot {
       </div>
     `;
     this.messagesContainer.appendChild(typing);
+    requestAnimationFrame(() => {
+      this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+    });
   }
 
   /**
