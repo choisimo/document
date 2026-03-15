@@ -1,8 +1,27 @@
+<!-- markdownlint-disable MD033 MD030 -->
 # Extra Resources
 
 이 섹션에서는 문서 외의 추가 리소스들을 확인할 수 있습니다.
 
 ---
+
+<div class="compose-hero" markdown>
+<span class="compose-kicker">Extra Resources</span>
+
+## 운영용 Docker Compose 스택, 알고리즘 시뮬레이터, 설정 파일 등 추가 리소스 모음
+
+<div class="landing-meta-list" markdown>
+<span>Docker Compose</span>
+<span>Algorithm Simulator</span>
+<span>Configs</span>
+<span>Scripts</span>
+</div>
+
+<div class="compose-actions" markdown>
+[:octicons-arrow-right-24: Docker Compose 스택](docker/stacks/index.md){ .md-button .md-button--primary }
+[:material-play-circle: Algorithm Simulator](/extra/algorithm-simulator/index.html){ .md-button target="_blank" }
+</div>
+</div>
 
 ## Interactive Tools
 

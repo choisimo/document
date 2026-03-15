@@ -4,7 +4,24 @@
 
 ---
 
-## Topics
+<div class="compose-hero" markdown>
+<span class="compose-kicker">Nginx</span>
+
+## Nginx 설정, 리버스 프록시, Kubernetes 배포 가이드
+
+<div class="landing-meta-list" markdown>
+<span>Configuration</span>
+<span>Proxy Manager</span>
+<span>K8s Deployment</span>
+</div>
+
+<div class="compose-actions" markdown>
+[:octicons-arrow-right-24: Nginx 설정](configuration.md){ .md-button .md-button--primary }
+[:material-arrow-decision: Proxy Manager](proxy-manager.md){ .md-button }
+</div>
+</div>
+
+## :material-web: 핵심 Nginx 영역
 
 <div class="grid cards" markdown>
 
@@ -12,7 +29,7 @@
 
     ---
 
-    Comprehensive Nginx configuration guide including virtual hosts, SSL, and optimization.
+    가상 호스트, SSL, 최적화 설정 가이드
 
     [:octicons-arrow-right-24: View Guide](configuration.md)
 
@@ -20,7 +37,7 @@
 
     ---
 
-    Nginx Proxy Manager setup and usage for easy reverse proxy management.
+    Nginx Proxy Manager 설치 및 사용
 
     [:octicons-arrow-right-24: View Guide](proxy-manager.md)
 
@@ -28,7 +45,7 @@
 
     ---
 
-    Guide for deploying Nginx on Docker and Kubernetes environments.
+    Docker 및 Kubernetes 환경 배포
 
     [:octicons-arrow-right-24: View Guide](docker-k8s-deployment.md)
 

@@ -4,6 +4,78 @@
 
 ---
 
+<div class="compose-hero" markdown>
+<span class="compose-kicker">Books Library</span>
+
+## Systems, Algorithms, CS References (EN/KR) 학습 자료 모음
+
+<div class="landing-meta-list" markdown>
+<span>CS References</span>
+<span>Systems</span>
+<span>Algorithms</span>
+<span>Kafka / Messaging</span>
+</div>
+
+<div class="compose-actions" markdown>
+[:octicons-arrow-right-24: CS References 인덱스](cs-references/index.md){ .md-button .md-button--primary }
+[:material-server: Systems 문서](systems/linux-kernel-development.md){ .md-button }
+</div>
+</div>
+
+## :material-bookshelf: 핵심 자료 영역
+
+<div class="grid cards" markdown>
+
+-   :material-cpu-64-bit:{ .lg .middle } **Systems**
+
+    ---
+
+    Linux 커널, OS 내부, C++ 런타임, 성능 분석
+
+    [:octicons-arrow-right-24: Systems 문서](systems/linux-kernel-development.md)
+
+-   :material-graph:{ .lg .middle } **Algorithms**
+
+    ---
+
+    CLRS, Erickson, 경쟁 프로그래밍, 고급 알고리즘
+
+    [:octicons-arrow-right-24: Algorithms 문서](algorithms/algorithms-internals.md)
+
+-   :material-server-network:{ .lg .middle } **Distributed Systems**
+
+    ---
+
+    Paxos, Raft, 2PC, 벡터 클럭, CRDT, Spanner
+
+    [:octicons-arrow-right-24: Distributed 문서](distributed/distributed-systems-internals.md)
+
+-   :material-message-processing:{ .lg .middle } **Kafka / Messaging**
+
+    ---
+
+    Kafka 내부, Streams, ksqlDB, RabbitMQ 구조
+
+    [:octicons-arrow-right-24: Kafka 문서](kafka/kafka-internals.md)
+
+-   :material-kubernetes:{ .lg .middle } **DevOps**
+
+    ---
+
+    Docker/K8s 내부, Jenkins, Consul, 엣지 컴퓨팅
+
+    [:octicons-arrow-right-24: DevOps 문서](devops/docker-kubernetes-internals.md)
+
+-   :material-bookshelf:{ .lg .middle } **CS Reference**
+
+    ---
+
+    아키텍처, 컴파일러, 네트워킹, 보안, ML 등 494권 기반
+
+    [:octicons-arrow-right-24: CS Reference 인덱스](cs-references/index.md)
+
+</div>
+
 ## Quick Navigation
 
 | Category | Files | Focus |

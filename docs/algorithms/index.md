@@ -4,6 +4,54 @@
 
 ---
 
+<div class="compose-hero" markdown>
+<span class="compose-kicker">Algorithms</span>
+
+## 포인터, 함수 포인터, OOP 패턴 및 자료구조 핵심 문서
+
+<div class="landing-meta-list" markdown>
+<span>Pointers</span>
+<span>Function Pointers</span>
+<span>OOP Patterns</span>
+<span>Data Structures</span>
+</div>
+
+<div class="compose-actions" markdown>
+[:octicons-arrow-right-24: Pointers Guide](pointers.md){ .md-button .md-button--primary }
+[:material-shape: OOP Patterns](oop-patterns.md){ .md-button }
+</div>
+</div>
+
+## :material-graph: 핵심 알고리즘 영역
+
+<div class="grid cards" markdown>
+
+-   :material-cursor-pointer:{ .lg .middle } **Pointers**
+
+    ---
+
+    C/C++ 포인터, 메모리 관리, 공통 패턴
+
+    [:octicons-arrow-right-24: View Guide](pointers.md)
+
+-   :material-function:{ .lg .middle } **Function Pointers**
+
+    ---
+
+    언어별 함수 포인터 비교와 콜백 패턴
+
+    [:octicons-arrow-right-24: View Guide](function-pointers.md)
+
+-   :material-shape:{ .lg .middle } **OOP Patterns**
+
+    ---
+
+    Python 예제를 활용한 객체지향 프로그래밍 패턴
+
+    [:octicons-arrow-right-24: View Guide](oop-patterns.md)
+
+</div>
+
 ## Topics
 
 <div class="grid cards" markdown>

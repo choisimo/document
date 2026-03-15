@@ -4,6 +4,62 @@
 
 ---
 
+<div class="compose-hero" markdown>
+<span class="compose-kicker">Operating Systems</span>
+
+## CPU 스케줄링, 동기화, 메모리 관리 등 OS 핵심 개념 문서
+
+<div class="landing-meta-list" markdown>
+<span>CPU Scheduling</span>
+<span>Synchronization</span>
+<span>Memory</span>
+<span>Deadlocks</span>
+</div>
+
+<div class="compose-actions" markdown>
+[:octicons-arrow-right-24: CPU Scheduling](cpu-scheduling.md){ .md-button .md-button--primary }
+[:material-memory: Memory Management](memory.md){ .md-button }
+</div>
+</div>
+
+## :material-chip: 핵심 OS 영역
+
+<div class="grid cards" markdown>
+
+-   :material-clock-fast:{ .lg .middle } **CPU Scheduling**
+
+    ---
+
+    FCFS, SJF, Priority, Round Robin, MLFQ 스케줄링 알고리즘
+
+    [:octicons-arrow-right-24: View Guide](cpu-scheduling.md)
+
+-   :material-sync:{ .lg .middle } **Synchronization**
+
+    ---
+
+    Mutex, 세마포어, 모니터, 임계 구역
+
+    [:octicons-arrow-right-24: View Guide](synchronization.md)
+
+-   :material-memory:{ .lg .middle } **Memory Management**
+
+    ---
+
+    가상 메모리, 페이징, 세그멘테이션
+
+    [:octicons-arrow-right-24: View Guide](memory.md)
+
+-   :material-lock:{ .lg .middle } **Deadlocks**
+
+    ---
+
+    교착상태 조건, 방지, 회피, 탐지
+
+    [:octicons-arrow-right-24: View Guide](deadlocks.md)
+
+</div>
+
 ## Topics
 
 <div class="grid cards" markdown>

@@ -3,7 +3,7 @@
  * 
  * 플로팅 챗봇 인터페이스
  * - 마크다운 렌더링
- * - 대화 기록 저장 (localStorage)
+ * - 대화 기록 저장 (sessionStorage — 탭당 유지, 브라우저 종료 시 삭제)
  * - 반응형 디자인
  */
 
@@ -30,6 +30,7 @@ class AIChatbot {
   init() {
     this.createUI();
     this.bindEvents();
+    this.checkKBConnection();
   }
 
   /**
@@ -157,6 +158,32 @@ class AIChatbot {
         // this.close();
       }
     });
+  }
+
+  async checkKBConnection() {
+    if (!this.openNotebookEnabled) return;
+
+    try {
+      const online = await window.aiClient?.checkConnection?.();
+      if (!online) {
+        this.container.classList.add('kb-unavailable');
+
+        const badge = this.container.querySelector('.ai-chatbot-kb-badge');
+        if (badge) {
+          badge.textContent = 'KB 오프라인';
+          badge.classList.add('ai-chatbot-kb-badge--offline');
+        }
+
+        const headerText = this.container.querySelector('.ai-chatbot-header-text');
+        const existingWarning = headerText?.querySelector('.ai-chatbot-header-subtitle--warning');
+        if (headerText && !existingWarning) {
+          const warning = document.createElement('p');
+          warning.className = 'ai-chatbot-header-subtitle ai-chatbot-header-subtitle--warning';
+          warning.textContent = '지식 베이스에 연결할 수 없어 기본 응답 모드로 동작합니다';
+          headerText.appendChild(warning);
+        }
+      }
+    } catch {}
   }
 
   /**
@@ -522,7 +549,7 @@ class AIChatbot {
    */
   saveHistory() {
     try {
-      localStorage.setItem('ai-chatbot-history', JSON.stringify(this.messages.slice(-50)));
+      sessionStorage.setItem('ai-chatbot-history', JSON.stringify(this.messages.slice(-50)));
     } catch (e) {
       console.warn('Failed to save chat history:', e);
     }
@@ -533,7 +560,7 @@ class AIChatbot {
    */
   loadHistory() {
     try {
-      const saved = localStorage.getItem('ai-chatbot-history');
+      const saved = sessionStorage.getItem('ai-chatbot-history');
       if (saved) {
         this.messages = JSON.parse(saved);
       }
@@ -548,7 +575,7 @@ class AIChatbot {
    */
   clearHistory() {
     this.messages = [];
-    localStorage.removeItem('ai-chatbot-history');
+    sessionStorage.removeItem('ai-chatbot-history');
     this.renderMessages();
   }
 }

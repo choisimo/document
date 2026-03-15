@@ -4,6 +4,45 @@ Java 프로그래밍, 메모리 관리, OOP에 관한 학습 자료입니다.
 
 ---
 
+<div class="compose-hero" markdown>
+<span class="compose-kicker">Java</span>
+
+## Java 핵심 개념, JVM 메모리 관리, GC 가이드
+
+<div class="landing-meta-list" markdown>
+<span>Core Concepts</span>
+<span>Memory & GC</span>
+<span>JVM</span>
+</div>
+
+<div class="compose-actions" markdown>
+[:octicons-arrow-right-24: 핵심 개념](core-concepts.md){ .md-button .md-button--primary }
+[:material-memory: 메모리와 GC](memory-gc.md){ .md-button }
+</div>
+</div>
+
+## :material-language-java: 핵심 Java 영역
+
+<div class="grid cards" markdown>
+
+-   :material-book-open-variant:{ .lg .middle } **핵심 개념**
+
+    ---
+
+    Java 문법, 객체지향, 컬렉션 프레임워크
+
+    [:octicons-arrow-right-24: 핵심 개념](core-concepts.md)
+
+-   :material-memory:{ .lg .middle } **메모리와 GC**
+
+    ---
+
+    JVM 메모리 구조, 가비지 컬렉션 알고리즘, 튜닝
+
+    [:octicons-arrow-right-24: 메모리와 GC](memory-gc.md)
+
+</div>
+
 ## :fontawesome-brands-java: 문서 목록
 
 <div class="grid cards" markdown>

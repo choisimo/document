@@ -4,6 +4,62 @@ Linux 시스템 관리, 배포판별 가이드, 멀티미디어 도구에 관한
 
 ---
 
+<div class="compose-hero" markdown>
+<span class="compose-kicker">Linux</span>
+
+## Arch Linux 설치부터 멀티미디어, 파일시스템까지 Linux 운영 가이드
+
+<div class="landing-meta-list" markdown>
+<span>Commands</span>
+<span>Filesystem</span>
+<span>Arch Linux</span>
+<span>Multimedia</span>
+</div>
+
+<div class="compose-actions" markdown>
+[:octicons-arrow-right-24: 명령어 가이드](commands.md){ .md-button .md-button--primary }
+[:material-arch: Arch 설치](arch/installation.md){ .md-button }
+</div>
+</div>
+
+## :fontawesome-brands-linux: 핵심 Linux 영역
+
+<div class="grid cards" markdown>
+
+-   :material-console:{ .lg .middle } **시스템 기초**
+
+    ---
+
+    필수 명령어와 파일시스템 구조
+
+    [:octicons-arrow-right-24: 명령어 가이드](commands.md)
+
+-   :material-arch:{ .lg .middle } **Arch Linux**
+
+    ---
+
+    롤링 릴리즈 배포판 설치 및 관리
+
+    [:octicons-arrow-right-24: 설치 가이드](arch/installation.md)
+
+-   :material-server:{ .lg .middle } **Proxmox VE**
+
+    ---
+
+    가상화 플랫폼 설정 및 관리
+
+    [:octicons-arrow-right-24: 드라이브 마운트](proxmox/drive-mount.md)
+
+-   :material-video:{ .lg .middle } **멀티미디어**
+
+    ---
+
+    비디오/오디오 처리 도구
+
+    [:octicons-arrow-right-24: FFmpeg 가이드](multimedia/ffmpeg.md)
+
+</div>
+
 ## :material-penguin: 문서 목록
 
 <div class="grid cards" markdown>

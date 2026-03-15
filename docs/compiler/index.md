@@ -4,6 +4,46 @@
 
 ---
 
+<div class="compose-hero" markdown>
+<span class="compose-kicker">Compiler Theory</span>
+
+## 렉서, 파서, NFA/DFA, LL/LR 파서 등 컴파일러 이론 문서
+
+<div class="landing-meta-list" markdown>
+<span>Lexical Analysis</span>
+<span>Parsing</span>
+<span>NFA/DFA</span>
+<span>LL/LR</span>
+</div>
+
+<div class="compose-actions" markdown>
+[:octicons-arrow-right-24: NFA 문서](lexical/nfa.md){ .md-button .md-button--primary }
+[:material-file-tree: CFG 파싱](parsing/cfg.md){ .md-button }
+</div>
+</div>
+
+## :material-code-tags: 핵심 컴파일러 영역
+
+<div class="grid cards" markdown>
+
+-   :material-format-letter-matches:{ .lg .middle } **어휘 분석**
+
+    ---
+
+    NFA, DFA, 정규표현식, 토큰화
+
+    [:octicons-arrow-right-24: NFA](lexical/nfa.md)
+
+-   :material-file-tree:{ .lg .middle } **구문 분석**
+
+    ---
+
+    CFG, LL 파서, LR 파서, 상향식/하향식
+
+    [:octicons-arrow-right-24: CFG](parsing/cfg.md)
+
+</div>
+
 ## :material-cog-sync: 컴파일러 파이프라인
 
 ```mermaid

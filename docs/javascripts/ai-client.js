@@ -74,8 +74,9 @@ class AIClient {
                 .map((item, index) => {
                     const title = item?.title ? `제목: ${item.title}` : null;
                     const content = item?.content || item?.text || '';
-                    const source = item?.source || item?.url ? `출처: ${item.source || item.url}` : null;
-                    return [`${index + 1}.`, title, content, source].filter(Boolean).join(' ');
+                    const sourceUrl = item?.source || item?.url || null;
+                    const sourceLabel = sourceUrl ? `\n[출처: ${sourceUrl}]` : '';
+                    return [`[${index + 1}]`, title, content, sourceLabel].filter(Boolean).join('\n');
                 })
                 .join('\n\n')
                 .trim();
@@ -121,7 +122,7 @@ class AIClient {
         const knowledgeBaseContext = await this.queryKnowledgeBase(lastUserMessage?.content || '');
         const knowledgeBaseMessage = knowledgeBaseContext ? {
             role: 'system',
-            content: `[Open Notebook 지식 베이스 검색 결과]\n${knowledgeBaseContext}\n[지식 베이스 검색 결과 끝]\n\n위 지식 베이스 검색 결과를 최우선으로 참고하여 답변해주세요.`
+            content: `[Open Notebook 지식 베이스 검색 결과]\n${knowledgeBaseContext}\n[지식 베이스 검색 결과 끝]\n\n위 지식 베이스 검색 결과를 최우선으로 참고하여 답변해주세요.\n답변에서 지식 베이스 결과를 사용할 때는 반드시 [출처: URL] 형식으로 인용하세요.\n지식 베이스에 없는 내용은 추측하지 말고 "해당 내용은 현재 문서에서 확인할 수 없습니다"라고 답하세요.`
         } : null;
 
         const requestBody = {

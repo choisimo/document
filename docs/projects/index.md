@@ -4,6 +4,24 @@
 
 ---
 
+<div class="compose-hero" markdown>
+<span class="compose-kicker">Projects</span>
+
+## CBT 시스템, 감정 일기 등 실제 프로젝트 아키텍처 문서
+
+<div class="landing-meta-list" markdown>
+<span>CBT System</span>
+<span>Emotion Diary</span>
+<span>Spring Boot</span>
+<span>React</span>
+</div>
+
+<div class="compose-actions" markdown>
+[:octicons-arrow-right-24: CBT System](cbt-system.md){ .md-button .md-button--primary }
+[:material-emoticon-happy: Emotion Diary](emotion-diary.md){ .md-button }
+</div>
+</div>
+
 ## Active Projects
 
 <div class="grid cards" markdown>
