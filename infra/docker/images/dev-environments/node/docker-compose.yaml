@@ -1,0 +1,24 @@
+services:
+  dev-node:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dev-node
+    ports:
+      - "3000:3000"
+      - "5173:5173"
+    volumes:
+      - type: bind
+        source: ${WORKSPACE_PATH:-./workspace}
+        target: /workspace
+      - npm-global:/home/node/.npm-global
+      - pnpm-store:/home/node/.local/share/pnpm/store
+      - yarn-cache:/home/node/.cache/yarn
+    tty: true
+    stdin_open: true
+    restart: unless-stopped
+
+volumes:
+  npm-global:
+  pnpm-store:
+  yarn-cache:

@@ -1,0 +1,106 @@
+version: "3.8"
+
+services:
+  # ============================================
+  # Gluetun VPN Gateway
+  # ============================================
+  gluetun:
+    image: qmcgaw/gluetun:v3.39.0
+    container_name: gluetun-mm
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "8080:8080" # qBittorrent WebUI
+      - "8000:8000" # Gluetun Control
+    volumes:
+      - ./data/gluetun:/gluetun
+    environment:
+      - VPN_SERVICE_PROVIDER=${VPN_PROVIDER}
+      - VPN_TYPE=${VPN_TYPE}
+      - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}
+      - WIREGUARD_PUBLIC_KEY=${WIREGUARD_PUBLIC_KEY}
+      - WIREGUARD_ENDPOINT_IP=${WIREGUARD_ENDPOINT_IP}
+      - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES}
+      - OPENVPN_USER=${OPENVPN_USER}
+      - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}
+      - VPN_PORT_FORWARDING=${GLUETUN_PORT_FORWARDING}
+      - FIREWALL_OUTBOUND_SUBNETS=192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,172.18.0.0/16
+      - DOT_PROVIDERS=cloudflare,google
+      - TZ=Asia/Seoul
+    networks:
+      - medianet
+
+  # ============================================
+  # qBittorrent
+  # ============================================
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent-mm
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=Asia/Seoul
+      - WEBUI_PORT=${QBITTORRENT_WEBUI_PORT}
+    volumes:
+      - ./data/qbittorrent/config:/config
+      - ./data/media:/media
+    restart: unless-stopped
+
+  # ============================================
+  # MediaManager
+  # ============================================
+  mediamanager:
+    image: quay.io/maxdorninger/mediamanager:latest
+    container_name: mediamanager
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./config:/app/config
+      - ./data/media:/media
+    environment:
+      - TZ=Asia/Seoul
+    networks:
+      - medianet
+    restart: unless-stopped
+    depends_on:
+      - gluetun
+      - nginx
+
+  # ============================================
+  # Nginx Reverse Proxy
+  # ============================================
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-proxy-mm
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    ports:
+      - "80:80"
+    networks:
+      - medianet
+    restart: unless-stopped
+    depends_on:
+      - gluetun
+
+  # ============================================
+  # Cloudflared
+  # ============================================
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-mm
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN}
+    depends_on:
+      - nginx
+    networks:
+      - medianet
+    restart: unless-stopped
+
+networks:
+  medianet:
+    driver: bridge

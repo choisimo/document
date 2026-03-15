@@ -1,0 +1,13 @@
+[webservers]
+web1.stage.example.com
+
+[dbservers]
+db1.stage.example.com
+
+[infrastructures]
+docker.stage.example.com
+fileserver.stage.example.com
+
+[all:vars]
+ansible_python_interpreter=/usr/bin/python3
+env=stage

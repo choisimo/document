@@ -1,0 +1,42 @@
+version: "3.8"
+
+services:
+  # -------------------
+  # MongoDB 서비스
+  # -------------------
+  mongo:
+    image: mongo
+    container_name: mongo-mydrive-db
+    restart: unless-stopped
+    # MongoDB가 사용할 포트
+    ports:
+      - "27017:27017"
+    # 데이터 보존을 위해 named volume  사용
+    volumes:
+      - "/docker/mongodb/data:/data/db"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+  # -------------------
+  # MyDrive 서비스
+  # -------------------
+  mydrive:
+    image: kylehoell/mydrive:latest
+    container_name: mydrive
+
+    # 다른 컨테이너(mongo)와 같은 네트 워크 사용
+    # docker-compose는 기본적으로 같은 프로젝트 내 컨테이너끼리 DNS로 접근 가 능
+    env_file:
+      - .env
+
+    # 바인드 마운트 사용 (호스트 디렉토리 -> 컨테이너 경로)
+    volumes:
+      - "/docker/mydrive/data:/data"
+      - "/docker/mydrive/temp:/temp"
+
+    # MyDrive가 호스트 3000포트로 접근 되도록 설정
+    ports:
+      - "${HTTP_PORT:-3000}:3000"
+    restart: unless-stopped

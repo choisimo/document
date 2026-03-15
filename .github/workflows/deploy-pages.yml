@@ -19,7 +19,6 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # 빌드 타임스탬프 - 캐시 버스팅용
   BUILD_TIMESTAMP: ${{ github.run_id }}-${{ github.run_number }}
 
 jobs:
@@ -30,7 +29,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # 클린 체크아웃 보장
           clean: true
 
       - name: Setup Python
@@ -42,20 +40,20 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('apps/docs-site/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
 
       - name: Install MkDocs and dependencies
         run: |
           pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r apps/docs-site/requirements.txt
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
       - name: Test docs validator tooling
-        run: cargo test -q --manifest-path tools/docs-validator-rs/Cargo.toml
+        run: cargo test -q --manifest-path src/tools/docs-validator-rs/Cargo.toml
 
       - name: Inject AI configuration from secrets
         env:
@@ -66,9 +64,22 @@ jobs:
           OPEN_NOTEBOOK_URL: ${{ secrets.OPEN_NOTEBOOK_URL }}
           OPEN_NOTEBOOK_TOKEN: ${{ secrets.OPEN_NOTEBOOK_TOKEN }}
         run: |
-          CONFIG_FILE="docs/javascripts/ai-config.js"
+          CONFIG_FILE="content/docs/javascripts/ai-config.js"
+
+          if [ -n "$AI_API_BASE_URL" ]; then
+            if [[ "$AI_API_BASE_URL" != https://* ]]; then
+              echo "::error::AI_API_BASE_URL must be an absolute https:// URL. Got: '${AI_API_BASE_URL}'"
+              exit 1
+            fi
+            if [[ "$AI_API_BASE_URL" != */v[0-9]* ]]; then
+              echo "::warning::AI_API_BASE_URL does not contain a version segment (e.g. /v1). Got: '${AI_API_BASE_URL}'. The JS client appends /chat/completions directly — ensure the backend routes unversioned paths, or add /v1 to the secret."
+            fi
+            if [[ "$AI_API_BASE_URL" == */ ]]; then
+              echo "::warning::AI_API_BASE_URL ends with a trailing slash. Got: '${AI_API_BASE_URL}'. The JS client strips it at runtime — please fix the secret to remove the trailing slash."
+            fi
+          fi
+
           if [ -f "$CONFIG_FILE" ]; then
-            # Replace placeholders with actual values from secrets
             if [ -n "$AI_API_BASE_URL" ]; then
               sed -i "s|%%AI_API_BASE_URL%%|${AI_API_BASE_URL}|g" "$CONFIG_FILE"
             fi
@@ -78,7 +89,6 @@ jobs:
             if [ -n "$AI_MODEL_NAME" ]; then
               sed -i "s|%%AI_MODEL_NAME%%|${AI_MODEL_NAME}|g" "$CONFIG_FILE"
             fi
-            # Open Notebook 설정 주입
             if [ -n "$OPEN_NOTEBOOK_ENABLED" ]; then
               sed -i "s|%%OPEN_NOTEBOOK_ENABLED%%|${OPEN_NOTEBOOK_ENABLED}|g" "$CONFIG_FILE"
             fi
@@ -93,26 +103,21 @@ jobs:
             echo "Warning: AI config file not found at $CONFIG_FILE"
           fi
 
-      # 🧹 빌드 전 site 폴더 완전 삭제 (클린 빌드 보장)
       - name: Clean previous build artifacts
         run: |
-          echo "🧹 Cleaning previous build artifacts..."
-          rm -rf site/
+          rm -rf dist/site/
           rm -rf .cache/
-          echo "✅ Clean completed"
 
-      # 🔨 MkDocs 클린 빌드 (--clean 플래그 사용)
       - name: Build MkDocs site (clean build)
+        working-directory: apps/docs-site
         run: |
-          echo "🔨 Building MkDocs with --clean flag..."
           mkdocs build --clean
-          echo "✅ Build completed at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "Build completed at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-      # 📝 빌드 메타데이터 추가 (캐시 디버깅용)
       - name: Add build metadata
         run: |
           BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          cat > site/build-info.json << EOF
+          cat > dist/site/build-info.json << EOF
           {
             "buildTime": "$BUILD_TIME",
             "buildId": "${{ github.run_id }}",
@@ -121,65 +126,55 @@ jobs:
             "ref": "${{ github.ref }}"
           }
           EOF
-          echo "📝 Build metadata added: $BUILD_TIME"
 
       - name: Copy extra static content to site (post-build)
         run: |
-          bash scripts/site/sync-extra-assets.sh site/extra
+          bash src/automation/site/sync-extra-assets.sh dist/site/extra
 
       - name: Create CNAME file
-        run: echo 'docs.nodove.com' > site/CNAME
+        run: echo 'docs.nodove.com' > dist/site/CNAME
 
-      # 🔄 GitHub Pages 캐시 헤더 설정 (Netlify/Cloudflare 스타일)
       - name: Create cache headers configuration
         run: |
-          cat > site/_headers << 'EOF'
-          # 캐시 제어 헤더 설정
-          # CSS/JS 파일 - 빌드마다 새로운 해시가 붙으므로 장기 캐싱 가능
+          cat > dist/site/_headers << 'EOF'
           /assets/*
             Cache-Control: public, max-age=31536000, immutable
 
-          # 커스텀 CSS/JS - 빈번히 변경되므로 재검증 필요
           /stylesheets/*
             Cache-Control: public, max-age=0, must-revalidate
 
           /javascripts/*
             Cache-Control: public, max-age=0, must-revalidate
 
-          # HTML 파일 - 항상 최신 버전 확인
           /*.html
             Cache-Control: public, max-age=0, must-revalidate
 
           /*/index.html
             Cache-Control: public, max-age=0, must-revalidate
 
-          # 빌드 정보 - 캐시 안함
           /build-info.json
             Cache-Control: no-store
           EOF
-          echo "📄 Cache headers configuration created"
 
-      # ✅ 빌드 완료 확인
       - name: Verify build output
         run: |
-          echo "📊 Build output statistics:"
-          echo "   - Total files: $(find site -type f | wc -l)"
-          echo "   - Total size: $(du -sh site | cut -f1)"
-          echo "   - CSS files: $(find site -name '*.css' | wc -l)"
-          echo "   - JS files: $(find site -name '*.js' | wc -l)"
-          echo "   - HTML files: $(find site -name '*.html' | wc -l)"
-          
-          # 핵심 파일 존재 확인
-          if [ -f "site/stylesheets/extra.css" ]; then
-            echo "✅ extra.css exists ($(wc -l < site/stylesheets/extra.css) lines)"
+          echo "Build output statistics:"
+          echo "  Total files: $(find dist/site -type f | wc -l)"
+          echo "  Total size: $(du -sh dist/site | cut -f1)"
+          echo "  CSS files: $(find dist/site -name '*.css' | wc -l)"
+          echo "  JS files: $(find dist/site -name '*.js' | wc -l)"
+          echo "  HTML files: $(find dist/site -name '*.html' | wc -l)"
+
+          if [ -f "dist/site/stylesheets/extra.css" ]; then
+            echo "extra.css exists ($(wc -l < dist/site/stylesheets/extra.css) lines)"
           else
-            echo "⚠️ WARNING: extra.css not found!"
+            echo "WARNING: extra.css not found!"
           fi
-          
-          if [ -f "site/javascripts/ai-chatbot.js" ]; then
-            echo "✅ ai-chatbot.js exists"
+
+          if [ -f "dist/site/javascripts/ai-chatbot.js" ]; then
+            echo "ai-chatbot.js exists"
           else
-            echo "⚠️ WARNING: ai-chatbot.js not found!"
+            echo "WARNING: ai-chatbot.js not found!"
           fi
 
       - name: Setup Pages
@@ -188,7 +183,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./site
+          path: ./dist/site
 
   deploy:
     environment:
@@ -204,12 +199,7 @@ jobs:
 
       - name: Deployment Summary
         run: |
-          echo "🚀 Deployment completed successfully!"
-          echo "   - URL: ${{ steps.deployment.outputs.page_url }}"
-          echo "   - Commit: ${{ github.sha }}"
-          echo "   - Time: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          echo ""
-          echo "💡 If you still see old content, try:"
-          echo "   - Hard refresh: Ctrl+Shift+R (Windows/Linux) or Cmd+Shift+R (Mac)"
-          echo "   - Clear browser cache"
-          echo "   - Check /build-info.json to verify latest build"
+          echo "Deployment completed successfully!"
+          echo "  URL: ${{ steps.deployment.outputs.page_url }}"
+          echo "  Commit: ${{ github.sha }}"
+          echo "  Time: $(date -u +%Y-%m-%dT%H:%M:%SZ)"

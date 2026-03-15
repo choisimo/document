@@ -1,0 +1,45 @@
+- name: Remove conflicting packages if present
+  ansible.builtin.dnf:
+    name:
+      - docker
+      - docker-client
+      - docker-client-latest
+      - docker-common
+      - docker-latest
+      - docker-latest-logrotate
+      - docker-logrotate
+      - docker-engine
+      - podman
+      - runc
+    state: absent
+  ignore_errors: true
+
+- name: Install dnf-plugins-core
+  ansible.builtin.dnf:
+    name: dnf-plugins-core
+    state: present
+
+- name: Add Docker CE repository
+  ansible.builtin.command:
+    cmd: "dnf config-manager --add-repo {{ docker_repo_url }}"
+  args:
+    creates: /etc/yum.repos.d/docker-ce.repo
+
+- name: Install Docker CE and compose plugin
+  ansible.builtin.dnf:
+    name: "{{ docker_packages }}"
+    state: present
+    update_cache: true
+
+- name: Enable Docker service
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Ensure nodove is part of docker group
+  ansible.builtin.user:
+    name: "{{ nodove_user }}"
+    groups:
+      - docker
+    append: true

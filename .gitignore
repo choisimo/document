@@ -99,7 +99,8 @@ env/
 # ====================
 
 build/
-dist/
+dist/site/
+dist/qa-shots/
 release/
 debug/
 

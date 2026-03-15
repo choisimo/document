@@ -1,0 +1,1772 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>마음 일기 API 명세서 v1.2</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: #fff;
+            border-right: 1px solid #e9ecef;
+            padding: 20px;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+
+        .main-content {
+            flex: 1;
+            margin-left: 280px;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 20px;
+            margin: -20px -20px 30px -20px;
+            border-radius: 0 0 15px 15px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .version-info {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+
+        .search-box {
+            margin-bottom: 20px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .nav-section {
+            margin-bottom: 25px;
+        }
+
+        .nav-section h3 {
+            color: #495057;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .nav-item {
+            display: block;
+            padding: 8px 12px;
+            color: #6c757d;
+            text-decoration: none;
+            border-radius: 6px;
+            margin-bottom: 2px;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .nav-item:hover {
+            background-color: #f8f9fa;
+            color: #495057;
+            transform: translateX(5px);
+        }
+
+        .nav-item.active {
+            background-color: #667eea;
+            color: white;
+        }
+
+        .api-section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.08);
+            border: 1px solid #e9ecef;
+        }
+
+        .api-section h2 {
+            color: #2d3748;
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .endpoint {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+
+        .endpoint h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .method-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-right: 10px;
+        }
+
+        .method-get { background: #d4edda; color: #155724; }
+        .method-post { background: #cce5ff; color: #004085; }
+        .method-put { background: #fff3cd; color: #856404; }
+        .method-delete { background: #f8d7da; color: #721c24; }
+
+        .auth-badge {
+            display: inline-block;
+            background: #ffd700;
+            color: #744210;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .public-badge {
+            display: inline-block;
+            background: #c6f6d5;
+            color: #22543d;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .endpoint-url {
+            font-family: 'Monaco', 'Menlo', monospace;
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            margin: 10px 0;
+        }
+
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .info-table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .info-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e9ecef;
+            vertical-align: top;
+        }
+
+        .info-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .field-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .field-table th {
+            background: #4a5568;
+            color: white;
+            padding: 10px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .field-table td {
+            padding: 10px;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 13px;
+            vertical-align: top;
+        }
+
+        .field-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .required {
+            color: #e53e3e;
+            font-weight: 600;
+        }
+
+        .optional {
+            color: #38a169;
+            font-weight: 600;
+        }
+
+        .code-block {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            overflow-x: auto;
+            margin: 15px 0;
+            position: relative;
+        }
+
+        .code-block::before {
+            content: 'JSON';
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            background: #4a5568;
+            color: #e2e8f0;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+
+        .status-codes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .status-code {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-200 { background: #d4edda; color: #155724; }
+        .status-201 { background: #d1ecf1; color: #0c5460; }
+        .status-202 { background: #cce5ff; color: #004085; }
+        .status-400 { background: #fff3cd; color: #856404; }
+        .status-401 { background: #f8d7da; color: #721c24; }
+        .status-403 { background: #f8d7da; color: #721c24; }
+        .status-404 { background: #f8d7da; color: #721c24; }
+        .status-406 { background: #fff3cd; color: #856404; }
+        .status-409 { background: #fff3cd; color: #856404; }
+        .status-429 { background: #fff3cd; color: #856404; }
+        .status-500 { background: #f5c6cb; color: #721c24; }
+
+        .constraint-info {
+            background: #f0fff4;
+            border: 1px solid #9ae6b4;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .constraint-info h5 {
+            color: #2f855a;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .constraint-info ul {
+            margin-left: 20px;
+        }
+
+        .error-examples {
+            background: #fff5f5;
+            border: 1px solid #fed7d7;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .error-examples h5 {
+            color: #c53030;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .highlight {
+            background-color: #fff3cd;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        .back-to-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s;
+            font-size: 18px;
+        }
+
+        .back-to-top:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s;
+            }
+            
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .container {
+                flex-direction: column;
+            }
+        }
+
+        .menu-toggle {
+            display: none;
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .menu-toggle {
+                display: block;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+    
+    <div class="container">
+        <nav class="sidebar" id="sidebar">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="API 검색..." onkeyup="searchAPI()">
+            </div>
+            
+            <div class="nav-section">
+                <h3>개요</h3>
+                <a href="#overview" class="nav-item">API 개요</a>
+                <a href="#versioning" class="nav-item">버전 관리</a>
+                <a href="#authentication" class="nav-item">인증 방식</a>
+            </div>
+            
+            <div class="nav-section">
+                <h3>인증 API</h3>
+                <a href="#auth" class="nav-item">인증 API</a>
+            </div>
+            
+            <div class="nav-section">
+                <h3>사용자 관리</h3>
+                <a href="#user" class="nav-item">사용자 관리 API</a>
+            </div>
+            
+            <div class="nav-section">
+                <h3>일기 관리</h3>
+                <a href="#diary" class="nav-item">일기 API</a>
+            </div>
+            
+            <div class="nav-section">
+                <h3>감정 분석</h3>
+                <a href="#analysis" class="nav-item">감정 분석 API</a>
+            </div>
+            
+            <div class="nav-section">
+                <h3>참고 자료</h3>
+                <a href="#errors" class="nav-item">오류 처리</a>
+                <a href="#models" class="nav-item">데이터 모델</a>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <div class="header">
+                <h1>마음 일기 API 명세서</h1>
+                <p>Auth 서버 및 연관 API 중심 - Enhanced</p>
+                <div class="version-info">
+                    <strong>버전:</strong> v1.2 | 
+                    <strong>최종 업데이트:</strong> 2025년 1월 | 
+                    <strong>상태:</strong> 안정 버전
+                </div>
+            </div>
+
+            <section id="overview" class="api-section">
+                <h2>API 개요</h2>
+                <table class="info-table">
+                    <tr>
+                        <th>항목</th>
+                        <th>설명</th>
+                    </tr>
+                    <tr>
+                        <td>기본 URL</td>
+                        <td><code>https://your-api-domain.com</code></td>
+                    </tr>
+                    <tr>
+                        <td>현재 버전</td>
+                        <td>v1.2</td>
+                    </tr>
+                    <tr>
+                        <td>인증 방식</td>
+                        <td>Bearer Token (JWT)</td>
+                    </tr>
+                    <tr>
+                        <td>응답 형식</td>
+                        <td>JSON</td>
+                    </tr>
+                    <tr>
+                        <td>문자 인코딩</td>
+                        <td>UTF-8</td>
+                    </tr>
+                    <tr>
+                        <td>타임존</td>
+                        <td>UTC (ISO 8601 형식)</td>
+                    </tr>
+                </table>
+            </section>
+
+            <section id="versioning" class="api-section">
+                <h2>버전 관리 전략</h2>
+                <p>마음 일기 API는 의미론적 버전 관리(Semantic Versioning)를 따릅니다.</p>
+                
+                <table class="info-table">
+                    <tr>
+                        <th>버전 형식</th>
+                        <th>설명</th>
+                        <th>하위 호환성</th>
+                    </tr>
+                    <tr>
+                        <td>Major (v2.0)</td>
+                        <td>호환되지 않는 API 변경</td>
+                        <td>❌ 호환되지 않음</td>
+                    </tr>
+                    <tr>
+                        <td>Minor (v1.3)</td>
+                        <td>하위 호환되는 기능 추가</td>
+                        <td>✅ 하위 호환</td>
+                    </tr>
+                    <tr>
+                        <td>Patch (v1.2.1)</td>
+                        <td>하위 호환되는 버그 수정</td>
+                        <td>✅ 하위 호환</td>
+                    </tr>
+                </table>
+
+                <div class="constraint-info">
+                    <h5>📋 버전 지원 정책</h5>
+                    <ul>
+                        <li>현재 Major 버전: 최소 2년간 지원</li>
+                        <li>이전 Major 버전: 1년간 지원 (deprecated)</li>
+                        <li>새로운 기능은 최신 버전에만 추가</li>
+                        <li>중요한 보안 업데이트는 모든 지원 버전에 적용</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section id="authentication" class="api-section">
+                <h2>인증 방식</h2>
+                <p>API는 JWT(JSON Web Token) 기반의 Bearer Token 인증을 사용합니다.</p>
+                
+                <h3>토큰 구조</h3>
+                <table class="info-table">
+                    <tr>
+                        <th>토큰 타입</th>
+                        <th>유효 기간</th>
+                        <th>용도</th>
+                    </tr>
+                    <tr>
+                        <td>Access Token</td>
+                        <td>30분</td>
+                        <td>API 요청 인증</td>
+                    </tr>
+                    <tr>
+                        <td>Refresh Token</td>
+                        <td>7일</td>
+                        <td>Access Token 갱신</td>
+                    </tr>
+                </table>
+
+                <h3>인증 헤더 형식</h3>
+                <div class="code-block">Authorization: Bearer {access_token}</div>
+
+                <div class="constraint-info">
+                    <h5>🔒 보안 고려사항</h5>
+                    <ul>
+                        <li>Access Token은 메모리에만 저장 (localStorage 사용 금지)</li>
+                        <li>Refresh Token은 HttpOnly 쿠키로 관리</li>
+                        <li>HTTPS 연결에서만 토큰 전송</li>
+                        <li>토큰 만료 시 자동 갱신 로직 구현 권장</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section id="auth" class="api-section">
+                <h2>인증 API</h2>
+                
+                <div class="endpoint">
+                    <h3>인증 상태 확인 <span class="auth-badge">🔐 인증 필요</span></h3>
+                    <div>
+                        <span class="method-badge method-get">GET</span>
+                        <div class="endpoint-url">/auth_check</div>
+                    </div>
+                    <p>현재 요청이 유효한 인증 토큰을 가지고 있는지 확인합니다.</p>
+                    
+                    <table class="info-table">
+                        <tr>
+                            <th>항목</th>
+                            <th>설명</th>
+                        </tr>
+                        <tr>
+                            <td>인증</td>
+                            <td>Bearer Token 필요</td>
+                        </tr>
+                        <tr>
+                            <td>응답 코드</td>
+                            <td>
+                                <div class="status-codes">
+                                    <span class="status-code status-200">200: 인증됨</span>
+                                    <span class="status-code status-401">401: 인증되지 않음</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <div class="error-examples">
+                        <h5>⚠️ 오류 응답 예시</h5>
+                        <div class="code-block">{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "status": 401,
+  "error": "Unauthorized",
+  "message": "JWT token is expired",
+  "path": "/auth_check"
+}</div>
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <h3>JWT 토큰 재발급 <span class="auth-badge">🔐 인증 필요</span></h3>
+                    <div>
+                        <span class="method-badge method-post">POST</span>
+                        <div class="endpoint-url">/auth/api/protected/refresh</div>
+                    </div>
+                    <p>만료된 Access Token과 유효한 Refresh Token을 사용하여 새로운 Access Token을 발급받습니다.</p>
+                    
+                    <h4>요청 필드</h4>
+                    <table class="field-table">
+                        <tr>
+                            <th>필드명</th>
+                            <th>타입</th>
+                            <th>필수/선택</th>
+                            <th>제약 조건</th>
+                            <th>설명</th>
+                        </tr>
+                        <tr>
+                            <td>expiredToken</td>
+                            <td>string</td>
+                            <td><span class="required">필수</span></td>
+                            <td>JWT 형식</td>
+                            <td>만료된 Access Token</td>
+                        </tr>
+                        <tr>
+                            <td>provider</td>
+                            <td>string</td>
+                            <td><span class="required">필수</span></td>
+                            <td>"server", "google", "kakao", "naver"</td>
+                            <td>인증 제공자</td>
+                        </tr>
+                    </table>
+
+                    <h4>요청 본문</h4>
+                    <div class="code-block">{
+  "expiredToken": "eyJhbGciOiJIUzUxMiJ9...",
+  "provider": "server"
+}</div>
+
+                    <h4>응답 본문</h4>
+                    <div class="code-block">{
+  "access_token": "eyJhbGciOiJIUzUxMiJ9...",
+  "expires_in": 1800,
+  "token_type": "Bearer"
+}</div>
+
+                    <div class="status-codes">
+                        <span class="status-code status-200">200: 토큰 재발급 성공</span>
+                        <span class="status-code status-401">401: Refresh Token 무효</span>
+                        <span class="status-code status-406">406: 요청 유효하지 않음</span>
+                    </div>
+
+                    <div class="error-examples">
+                        <h5>⚠️ 오류 응답 예시</h5>
+                        <div class="code-block">{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "status": 401,
+  "error": "Unauthorized",
+  "message": "Refresh token not found or expired",
+  "path": "/auth/api/protected/refresh"
+}</div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="user" class="api-section">
+                <h2>사용자 관리 API</h2>
+                
+                <div class="endpoint">
+                    <h3>회원 가입 <span class="public-badge">🌐 공개</span></h3>
+                    <div>
+                        <span class="method-badge method-post">POST</span>
+                        <div class="endpoint-url">/api/public/join</div>
+                    </div>
+                    <p>새로운 사용자를 등록합니다. 이메일 인증 코드가 사전에 검증되어야 합니다.</p>
+                    
+                    <h4>요청 필드</h4>
+                    <table class="field-table">
+                        <tr>
+                            <th>필드명</th>
+                            <th>타입</th>
+                            <th>필수/선택</th>
+                            <th>제약 조건</th>
+                            <th>설명</th>
+                        </tr>
+                        <tr>
+                            <td>userId</td>
+                            <td>string</td>
+                            <td><span class="required">필수</span></td>
+                            <td>4-20자, 영문+숫자</td>
+                            <td>사용자 ID</td>
+                        </tr>
+                        <tr>
+                            <td>userPw</td>
+                            <td>string</td>
+                            <td><span class="required">필수</span></td>
+                            <td>8-50자, 영문+숫자+특수문자</td>
+                            <td>비밀번호</td>
+                        </tr>
+                        <tr>
+                            <td>userName</td>
+                            <td>string</td>
+                            <td><span class="required">필수</span></td>
+                            <td>2-20자</td>
+                            <td>실명</td>
+                        </tr>
+                        <tr>
+                            <td>nickname</td>
+                            <td>string</td>
+                            <td><span class="required">필수</span></td>
+                            <td>2-15자, 중복 불가</td>
+                            <td>닉네임</td>
+                        </tr>
+                        <tr>
+                            <td>phone</td>
+                            <td>string</td>
+                            <td><span class="optional">선택</span></td>
+                            <td>010-XXXX-XXXX 형식</td>
+                            <td>휴대폰 번호</td>
+                        </tr>
+                        <tr>
+                            <td>email</td>
+                            <td>string</td>
+                            <td><span class="required">필수</span></td>
+                            <td>유효한 이메일 형식</td>
+                            <td>이메일 주소</td>
+                        </tr>
+                        <tr>
+                            <td>birthDate</td>
+                            <td>string</td>
+                            <td><span class="optional">선택</span></td>
+                            <td>YYYY-MM-DD 형식</td>
+                            <td>생년월일</td>
+                        </tr>
+                        <tr>
+                            <td>gender</td>
+                            <td>string</td>
+                            <td><span class="optional">선택</span></td>
+                            <td>"male", "female", "other"</td>
+                            <td>성별</td>
+                        </tr>
+                        <tr>
+                            <td>isPrivate</td>
+                            <td>boolean</td>
+                            <td><span class="optional">선택</span></td>
+                            <td>기본값: false</td>
+                            <td>프로필 공개 여부</td>
+                        </tr>
+                        <tr>
+                            <td>profile</td>
+                            <td>string</td>
+                            <td><span class="optional">선택</span></td>
+                            <td>유효한 URL</td>
+                            <td>프로필 이미지 URL</td>
+                        </tr>
+                        <tr>
+                            <td>code</td>
+                            <td>string</td>
+                            <td><span class="required">필수</span></td>
+                            <td>8자리 영문+숫자</td>
+                            <td>이메일 인증 코드</td>
+                        </tr>
+                    </table>
+
+                    <div class="constraint-info">
+                        <h5>📋 비밀번호 정책</h5>
+                        <ul>
+                            <li>최소 8자, 최대 50자</li>
+                            <li>영문 대소문자, 숫자, 특수문자 중 3종류 이상 포함</li>
+                            <li>연속된 문자 3개 이상 사용 금지</li>
+                            <li>사용자 ID와 동일하거나 포함 금지</li>
+                        </ul>
+                    </div>
+
+                    <h4>요청 본문</h4>
+                    <div class="code-block">{
+  "userId": "newUser123",
+  "userPw": "password123!",
+  "userName": "홍길동",
+  "nickname": "쾌활한다람쥐",
+  "phone": "010-1234-5678",
+  "email": "user@example.com",
+  "role": "USER",
+  "birthDate": "1990-01-01",
+  "gender": "male",
+  "isPrivate": false,
+  "profile": "https://example.com/profile.jpg",
+  "code": "A1B2C3D4"
+}</div>
+
+                    <h4>응답 본문</h4>
+                    <div class="code-block">{
+  "message": "join successfully",
+  "userId": "newUser123",
+  "createdAt": "2024-01-15T10:30:00Z"
+}</div>
+
+                    <div class="status-codes">
+                        <span class="status-code status-200">200: 회원 가입 성공</span>
+                        <span class="status-code status-400">400: 잘못된 요청</span>
+                        <span class="status-code status-409">409: 이미 존재하는 아이디/닉네임</span>
+                        <span class="status-code status-500">500: 서버 오류</span>
+                    </div>
+
+                    <div class="error-examples">
+                        <h5>⚠️ 유효성 검사 오류 예시</h5>
+                        <div class="code-block">{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Validation failed",
+  "path": "/api/public/join",
+  "validationErrors": [
+    {
+      "field": "userPw",
+      "message": "비밀번호는 8자 이상이어야 합니다"
+    },
+    {
+      "field": "email",
+      "message": "유효한 이메일 형식이 아닙니다"
+    }
+  ]
+}</div>
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <h3>로그인 <span class="public-badge">🌐 공개</span></h3>
+                    <div>
+                        <span class="method-badge method-post">POST</span>
+                        <div class="endpoint-url">/api/auth/login</div>
+                    </div>
+                    <p>사용자 ID와 비밀번호로 로그인하고 JWT 토큰을 발급받습니다.</p>
+                    
+                    <h4>요청 필드</h4>
+                    <table class="field-table">
+                        <tr>
+                            <th>필드명</th>
+                            <th>타입</th>
+                            <th>필수/선택</th>
+                            <th>제약 조건</th>
+                            <th>설명</th>
+                        </tr>
+                        <tr>
+                            <td>userId</td>
+                            <td>string</td>
+                            <td><span class="required">필수</span></td>
+                            <td>4-20자</td>
+                            <td>사용자 ID</td>
+                        </tr>
+                        <tr>
+                            <td>password</td>
+                            <td>string</td>
+                            <td><span class="required">필수</span></td>
+                            <td>8-50자</td>
+                            <td>비밀번호</td>
+                        </tr>
+                    </table>
+
+                    <h4>요청 본문</h4>
+                    <div class="code-block">{
+  "userId": "newUser123",
+  "password": "password123!"
+}</div>
+
+                    <h4>응답 본문</h4>
+                    <div class="code-block">{
+  "access_token": "eyJhbGciOiJIUzUxMiJ9...",
+  "expires_in": 1800,
+  "token_type": "Bearer",
+  "user": {
+    "userId": "newUser123",
+    "nickname": "쾌활한다람쥐",
+    "role": "USER"
+  }
+}</div>
+
+                    <div class="status-codes">
+                        <span class="status-code status-200">200: 로그인 성공</span>
+                        <span class="status-code status-400">400: 잘못된 요청</span>
+                        <span class="status-code status-401">401: 로그인 실패</span>
+                    </div>
+
+                    <div class="constraint-info">
+                        <h5>🔒 로그인 보안 정책</h5>
+                        <ul>
+                            <li>5회 연속 실패 시 계정 잠금 (30분)</li>
+                            <li>로그인 성공 시 이전 세션 무효화</li>
+                            <li>Refresh Token은 HttpOnly 쿠키로 설정</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <h3>프로필 이미지 업로드 <span class="public-badge">🌐 공개</span></h3>
+                    <div>
+                        <span class="method-badge method-post">POST</span>
+                        <div class="endpoint-url">/api/public/profileUpload</div>
+                    </div>
+                    <p>사용자 프로필 이미지를 업로드하고 이미지 URL을 반환받습니다.</p>
+                    
+                    <table class="info-table">
+                        <tr>
+                            <th>항목</th>
+                            <th>설명</th>
+                        </tr>
+                        <tr>
+                            <td>요청 형식</td>
+                            <td>multipart/form-data</td>
+                        </tr>
+                        <tr>
+                            <td>파일 필드명</td>
+                            <td>profile</td>
+                        </tr>
+                        <tr>
+                            <td>지원 형식</td>
+                            <td>JPG, PNG, GIF</td>
+                        </tr>
+                        <tr>
+                            <td>최대 크기</td>
+                            <td>5MB</td>
+                        </tr>
+                        <tr>
+                            <td>권장 해상도</td>
+                            <td>500x500px</td>
+                        </tr>
+                    </table>
+
+                    <h4>응답 본문</h4>
+                    <div class="code-block">{
+  "fileName": "https://your-file-server.com/attach/profile/xxxx_profile.jpg",
+  "originalName": "profile.jpg",
+  "size": 1024000,
+  "uploadedAt": "2024-01-15T10:30:00Z"
+}</div>
+
+                    <div class="status-codes">
+                        <span class="status-code status-200">200: 업로드 성공</span>
+                        <span class="status-code status-400">400: 잘못된 파일</span>
+                        <span class="status-code status-500">500: 서버 오류</span>
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <h3>사용자 ID 중복 체크 <span class="public-badge">🌐 공개</span></h3>
+                    <div>
+                        <span class="method-badge method-post">POST</span>
+                        <div class="endpoint-url">/api/public/check/userId/IsDuplicate</div>
+                    </div>
+                    <p>제공된 사용자 ID가 이미 사용 중인지 확인합니다.</p>
+                    
+                    <h4>요청 본문</h4>
+                    <div class="code-block">{
+  "userId": "newUser123"
+}</div>
+
+                    <h4>응답 본문</h4>
+                    <div class="code-block">{
+  "isDuplicate": true,
+  "message": "이미 사용 중인 아이디입니다"
+}</div>
+
+                    <div class="status-codes">
+                        <span class="status-code status-200">200: 중복 체크 완료</span>
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <h3>닉네임 중복 체크 <span class="public-badge">🌐 공개</span></h3>
+                    <div>
+                        <span class="method-badge method-post">POST</span>
+                        <div class="endpoint-url">/api/public/check/nickname/IsDuplicate</div>
+                    </div>
+                    <p>제공된 닉네임이 이미 사용 중인지 확인합니다.</p>
+                    
+                    <h4>요청 본문</h4>
+                    <div class="code-block">{
+  "nickname": "쾌활한다람쥐"
+}</div>
+
+                    <h4>응답 본문</h4>
+                    <div class="code-block">{
+  "isDuplicate": false,
+  "message": "사용 가능한 닉네임입니다"
+}</div>
+
+                    <div class="status-codes">
+                        <span class="status-code status-200">200: 중복 체크 완료</span>
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <h3>로그아웃 (토큰 정리) <span class="public-badge">🌐 공개</span></h3>
+                    <div>
+                        <span class="method-badge method-post">POST</span>
+                        <div class="endpoint-url">/api/public/clean/userTokenCookie</div>
+                    </div>
+                    <p>클라이언트의 refreshToken 쿠키를 만료시켜 제거합니다.</p>
+                    
+                    <h4>응답 본문</h4>
+                    <div class="code-block">{
+  "message": "refreshToken deleted",
+  "loggedOutAt": "2024-01-15T10:30:00Z"
+}</div>
+
+                    <div class="status-codes">
+                        <span class="status-code status-200">200: 로그아웃 성공</span>
+                    </div>
+                </div>
+            </section>
+
+            <section id="diary" class="api-section">
+                <h2>일기 API</h2>
+                
+                <div class="endpoint">
+                    <h3>일기 작성 <span class="auth-badge">🔐 인증 필요</span></h3>
+                    <div>
+                        <span class="method-badge method-post">POST</span>
+                        <div class="endpoint-url">/api/diaries</div>
+                    </div>
+                    <p>새로운 일기를 작성하고 저장합니다.</p>
+                    
+                    <h4>요청 필드</h4>
+                    <table class="field-table">
+                        <tr>
+                            <th>필드명</th>
+                            <th>타입</th>
+                            <th>필수/선택</th>
+                            <th>제약 조건</th>
+                            <th>설명</th>
+                        </tr>
+                        <tr>
+                            <td>title</td>
+                            <td>string</td>
+                            <td><span class="optional">선택</span></td>
+                            <td>1-100자</td>
+                            <td>일기 제목</td>
+                        </tr>
+                        <tr>
+                            <td>content</td>
+                            <td>string</td>
+                            <td><span class="required">필수</span></td>
+                            <td>10-5000자</td>
+                            <td>일기 내용</td>
+                        </tr>
+                    </table>
+
+                    <h4>요청 본문</h4>
+                    <div class="code-block">{
+  "title": "오늘의 일기",
+  "content": "오늘은 정말 즐거운 하루였다. 친구들과 함께 카페에서 즐거운 시간을 보냈고, 새로운 책도 읽기 시작했다."
+}</div>
+
+                    <h4>응답 본문</h4>
+                    <div class="code-block">{
+  "id": 1,
+  "userId": 123,
+  "title": "오늘의 일기",
+  "content": "오늘은 정말 즐거운 하루였다...",
+  "createdAt": "2024-01-15T10:30:00Z",
+  "updatedAt": "2024-01-15T10:30:00Z",
+  "wordCount": 45,
+  "isAnalyzed": false
+}</div>
+
+                    <div class="status-codes">
+                        <span class="status-code status-201">201: 일기 작성 성공</span>
+                        <span class="status-code status-400">400: 잘못된 요청</span>
+                        <span class="status-code status-401">401: 인증 실패</span>
+                    </div>
+
+                    <div class="constraint-info">
+                        <h5>📝 일기 작성 가이드</h5>
+                        <ul>
+                            <li>하루에 최대 5개의 일기 작성 가능</li>
+                            <li>내용은 최소 10자 이상 작성 필요</li>
+                            <li>제목이 없을 경우 자동으로 날짜로 설정</li>
+                            <li>작성 후 감정 분석을 위해 별도 API 호출 필요</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <h3>일기 목록 조회 <span class="auth-badge">🔐 인증 필요</span></h3>
+                    <div>
+                        <span class="method-badge method-get">GET</span>
+                        <div class="endpoint-url">/api/diaries</div>
+                    </div>
+                    <p>사용자가 작성한 일기 목록을 페이지네이션하여 조회합니다.</p>
+                    
+                    <h4>쿼리 파라미터</h4>
+                    <table class="field-table">
+                        <tr>
+                            <th>파라미터명</th>
+                            <th>타입</th>
+                            <th>필수/선택</th>
+                            <th>기본값</th>
+                            <th>설명</th>
+                        </tr>
+                        <tr>
+                            <td>page</td>
+                            <td>integer</td>
+                            <td><span class="optional">선택</span></td>
+                            <td>0</td>
+                            <td>페이지 번호 (0부터 시작)</td>
+                        </tr>
+                        <tr>
+                            <td>size</td>
+                            <td>integer</td>
+                            <td><span class="optional">선택</span></td>
+                            <td>10</td>
+                            <td>페이지 당 항목 수 (최대 50)</td>
+                        </tr>
+                        <tr>
+                            <td>sort</td>
+                            <td>string</td>
+                            <td><span class="optional">선택</span></td>
+                            <td>createdAt,desc</td>
+                            <td>정렬 기준</td>
+                        </tr>
+                        <tr>
+                            <td>startDate</td>
+                            <td>string</td>
+                            <td><span class="optional">선택</span></td>
+                            <td>-</td>
+                            <td>시작 날짜 (YYYY-MM-DD)</td>
+                        </tr>
+                        <tr>
+                            <td>endDate</td>
+                            <td>string</td>
+                            <td><span class="optional">선택</span></td>
+                            <td>-</td>
+                            <td>종료 날짜 (YYYY-MM-DD)</td>
+                        </tr>
+                    </table>
+
+                    <h4>응답 본문</h4>
+                    <div class="code-block">{
+  "diaries": [
+    {
+      "id": 1,
+      "title": "오늘의 일기",
+      "createdAt": "2024-01-15T10:30:00Z",
+      "emotionStatus": "POSITIVE",
+      "wordCount": 45,
+      "isAnalyzed": true
+    }
+  ],
+  "pageInfo": {
+    "currentPage": 0,
+    "totalPages": 5,
+    "totalElements": 42,
+    "hasNext": true,
+    "hasPrevious": false
+  }
+}</div>
+
+                    <div class="status-codes">
+                        <span class="status-code status-200">200: 일기 목록 조회 성공</span>
+                        <span class="status-code status-401">401: 인증 실패</span>
+                    </div>
+                </div>
+            </section>
+
+            <section id="analysis" class="api-section">
+                <h2>감정 분석 API</h2>
+                
+                <div class="endpoint">
+                    <h3>일기 감정 분석 요청 <span class="auth-badge">🔐 인증 필요</span></h3>
+                    <div>
+                        <span class="method-badge method-post">POST</span>
+                        <div class="endpoint-url">/api/diaries/{diaryId}/analysis</div>
+                    </div>
+                    <p>특정 일기에 대한 AI 감정 분석을 비동기적으로 요청합니다.</p>
+                    
+                    <h4>경로 파라미터</h4>
+                    <table class="field-table">
+                        <tr>
+                            <th>파라미터명</th>
+                            <th>타입</th>
+                            <th>필수/선택</th>
+                            <th>제약 조건</th>
+                            <th>설명</th>
+                        </tr>
+                        <tr>
+                            <td>diaryId</td>
+                            <td>integer</td>
+                            <td><span class="required">필수</span></td>
+                            <td>양의 정수</td>
+                            <td>분석할 일기의 ID</td>
+                        </tr>
+                    </table>
+
+                    <h4>응답 본문</h4>
+                    <div class="code-block">{
+  "message": "Emotion analysis request accepted. Processing in background.",
+  "diaryId": 1,
+  "trackingId": "kafka-message-id-12345",
+  "estimatedTime": "2-5분",
+  "requestedAt": "2024-01-15T10:30:00Z"
+}</div>
+
+                    <div class="status-codes">
+                        <span class="status-code status-202">202: 분석 요청 성공</span>
+                        <span class="status-code status-401">401: 인증 실패</span>
+                        <span class="status-code status-403">403: 접근 권한 없음</span>
+                        <span class="status-code status-404">404: 일기를 찾을 수 없음</span>
+                        <span class="status-code status-409">409: 이미 분석 중이거나 완료됨</span>
+                    </div>
+
+                    <div class="constraint-info">
+                        <h5>🤖 AI 분석 정보</h5>
+                        <ul>
+                            <li>분석 소요 시간: 평균 2-5분</li>
+                            <li>일기 내용이 10자 미만일 경우 분석 불가</li>
+                            <li>하루 최대 20회 분석 요청 가능</li>
+                            <li>분석 결과는 SSE를 통해 실시간 알림</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <h3>일기 감정 분석 결과 조회 <span class="auth-badge">🔐 인증 필요</span></h3>
+                    <div>
+                        <span class="method-badge method-get">GET</span>
+                        <div class="endpoint-url">/api/diaries/{diaryId}/analysis</div>
+                    </div>
+                    <p>특정 일기의 AI 감정 분석 결과를 조회합니다.</p>
+                    
+                    <h4>응답 본문 (분석 완료)</h4>
+                    <div class="code-block">{
+  "diaryId": 1,
+  "analysis": {
+    "id": 42,
+    "emotionDetection": {
+      "joy": 80,
+      "sadness": 10,
+      "surprise": 5,
+      "calm": 5
+    },
+    "emotionSummary": "기쁨 80%, 슬픔 10%, 놀람 5%, 평온 5%",
+    "automaticThought": "나는 항상 실패한다.",
+    "promptForChange": "정말 항상 실패했나요? 성공했던 경험을 떠올려볼까요?",
+    "alternativeThought": "과거에 몇 번 실패했지만, 그것이 항상 실패한다는 의미는 아니다. 이번에는 다른 방법을 시도해볼 수 있다.",
+    "status": "POSITIVE",
+    "confidence": 0.85,
+    "analyzedAt": "2024-01-15T10:35:00Z"
+  }
+}</div>
+
+                    <h4>응답 본문 (분석 진행 중)</h4>
+                    <div class="code-block">{
+  "message": "Analysis is still in progress.",
+  "diaryId": 1,
+  "progress": 65,
+  "estimatedRemaining": "1-2분"
+}</div>
+
+                    <div class="status-codes">
+                        <span class="status-code status-200">200: 분석 결과 조회 성공</span>
+                        <span class="status-code status-202">202: 분석 진행 중</span>
+                        <span class="status-code status-401">401: 인증 실패</span>
+                        <span class="status-code status-404">404: 분석 결과를 찾을 수 없음</span>
+                    </div>
+                </div>
+            </section>
+
+            <section id="errors" class="api-section">
+                <h2>오류 처리</h2>
+                
+                <h3>표준 오류 응답 형식</h3>
+                <p>모든 API 오류는 다음과 같은 표준 형식으로 응답됩니다.</p>
+                
+                <div class="code-block">{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "상세 오류 메시지",
+  "path": "/api/endpoint",
+  "traceId": "abc123def456",
+  "validationErrors": [
+    {
+      "field": "필드명",
+      "message": "필드별 오류 메시지",
+      "rejectedValue": "거부된 값"
+    }
+  ]
+}</div>
+
+                <h3>주요 오류 코드</h3>
+                <table class="info-table">
+                    <tr>
+                        <th>상태 코드</th>
+                        <th>오류 타입</th>
+                        <th>설명</th>
+                        <th>해결 방법</th>
+                    </tr>
+                    <tr>
+                        <td>400</td>
+                        <td>Bad Request</td>
+                        <td>잘못된 요청 형식 또는 유효성 검사 실패</td>
+                        <td>요청 데이터 확인 및 수정</td>
+                    </tr>
+                    <tr>
+                        <td>401</td>
+                        <td>Unauthorized</td>
+                        <td>인증 토큰이 없거나 유효하지 않음</td>
+                        <td>로그인 후 유효한 토큰으로 재요청</td>
+                    </tr>
+                    <tr>
+                        <td>403</td>
+                        <td>Forbidden</td>
+                        <td>접근 권한이 없음</td>
+                        <td>권한 확인 또는 관리자 문의</td>
+                    </tr>
+                    <tr>
+                        <td>404</td>
+                        <td>Not Found</td>
+                        <td>요청한 리소스를 찾을 수 없음</td>
+                        <td>URL 및 리소스 ID 확인</td>
+                    </tr>
+                    <tr>
+                        <td>409</td>
+                        <td>Conflict</td>
+                        <td>리소스 충돌 (중복 등)</td>
+                        <td>중복 데이터 확인 및 수정</td>
+                    </tr>
+                    <tr>
+                        <td>429</td>
+                        <td>Too Many Requests</td>
+                        <td>요청 한도 초과</td>
+                        <td>잠시 후 재시도</td>
+                    </tr>
+                    <tr>
+                        <td>500</td>
+                        <td>Internal Server Error</td>
+                        <td>서버 내부 오류</td>
+                        <td>관리자 문의</td>
+                    </tr>
+                </table>
+
+                <h3>오류 처리 권장사항</h3>
+                <div class="constraint-info">
+                    <h5>💡 클라이언트 오류 처리 가이드</h5>
+                    <ul>
+                        <li><strong>401 오류:</strong> 자동으로 토큰 갱신 시도 후 재요청</li>
+                        <li><strong>429 오류:</strong> Exponential Backoff 알고리즘 사용</li>
+                        <li><strong>5xx 오류:</strong> 사용자에게 친화적인 메시지 표시</li>
+                        <li><strong>네트워크 오류:</strong> 재시도 로직 구현 (최대 3회)</li>
+                        <li><strong>타임아웃:</strong> 30초 이상 응답 없을 시 요청 취소</li>
+                    </ul>
+                </div>
+
+                <h3>오류 코드별 상세 예시</h3>
+                
+                <h4>유효성 검사 실패 (400)</h4>
+                <div class="code-block">{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Validation failed for multiple fields",
+  "path": "/api/public/join",
+  "traceId": "abc123def456",
+  "validationErrors": [
+    {
+      "field": "userPw",
+      "message": "비밀번호는 8자 이상이어야 합니다",
+      "rejectedValue": "123"
+    },
+    {
+      "field": "email",
+      "message": "유효한 이메일 형식이 아닙니다",
+      "rejectedValue": "invalid-email"
+    }
+  ]
+}</div>
+
+                <h4>인증 실패 (401)</h4>
+                <div class="code-block">{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "status": 401,
+  "error": "Unauthorized",
+  "message": "JWT token is expired",
+  "path": "/api/diaries",
+  "traceId": "def456ghi789",
+  "details": {
+    "tokenExpiredAt": "2024-01-15T10:00:00Z",
+    "refreshTokenAvailable": true
+  }
+}</div>
+
+                <h4>리소스  "2024-01-15T10:00:00Z",
+    "refreshTokenAvailable": true
+  }
+}</div>
+
+                <h4>리소스 충돌 (409)</h4>
+                <div class="code-block">{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "status": 409,
+  "error": "Conflict",
+  "message": "이미 존재하는 사용자 ID입니다",
+  "path": "/api/public/join",
+  "traceId": "ghi789jkl012",
+  "conflictDetails": {
+    "conflictField": "userId",
+    "conflictValue": "newUser123",
+    "suggestion": "다른 사용자 ID를 시도해보세요"
+  }
+}</div>
+
+                <h4>요청 한도 초과 (429)</h4>
+                <div class="code-block">{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "status": 429,
+  "error": "Too Many Requests",
+  "message": "API 요청 한도를 초과했습니다",
+  "path": "/api/diaries/1/analysis",
+  "traceId": "jkl012mno345",
+  "rateLimitDetails": {
+    "limit": 20,
+    "remaining": 0,
+    "resetTime": "2024-01-15T11:00:00Z",
+    "retryAfter": 1800
+  }
+}</div>
+            </section>
+
+            <section id="models" class="api-section">
+                <h2>데이터 모델</h2>
+                
+                <h3>인증 및 사용자 모델</h3>
+                <table class="info-table">
+                    <tr>
+                        <th>모델</th>
+                        <th>설명</th>
+                        <th>주요 필드</th>
+                        <th>사용 위치</th>
+                    </tr>
+                    <tr>
+                        <td>JoinRequest</td>
+                        <td>회원가입 요청</td>
+                        <td>userId, userPw, userName, nickname, phone, gender, code 등</td>
+                        <td>POST /api/public/join</td>
+                    </tr>
+                    <tr>
+                        <td>LoginRequest</td>
+                        <td>로그인 요청</td>
+                        <td>userId, password</td>
+                        <td>POST /api/auth/login</td>
+                    </tr>
+                    <tr>
+                        <td>LoginResponse</td>
+                        <td>로그인 응답</td>
+                        <td>access_token, expires_in, token_type, user</td>
+                        <td>POST /api/auth/login</td>
+                    </tr>
+                    <tr>
+                        <td>TokenRefreshRequest</td>
+                        <td>토큰 갱신 요청</td>
+                        <td>expiredToken, provider</td>
+                        <td>POST /auth/api/protected/refresh</td>
+                    </tr>
+                    <tr>
+                        <td>TokenRefreshResponse</td>
+                        <td>토큰 갱신 응답</td>
+                        <td>access_token, expires_in, token_type</td>
+                        <td>POST /auth/api/protected/refresh</td>
+                    </tr>
+                </table>
+
+                <h3>일기 및 분석 모델</h3>
+                <table class="info-table">
+                    <tr>
+                        <th>모델</th>
+                        <th>설명</th>
+                        <th>주요 필드</th>
+                        <th>사용 위치</th>
+                    </tr>
+                    <tr>
+                        <td>DiaryCreateRequest</td>
+                        <td>일기 생성 요청</td>
+                        <td>title, content</td>
+                        <td>POST /api/diaries</td>
+                    </tr>
+                    <tr>
+                        <td>DiaryResponse</td>
+                        <td>일기 응답</td>
+                        <td>id, userId, title, content, createdAt, updatedAt, wordCount</td>
+                        <td>POST, GET, PUT /api/diaries</td>
+                    </tr>
+                    <tr>
+                        <td>DiaryListItem</td>
+                        <td>일기 목록 항목</td>
+                        <td>id, title, createdAt, emotionStatus, wordCount, isAnalyzed</td>
+                        <td>GET /api/diaries</td>
+                    </tr>
+                    <tr>
+                        <td>DiaryAnalysisResult</td>
+                        <td>일기 분석 결과</td>
+                        <td>emotionDetection, automaticThought, alternativeThought, status, confidence</td>
+                        <td>GET /api/diaries/{id}/analysis</td>
+                    </tr>
+                    <tr>
+                        <td>DiaryAnalysisRequestResponse</td>
+                        <td>일기 분석 요청 응답</td>
+                        <td>message, diaryId, trackingId, estimatedTime</td>
+                        <td>POST /api/diaries/{id}/analysis</td>
+                    </tr>
+                </table>
+
+                <h3>설정 및 기타 모델</h3>
+                <table class="info-table">
+                    <tr>
+                        <th>모델</th>
+                        <th>설명</th>
+                        <th>주요 필드</th>
+                        <th>사용 위치</th>
+                    </tr>
+                    <tr>
+                        <td>SettingItem</td>
+                        <td>설정 항목</td>
+                        <td>settingKey, value, dataType, description, isUserEditable</td>
+                        <td>GET /api/settings</td>
+                    </tr>
+                    <tr>
+                        <td>SettingsUpdateRequest</td>
+                        <td>설정 수정 요청</td>
+                        <td>settingsToUpdate</td>
+                        <td>PUT /api/settings</td>
+                    </tr>
+                    <tr>
+                        <td>ErrorResponse</td>
+                        <td>오류 응답</td>
+                        <td>timestamp, status, error, message, path, traceId, validationErrors</td>
+                        <td>모든 오류 응답</td>
+                    </tr>
+                    <tr>
+                        <td>PageInfo</td>
+                        <td>페이지네이션 정보</td>
+                        <td>currentPage, totalPages, totalElements, hasNext, hasPrevious</td>
+                        <td>페이지네이션이 있는 모든 API</td>
+                    </tr>
+                </table>
+
+                <h3>열거형 (Enum) 정의</h3>
+                <table class="info-table">
+                    <tr>
+                        <th>열거형</th>
+                        <th>값</th>
+                        <th>설명</th>
+                    </tr>
+                    <tr>
+                        <td>UserRole</td>
+                        <td>USER, ADMIN, MODERATOR</td>
+                        <td>사용자 권한</td>
+                    </tr>
+                    <tr>
+                        <td>Gender</td>
+                        <td>male, female, other</td>
+                        <td>성별</td>
+                    </tr>
+                    <tr>
+                        <td>EmotionStatus</td>
+                        <td>POSITIVE, NEGATIVE, NEUTRAL, MIXED</td>
+                        <td>감정 상태</td>
+                    </tr>
+                    <tr>
+                        <td>AnalysisStatus</td>
+                        <td>PENDING, IN_PROGRESS, COMPLETED, FAILED</td>
+                        <td>분석 진행 상태</td>
+                    </tr>
+                    <tr>
+                        <td>AuthProvider</td>
+                        <td>server, google, kakao, naver</td>
+                        <td>인증 제공자</td>
+                    </tr>
+                </table>
+            </section>
+        </main>
+    </div>
+
+    <button class="back-to-top" onclick="scrollToTop()">↑</button>
+
+    <script>
+        // 검색 기능
+        function searchAPI() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const sections = document.querySelectorAll('.api-section');
+            const endpoints = document.querySelectorAll('.endpoint');
+            
+            // 모든 섹션과 엔드포인트를 먼저 숨김
+            sections.forEach(section => {
+                section.classList.add('hidden');
+            });
+            
+            endpoints.forEach(endpoint => {
+                endpoint.classList.add('hidden');
+            });
+            
+            if (searchTerm === '') {
+                // 검색어가 없으면 모든 것을 다시 표시
+                sections.forEach(section => {
+                    section.classList.remove('hidden');
+                });
+                endpoints.forEach(endpoint => {
+                    endpoint.classList.remove('hidden');
+                });
+                return;
+            }
+            
+            // 검색어와 일치하는 항목들을 찾아서 표시
+            sections.forEach(section => {
+                const sectionText = section.textContent.toLowerCase();
+                if (sectionText.includes(searchTerm)) {
+                    section.classList.remove('hidden');
+                    // 해당 섹션의 모든 엔드포인트도 표시
+                    const sectionEndpoints = section.querySelectorAll('.endpoint');
+                    sectionEndpoints.forEach(endpoint => {
+                        endpoint.classList.remove('hidden');
+                    });
+                }
+            });
+            
+            // 검색어 하이라이트
+            highlightSearchTerm(searchTerm);
+        }
+        
+        function highlightSearchTerm(term) {
+            if (term === '') return;
+            
+            const walker = document.createTreeWalker(
+                document.querySelector('.main-content'),
+                NodeFilter.SHOW_TEXT,
+                null,
+                false
+            );
+            
+            const textNodes = [];
+            let node;
+            
+            while (node = walker.nextNode()) {
+                textNodes.push(node);
+            }
+            
+            textNodes.forEach(textNode => {
+                const parent = textNode.parentNode;
+                if (parent.tagName === 'SCRIPT' || parent.tagName === 'STYLE') return;
+                
+                const text = textNode.textContent;
+                const regex = new RegExp(`(${term})`, 'gi');
+                
+                if (regex.test(text)) {
+                    const highlightedText = text.replace(regex, '<span class="highlight">$1</span>');
+                    const wrapper = document.createElement('div');
+                    wrapper.innerHTML = highlightedText;
+                    
+                    while (wrapper.firstChild) {
+                        parent.insertBefore(wrapper.firstChild, textNode);
+                    }
+                    parent.removeChild(textNode);
+                }
+            });
+        }
+        
+        // 네비게이션 활성화
+        function setActiveNav() {
+            const sections = document.querySelectorAll('.api-section');
+            const navItems = document.querySelectorAll('.nav-item');
+            
+            window.addEventListener('scroll', () => {
+                let current = '';
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop;
+                    const sectionHeight = section.clientHeight;
+                    if (window.pageYOffset >= sectionTop - 200) {
+                        current = section.getAttribute('id');
+                    }
+                });
+                
+                navItems.forEach(item => {
+                    item.classList.remove('active');
+                    if (item.getAttribute('href') === `#${current}`) {
+                        item.classList.add('active');
+                    }
+                });
+            });
+        }
+        
+        // 부드러운 스크롤
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetId = item.getAttribute('href').substring(1);
+                const targetSection = document.getElementById(targetId);
+                if (targetSection) {
+                    targetSection.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+        
+        // 맨 위로 스크롤
+        function scrollToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+        
+        // 사이드바 토글 (모바일)
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('open');
+        }
+        
+        // 초기화
+        document.addEventListener('DOMContentLoaded', () => {
+            setActiveNav();
+            
+            // 사이드바 외부 클릭 시 닫기 (모바일)
+            document.addEventListener('click', (e) => {
+                const sidebar = document.getElementById('sidebar');
+                const menuToggle = document.querySelector('.menu-toggle');
+                
+                if (window.innerWidth <= 768 && 
+                    !sidebar.contains(e.target) && 
+                    !menuToggle.contains(e.target)) {
+                    sidebar.classList.remove('open');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+

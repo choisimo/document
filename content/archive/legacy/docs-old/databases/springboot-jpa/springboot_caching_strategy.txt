@@ -1,0 +1,32 @@
+N+1 Prevention:
+
+Used EntityGraph for eager loading when necessary
+
+DTO projections to select only required fields
+
+Batch size configuration in application.properties
+
+Caching Strategy:
+
+Redis cache for frequent role-based queries
+
+Cache eviction on write operations
+
+Time-to-live configuration for cache entries
+
+Transaction Management:
+
+Separate transaction managers for different datasources
+
+Read-only transactions for query operations
+
+Chained transaction manager for cross-database operations
+
+Logging & Monitoring:
+
+Structured logging with MDC
+
+Kafka integration for event tracking
+
+Health checks for all data sources
+

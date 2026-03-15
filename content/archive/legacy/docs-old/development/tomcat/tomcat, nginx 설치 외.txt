@@ -1,0 +1,28 @@
+
+docker run -d \
+  --name nginx-proxy-manager \
+  -p 81:81 \
+  -p 443:443 \
+  -p 80:80 \
+  -v /home/user/mydata:/data \
+  -v /home/user/myletsencrypt:/etc/letsencrypt \
+  jc21/nginx-proxy-manager
+
+
+docker pull jc21/nginx-proxy-manager
+data file path : mkdir -p /docker/NPM/data 
+encrypt file path : mkdir -p /docker/NPM/encrypt
+
+
+docker run -d \
+  --name tomcat1 \
+  -p 2719:8080 \
+  -v /docker/web/webapps/:/usr/local/tomcat/webapps \
+  --user root \
+  tomcat:9.0.79
+
+
+
+nginx proxy_pass 
+[root@docker-ceca3110e7b7:/data/nginx/proxy_host]#
+

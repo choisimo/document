@@ -1,0 +1,14 @@
+gluetun:
+  image: qmcgaw/gluetun:latest
+  container_name: gluetun
+  cap_add:
+    - NET_ADMIN
+  devices:
+    - /dev/net/tun:/dev/net/tun
+  environment:
+    - VPN_SERVICE_PROVIDER=${ACTIVE_PROVIDER}
+    - VPN_TYPE=${VPN_TYPE:-wireguard}
+    - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}
+    - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES}
+    - WIREGUARD_PRESHARED_KEY=${WIREGUARD_PRESHARED_KEY}
+

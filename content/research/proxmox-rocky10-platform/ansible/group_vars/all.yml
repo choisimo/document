@@ -1,0 +1,71 @@
+ansible_user: nodove
+ansible_become: true
+
+platform_domain: lab.local
+platform_timezone: Asia/Seoul
+
+nodove_user: nodove
+nodove_uid: 1001
+nodove_shell: /bin/bash
+nodove_ssh_keys:
+  - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEXAMPLE_REPLACE_WITH_REAL_KEY nodove@laptop"
+
+common_packages:
+  - curl
+  - git
+  - jq
+  - unzip
+  - tar
+  - rsync
+  - ca-certificates
+  - chrony
+  - qemu-guest-agent
+  - python3
+  - python3-pip
+  - firewalld
+
+# Docker (official Docker docs for RHEL 10)
+docker_repo_url: https://download.docker.com/linux/rhel/docker-ce.repo
+docker_packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin
+
+# Service locations
+platform_root_dir: /opt/platform
+project_root_dir: /opt/projects
+
+# Consul/Vault/MinIO/Headscale defaults
+consul_datacenter: dc1
+consul_bind_addr: 0.0.0.0
+
+vault_addr: "http://{{ hostvars[groups['infra_core'][0]].ansible_host | default(groups['infra_core'][0]) }}:8200"
+consul_addr: "http://{{ hostvars[groups['infra_core'][0]].ansible_host | default(groups['infra_core'][0]) }}:8500"
+
+# vault_token should be supplied at runtime for deployment/bootstrap commands
+vault_token: ""
+consul_token: ""
+
+minio_root_user: minioadmin
+minio_root_password: change-this-minio-password
+minio_region_name: ap-northeast-2
+
+headscale_server_url: "http://headscale.{{ platform_domain }}"
+headscale_listen_addr: "0.0.0.0:8080"
+headscale_metrics_listen_addr: "0.0.0.0:9090"
+headscale_grpc_listen_addr: "0.0.0.0:50443"
+headscale_noise_private_key_path: /var/lib/headscale/noise_private.key
+headscale_db_path: /var/lib/headscale/db.sqlite
+headscale_prefix_v4: 100.64.0.0/10
+headscale_prefix_v6: fd7a:115c:a1e0::/48
+
+# Project deployment defaults
+project_name: sample-app
+project_repo_url: ""
+project_repo_ref: main
+project_compose_file: docker-compose.yml
+project_deploy_path: "{{ project_root_dir }}/{{ project_name }}"
+project_public_env: {}
+project_secret_env: {}

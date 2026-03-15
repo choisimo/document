@@ -1,0 +1,44 @@
+- name: Ensure headscale directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ platform_root_dir }}/headscale"
+    - "{{ platform_root_dir }}/headscale/config"
+    - "{{ platform_root_dir }}/headscale/lib"
+
+- name: Render headscale config
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: "{{ platform_root_dir }}/headscale/config/config.yaml"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Render headscale compose
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ platform_root_dir }}/headscale/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Open required firewalld ports for Headscale
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  loop:
+    - 8080/tcp
+    - 9090/tcp
+    - 50443/tcp
+
+- name: Deploy headscale stack
+  ansible.builtin.command:
+    cmd: docker compose up -d
+  args:
+    chdir: "{{ platform_root_dir }}/headscale"

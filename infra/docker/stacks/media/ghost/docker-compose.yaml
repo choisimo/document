@@ -1,0 +1,147 @@
+version: '3.1'
+
+# ---------------------------------------------------------------------
+# |                       @@@NOTICE@@@ @TODO                          |
+# ---------------------------------------------------------------------
+# add Caddyfile at $PWD/caddy/conf/Caddyfile
+# {$Domain_name ex) https://mydomain.com} {
+#   reverse_proxy ghost:2368
+#   tls { # for internal access (optional)
+#     protocols tls1.2 tls1.3
+#    }
+#  }
+# ---------------------------------------------------------------------
+# |  save your configuration .env on the same directory(docker-file)  |
+# ---------------------------------------------------------------------
+
+# # 기본 설정
+# DOMAIN_NAME= ex) google.com
+# GHOST_VERSION=5-alpine
+# MYSQL_VERSION=8.0
+# PWD= base directory 
+
+# # 데이터베이스 설정
+# GHOST_DB_USER= ex) adminghost
+# GHOST_DB_PASSWORD= ex) passwordforghostdb
+# MYSQL_ROOT_PASSWORD= ex) passwordforghostdb
+
+# # Caddy 설정
+# CADDY_VERSION=latest
+# HTTP_PORT=80
+# HTTPS_PORT=443
+
+# # 백업 설정
+# BACKUP_RETENTION_DAYS=7
+# BACKUP_INTERVAL=86400
+
+# # SMTP Settings 
+# # https://myaccount.google.com/apppasswords
+# MAIL_FROM=your-email@example.com
+# MAIL_HOST=smtp.example.com
+# MAIL_PORT=587
+# MAIL_SECURE=false 
+# MAIL_USER=your-smtp-username
+# MAIL_PASSWORD=your-smtp-password
+
+# ---------------------------------------------------------------------
+# |           MYSQL may not working properly without below works.     |
+# ---------------------------------------------------------------------
+# If you're running docker containers on the vms (like qemu), 
+# check if CPU is compatible with mysql:8.0 (X86 ~~ blarblar not exists)
+# -> if not, try another versions
+# sudo chown -R 999:999 $PWD/ghost-mysql/db  
+# ---------------------------------------------------------------------
+# |                       @@@NOTICE@@@ @TODO                          |
+# ---------------------------------------------------------------------
+
+services:
+  caddy:
+    image: caddy:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - $PWD/caddy/conf:/etc/caddy
+      - $PWD/caddy/site:/srv
+      - $PWD/caddy/data:/data
+      - $PWD/caddy/config:/config
+    networks:
+      - ghost_network
+    restart: unless-stopped
+
+  ghost:
+    image: ghost:${GHOST_VERSION:-5-alpine}
+    restart: always
+    environment:
+      database__client: mysql
+      database__connection__host: db
+      database__connection__user: ${GHOST_DB_USER}
+      database__connection__password: ${GHOST_DB_PASSWORD}
+      database__connection__database: ghost
+      url: https://${DOMAIN_NAME}
+      # SMTP configuration
+      mail__from: ${MAIL_FROM:-noreply@${DOMAIN_NAME}}
+      mail__transport: SMTP
+      mail__options__host: ${MAIL_HOST}
+      mail__options__port: ${MAIL_PORT:-587}
+      mail__options__secure: ${MAIL_SECURE:-false}
+      mail__options__auth__user: ${MAIL_USER}
+      mail__options__auth__pass: ${MAIL_PASSWORD}
+    volumes:
+      - $PWD/ghost/content:/var/lib/ghost/content
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - ghost_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2368/ghost/api/admin/site/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db:
+    image: mysql:${MYSQL_VERSION:-8.0}
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ghost
+      MYSQL_USER: ${GHOST_DB_USER}
+      MYSQL_PASSWORD: ${GHOST_DB_PASSWORD}
+    volumes:
+      - $PWD/ghost-mysql/db:/var/lib/mysql
+      - $PWD/ghost-mysql/config:/etc/mysql/conf.d
+      - $PWD/ghost-mysql/mysql-init:/docker-entrypoint-initdb.d
+    networks:
+      - ghost_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  backup:
+    image: alpine:latest
+    volumes:
+      - $PWD/ghost-backup/content:/backup/ghost:ro
+      - $PWD/ghost-backup/db:/backup/db:ro
+      - $PWD/ghost-backup/backups:/backups
+    command: |
+      sh -c '
+        while true; do
+          apk add --no-cache tar && 
+          tar czf /backups/backup-$$(date +%Y%m%d-%H%M%S).tar.gz /backup && 
+          find /backups -name "backup-*.tar.gz" -type f -mtime +7 -delete
+          sleep 86400
+        done'
+    networks:
+      - ghost_network
+    depends_on:
+      ghost:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+
+networks:
+  ghost_network:

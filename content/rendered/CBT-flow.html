@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>CBT-flow.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="cbt-diary-%EC%A0%84%EC%B2%B4-%EA%B8%B0%EB%8A%A5%EB%B3%84-%EB%B9%84%EC%A6%88%EB%8B%88%EC%8A%A4-%ED%9D%90%EB%A6%84%EB%8F%84">CBT Diary: 전체 기능별 비즈니스 흐름도</h1>
+<p>본 문서는 사용자가 React-Native 클라이언트에서 특정 작업을 수행했을 때, Auth-server(Spring Boot), ai-server(Python), 그리고 데이터베이스(MariaDB, Redis) 간에 데이터가 어떻게 흐르는지 시퀀스 다이어그램으로 시각화한 것입니다.</p>
+<blockquote>
+<p><strong>참고</strong>: 현재 프로젝트의 주 데이터베이스는 MariaDB입니다. 일기, 사용자 정보, AI 분석 결과 등 핵심 데이터는 모두 MariaDB에 저장 및 관리됩니다.</p>
+</blockquote>
+<h2 id="1-%EC%82%AC%EC%9A%A9%EC%9E%90-%EC%9D%B8%EC%A6%9D-authentication">1. 사용자 인증 (Authentication)</h2>
+<h3 id="11-%EC%82%AC%EC%9A%A9%EC%9E%90-%ED%9A%8C%EC%9B%90%EA%B0%80%EC%9E%85">1.1. 사용자 회원가입</h3>
+<p>사용자가 앱에서 이메일, 비밀번호, 이름 등 정보를 입력하고 '회원가입'을 요청했을 때의 흐름입니다.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client as CBT-front (React-Native)
+    participant AuthServer as Auth-server (Spring Boot)
+    participant Database as MariaDB
+
+    Client->>AuthServer: 1. 회원가입 요청 (POST /api/users/join) <br> {email, password, name}
+    activate AuthServer
+
+    AuthServer->>Database: 2. 이메일 중복 확인 (SELECT)
+    activate Database
+    Database-->>AuthServer: 3. 중복 여부 반환
+    deactivate Database
+
+    alt 이메일 사용 가능
+        AuthServer->>AuthServer: 4. 비밀번호 암호화 (BCrypt)
+        AuthServer->>Database: 5. 사용자 정보 저장 (INSERT INTO users)
+        activate Database
+        Database-->>AuthServer: 6. 저장 완료
+        deactivate Database
+
+        AuthServer-->>Client: 7. 회원가입 성공 응답 (201 Created)
+    else 이메일 중복
+        AuthServer-->>Client: 7. 회원가입 실패 응답 (409 Conflict)
+    end
+    deactivate AuthServer
+</div></code></pre>
+<h3 id="12-%EC%82%AC%EC%9A%A9%EC%9E%90-%EB%A1%9C%EA%B7%B8%EC%9D%B8-%EB%B0%8F-%ED%86%A0%ED%81%B0-%EA%B4%80%EB%A6%AC">1.2. 사용자 로그인 및 토큰 관리</h3>
+<p>사용자가 이메일과 비밀번호로 '로그인'을 요청했을 때의 인증 및 토큰 발급/저장 흐름입니다.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client as CBT-front (React-Native)
+    participant AuthServer as Auth-server (Spring Boot)
+    participant Database as MariaDB
+    participant Cache as Redis
+
+    Client->>AuthServer: 1. 로그인 요청 (POST /api/auth/login) <br> {email, password}
+    activate AuthServer
+
+    AuthServer->>Database: 2. 사용자 정보 및 암호화된 비밀번호 조회 (SELECT)
+    activate Database
+    Database-->>AuthServer: 3. 사용자 정보 반환
+    deactivate Database
+
+    AuthServer->>AuthServer: 4. 비밀번호 일치 여부 확인
+
+    alt 인증 성공
+        AuthServer->>AuthServer: 5. Access & Refresh 토큰 생성 (JWT)
+
+        AuthServer->>Cache: 6. Refresh 토큰 저장 (SET user_email:token)
+        activate Cache
+        Cache-->>AuthServer: 7. 저장 완료
+        deactivate Cache
+
+        AuthServer-->>Client: 8. 토큰 및 사용자 정보 응답 <br> {accessToken, refreshToken, user}
+
+        Client->>Client: 9. 기기에 토큰 및 사용자 정보 저장 (AsyncStorage)
+
+    else 인증 실패
+        AuthServer-->>Client: 8. 로그인 실패 응답 (401 Unauthorized)
+    end
+
+    deactivate AuthServer
+</div></code></pre>
+<h2 id="2-%EC%9D%BC%EA%B8%B0-%EA%B4%80%EB%A6%AC-diary-management">2. 일기 관리 (Diary Management)</h2>
+<h3 id="21-%EC%9D%BC%EA%B8%B0-%EC%9E%91%EC%84%B1-%EB%B0%8F-ai-%EA%B0%90%EC%A0%95-%EB%B6%84%EC%84%9D">2.1. 일기 작성 및 AI 감정 분석</h3>
+<p>사용자가 일기를 작성하고 '저장'을 요청했을 때, 일기 저장과 AI 분석이 함께 이루어지는 비동기 흐름입니다.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client as CBT-front (React-Native)
+    participant AuthServer as Auth-server (Spring Boot)
+    participant AiServer as ai-server (Python/FastAPI)
+    participant OpenAIApi as 외부 LLM (GPT)
+    participant Database as MariaDB
+
+    Client->>AuthServer: 1. 일기 저장 요청 (POST /api/diary) <br> {title, content, weather}
+    activate AuthServer
+
+    AuthServer->>Database: 2. 일기 정보 저장 (INSERT INTO diary)
+    activate Database
+    Database-->>AuthServer: 3. 저장된 일기(diary_id) 반환
+    deactivate Database
+
+    AuthServer-->>Client: 4. 일기 저장 성공 응답 (201 Created)
+
+    par AI 분석 (비동기 처리)
+        AuthServer->>AiServer: 5. 일기 분석 요청 (POST /analyze) <br> {text: diary.content}
+        activate AiServer
+
+        AiServer->>OpenAIApi: 6. 프롬프트 기반 분석 요청
+        activate OpenAIApi
+        OpenAIApi-->>AiServer: 7. 분석 결과 반환
+        deactivate OpenAIApi
+
+        AiServer->>AiServer: 8. 결과 포맷팅 (JSON)
+        AiServer-->>AuthServer: 9. 분석 결과 JSON 응답
+        deactivate AiServer
+
+        AuthServer->>Database: 10. 분석 결과 저장 (INSERT INTO report)
+        activate Database
+        Database-->>AuthServer: 11. 저장된 분석(report_id) 반환
+        deactivate Database
+
+        AuthServer->>Database: 12. 일기와 분석 결과 연결 <br> (UPDATE diary SET report_id = ?)
+    end
+    deactivate AuthServer
+</div></code></pre>
+<h3 id="22-%ED%8A%B9%EC%A0%95-%EB%82%A0%EC%A7%9C%EC%9D%98-%EC%9D%BC%EA%B8%B0-%EB%AA%A9%EB%A1%9D-%EC%A1%B0%ED%9A%8C">2.2. 특정 날짜의 일기 목록 조회</h3>
+<p>사용자가 캘린더에서 특정 날짜를 선택했을 때, 해당 날짜에 작성된 모든 일기의 요약 정보를 가져오는 흐름입니다.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client as CBT-front (React-Native)
+    participant AuthServer as Auth-server (Spring Boot)
+    participant Database as MariaDB
+
+    Client->>AuthServer: 1. 특정 날짜 일기 목록 요청 (GET /api/diary/calendar?date=YYYY-MM-DD)
+    activate AuthServer
+
+    AuthServer->>Database: 2. 해당 날짜의 일기 목록 조회 (SELECT ... WHERE user_id = ? AND created_at LIKE 'YYYY-MM-DD%')
+    activate Database
+    Database-->>AuthServer: 3. 일기 목록(id, title, emotion 등) 반환
+    deactivate Database
+
+    AuthServer-->>Client: 4. 일기 목록 데이터 응답
+    deactivate AuthServer
+</div></code></pre>
+<h3 id="23-%EC%9D%BC%EA%B8%B0-%EC%83%81%EC%84%B8-%EB%82%B4%EC%9A%A9-%EC%A1%B0%ED%9A%8C">2.3. 일기 상세 내용 조회</h3>
+<p>사용자가 목록에서 특정 일기를 선택했을 때, 일기의 전체 내용과 AI 분석 결과를 함께 조회하는 흐름입니다.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client as CBT-front (React-Native)
+    participant AuthServer as Auth-server (Spring Boot)
+    participant Database as MariaDB
+
+    Client->>AuthServer: 1. 일기 상세 조회 요청 (GET /api/diary/{diaryId})
+    activate AuthServer
+
+    AuthServer->>Database: 2. 일기 및 연관된 분석 리포트 조회 <br> (SELECT * FROM diary d LEFT JOIN report r ON d.report_id = r.id WHERE d.id = ?)
+    activate Database
+    Database-->>AuthServer: 3. 일기 및 분석 데이터 반환
+    deactivate Database
+
+    AuthServer-->>Client: 4. 상세 데이터(일기+분석) 응답
+    deactivate AuthServer
+</div></code></pre>
+<h3 id="24-%EC%9D%BC%EA%B8%B0-%EC%88%98%EC%A0%95">2.4. 일기 수정</h3>
+<p>사용자가 기존에 작성했던 일기의 내용을 수정하고 '저장'을 요청했을 때의 흐름입니다. (현재 로직에서는 수정 시 AI 재분석은 수행되지 않습니다.)</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client as CBT-front (React-Native)
+    participant AuthServer as Auth-server (Spring Boot)
+    participant Database as MariaDB
+
+    Client->>AuthServer: 1. 일기 수정 요청 (PUT /api/diary/{diaryId}) <br> {title, content, weather}
+    activate AuthServer
+
+    AuthServer->>Database: 2. 수정할 일기 조회 (소유자 확인)
+    activate Database
+    Database-->>AuthServer: 3. 일기 정보 반환
+    deactivate Database
+
+    alt 소유자 일치
+        AuthServer->>Database: 4. 일기 내용 업데이트 (UPDATE diary SET ...)
+        activate Database
+        Database-->>AuthServer: 5. 업데이트 완료
+        deactivate Database
+
+        AuthServer-->>Client: 6. 수정 성공 응답 (200 OK)
+    else 소유자 불일치 또는 일기 없음
+        AuthServer-->>Client: 6. 실패 응답 (403 Forbidden / 404 Not Found)
+    end
+    deactivate AuthServer
+</div></code></pre>
+<h3 id="25-%EC%9D%BC%EA%B8%B0-%EC%82%AD%EC%A0%9C">2.5. 일기 삭제</h3>
+<p>사용자가 특정 일기를 삭제하는 흐름입니다.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client as CBT-front (React-Native)
+    participant AuthServer as Auth-server (Spring Boot)
+    participant Database as MariaDB
+
+    Client->>AuthServer: 1. 일기 삭제 요청 (DELETE /api/diary/{diaryId})
+    activate AuthServer
+
+    AuthServer->>Database: 2. 삭제할 일기 조회 (소유자 확인)
+    activate Database
+    Database-->>AuthServer: 3. 일기 정보 반환
+    deactivate Database
+
+    alt 소유자 일치
+        AuthServer->>Database: 4. 일기 및 연관된 리포트 삭제 (DELETE)
+        note right of Database: Cascade 설정 또는<br>서비스 로직으로 Report 함께 삭제
+        activate Database
+        Database-->>AuthServer: 5. 삭제 완료
+        deactivate Database
+
+        AuthServer-->>Client: 6. 삭제 성공 응답 (204 No Content)
+    else 소유자 불일치 또는 일기 없음
+        AuthServer-->>Client: 6. 실패 응답 (403 Forbidden / 404 Not Found)
+    end
+    deactivate AuthServer
+</div></code></pre>
+<hr>
+<h2 id="%F0%9F%93%8A-%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8-%EC%95%84%ED%82%A4%ED%85%8D%EC%B2%98-%EA%B0%9C%EC%9A%94">📊 프로젝트 아키텍처 개요</h2>
+<pre><code class="language-mermaid"><div class="mermaid">graph TB
+    subgraph "Client Layer"
+        A[CBT-front<br/>React-Native]
+    end
+
+    subgraph "Server Layer"
+        B[Auth-server<br/>Spring Boot]
+        C[ai-server<br/>Python/FastAPI]
+    end
+
+    subgraph "Database Layer"
+        D[(MariaDB<br/>Core Data)]
+        E[(Redis<br/>Cache)]
+    end
+
+    subgraph "External Services"
+        F[OpenAI API<br/>GPT Models]
+    end
+
+    A -->|API Requests| B
+    B -->|AI Analysis| C
+    C -->|LLM Requests| F
+    B -->|Data Storage| D
+    B -->|Token Cache| E
+    C -->|Analysis Results| B
+</div></code></pre>
+<h2 id="%F0%9F%94%84-%EC%A0%84%EC%B2%B4-%EC%8B%9C%EC%8A%A4%ED%85%9C-%ED%94%8C%EB%A1%9C%EC%9A%B0">🔄 전체 시스템 플로우</h2>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Start([사용자 앱 실행]) --> Auth{인증 상태}
+    Auth -->|로그인됨| Main[메인 화면]
+    Auth -->|미로그인| Login[로그인/회원가입]
+
+    Login --> Main
+    Main --> Diary[일기 작성]
+    Main --> Calendar[캘린더 조회]
+    Main --> Analysis[분석 결과 조회]
+
+    Diary --> AI[AI 감정 분석]
+    AI --> Save[데이터 저장]
+    Save --> Main
+
+    Calendar --> DiaryList[일기 목록]
+    DiaryList --> DiaryDetail[일기 상세]
+    DiaryDetail --> Edit[편집/삭제]
+    Edit --> Main
+
+    Analysis --> Report[리포트 생성]
+    Report --> Main
+</div></code></pre>
+<h2 id="%E2%9A%A1-%EC%A3%BC%EC%9A%94-%EA%B8%B0%EB%8A%A5%EB%B3%84-%EC%B2%98%EB%A6%AC-%EC%8B%9C%EA%B0%84">⚡ 주요 기능별 처리 시간</h2>
+<table>
+<thead>
+<tr>
+<th>기능</th>
+<th>예상 처리 시간</th>
+<th>비고</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>회원가입</td>
+<td>200-500ms</td>
+<td>이메일 중복 체크 포함</td>
+</tr>
+<tr>
+<td>로그인</td>
+<td>150-300ms</td>
+<td>JWT 토큰 생성</td>
+</tr>
+<tr>
+<td>일기 저장</td>
+<td>100-200ms</td>
+<td>AI 분석은 비동기</td>
+</tr>
+<tr>
+<td>AI 감정 분석</td>
+<td>2-5초</td>
+<td>OpenAI API 응답 시간</td>
+</tr>
+<tr>
+<td>일기 목록 조회</td>
+<td>50-150ms</td>
+<td>페이징 적용 시</td>
+</tr>
+<tr>
+<td>일기 상세 조회</td>
+<td>100-200ms</td>
+<td>조인 쿼리 포함</td>
+</tr>
+</tbody>
+</table>
+<h2 id="%F0%9F%9B%A0%EF%B8%8F-%EA%B8%B0%EC%88%A0-%EC%8A%A4%ED%83%9D-%EC%83%81%EC%84%B8">🛠️ 기술 스택 상세</h2>
+<h3 id="frontend">Frontend</h3>
+<ul>
+<li><strong>React Native</strong>: 크로스 플랫폼 모바일 앱</li>
+<li><strong>AsyncStorage</strong>: 로컬 데이터 저장 (토큰, 사용자 설정)</li>
+</ul>
+<h3 id="backend">Backend</h3>
+<ul>
+<li><strong>Spring Boot</strong>: RESTful API 서버</li>
+<li><strong>Spring Security</strong>: 인증/인가 처리</li>
+<li><strong>JWT</strong>: 토큰 기반 인증</li>
+</ul>
+<h3 id="ai-server">AI Server</h3>
+<ul>
+<li><strong>FastAPI</strong>: 빠른 API 응답을 위한 Python 웹 프레임워크</li>
+<li><strong>OpenAI API</strong>: GPT 모델을 활용한 감정 분석</li>
+</ul>
+<h3 id="database">Database</h3>
+<ul>
+<li><strong>MariaDB</strong>: 주 데이터베이스 (사용자, 일기, 분석 결과)</li>
+<li><strong>Redis</strong>: 캐시 및 세션 관리</li>
+</ul>
+<hr>
+<p><em>이 문서는 CBT Diary 프로젝트의 전체적인 데이터 흐름을 이해하는 데 도움이 되도록 작성되었습니다. 각 다이어그램은 실제 API 엔드포인트와 데이터베이스 스키마를 기반으로 합니다.</em></p>
+
+</body>
+</html>

@@ -1,0 +1,21 @@
+services:
+  headscale:
+    image: docker.io/headscale/headscale:latest
+    container_name: headscale
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /var/run/headscale
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+      - "50443:50443"
+    volumes:
+      - ./config:/etc/headscale:ro
+      - ./lib:/var/lib/headscale
+    command: serve
+    healthcheck:
+      test: ["CMD", "headscale", "health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5

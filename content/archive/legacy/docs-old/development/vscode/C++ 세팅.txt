@@ -1,0 +1,18 @@
+1. Extension 에서 C/C++ Extenion Pack 설치
+
+ 2. MingGW  프로그램 설치 
+     Link = https://sourceforge.net/projects/mingw/files/
+
+3. 시스템 환경 변수 -> Path (edit) -> 새로 만들기 -> C:\MinGW\bin (설치한 MingGW 경로의 bin 폴더)
+
+4. gcc -v or g++ -v  CMD 창에 입력 후 버전 체크 
+
+5. VSC F1 눌러서 C++ Configuration(UI) 검색
+
+6. Compiler path에 환경변수 설정한 g++.exe 선택
+
+7. intelliSense Mode 에서 gcc-x64로 변경 
+
+8. .vscode/c_cpp_properties.json 에서 설정 파일 확인하기
+
+9. -environment -cd 에러가 뜬다면 => 한글 파일 경로를 영어 경로로 변경한다.

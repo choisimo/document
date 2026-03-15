@@ -1,0 +1,122 @@
+services:
+  # ============================================
+  # Gluetun VPN Gateway (NordVPN)
+  # ============================================
+  gluetun:
+    image: qmcgaw/gluetun:v3.39.0
+    container_name: gluetun
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "8080:8080" # qBittorrent WebUI
+      - "6881:6881" # qBittorrent TCP
+      - "6881:6881/udp" # qBittorrent UDP
+      - "9696:9696" # Prowlarr (VPN 네트워크 사용)
+      # Sonarr(8989), Radarr(7878) 포트는 아래 각 서비스에서 직접 엽니다.
+    volumes:
+      - ./data/gluetun:/gluetun
+    environment:
+      - VPN_SERVICE_PROVIDER=${VPN_PROVIDER}
+      - VPN_TYPE=${VPN_TYPE}
+      - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}
+      - WIREGUARD_PUBLIC_KEY=${WIREGUARD_PUBLIC_KEY}
+      - WIREGUARD_ENDPOINT_IP=${WIREGUARD_ENDPOINT_IP}
+      - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES}
+      - VPN_PORT_FORWARDING=${GLUETUN_PORT_FORWARDING}
+      - FIREWALL_OUTBOUND_SUBNETS=192.168.0.0/16,10.0.0.0/8,172.16.0.0/12
+      - DOT_PROVIDERS=cloudflare,google
+      - TZ=Asia/Seoul
+    networks:
+      - medianet
+
+  # ============================================
+  # qBittorrent (VPN Network)
+  # ============================================
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=Asia/Seoul
+      - WEBUI_PORT=${QBITTORRENT_WEBUI_PORT}
+    volumes:
+      - ./data/qbittorrent/config:/config
+      - ./data/media:/media
+    restart: unless-stopped
+
+  # ============================================
+  # Prowlarr (VPN Network)
+  # ============================================
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    network_mode: "service:gluetun"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=Asia/Seoul
+    volumes:
+      - ./data/prowlarr/config:/config
+    restart: unless-stopped
+
+  # ============================================
+  # Sonarr (TV Series - Direct Network)
+  # ============================================
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    ports:
+      - "8989:8989" # 웹 접속을 위해 필수 (주석 해제됨)
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=Asia/Seoul
+    volumes:
+      - ./data/sonarr/config:/config
+      - ./data/media:/media
+    networks:
+      - medianet
+    restart: unless-stopped
+
+  # ============================================
+  # Radarr (Movies - Direct Network)
+  # ============================================
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    ports:
+      - "7878:7878" # 웹 접속을 위해 필수
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=Asia/Seoul
+    volumes:
+      - ./data/radarr/config:/config
+      - ./data/media:/media
+    networks:
+      - medianet
+    restart: unless-stopped
+
+  # ============================================
+  # Cloudflared (Remote Access)
+  # ============================================
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-qbit
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN}
+    depends_on:
+      - gluetun
+    networks:
+      - medianet
+    restart: unless-stopped
+
+networks:
+  medianet:
+    driver: bridge

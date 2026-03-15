@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>종합 명령어 인터랙티브 가이드 (Tmux, Linux, DevTools)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Visualization & Content Choices:
+        - Report Info: Commands, descriptions, examples for Tmux, Linux, Git, Docker, package managers, etc. Goal: Inform, Organize, Allow quick lookup. Viz/Presentation Method: HTML/CSS styled cards, JavaScript for dynamic filtering by hierarchical category, text search, and detail expansion. Justification: Suitable for extensive textual/code data. Library/Method: Vanilla JS, Tailwind CSS.
+        - Hierarchical Categories (e.g., Linux > 파일 시스템 > 기본 명령어): Goal: Organize. Viz/Presentation Method: Dynamically generated, multi-level HTML tabs (or tab-like sections) styled with Tailwind CSS, controlled by JavaScript. Justification: Provides clear, structured navigation for a large command set.
+        - Search Functionality: Goal: Inform (quick lookup). Viz/Presentation Method: HTML input field with JS to filter commands across all categories and command details. Justification: Essential for large datasets.
+        - Command Details: Goal: Inform (in-depth info). Viz/Presentation Method: Expandable section in cards. Justification: Progressive disclosure.
+        CONFIRMING NO SVG/Mermaid. -->
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #FDFBF7;
+            color: #4A4A4A;
+        }
+        .tab-button-base {
+            padding: 0.5rem 1rem; /* Reduced padding for more tabs */
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            color: #718096;
+            white-space: nowrap;
+            font-size: 0.875rem; /* text-sm */
+        }
+        .tab-button-base.active, .tab-button-base:hover {
+            border-bottom-color: #795548;
+            color: #795548;
+        }
+        .command-card {
+            background-color: #FFFFFF;
+            border: 1px solid #E0E0E0;
+            transition: box-shadow 0.3s ease;
+        }
+        .command-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        .command-syntax {
+            background-color: #F0F0F0;
+            color: #333333;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+        }
+        .details-toggle-button {
+            background-color: #A1887F;
+            color: white;
+            transition: background-color 0.3s ease;
+        }
+        .details-toggle-button:hover {
+            background-color: #795548;
+        }
+        .command-details {
+            border-top: 1px dashed #E0E0E0;
+            background-color: #FAF7F2;
+        }
+        .code-block {
+            background-color: #2d2d2d;
+            color: #e0e0e0;
+            border-radius: 0.375rem;
+            padding: 0.75rem 1rem;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+            font-size: 0.875rem;
+        }
+        .code-block-steps li {
+            padding-top: 0.25rem;
+            padding-bottom: 0.25rem;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #FDFBF7;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #A1887F;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #795548;
+        }
+        .tabs-container-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 4px; /* For scrollbar visibility */
+        }
+        .category-level-container {
+            margin-bottom: 0.75rem; /* 12px */
+        }
+    </style>
+</head>
+<body class="antialiased leading-normal tracking-normal">
+
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <h1 class="text-2xl sm:text-3xl font-bold text-center text-[#795548]">종합 명령어 인터랙티브 가이드</h1>
+            <p class="text-center text-sm text-gray-600 mt-1">Tmux, Linux, 개발 툴, 프로그램 설치 명령어 모음</p>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <div class="mb-8 p-6 bg-white rounded-lg shadow">
+            <h2 class="text-xl font-semibold mb-3 text-[#795548]">가이드 소개</h2>
+            <p class="text-gray-700 text-sm leading-relaxed">
+                이 가이드는 터미널 환경에서의 생산성을 높여주는 다양한 도구의 명령어들을 다룹니다. Tmux, Linux 기본 명령어, Git, Docker와 같은 개발 도구, 그리고 자주 사용되는 프로그램 설치 방법까지 포함합니다. 원하는 명령어를 카테고리별로 탐색하거나 검색 기능을 이용하여 빠르게 찾아보세요.
+            </p>
+        </div>
+
+        <div class="mb-6 p-4 bg-white rounded-lg shadow">
+            <div id="tabsContainerRoot" class="mb-4">
+                </div>
+            <div id="subTabsContainer1" class="mb-4 category-level-container">
+                </div>
+            <div id="subTabsContainer2" class="mb-4 category-level-container">
+                </div>
+            <input type="text" id="searchInput" placeholder="명령어 또는 설명 검색..." class="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#A1887F] focus:border-transparent transition-shadow">
+        </div>
+
+        <div id="commandsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        </div>
+        <p id="noResultsMessage" class="text-center text-gray-500 py-10 hidden">검색 결과가 없습니다.</p>
+    </main>
+
+    <footer class="text-center py-8 mt-12 border-t border-gray-200">
+        <p class="text-sm text-gray-500">&copy; 2024 종합 명령어 가이드. 학습 목적으로 제작되었습니다.</p>
+    </footer>
+
+    <script>
+        const allCommandsData = [
+            // Tmux Commands (Category: Tmux > SubCategory)
+            { id: 'tmux-new-session', tool: 'Tmux', category: 'Tmux > 세션 관리', commandDisplay: 'tmux new -s [세션이름]', shortDesc: '새 이름으로 Tmux 세션 시작', longDesc: '새로운 이름으로 Tmux 세션을 시작합니다.', example: 'tmux new -s my_project', exampleType: 'bash' },
+            { id: 'tmux-attach-session', tool: 'Tmux', category: 'Tmux > 세션 관리', commandDisplay: 'tmux attach -t [세션이름]', shortDesc: '기존 Tmux 세션에 접속', longDesc: '이미 실행 중인 특정 Tmux 세션에 다시 접속합니다.', example: 'tmux attach -t my_project', exampleType: 'bash' },
+            { id: 'tmux-list-sessions', tool: 'Tmux', category: 'Tmux > 세션 관리', commandDisplay: 'tmux ls', shortDesc: 'Tmux 세션 목록 보기', longDesc: '현재 실행 중인 모든 Tmux 세션의 목록을 보여줍니다.', example: 'tmux ls', exampleType: 'bash' },
+            { id: 'tmux-detach-session', tool: 'Tmux', category: 'Tmux > 세션 관리', commandDisplay: 'Ctrl + b,  d', shortDesc: '현재 세션에서 분리', longDesc: '현재 접속해 있는 Tmux 세션에서 분리(detach)합니다.', exampleSteps: ['`Ctrl + b`를 누릅니다.', '`d` 키를 누릅니다.'], exampleType: 'steps' },
+            { id: 'tmux-kill-session', tool: 'Tmux', category: 'Tmux > 세션 관리', commandDisplay: 'tmux kill-session -t [세션이름]', shortDesc: '특정 세션 종료', longDesc: '지정된 이름의 Tmux 세션을 종료합니다.', example: 'tmux kill-session -t my_project', exampleType: 'bash' },
+            { id: 'tmux-new-window', tool: 'Tmux', category: 'Tmux > 창 관리', commandDisplay: 'Ctrl + b,  c', shortDesc: '새 창 생성', longDesc: '현재 세션 내에 새로운 창(window)을 생성합니다.', exampleSteps: ['`Ctrl + b`를 누릅니다.', '`c` 키를 누릅니다.'], exampleType: 'steps' },
+            { id: 'tmux-list-windows', tool: 'Tmux', category: 'Tmux > 창 관리', commandDisplay: 'Ctrl + b,  w', shortDesc: '창 목록 보기', longDesc: '현재 세션의 모든 창 목록을 보여줍니다.', exampleSteps: ['`Ctrl + b`를 누릅니다.', '`w` 키를 누릅니다.'], exampleType: 'steps' },
+            { id: 'tmux-split-horizontal', tool: 'Tmux', category: 'Tmux > 창 분할 관리', commandDisplay: 'Ctrl + b,  "', shortDesc: '가로로 창 분할', longDesc: '현재 창을 수평으로 두 개의 창 분할(pane)로 나눕니다.', exampleSteps: ['`Ctrl + b`를 누릅니다.', '`"` 키를 누릅니다.'], exampleType: 'steps' },
+            { id: 'tmux-split-vertical', tool: 'Tmux', category: 'Tmux > 창 분할 관리', commandDisplay: 'Ctrl + b,  %', shortDesc: '세로로 창 분할', longDesc: '현재 창을 수직으로 두 개의 창 분할(pane)로 나눕니다.', exampleSteps: ['`Ctrl + b`를 누릅니다.', '`%` 키를 누릅니다.'], exampleType: 'steps' },
+            { id: 'tmux-copy-mode', tool: 'Tmux', category: 'Tmux > 복사 및 붙여넣기', commandDisplay: 'Ctrl + b,  [', shortDesc: '복사 모드 시작', longDesc: '복사 모드(Copy Mode)를 시작합니다.', exampleSteps: ['`Ctrl + b`를 누릅니다.', '`[` 키를 누릅니다.'], exampleType: 'steps' },
+            { id: 'tmux-paste-buffer', tool: 'Tmux', category: 'Tmux > 복사 및 붙여넣기', commandDisplay: 'Ctrl + b,  ]', shortDesc: '복사한 텍스트 붙여넣기', longDesc: '복사한 텍스트를 붙여넣습니다.', exampleSteps: ['`Ctrl + b`를 누릅니다.', '`]` 키를 누릅니다.'], exampleType: 'steps' },
+            { id: 'tmux-list-key-bindings', tool: 'Tmux', category: 'Tmux > 기타', commandDisplay: 'Ctrl + b,  ?', shortDesc: '키 바인딩 목록 보기', longDesc: '모든 키 바인딩 목록을 보여줍니다.', exampleSteps: ['`Ctrl + b`를 누릅니다.', '`?` 키를 누릅니다.'], exampleType: 'steps' },
+
+            // Linux Commands (Category: Linux > SubCategory > SpecificCategory)
+            { id: 'linux-ls', tool: 'Linux', category: 'Linux > 파일 시스템 > 기본', commandDisplay: 'ls [옵션] [경로]', shortDesc: '파일/디렉토리 목록', longDesc: '파일 및 디렉토리 목록을 표시합니다.', example: 'ls -al /home/user', exampleType: 'bash' },
+            { id: 'linux-cd', tool: 'Linux', category: 'Linux > 파일 시스템 > 이동', commandDisplay: 'cd [경로]', shortDesc: '디렉토리 변경', longDesc: '작업 디렉토리를 변경합니다.', example: 'cd /var/log', exampleType: 'bash' },
+            { id: 'linux-pwd', tool: 'Linux', category: 'Linux > 파일 시스템 > 확인', commandDisplay: 'pwd', shortDesc: '현재 경로 표시', longDesc: '현재 작업 디렉토리의 전체 경로를 출력합니다.', example: 'pwd', exampleType: 'bash' },
+            { id: 'linux-mkdir', tool: 'Linux', category: 'Linux > 파일 시스템 > 생성/삭제', commandDisplay: 'mkdir 디렉토리명', shortDesc: '디렉토리 생성', longDesc: '새로운 디렉토리를 생성합니다.', example: 'mkdir new_project', exampleType: 'bash' },
+            { id: 'linux-rm', tool: 'Linux', category: 'Linux > 파일 시스템 > 생성/삭제', commandDisplay: 'rm [옵션] 파일/디렉토리', shortDesc: '파일/디렉토리 삭제', longDesc: '파일 또는 디렉토리를 삭제합니다. `-rf` 옵션은 주의해서 사용하세요.', example: 'rm -rf old_backup', exampleType: 'bash' },
+            { id: 'linux-cp', tool: 'Linux', category: 'Linux > 파일 시스템 > 복사/이동', commandDisplay: 'cp 원본 대상', shortDesc: '파일/디렉토리 복사', longDesc: '파일이나 디렉토리를 복사합니다.', example: 'cp source.txt dest.txt', exampleType: 'bash' },
+            { id: 'linux-mv', tool: 'Linux', category: 'Linux > 파일 시스템 > 복사/이동', commandDisplay: 'mv 원본 대상', shortDesc: '파일/디렉토리 이동 또는 이름 변경', longDesc: '파일이나 디렉토리를 이동시키거나 이름을 변경합니다.', example: 'mv old.txt new.txt', exampleType: 'bash' },
+            { id: 'linux-cat', tool: 'Linux', category: 'Linux > 파일 내용 보기', commandDisplay: 'cat 파일명', shortDesc: '파일 내용 출력', longDesc: '파일 내용을 화면에 출력합니다.', example: 'cat server.log', exampleType: 'bash' },
+            { id: 'linux-less', tool: 'Linux', category: 'Linux > 파일 내용 보기', commandDisplay: 'less 파일명', shortDesc: '파일 내용 페이지별 보기', longDesc: '파일 내용을 페이지 단위로 나누어 보여줍니다.', example: 'less long_log.txt', exampleType: 'bash' },
+            { id: 'linux-grep', tool: 'Linux', category: 'Linux > 텍스트 검색', commandDisplay: 'grep 패턴 파일명', shortDesc: '패턴 검색', longDesc: '파일 내에서 특정 패턴(문자열)을 검색합니다.', example: 'grep "ERROR" system.log', exampleType: 'bash' },
+            { id: 'linux-find', tool: 'Linux', category: 'Linux > 파일 검색', commandDisplay: 'find 경로 조건', shortDesc: '파일 검색', longDesc: '특정 조건에 맞는 파일을 검색합니다.', example: 'find /home -name "*.log"', exampleType: 'bash' },
+            { id: 'linux-chmod', tool: 'Linux', category: 'Linux > 권한 관리', commandDisplay: 'chmod 권한 파일/디렉토리', shortDesc: '권한 변경', longDesc: '파일 또는 디렉토리의 접근 권한을 변경합니다.', example: 'chmod 755 script.sh', exampleType: 'bash' },
+            { id: 'linux-chown', tool: 'Linux', category: 'Linux > 권한 관리', commandDisplay: 'chown 소유자:그룹 파일/디렉토리', shortDesc: '소유자/그룹 변경', longDesc: '파일 또는 디렉토리의 소유자 및 그룹을 변경합니다.', example: 'sudo chown user:group data.txt', exampleType: 'bash' },
+            { id: 'linux-ps', tool: 'Linux', category: 'Linux > 프로세스 관리', commandDisplay: 'ps [옵션]', shortDesc: '프로세스 목록', longDesc: '현재 실행 중인 프로세스 목록을 표시합니다.', example: 'ps aux', exampleType: 'bash' },
+            { id: 'linux-kill', tool: 'Linux', category: 'Linux > 프로세스 관리', commandDisplay: 'kill [옵션] PID', shortDesc: '프로세스 종료', longDesc: '프로세스를 종료시킵니다.', example: 'kill -9 12345', exampleType: 'bash' },
+            { id: 'linux-top', tool: 'Linux', category: 'Linux > 시스템 모니터링', commandDisplay: 'top', shortDesc: '실시간 시스템 모니터링', longDesc: '시스템 프로세스 상태를 실시간으로 보여줍니다.', example: 'top', exampleType: 'bash' },
+            { id: 'linux-df', tool: 'Linux', category: 'Linux > 시스템 정보', commandDisplay: 'df [옵션]', shortDesc: '디스크 공간 사용량', longDesc: '파일 시스템의 디스크 공간 사용량을 표시합니다.', example: 'df -h', exampleType: 'bash' },
+            { id: 'linux-du', tool: 'Linux', category: 'Linux > 시스템 정보', commandDisplay: 'du [옵션] 경로', shortDesc: '파일/디렉토리 크기', longDesc: '파일 또는 디렉토리의 디스크 사용량을 표시합니다.', example: 'du -sh /var/log', exampleType: 'bash' },
+            { id: 'linux-ip', tool: 'Linux', category: 'Linux > 네트워크 > 인터페이스/라우팅', commandDisplay: 'ip [옵션] 대상 명령어', shortDesc: '네트워크 설정 (신형)', longDesc: '네트워크 인터페이스, IP 주소, 라우팅 테이블 등을 관리합니다.', example: 'ip addr show', exampleType: 'bash' },
+            { id: 'linux-ping', tool: 'Linux', category: 'Linux > 네트워크 > 연결 확인', commandDisplay: 'ping 호스트', shortDesc: '네트워크 연결 확인', longDesc: '지정한 호스트와 네트워크 연결 상태를 확인합니다.', example: 'ping google.com', exampleType: 'bash' },
+            { id: 'linux-netstat', tool: 'Linux', category: 'Linux > 네트워크 > 연결 상태', commandDisplay: 'netstat [옵션]', shortDesc: '네트워크 연결/포트 상태', longDesc: '네트워크 연결, 라우팅 테이블, 인터페이스 통계 등을 표시합니다.', example: 'netstat -tulnp', exampleType: 'bash' },
+            { id: 'linux-ssh', tool: 'Linux', category: 'Linux > 원격 접속', commandDisplay: 'ssh 사용자@호스트', shortDesc: '원격 서버 접속 (SSH)', longDesc: '원격 서버에 안전하게 접속합니다.', example: 'ssh myuser@example.com', exampleType: 'bash' },
+            { id: 'linux-scp', tool: 'Linux', category: 'Linux > 원격 접속', commandDisplay: 'scp 원본 대상', shortDesc: '원격 파일 복사 (SCP)', longDesc: '원격 서버와 안전하게 파일을 복사합니다.', example: 'scp file.txt user@host:/remote/dir/', exampleType: 'bash' },
+            { id: 'linux-tar', tool: 'Linux', category: 'Linux > 압축 및 아카이브', commandDisplay: 'tar [옵션] 파일명 [대상]', shortDesc: '아카이브 생성/해제 (tar)', longDesc: '파일 및 디렉토리를 아카이브로 묶거나 해제합니다.', example: 'tar czvf archive.tar.gz my_folder/', exampleType: 'bash' },
+            { id: 'linux-apt-update', tool: 'Linux', category: 'Linux > 패키지 관리 > APT (Debian/Ubuntu)', commandDisplay: 'sudo apt update', shortDesc: '패키지 목록 업데이트', longDesc: '사용 가능한 패키지 목록을 최신 상태로 업데이트합니다.', example: 'sudo apt update', exampleType: 'bash' },
+            { id: 'linux-apt-upgrade', tool: 'Linux', category: 'Linux > 패키지 관리 > APT (Debian/Ubuntu)', commandDisplay: 'sudo apt upgrade', shortDesc: '설치된 패키지 업그레이드', longDesc: '설치된 모든 패키지를 최신 버전으로 업그레이드합니다.', example: 'sudo apt upgrade -y', exampleType: 'bash' },
+            { id: 'linux-apt-install', tool: 'Linux', category: 'Linux > 패키지 관리 > APT (Debian/Ubuntu)', commandDisplay: 'sudo apt install [패키지명]', shortDesc: '패키지 설치', longDesc: '새로운 패키지를 설치합니다.', example: 'sudo apt install nginx', exampleType: 'bash' },
+            { id: 'linux-apt-remove', tool: 'Linux', category: 'Linux > 패키지 관리 > APT (Debian/Ubuntu)', commandDisplay: 'sudo apt remove [패키지명]', shortDesc: '패키지 삭제', longDesc: '설치된 패키지를 삭제합니다 (설정 파일은 남김).', example: 'sudo apt remove nginx', exampleType: 'bash' },
+            { id: 'linux-apt-autoremove', tool: 'Linux', category: 'Linux > 패키지 관리 > APT (Debian/Ubuntu)', commandDisplay: 'sudo apt autoremove', shortDesc: '불필요한 패키지 자동 삭제', longDesc: '더 이상 필요하지 않은 의존성 패키지들을 자동으로 삭제합니다.', example: 'sudo apt autoremove -y', exampleType: 'bash' },
+            { id: 'linux-yum-update', tool: 'Linux', category: 'Linux > 패키지 관리 > YUM/DNF (RHEL/CentOS)', commandDisplay: 'sudo yum update', shortDesc: '패키지 업데이트 (YUM)', longDesc: '(DNF도 유사) 시스템의 모든 패키지를 업데이트합니다.', example: 'sudo yum update -y', exampleType: 'bash' },
+            { id: 'linux-yum-install', tool: 'Linux', category: 'Linux > 패키지 관리 > YUM/DNF (RHEL/CentOS)', commandDisplay: 'sudo yum install [패키지명]', shortDesc: '패키지 설치 (YUM)', longDesc: '(DNF도 유사) 새로운 패키지를 설치합니다.', example: 'sudo yum install httpd', exampleType: 'bash' },
+
+            // DevTools Commands
+            { id: 'git-clone', tool: 'Git', category: '개발 툴 > Git (버전 관리)', commandDisplay: 'git clone [저장소 URL]', shortDesc: '원격 저장소 복제', longDesc: '원격 저장소의 내용을 로컬로 복제합니다.', example: 'git clone https://github.com/user/repo.git', exampleType: 'bash' },
+            { id: 'git-add', tool: 'Git', category: '개발 툴 > Git (버전 관리)', commandDisplay: 'git add [파일/디렉토리]', shortDesc: '변경사항 스테이징', longDesc: '커밋할 변경사항을 스테이징 영역에 추가합니다.', example: 'git add .', exampleType: 'bash' },
+            { id: 'git-commit', tool: 'Git', category: '개발 툴 > Git (버전 관리)', commandDisplay: 'git commit -m "[커밋 메시지]"', shortDesc: '변경사항 커밋', longDesc: '스테이징된 변경사항을 로컬 저장소에 기록합니다.', example: 'git commit -m "Initial commit"', exampleType: 'bash' },
+            { id: 'git-push', tool: 'Git', category: '개발 툴 > Git (버전 관리)', commandDisplay: 'git push [원격 저장소 별명] [브랜치명]', shortDesc: '로컬 커밋 원격 푸시', longDesc: '로컬 저장소의 커밋을 원격 저장소로 업로드합니다.', example: 'git push origin main', exampleType: 'bash' },
+            { id: 'git-pull', tool: 'Git', category: '개발 툴 > Git (버전 관리)', commandDisplay: 'git pull [원격 저장소 별명] [브랜치명]', shortDesc: '원격 변경사항 가져오기 및 병합', longDesc: '원격 저장소의 변경사항을 로컬로 가져와 현재 브랜치에 병합합니다.', example: 'git pull origin main', exampleType: 'bash' },
+            { id: 'git-status', tool: 'Git', category: '개발 툴 > Git (버전 관리)', commandDisplay: 'git status', shortDesc: '작업 디렉토리 상태 확인', longDesc: '현재 작업 디렉토리와 스테이징 영역의 상태를 보여줍니다.', example: 'git status', exampleType: 'bash' },
+            { id: 'git-branch', tool: 'Git', category: '개발 툴 > Git (버전 관리)', commandDisplay: 'git branch [브랜치명]', shortDesc: '브랜치 관리', longDesc: '브랜치를 생성, 목록 확인, 삭제 등의 작업을 수행합니다.', example: 'git branch feature/new-login\ngit branch -d old-feature', exampleType: 'bash' },
+            { id: 'git-checkout', tool: 'Git', category: '개발 툴 > Git (버전 관리)', commandDisplay: 'git checkout [브랜치명/커밋]', shortDesc: '브랜치 전환 또는 파일 복원', longDesc: '다른 브랜치로 전환하거나 특정 커밋 상태로 작업 디렉토리를 변경합니다.', example: 'git checkout develop\ngit checkout HEAD~2 myfile.txt', exampleType: 'bash' },
+            { id: 'docker-run', tool: 'Docker', category: '개발 툴 > Docker (컨테이너)', commandDisplay: 'docker run [옵션] 이미지 [명령]', shortDesc: '컨테이너 실행', longDesc: '지정된 이미지로부터 새 컨테이너를 생성하고 실행합니다.', example: 'docker run -d -p 80:80 nginx', exampleType: 'bash' },
+            { id: 'docker-ps', tool: 'Docker', category: '개발 툴 > Docker (컨테이너)', commandDisplay: 'docker ps [옵션]', shortDesc: '실행 중인 컨테이너 목록', longDesc: '현재 실행 중인 컨테이너 목록을 보여줍니다. `-a` 옵션은 중지된 컨테이너도 포함합니다.', example: 'docker ps -a', exampleType: 'bash' },
+            { id: 'docker-images', tool: 'Docker', category: '개발 툴 > Docker (컨테이너)', commandDisplay: 'docker images', shortDesc: '로컬 이미지 목록', longDesc: '로컬 시스템에 저장된 도커 이미지 목록을 보여줍니다.', example: 'docker images', exampleType: 'bash' },
+            { id: 'docker-pull', tool: 'Docker', category: '개발 툴 > Docker (컨테이너)', commandDisplay: 'docker pull 이미지명[:태그]', shortDesc: '이미지 다운로드', longDesc: '도커 허브 또는 다른 레지스트리에서 이미지를 다운로드합니다.', example: 'docker pull ubuntu:latest', exampleType: 'bash' },
+            { id: 'docker-stop', tool: 'Docker', category: '개발 툴 > Docker (컨테이너)', commandDisplay: 'docker stop 컨테이너ID/이름', shortDesc: '컨테이너 중지', longDesc: '실행 중인 컨테이너를 중지합니다.', example: 'docker stop my_nginx_container', exampleType: 'bash' },
+            { id: 'docker-rm', tool: 'Docker', category: '개발 툴 > Docker (컨테이너)', commandDisplay: 'docker rm 컨테이너ID/이름', shortDesc: '컨테이너 삭제', longDesc: '중지된 컨테이너를 삭제합니다. `-f` 옵션으로 실행 중인 컨테이너 강제 삭제 가능.', example: 'docker rm old_container', exampleType: 'bash' },
+            { id: 'docker-exec', tool: 'Docker', category: '개발 툴 > Docker (컨테이너)', commandDisplay: 'docker exec [옵션] 컨테이너ID/이름 명령어', shortDesc: '실행 중인 컨테이너에 명령어 실행', longDesc: '실행 중인 컨테이너 내부에서 명령어를 실행합니다. `-it` 옵션으로 대화형 셸 접속 가능.', example: 'docker exec -it my_ubuntu_container bash', exampleType: 'bash' },
+            { id: 'docker-compose-up', tool: 'Docker', category: '개발 툴 > Docker (컨테이너) > Compose', commandDisplay: 'docker-compose up [옵션]', shortDesc: 'Compose 서비스 생성 및 시작', longDesc: '`docker-compose.yml` 파일에 정의된 서비스들을 생성하고 시작합니다. `-d` 옵션은 백그라운드 실행.', example: 'docker-compose up -d', exampleType: 'bash' },
+            { id: 'docker-compose-down', tool: 'Docker', category: '개발 툴 > Docker (컨테이너) > Compose', commandDisplay: 'docker-compose down [옵션]', shortDesc: 'Compose 서비스 중지 및 제거', longDesc: '`docker-compose.yml` 파일로 생성된 컨테이너, 네트워크, 볼륨 등을 중지하고 제거합니다.', example: 'docker-compose down -v', exampleType: 'bash' },
+            { id: 'nginx-start', tool: 'Nginx', category: '개발 툴 > 웹 서버 > Nginx', commandDisplay: 'sudo systemctl start nginx', shortDesc: 'Nginx 시작', longDesc: 'Nginx 웹 서버를 시작합니다.', example: 'sudo systemctl start nginx', exampleType: 'bash' },
+            { id: 'nginx-configtest', tool: 'Nginx', category: '개발 툴 > 웹 서버 > Nginx', commandDisplay: 'sudo nginx -t', shortDesc: 'Nginx 설정 파일 테스트', longDesc: 'Nginx 설정 파일의 문법 오류를 확인합니다.', example: 'sudo nginx -t', exampleType: 'bash' },
+            { id: 'apache-start', tool: 'Apache', category: '개발 툴 > 웹 서버 > Apache', commandDisplay: 'sudo systemctl start apache2', shortDesc: 'Apache 시작 (Debian/Ubuntu)', longDesc: 'Apache 웹 서버를 시작합니다. (RHEL/CentOS 계열은 `httpd`)', example: 'sudo systemctl start apache2', exampleType: 'bash' },
+            { id: 'npm-install', tool: 'npm', category: '개발 툴 > 프로그래밍 환경 > Node.js (npm)', commandDisplay: 'npm install [패키지명]', shortDesc: 'npm 패키지 설치', longDesc: 'Node.js 패키지를 로컬 프로젝트 또는 전역으로 설치합니다.', example: 'npm install express\nnpm install -g nodemon', exampleType: 'bash' },
+            { id: 'pip-install', tool: 'pip', category: '개발 툴 > 프로그래밍 환경 > Python (pip)', commandDisplay: 'pip install [패키지명]', shortDesc: 'Python 패키지 설치', longDesc: 'Python 패키지를 설치합니다.', example: 'pip install requests\npip3 install django --user', exampleType: 'bash' },
+
+            // Program Installation (Category: 프로그램 설치 > SubCategory)
+            { id: 'install-vscode-apt', tool: 'VSCode', category: '프로그램 설치 > 개발 환경', commandDisplay: 'sudo apt install code', shortDesc: 'VS Code 설치 (APT)', longDesc: 'Debian/Ubuntu 시스템에서 Microsoft의 APT 저장소를 추가한 후 VS Code를 설치합니다. (저장소 추가 선행 필요)', example: '# 1. Microsoft GPG 키 및 저장소 추가 (공식 문서 참조)\nsudo apt update\nsudo apt install code', exampleType: 'bash' },
+            { id: 'install-chrome-apt', tool: 'Chrome', category: '프로그램 설치 > 유틸리티', commandDisplay: 'wget & apt install .deb', shortDesc: 'Google Chrome 설치 (APT)', longDesc: 'Google Chrome의 .deb 패키지를 다운로드하여 설치합니다.', example: 'wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb\nsudo apt install ./google-chrome-stable_current_amd64.deb -y', exampleType: 'bash' },
+            { id: 'install-curl', tool: 'curl', category: '프로그램 설치 > 유틸리티', commandDisplay: 'sudo apt install curl', shortDesc: 'curl 설치 (APT)', longDesc: '데이터 전송 유틸리티 curl을 설치합니다.', example: 'sudo apt install curl -y', exampleType: 'bash' },
+            { id: 'install-htop', tool: 'htop', category: '프로그램 설치 > 유틸리티', commandDisplay: 'sudo apt install htop', shortDesc: 'htop 설치 (APT)', longDesc: '인터랙티브 프로세스 뷰어 htop을 설치합니다.', example: 'sudo apt install htop -y', exampleType: 'bash' }
+        ];
+
+        const commandsContainer = document.getElementById('commandsContainer');
+        const searchInput = document.getElementById('searchInput');
+        const tabsContainerRoot = document.getElementById('tabsContainerRoot');
+        const subTabsContainer1 = document.getElementById('subTabsContainer1');
+        const subTabsContainer2 = document.getElementById('subTabsContainer2');
+        const noResultsMessage = document.getElementById('noResultsMessage');
+
+        let currentCategoryFilters = { level1: '전체', level2: null, level3: null };
+
+        function getCategoriesAtLevel(level, parentCategory = null) {
+            const categories = new Set();
+            allCommandsData.forEach(cmd => {
+                const parts = cmd.category.split(' > ');
+                if (level === 1 && parts.length > 0) {
+                    categories.add(parts[0]);
+                } else if (level === 2 && parts.length > 1 && parts[0] === parentCategory) {
+                    categories.add(parts[1]);
+                } else if (level === 3 && parts.length > 2 && parts[0] === parentCategory.level1 && parts[1] === parentCategory.level2) {
+                    categories.add(parts[2]);
+                }
+            });
+            const sortedCategories = Array.from(categories).sort((a,b) => a.localeCompare(b, 'ko-KR'));
+            if (level > 1 && sortedCategories.length > 0) {
+                 return [`전체 ${parentCategory.level2 || parentCategory}`, ...sortedCategories];
+            }
+            return sortedCategories;
+        }
+        
+        function renderTabs(level, parentCategory = null, containerElement) {
+            containerElement.innerHTML = '';
+            if (level === 1 && !parentCategory) { // Only add "전체" for the root level
+                 const allTab = createTabButton('전체', level, null);
+                 containerElement.appendChild(allTab);
+            }
+
+            const categories = getCategoriesAtLevel(level, parentCategory);
+            
+            if (categories.length === 0 && level > 1) { // Hide sub-tab container if no sub-categories
+                containerElement.classList.add('hidden');
+                return;
+            }
+            containerElement.classList.remove('hidden');
+
+
+            categories.forEach(catName => {
+                const tabButton = createTabButton(catName, level, parentCategory);
+                containerElement.appendChild(tabButton);
+            });
+        }
+
+        function createTabButton(name, level, parentCategoryContext) {
+            const tabButton = document.createElement('button');
+            tabButton.className = 'tab-button-base mr-2 mb-2';
+            tabButton.textContent = name;
+
+            let currentSelection;
+            if (level === 1) currentSelection = currentCategoryFilters.level1;
+            else if (level === 2) currentSelection = currentCategoryFilters.level2;
+            else if (level === 3) currentSelection = currentCategoryFilters.level3;
+            
+            // Adjust name for "전체" sub-tabs for comparison
+            let effectiveName = name;
+            if (level > 1 && name.startsWith('전체 ')) {
+                 effectiveName = null; // Represents "All" for this sub-level
+            }
+
+
+            if (effectiveName === currentSelection || (name === '전체' && level === 1 && currentCategoryFilters.level1 === '전체')) {
+                tabButton.classList.add('active');
+            }
+
+            tabButton.addEventListener('click', () => {
+                if (level === 1) {
+                    currentCategoryFilters.level1 = name;
+                    currentCategoryFilters.level2 = null;
+                    currentCategoryFilters.level3 = null;
+                    renderTabs(2, name, subTabsContainer1);
+                    subTabsContainer2.innerHTML = ''; // Clear level 3 tabs
+                    subTabsContainer2.classList.add('hidden');
+                } else if (level === 2) {
+                    currentCategoryFilters.level2 = effectiveName;
+                    currentCategoryFilters.level3 = null;
+                    renderTabs(3, { level1: currentCategoryFilters.level1, level2: effectiveName }, subTabsContainer2);
+                } else if (level === 3) {
+                    currentCategoryFilters.level3 = effectiveName;
+                }
+                
+                // Update active states for all tab levels
+                updateAllTabActiveStates();
+                renderCommands(searchInput.value);
+            });
+            return tabButton;
+        }
+        
+        function updateAllTabActiveStates() {
+            [tabsContainerRoot, subTabsContainer1, subTabsContainer2].forEach((container, index) => {
+                const level = index + 1;
+                let currentLevelFilter;
+                if (level === 1) currentLevelFilter = currentCategoryFilters.level1;
+                else if (level === 2) currentLevelFilter = currentCategoryFilters.level2;
+                else if (level === 3) currentLevelFilter = currentCategoryFilters.level3;
+
+                container.querySelectorAll('.tab-button-base').forEach(btn => {
+                    let btnEffectiveName = btn.textContent;
+                     if (level > 1 && btn.textContent.startsWith('전체 ')) {
+                        btnEffectiveName = null;
+                    }
+                    if (btnEffectiveName === currentLevelFilter || (btn.textContent === '전체' && level === 1 && currentCategoryFilters.level1 === '전체')) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+            });
+        }
+
+
+        function renderCommands(filterText = '') {
+            commandsContainer.innerHTML = '';
+            const lowerFilterText = filterText.toLowerCase();
+            
+            const filteredCommands = allCommandsData.filter(cmd => {
+                const categoryParts = cmd.category.split(' > ');
+                let matchesCategory = false;
+
+                if (currentCategoryFilters.level1 === '전체') {
+                    matchesCategory = true;
+                } else if (categoryParts[0] === currentCategoryFilters.level1) {
+                    if (currentCategoryFilters.level2 === null) { // Only L1 selected
+                        matchesCategory = true;
+                    } else if (categoryParts.length > 1 && categoryParts[1] === currentCategoryFilters.level2) {
+                        if (currentCategoryFilters.level3 === null) { // Only L1 and L2 selected
+                             matchesCategory = true;
+                        } else if (categoryParts.length > 2 && categoryParts[2] === currentCategoryFilters.level3) { // L1, L2, L3 selected
+                             matchesCategory = true;
+                        }
+                    }
+                }
+
+                const matchesSearch = cmd.commandDisplay.toLowerCase().includes(lowerFilterText) || 
+                                      cmd.shortDesc.toLowerCase().includes(lowerFilterText) ||
+                                      (cmd.longDesc && cmd.longDesc.toLowerCase().includes(lowerFilterText)) ||
+                                      (cmd.tool && cmd.tool.toLowerCase().includes(lowerFilterText)) ||
+                                      cmd.category.toLowerCase().includes(lowerFilterText);
+                return matchesCategory && matchesSearch;
+            });
+
+            noResultsMessage.classList.toggle('hidden', filteredCommands.length > 0);
+
+            filteredCommands.forEach(cmd => {
+                const card = document.createElement('div');
+                card.className = 'command-card rounded-lg shadow-md p-5 flex flex-col';
+                
+                let exampleHTML = '';
+                if (cmd.exampleType === 'bash' && cmd.example) {
+                    exampleHTML = `<pre class="code-block text-sm mt-2">${cmd.example.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`;
+                } else if (cmd.exampleType === 'steps' && cmd.exampleSteps) {
+                    exampleHTML = `<ul class="list-decimal list-inside text-sm mt-2 code-block-steps">${cmd.exampleSteps.map(step => `<li>${step.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</li>`).join('')}</ul>`;
+                }
+
+                card.innerHTML = `
+                    <div class="flex-grow">
+                        <h3 class="text-lg font-semibold text-[#795548] mb-1">${cmd.commandDisplay.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</h3>
+                        <p class="text-xs text-gray-500 mb-2">${cmd.category}</p>
+                        <p class="text-sm text-gray-700 mb-3">${cmd.shortDesc}</p>
+                    </div>
+                    <button class="details-toggle-button text-xs font-medium py-2 px-3 rounded-md w-full mt-auto">상세 보기</button>
+                    <div class="command-details mt-3 pt-3 hidden">
+                        <p class="text-sm text-gray-700 mb-2 leading-relaxed">${cmd.longDesc ? cmd.longDesc.replace(/\n/g, '<br>') : ''}</p>
+                        ${exampleHTML ? `<h4 class="text-xs font-semibold text-gray-600 mt-3 mb-1">사용 예시:</h4>${exampleHTML}` : ''}
+                    </div>
+                `;
+                commandsContainer.appendChild(card);
+
+                const toggleButton = card.querySelector('.details-toggle-button');
+                const detailsDiv = card.querySelector('.command-details');
+                toggleButton.addEventListener('click', () => {
+                    detailsDiv.classList.toggle('hidden');
+                    toggleButton.textContent = detailsDiv.classList.contains('hidden') ? '상세 보기' : '간단히 보기';
+                });
+            });
+        }
+
+        searchInput.addEventListener('input', (e) => {
+            renderCommands(e.target.value);
+        });
+
+        // Initial Render
+        renderTabs(1, null, tabsContainerRoot);
+        subTabsContainer1.classList.add('hidden'); // Hide L2 initially
+        subTabsContainer2.classList.add('hidden'); // Hide L3 initially
+        renderCommands();
+    </script>
+</body>
+</html>
+

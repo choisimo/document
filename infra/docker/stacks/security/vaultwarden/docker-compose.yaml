@@ -1,0 +1,66 @@
+services:
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      # Domain is required for HTTPS verification
+      DOMAIN: $DOMAIN
+      # Optional: Disable registration for improved security
+      SIGNUPS_ALLOWED: "false"
+      # Optional: Disable admin page in production
+      DISABLE_ADMIN_TOKEN: "true"
+      # Optional: For larger attachments
+      ROCKET_LIMITS: "{json=10485760}"
+    volumes:
+      - $PWD/vaultwarden/data/:/data/
+    ports:
+      - $VAULTWARDEN__PORT:80 # Changed to avoid conflicts with other services using port 80
+    networks:
+      - vaultwarden_network
+
+  vaultwarden-backup:
+    image: bruceforce/vaultwarden-backup
+    container_name: vaultwarden-backup
+    restart: unless-stopped
+    depends_on:
+      - vaultwarden
+    environment:
+      # SET backup time 
+      - CRON_TOME=0 4 * * *
+      - BACKUP_DIR=/data/backup
+      - UID=1000
+      - GID=1000
+      - TIMESTAMP=true
+    volumes:
+      - $PWD/vaultwarden/data:/data
+      - $PWD/vw-backups:/data/backup
+
+networks:
+  vaultwarden_network:
+    driver: bridge
+
+#################################################################
+#    .env parameters : PWD, DOMAIN, VAULTWARDEN__PORT           #
+#################################################################
+#################################################################
+#                  backup is very important                     #  
+#################################################################
+# # Vaultwarden data restoration process # #
+# 1. stop the container (vaultwarden)
+#   docker-compose down or docker-compose \
+#   -f ${docker-file DIR} down 
+#---------------------------------------------------------------#
+# 2. delete existing database file
+#   rm $PWD/vaultwarden/data/db.sqlite3*
+#---------------------------------------------------------------#
+# 3. copy backup files
+#   cp $HOME/vw-backups/vaultwarden-data-[TIMESTAMP].tar.gz \
+# -C $PWD/vaultwarden/data/
+#---------------------------------------------------------------#
+# 4. restart container
+#   docker-compose up -d  or  docker-compose \
+#   -f ${docker-file DIR} up -d
+#################################################################

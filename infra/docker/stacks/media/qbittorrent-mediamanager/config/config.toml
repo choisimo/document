@@ -1,0 +1,9 @@
+[torrent_client]
+type = "qbittorrent"
+url = "http://gluetun:8080"  # Access via Gluetun network
+username = "admin"
+password = "adminpassword"
+
+[media]
+tv_dir = "/media/tv"
+movies_dir = "/media/movies"
