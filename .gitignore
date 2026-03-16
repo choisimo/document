@@ -1,6 +1,6 @@
 **/EU-politics/**
 
-# IDE
+# Editors / IDEs
 .vscode/
 .idea/
 .cursor/
@@ -9,48 +9,86 @@
 .classpath
 .settings/
 
-# Sisyphus internal
-.sispyus/
-
-# History
+# Local tooling state
+.sisyphus/
+**/.sisyphus/
 .history/
 
-# Backup files
+# Backup / temp files
 *.bak
 backup_*/
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+*.pid
 
-# OS generated
+# OS-generated files
 .DS_Store
 thumbs.db
 Thumbs.db
 ehthumbs.db
 desktop.ini
 
-# Environment variables
+# Local environment files
 .env
 .env.local
 .env.production
 .env.*
 !.env.example
 !**/.env.example
+!.env.example.*
+!**/.env.example.*
 
-# Temporary files
-*.tmp
-*.temp
-*.swp
-*.swo
-*~
+# Secret files
+*.pem
+*.pfx
+*.p12
+*.key
+*.keystore
+*.jks
+*.crt
+*.cer
+*.csr
+*secret*
 
-# ====================
-# Build Artifacts
-# ====================
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage*
+htmlcov/
+*.egg-info/
+pip-wheel-metadata/
+.venv/
+venv/
+env/
+
+# Node / JS
+node_modules/
+.node_modules/
+.npm/
+.pnpm-store/
+.yarn/
+.parcel-cache/
+.next/
+.nuxt/
+.svelte-kit/
+coverage/
+playwright-report/
+test-results/
 
 # Rust
 target/
-Cargo.lock
 **/*.rs.bk
 
-# Java / Kotlin / JVM
+# JVM / compiled artifacts
 *.class
 *.jar
 *.war
@@ -72,117 +110,34 @@ out/
 *.lib
 *.d
 
-# ====================
-# Language Cache / Incremental
-# ====================
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.auto.tfvars
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
 
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.tox/
-.nox/
-.coverage*
-htmlcov/
-*.egg-info/
-pip-wheel-metadata/
-.venv/
-venv/
-env/
-
-# ====================
-# Build Output Directories
-# ====================
-
+# Build outputs
 build/
-dist/site/
-dist/qa-shots/
+dist/
+site/
+docs/_build/
 release/
 debug/
-
-# Docs
-/site/
-docs/_build/
-
-# ====================
-# Package Managers
-# ====================
-
-# Node / JS
-node_modules/
-.node_modules/
-.npm/
-.pnpm-store/
-.yarn/
-.parcel-cache/
-.next/
-.nuxt/
-.svelte-kit/
-coverage/
-
-# ====================
-# Compiled / Binary file extensions (Rust incremental, LLVM, etc.)
-# ====================
-
-*.rlib
-*.rmeta
-*.bin
-*.wasm
-*.timestamp
-*.cargo-lock
-
-# ====================
-# Media / Documents (large binary assets)
-# ====================
-
-# Images
+content/archive/
+content/rendered/
 *.png
 *.jpg
 *.jpeg
-*.gif
-*.webp
-*.ico
-*.bmp
-*.tiff
-*.tif
-# SVG is text-based - intentionally NOT ignored
 
-# Videos
-*.mp4
-*.mkv
-*.avi
-*.mov
-*.wmv
-*.flv
-*.webm
-
-# Audio
-*.mp3
-*.wav
-*.flac
-*.aac
-*.ogg
-
-# Documents / Archives
-*.pdf
-*.doc
-*.docx
-*.xls
-*.xlsx
-*.ppt
-*.pptx
-*.zip
-*.tar
-*.tar.gz
-*.tar.bz2
-*.tgz
-*.rar
-*.7z
-*.gz
-*.bz2
-
-**/.sisyphus/
+# Versioned document assets are allowed.
+# Project-specific generated artifacts
+playwright-console-errors.log
+qa-shots/*.png
+src/examples/templates/algorithm-architect/github-pages-docs/validation-artifacts/*.png
+tabs-*.png
