@@ -15,6 +15,12 @@ class AIClient {
         this.abortController = null;
     }
 
+    dispatchRetrievalStatus(detail) {
+        window.dispatchEvent(new CustomEvent('ai-chatbot-retrieval-status', {
+            detail: detail || { state: 'idle' }
+        }));
+    }
+
     /**
      * API 요청 헤더 생성
      */
@@ -102,6 +108,25 @@ class AIClient {
         }
     }
 
+    async queryLocalDocs(query) {
+        const searchConfig = this.config?.search;
+        if (!searchConfig?.localDocsEnabled || !query || !window.DocSearchEngine) {
+            return null;
+        }
+
+        try {
+            return await window.DocSearchEngine.buildChatContext(query, {
+                limit: searchConfig.maxResults,
+                contextMaxChars: searchConfig.contextMaxChars,
+                minCombinedScore: searchConfig.minCombinedScore,
+                rrfK: searchConfig.rrfK
+            });
+        } catch (error) {
+            console.warn('Local docs search failed:', error);
+            return null;
+        }
+    }
+
     /**
      * 채팅 메시지 전송 (스트리밍)
      * @param {Array} messages - 대화 메시지 배열
@@ -122,16 +147,52 @@ class AIClient {
         };
 
         const lastUserMessage = [...messages].reverse().find((message) => message.role === 'user');
-        const knowledgeBaseContext = await this.queryKnowledgeBase(lastUserMessage?.content || '');
+        const query = lastUserMessage?.content || '';
+        const retrievalSources = [];
+
+        if (this.config?.search?.localDocsEnabled) {
+            retrievalSources.push('local-docs');
+        }
+        if (this.config?.openNotebook?.enabled) {
+            retrievalSources.push('open-notebook');
+        }
+
+        this.dispatchRetrievalStatus({
+            state: retrievalSources.length > 0 ? 'searching' : 'idle',
+            sources: retrievalSources,
+            query
+        });
+
+        const [localDocsContext, knowledgeBaseContext] = await Promise.all([
+            this.queryLocalDocs(query),
+            this.queryKnowledgeBase(query)
+        ]);
+
+        const localDocsMessage = localDocsContext?.contextText ? {
+            role: 'system',
+            content: `${localDocsContext.contextText}\n\n위 로컬 문서 검색 결과를 가장 우선적으로 참고하고, 답변에 관련 문서 경로를 포함해주세요.`
+        } : null;
         const knowledgeBaseMessage = knowledgeBaseContext ? {
             role: 'system',
-            content: `[Open Notebook 지식 베이스 검색 결과]\n${knowledgeBaseContext}\n[지식 베이스 검색 결과 끝]\n\n위 지식 베이스 검색 결과를 최우선으로 참고하여 답변해주세요.`
+            content: `[Open Notebook 지식 베이스 검색 결과]\n${knowledgeBaseContext}\n[지식 베이스 검색 결과 끝]\n\n위 지식 베이스 검색 결과를 보조적으로 참고하여 답변해주세요.`
         } : null;
 
+        this.dispatchRetrievalStatus({
+            state: 'complete',
+            query,
+            localDocs: {
+                enabled: !!this.config?.search?.localDocsEnabled,
+                count: localDocsContext?.results?.length || 0,
+                intent: localDocsContext?.intent || null
+            },
+            openNotebook: {
+                enabled: !!this.config?.openNotebook?.enabled,
+                used: !!knowledgeBaseContext
+            }
+        });
+
         const requestBody = {
-            messages: knowledgeBaseMessage
-                ? [systemMessage, knowledgeBaseMessage, ...messages]
-                : [systemMessage, ...messages],
+            messages: [systemMessage, localDocsMessage, knowledgeBaseMessage, ...messages].filter(Boolean),
             stream: true,
         };
 
@@ -199,6 +260,11 @@ class AIClient {
             }
 
             console.error('AI Client Error:', error);
+            this.dispatchRetrievalStatus({
+                state: 'error',
+                query,
+                message: error.message || '알 수 없는 오류가 발생했습니다.'
+            });
             onError(error.message || '알 수 없는 오류가 발생했습니다.');
         }
     }
@@ -211,6 +277,7 @@ class AIClient {
             this.abortController.abort();
             this.abortController = null;
         }
+        this.dispatchRetrievalStatus({ state: 'idle' });
     }
 
     /**

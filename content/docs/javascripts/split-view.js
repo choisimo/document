@@ -214,6 +214,7 @@
             this.originalPageUrl = null;
             this.originalPageTitle = null;
             this.contentObservers = new Map();
+            this.searchRequestIds = new Map();
 
             // Per-session AbortControllers: cancel stale fetches when a new load starts
             this._fetchAbortControllers = new Map();
@@ -753,14 +754,18 @@
         // ----- Search Functionality -----
         async loadSearchIndex() {
             try {
-                const response = await fetch(MkDocs.SEARCH_INDEX_URL);
-                this.searchIndex = await response.json();
+                if (window.DocSearchEngine) {
+                    this.searchIndex = await window.DocSearchEngine.loadIndex(MkDocs.SEARCH_INDEX_URL);
+                } else {
+                    const response = await fetch(MkDocs.SEARCH_INDEX_URL);
+                    this.searchIndex = await response.json();
+                }
             } catch (error) {
                 console.warn('Split View: Could not load search index', error);
             }
         }
 
-        search(query, sessionId) {
+        async search(query, sessionId) {
             const session = this.sessions.get(sessionId);
             const pane = this.grid.querySelector(`[data-session-id="${sessionId}"]`);
             if (!session || !pane) return;
@@ -768,6 +773,9 @@
             session.searchQuery = query;
             const content = pane.querySelector('.split-view-content');
             const status = pane.querySelector('.split-view-status-text');
+            const requestId = (this.searchRequestIds.get(sessionId) || 0) + 1;
+
+            this.searchRequestIds.set(sessionId, requestId);
 
             if (!query.trim()) {
                 this.showWelcome(pane, sessionId);
@@ -775,21 +783,40 @@
                 return;
             }
 
-            if (!this.searchIndex) {
-                content.innerHTML = '<div class="split-view-error">검색 인덱스를 불러올 수 없습니다</div>';
+            if (!window.DocSearchEngine) {
+                content.innerHTML = '<div class="split-view-error">검색 엔진을 불러올 수 없습니다</div>';
                 return;
             }
 
-            // Search in the index
-            const queryLower = query.toLowerCase();
-            const results = this.searchIndex.docs.filter(doc => {
-                const titleMatch = doc.title && doc.title.toLowerCase().includes(queryLower);
-                const textMatch = doc.text && doc.text.toLowerCase().includes(queryLower);
-                return titleMatch || textMatch;
-            }).slice(0, 30);
+            status.textContent = '검색 중...';
+
+            let searchResponse;
+
+            try {
+                searchResponse = await window.DocSearchEngine.search(query, {
+                    limit: 30,
+                    excerptMaxChars: 200,
+                    indexData: this.searchIndex,
+                    indexUrl: MkDocs.SEARCH_INDEX_URL
+                });
+                this.searchIndex = window.DocSearchEngine._indexData || this.searchIndex;
+            } catch (error) {
+                console.warn('Split View: search failed', error);
+                if (this.searchRequestIds.get(sessionId) !== requestId) return;
+                content.innerHTML = '<div class="split-view-error">검색 중 오류가 발생했습니다</div>';
+                status.textContent = '검색 실패';
+                return;
+            }
+
+            if (this.searchRequestIds.get(sessionId) !== requestId) {
+                return;
+            }
+
+            const results = Array.isArray(searchResponse?.results) ? searchResponse.results : [];
+            const intent = searchResponse?.intent || 'explore';
 
             session.searchResults = results;
-            status.textContent = `${results.length}개 결과`;
+            status.textContent = `${results.length}개 결과 · ${intent}`;
 
             if (results.length === 0) {
                 content.innerHTML = `
@@ -803,26 +830,29 @@
                 return;
             }
 
-            // Render results with improved formatting
             content.innerHTML = `
         <div class="split-view-results">
-          ${results.map(doc => {
+          ${results.map((doc) => {
                 const path = doc.location || '';
-                const category = this.extractCategory(path);
+                const reasons = Array.isArray(doc.reasons) ? doc.reasons : [];
+                const score = typeof doc.combinedScore === 'number' ? doc.combinedScore : doc.score;
                 return `
               <div class="split-view-result-item" data-url="${this.escapeHtml(path)}">
                 <div class="split-view-result-header">
-                  ${category ? `<span class="split-view-result-category">${this.escapeHtml(category)}</span>` : ''}
+                  ${doc.category ? `<span class="split-view-result-category">${this.escapeHtml(doc.category)}</span>` : ''}
+                  ${doc.intent ? `<span class="split-view-result-intent">${this.escapeHtml(doc.intent)}</span>` : ''}
+                  ${typeof score === 'number' ? `<span class="split-view-result-score">score ${score.toFixed(3)}</span>` : ''}
                 </div>
                 <div class="split-view-result-title">${this.highlightText(doc.title || 'Untitled', query)}</div>
-                <div class="split-view-result-excerpt">${this.renderExcerpt(doc.text, query)}</div>
+                <div class="split-view-result-path">${this.highlightText(this.escapeHtml(path || '/'), query)}</div>
+                <div class="split-view-result-excerpt">${this.highlightText(this.renderBasicMarkdown(doc.excerpt || doc.text || ''), query)}</div>
+                ${reasons.length > 0 ? `<div class="split-view-result-reasons">${reasons.map((reason) => `<span class="split-view-result-reason">${this.escapeHtml(reason)}</span>`).join('')}</div>` : ''}
               </div>
             `;
             }).join('')}
         </div>
       `;
 
-            // Bind click events to results
             content.querySelectorAll('.split-view-result-item').forEach(item => {
                 item.addEventListener('click', () => {
                     const url = item.dataset.url;

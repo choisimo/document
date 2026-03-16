@@ -1,3 +1,0 @@
----
-docker_app_path: /opt/myapp
-docker_compose_version: "v2.20.0" # Example version if needing manual install

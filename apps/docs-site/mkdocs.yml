@@ -146,6 +146,7 @@ extra_css:
   - stylesheets/split-view.css
 
 extra_javascript:
+  - javascripts/hybrid-search.js
   - javascripts/split-view.js
   - javascripts/cs-reference-filter.js
   - javascripts/ai-config.js

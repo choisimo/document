@@ -1,4 +1,0 @@
----
-samba_share_name: public
-samba_share_path: /srv/samba/public
-samba_share_comment: Public Share

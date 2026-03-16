@@ -1,8 +1,0 @@
-- name: Bootstrap Rocky 10 nodes
-  hosts: all
-  gather_facts: true
-  roles:
-    - common
-    - timesync
-    - docker
-    - users

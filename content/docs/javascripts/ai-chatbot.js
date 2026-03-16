@@ -19,6 +19,8 @@ class AIChatbot {
     this.messagesContainer = null;
     this.input = null;
     this._focusTrapHandler = null;
+    this.retrievalStatus = { state: 'idle' };
+    this.retrievalStatusElement = null;
 
     this.loadHistory();
     this.init();
@@ -36,12 +38,22 @@ class AIChatbot {
    * UI 요소 생성
    */
   createUI() {
+    this.localDocsEnabled = window.AI_CONFIG?.search?.localDocsEnabled !== false;
     this.openNotebookEnabled = !!window.AI_CONFIG?.openNotebook?.enabled;
+    this.localDocsBadge = this.localDocsEnabled
+      ? '<span class="ai-chatbot-docs-badge">Docs grounding</span>'
+      : '';
     this.openNotebookBadge = this.openNotebookEnabled
       ? '<span class="ai-chatbot-kb-badge">KB 연결됨</span>'
       : '';
+    this.localDocsNote = this.localDocsEnabled
+      ? '<p class="ai-chatbot-welcome-note ai-chatbot-welcome-note-docs">문서 검색 결과를 우선 근거로 사용합니다</p>'
+      : '';
     this.openNotebookNote = this.openNotebookEnabled
       ? '<p class="ai-chatbot-welcome-note">📚 Open Notebook 지식 베이스가 연결되어 있습니다</p>'
+      : '';
+    this.localDocsSuggestion = this.localDocsEnabled
+      ? '<button class="ai-chatbot-suggestion" data-query="이 문서 사이트에서 Docker 설치 문서를 찾아 요약해줘">📘 로컬 문서로 답변</button>'
       : '';
     this.openNotebookSuggestion = this.openNotebookEnabled
       ? '<button class="ai-chatbot-suggestion" data-query="지식 베이스에 어떤 내용이 있나요?">📚 지식 베이스에서 검색</button>'
@@ -77,7 +89,7 @@ class AIChatbot {
         </div>
         <div class="ai-chatbot-header-text">
           <p class="ai-chatbot-header-title">AI 어시스턴트</p>
-          <p class="ai-chatbot-header-subtitle">문서에 대해 물어보세요${this.openNotebookBadge}</p>
+          <p class="ai-chatbot-header-subtitle">문서에 대해 물어보세요${this.localDocsBadge}${this.openNotebookBadge}</p>
         </div>
         <div class="ai-chatbot-header-actions">
           <button class="ai-chatbot-header-btn ai-chatbot-clear-btn" title="대화 기록 삭제">
@@ -88,6 +100,7 @@ class AIChatbot {
           </button>
         </div>
       </div>
+      <div class="ai-chatbot-context-status"></div>
       <div class="ai-chatbot-messages"></div>
       <div class="ai-chatbot-input-area">
         <input type="text" class="ai-chatbot-input" placeholder="${window.AI_CONFIG?.chatbot?.placeholder || '메시지를 입력하세요...'}">
@@ -102,10 +115,12 @@ class AIChatbot {
     this.sendBtn = container.querySelector('.ai-chatbot-send-btn');
     this.clearBtn = container.querySelector('.ai-chatbot-clear-btn');
     this.closeBtn = container.querySelector('.ai-chatbot-close-btn');
+    this.retrievalStatusElement = container.querySelector('.ai-chatbot-context-status');
 
     document.body.appendChild(fab);
     document.body.appendChild(container);
 
+    this.renderRetrievalStatus();
     this.renderMessages();
   }
 
@@ -157,6 +172,102 @@ class AIChatbot {
         // this.close();
       }
     });
+
+    window.addEventListener('ai-chatbot-retrieval-status', (event) => {
+      this.updateRetrievalStatus(event.detail);
+    });
+  }
+
+  updateRetrievalStatus(detail) {
+    this.retrievalStatus = detail && typeof detail === 'object'
+      ? { ...detail }
+      : { state: 'idle' };
+    this.renderRetrievalStatus();
+    this.refreshTypingIndicator();
+  }
+
+  getRetrievalChips(detail = this.retrievalStatus) {
+    const chips = [];
+    const status = detail || { state: 'idle' };
+
+    if (status.state === 'searching') {
+      if (status.sources?.includes('local-docs')) {
+        chips.push({ label: '로컬 문서 검색 중', tone: '' });
+      }
+      if (status.sources?.includes('open-notebook')) {
+        chips.push({ label: 'Open Notebook 검색 중', tone: '' });
+      }
+    }
+
+    if (status.state === 'complete') {
+      if (status.localDocs?.enabled) {
+        const count = Number(status.localDocs.count) || 0;
+        const intent = status.localDocs.intent ? ` · ${status.localDocs.intent}` : '';
+        chips.push({
+          label: count > 0 ? `로컬 문서 ${count}건 사용${intent}` : '로컬 문서 결과 없음',
+          tone: count > 0 ? 'is-complete' : ''
+        });
+      }
+      if (status.openNotebook?.enabled) {
+        chips.push({
+          label: status.openNotebook.used ? 'Open Notebook 사용' : 'Open Notebook 결과 없음',
+          tone: status.openNotebook.used ? 'is-complete' : ''
+        });
+      }
+    }
+
+    if (status.state === 'error') {
+      chips.push({
+        label: status.message || '검색 중 오류가 발생했습니다',
+        tone: 'is-error'
+      });
+    }
+
+    if (chips.length === 0) {
+      if (this.localDocsEnabled) {
+        chips.push({ label: '로컬 문서 grounding 준비됨', tone: '' });
+      }
+      if (this.openNotebookEnabled) {
+        chips.push({ label: 'Open Notebook 연결 가능', tone: '' });
+      }
+    }
+
+    return chips;
+  }
+
+  renderRetrievalStatus() {
+    if (!this.retrievalStatusElement) return;
+    const chips = this.getRetrievalChips();
+    this.retrievalStatusElement.innerHTML = chips
+      .map((chip) => `<span class="ai-chatbot-status-chip${chip.tone ? ` ${chip.tone}` : ''}">${chip.label}</span>`)
+      .join('');
+  }
+
+  renderTypingStatus() {
+    const chips = this.getRetrievalChips();
+    if (chips.length === 0) return '';
+    return `
+      <div class="ai-chatbot-retrieval-status">
+        ${chips.map((chip) => `<span class="ai-chatbot-status-chip${chip.tone ? ` ${chip.tone}` : ''}">${chip.label}</span>`).join('')}
+      </div>
+    `;
+  }
+
+  refreshTypingIndicator() {
+    const typingBubble = this.messagesContainer?.querySelector('.ai-chatbot-typing-indicator .ai-chatbot-bubble');
+    if (!typingBubble) return;
+    const statusMarkup = this.renderTypingStatus();
+    const statusElement = typingBubble.querySelector('.ai-chatbot-retrieval-status');
+
+    if (statusMarkup) {
+      if (statusElement) {
+        statusElement.outerHTML = statusMarkup;
+      } else {
+        typingBubble.insertAdjacentHTML('afterbegin', statusMarkup);
+      }
+    } else if (statusElement) {
+      statusElement.remove();
+    }
   }
 
   /**
@@ -392,8 +503,10 @@ class AIChatbot {
           </div>
           <h3>안녕하세요! 👋</h3>
           <p>Documentation Hub AI 어시스턴트입니다.<br>문서에 대해 궁금한 점을 물어보세요.</p>
+          ${this.localDocsNote || ''}
           ${this.openNotebookNote || ''}
           <div class="ai-chatbot-suggestions">
+            ${this.localDocsSuggestion || ''}
             <button class="ai-chatbot-suggestion" data-query="Docker 설치 방법을 알려주세요">🐳 Docker 설치</button>
             <button class="ai-chatbot-suggestion" data-query="SSH 보안 설정은 어떻게 하나요?">🔐 SSH 보안</button>
             <button class="ai-chatbot-suggestion" data-query="Proxmox 클러스터 구성 방법">🖥️ Proxmox</button>
@@ -498,9 +611,6 @@ class AIChatbot {
     if (this.messagesContainer.querySelector('.ai-chatbot-typing-indicator')) return;
     const typing = document.createElement('div');
     typing.className = 'ai-chatbot-message assistant ai-chatbot-typing-indicator';
-    const openNotebookStatus = window.AI_CONFIG?.openNotebook?.enabled
-      ? '<div class="ai-chatbot-kb-status">지식 베이스 검색 중...</div>'
-      : '';
     typing.innerHTML = `
       <div class="ai-chatbot-avatar">
         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -508,7 +618,7 @@ class AIChatbot {
         </svg>
       </div>
       <div class="ai-chatbot-bubble ai-chatbot-skeleton-bubble">
-        ${openNotebookStatus}
+        ${this.renderTypingStatus()}
         <div class="ai-chatbot-typing">
           <span></span><span></span><span></span>
         </div>
@@ -560,6 +670,7 @@ class AIChatbot {
   clearHistory() {
     this.messages = [];
     localStorage.removeItem('ai-chatbot-history');
+    this.updateRetrievalStatus({ state: 'idle' });
     this.renderMessages();
   }
 }

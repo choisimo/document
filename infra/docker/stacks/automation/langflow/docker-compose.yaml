@@ -1,0 +1,72 @@
+services:
+  langflow-perms:
+    image: busybox:1.36
+    container_name: ${LANGFLOW_PERMS_CONTAINER_NAME:-langflow-perms}
+    user: "0:0"
+    restart: "no"
+    command: ["sh", "-c", "mkdir -p /var/lib/langflow && chmod -R a+rwX /var/lib/langflow"]
+    volumes:
+      - langflow-data:/var/lib/langflow
+    networks:
+      - langflow-internal
+
+  postgres:
+    image: postgres:16
+    container_name: ${POSTGRES_CONTAINER_NAME:-langflow-postgres}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-langflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-langflow}
+      TZ: ${TZ:-Asia/Seoul}
+    volumes:
+      - langflow-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - langflow-internal
+
+  langflow:
+    image: ${LANGFLOW_IMAGE:-langflowai/langflow:latest}
+    container_name: ${LANGFLOW_CONTAINER_NAME:-langflow}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      langflow-perms:
+        condition: service_completed_successfully
+    environment:
+      LANGFLOW_DATABASE_URL: postgresql://${POSTGRES_USER:-langflow}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-langflow}
+      LANGFLOW_CONFIG_DIR: /var/lib/langflow
+      TZ: ${TZ:-Asia/Seoul}
+    volumes:
+      - langflow-data:/var/lib/langflow
+    ports:
+      - "${LANGFLOW_BIND_ADDRESS:-127.0.0.1}:${LANGFLOW_PORT:-7860}:7860"
+    networks:
+      - langflow-internal
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: ${CLOUDFLARED_CONTAINER_NAME:-langflow-cloudflared}
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+    depends_on:
+      - langflow
+    networks:
+      - langflow-internal
+    profiles:
+      - tunnel
+
+volumes:
+  langflow-data:
+  langflow-db:
+
+networks:
+  langflow-internal:
+    driver: bridge

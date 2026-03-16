@@ -1,6 +1,0 @@
----
-- hosts: dbservers
-  become: yes
-  roles:
-    - common
-    - database

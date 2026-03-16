@@ -8,6 +8,7 @@
 
 ## Services
 
+- [../stacks/automation/langflow/README.md](../stacks/automation/langflow/README.md) - Langflow + PostgreSQL + optional Cloudflare Tunnel stack
 - [n8n.md](services/n8n.md) - n8n 워크플로우 자동화 스택 가이드
 - [supabase.md](services/supabase.md) - Supabase (PostgreSQL + pgvector) 벡터 DB 가이드
 

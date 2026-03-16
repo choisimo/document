@@ -1,0 +1,1126 @@
+- generic [active] [ref=e1]:
+  - link "본문으로 건너뛰기" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - progressbar "읽기 진행률"
+  - link "콘텐츠로 이동" [ref=e3] [cursor=pointer]:
+    - /url: http://127.0.0.1:9007/#documentation-hub
+  - banner [ref=e4]:
+    - navigation "상단/헤더" [ref=e5]:
+      - img [ref=e7] [cursor=pointer]
+      - generic [ref=e10]:
+        - generic [ref=e12]: Documentation Hub
+        - generic:
+          - generic: Home
+      - generic [ref=e13]:
+        - radio "Switch to dark mode"
+        - generic "Switch to dark mode" [ref=e14] [cursor=pointer]:
+          - img [ref=e15]
+        - radio "Switch to light mode"
+      - img [ref=e18] [cursor=pointer]
+      - dialog:
+        - search:
+          - generic:
+            - textbox "검색" [ref=e20]
+            - img [ref=e22] [cursor=pointer]
+            - navigation "검색":
+              - link "공유":
+                - /url: http://127.0.0.1:9007/?q=
+                - img
+              - button "지우기":
+                - img
+          - generic [ref=e25]: 검색어를 입력하세요
+  - generic [ref=e26]:
+    - main [ref=e27]:
+      - generic [ref=e28]:
+        - navigation "네비게이션" [ref=e31]:
+          - generic [ref=e32] [cursor=pointer]:
+            - link "Documentation Hub" [ref=e33]:
+              - /url: http://127.0.0.1:9007/
+              - img [ref=e34]
+            - text: Documentation Hub
+          - link "choisimo/document 0 0" [ref=e1143] [cursor=pointer]:
+            - /url: https://github.com/choisimo/document
+            - img [ref=e39]
+            - generic [ref=e41]:
+              - text: choisimo/document
+              - list [ref=e1144]:
+                - listitem [ref=e1145]: "0"
+                - listitem [ref=e1146]: "0"
+          - list [ref=e42]:
+            - listitem [ref=e43]:
+              - generic [ref=e45]: Home
+              - navigation "목차" [ref=e47]:
+                - generic [ref=e48] [cursor=pointer]: 목차
+                - list [ref=e50]:
+                  - listitem [ref=e51]:
+                    - link "인프라부터 개발 환경까지 한곳에서 찾는 운영 문서 허브" [ref=e52] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/#_1
+                      - generic [ref=e53]: 인프라부터 개발 환경까지 한곳에서 찾는 운영 문서 허브
+                  - listitem [ref=e54]:
+                    - link "핵심 문서 영역" [ref=e55] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/#_2
+                      - generic [ref=e56]: 핵심 문서 영역
+                  - listitem [ref=e57]:
+                    - link "운영용 Docker Compose 컬렉션" [ref=e58] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/#docker-compose
+                      - generic [ref=e59]: 운영용 Docker Compose 컬렉션
+                  - listitem [ref=e60]:
+                    - link "바로가기" [ref=e61] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/#_3
+                      - generic [ref=e62]: 바로가기
+            - listitem [ref=e63]:
+              - generic [ref=e65]: Infrastructure
+              - navigation "Infrastructure" [ref=e67]:
+                - generic [ref=e68] [cursor=pointer]: Infrastructure
+                - list [ref=e70]:
+                  - listitem [ref=e71]:
+                    - link "인프라 문서" [ref=e72] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/infrastructure/
+                      - generic [ref=e73]: 인프라 문서
+                  - listitem [ref=e74]:
+                    - generic [ref=e76]: Proxmox
+                    - navigation "Proxmox" [ref=e78]:
+                      - generic [ref=e79] [cursor=pointer]: Proxmox
+                      - list [ref=e81]:
+                        - listitem [ref=e82]:
+                          - link "Proxmox QDevice 투표 문제 해결 방법" [ref=e83] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/infrastructure/proxmox/cluster/
+                            - generic [ref=e84]: Proxmox QDevice 투표 문제 해결 방법
+                        - listitem [ref=e85]:
+                          - link "Proxmox 이메일 알림 설정 가이드" [ref=e86] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/infrastructure/proxmox/email-alerts/
+                            - generic [ref=e87]: Proxmox 이메일 알림 설정 가이드
+                        - listitem [ref=e88]:
+                          - link "Using Raspberry Pi or NanoPi NEO3 as a Quorum Device for Proxmox Clusters" [ref=e89] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/infrastructure/proxmox/cluster-with-sbc/
+                            - generic [ref=e90]: Using Raspberry Pi or NanoPi NEO3 as a Quorum Device for Proxmox Clusters
+                        - listitem [ref=e91]:
+                          - link "Proxmox 스냅샷 vs 백업 vs 템플릿" [ref=e92] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/infrastructure/proxmox/snapshot-backup-template/
+                            - generic [ref=e93]: Proxmox 스냅샷 vs 백업 vs 템플릿
+                        - listitem [ref=e94]:
+                          - link "Proxmox & OPNsense VLAN 104 추가 및 설정 가이드" [ref=e95] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/infrastructure/proxmox/opnsense_vlan_setup/
+                            - generic [ref=e96]: Proxmox & OPNsense VLAN 104 추가 및 설정 가이드
+                  - listitem [ref=e97]:
+                    - generic [ref=e99]: Networking
+                    - navigation "Networking" [ref=e101]:
+                      - generic [ref=e102] [cursor=pointer]: Networking
+                      - list [ref=e104]:
+                        - listitem [ref=e105]:
+                          - link "NetworkManager를 사용한 Static IP 설정 방법" [ref=e106] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/infrastructure/networking/network-settings/
+                            - generic [ref=e107]: NetworkManager를 사용한 Static IP 설정 방법
+                        - listitem [ref=e108]:
+                          - link "nmcli 네트워크 설정 가이드" [ref=e109] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/infrastructure/networking/nmcli-guide/
+                            - generic [ref=e110]: nmcli 네트워크 설정 가이드
+                        - listitem [ref=e111]:
+                          - link "Rsync와 SSH 커스텀 포트 사용법" [ref=e112] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/infrastructure/networking/rsync/
+                            - generic [ref=e113]: Rsync와 SSH 커스텀 포트 사용법
+                        - listitem [ref=e114]:
+                          - link "리눅스에서 이메일 설정 및 전송 방법" [ref=e115] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/infrastructure/networking/email-config/
+                            - generic [ref=e116]: 리눅스에서 이메일 설정 및 전송 방법
+                  - listitem [ref=e117]:
+                    - generic [ref=e119]: Storage
+                    - navigation "Storage" [ref=e121]:
+                      - generic [ref=e122] [cursor=pointer]: Storage
+                      - list [ref=e124]:
+                        - listitem [ref=e125]:
+                          - link "리눅스 파일 시스템 관리 명령어 가이드" [ref=e126] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/infrastructure/storage/disk-format/
+                            - generic [ref=e127]: 리눅스 파일 시스템 관리 명령어 가이드
+                        - listitem [ref=e128]:
+                          - link "Disk Mounting Guide" [ref=e129] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/infrastructure/storage/mounting/
+                            - generic [ref=e130]: Disk Mounting Guide
+                        - listitem [ref=e131]:
+                          - link "우분투 24.04 LTS에서 원격 디렉토리 마운팅 설정하기" [ref=e132] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/infrastructure/storage/sshfs/
+                            - generic [ref=e133]: 우분투 24.04 LTS에서 원격 디렉토리 마운팅 설정하기
+                  - listitem [ref=e134]:
+                    - generic [ref=e136]: Monitoring
+                    - navigation "Monitoring" [ref=e138]:
+                      - generic [ref=e139] [cursor=pointer]: Monitoring
+                      - list [ref=e141]:
+                        - listitem [ref=e142]:
+                          - link "Prometheus grafana loki" [ref=e143] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/infrastructure/monitoring/prometheus-grafana-loki/
+                            - generic [ref=e144]: Prometheus grafana loki
+                        - listitem [ref=e145]:
+                          - link "백그라운드 프로세스 관리" [ref=e146] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/infrastructure/monitoring/process-management/
+                            - generic [ref=e147]: 백그라운드 프로세스 관리
+                  - listitem [ref=e148]:
+                    - generic [ref=e150]: Hardware
+                    - navigation "Hardware" [ref=e152]:
+                      - generic [ref=e153] [cursor=pointer]: Hardware
+                      - list [ref=e155]:
+                        - listitem [ref=e156]:
+                          - link "NanoPi Neo3 우분투 설치 후 로그인 방법 가이드" [ref=e157] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/infrastructure/hardware/nano-pi-neo3/
+                            - generic [ref=e158]: NanoPi Neo3 우분투 설치 후 로그인 방법 가이드
+                        - listitem [ref=e159]:
+                          - link "SSD/NVMe Health Analysis Guide" [ref=e160] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/infrastructure/hardware/ssd-guide/
+                            - generic [ref=e161]: SSD/NVMe Health Analysis Guide
+            - listitem [ref=e162]:
+              - generic [ref=e164]: Security
+              - navigation "Security" [ref=e166]:
+                - generic [ref=e167] [cursor=pointer]: Security
+                - list [ref=e169]:
+                  - listitem [ref=e170]:
+                    - link "보안 문서" [ref=e171] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/security/
+                      - generic [ref=e172]: 보안 문서
+                  - listitem [ref=e173]:
+                    - generic [ref=e175]: SSH
+                    - navigation "SSH" [ref=e177]:
+                      - generic [ref=e178] [cursor=pointer]: SSH
+                      - list [ref=e180]:
+                        - listitem [ref=e181]:
+                          - link "SSH 구성 파일 상세 설명 및 옵션 치트 시트" [ref=e182] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/security/ssh/configuration/
+                            - generic [ref=e183]: SSH 구성 파일 상세 설명 및 옵션 치트 시트
+                        - listitem [ref=e184]:
+                          - link "SSH Key Management" [ref=e185] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/security/ssh/key-management/
+                            - generic [ref=e186]: SSH Key Management
+                        - listitem [ref=e187]:
+                          - link "SSH Match 지시어 활용 예시 및 설명" [ref=e188] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/security/ssh/match-rules/
+                            - generic [ref=e189]: SSH Match 지시어 활용 예시 및 설명
+                  - listitem [ref=e190]:
+                    - generic [ref=e192]: Access Control
+                    - navigation "Access Control" [ref=e194]:
+                      - generic [ref=e195] [cursor=pointer]: Access Control
+                      - list [ref=e197]:
+                        - listitem [ref=e198]:
+                          - link "사용자별 기본 디렉토리 설정 방법" [ref=e199] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/security/access/user-acl/
+                            - generic [ref=e200]: 사용자별 기본 디렉토리 설정 방법
+                        - listitem [ref=e201]:
+                          - 'link "SSHFS 권한 문제: 동일 유저명에도 불구하고 발생하는 접근 제한 원인" [ref=e202] [cursor=pointer]':
+                            - /url: http://127.0.0.1:9007/security/access/permissions/
+                            - generic [ref=e203]: "SSHFS 권한 문제: 동일 유저명에도 불구하고 발생하는 접근 제한 원인"
+                  - listitem [ref=e204]:
+                    - generic [ref=e206]: VPN
+                    - navigation "VPN" [ref=e208]:
+                      - generic [ref=e209] [cursor=pointer]: VPN
+                      - list [ref=e211]:
+                        - listitem [ref=e212]:
+                          - link "WireGuard VPN Setup" [ref=e213] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/security/vpn/wireguard/
+                            - generic [ref=e214]: WireGuard VPN Setup
+                        - listitem [ref=e215]:
+                          - link "Tailscale VPN 상세 가이드" [ref=e216] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/security/vpn/tailscale/
+                            - generic [ref=e217]: Tailscale VPN 상세 가이드
+                  - listitem [ref=e218]:
+                    - generic [ref=e220]: Zero Trust
+                    - navigation "Zero Trust" [ref=e222]:
+                      - generic [ref=e223] [cursor=pointer]: Zero Trust
+                      - list [ref=e225]:
+                        - listitem [ref=e226]:
+                          - link "Cloudflare Zero Trust와 Nginx를 활용한 접근 관리 구현 가이드" [ref=e227] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/security/zerotrust/cloudflare/
+                            - generic [ref=e228]: Cloudflare Zero Trust와 Nginx를 활용한 접근 관리 구현 가이드
+            - listitem [ref=e229]:
+              - generic [ref=e231]: Development
+              - navigation "Development" [ref=e233]:
+                - generic [ref=e234] [cursor=pointer]: Development
+                - list [ref=e236]:
+                  - listitem [ref=e237]:
+                    - link "개발 문서" [ref=e238] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/development/
+                      - generic [ref=e239]: 개발 문서
+                  - listitem [ref=e240]:
+                    - generic [ref=e242]: Docker
+                    - navigation "Docker" [ref=e244]:
+                      - generic [ref=e245] [cursor=pointer]: Docker
+                      - list [ref=e247]:
+                        - listitem [ref=e248]:
+                          - link "Docker 설치 가이드 (Docker Installation Guide)" [ref=e249] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/development/docker/installation/
+                            - generic [ref=e250]: Docker 설치 가이드 (Docker Installation Guide)
+                        - listitem [ref=e251]:
+                          - link "Commands" [ref=e252] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/development/docker/commands/
+                            - generic [ref=e253]: Commands
+                        - listitem [ref=e254]:
+                          - link "Docker 네트워크 생성 옵션 종합 분석" [ref=e255] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/development/docker/networking/
+                            - generic [ref=e256]: Docker 네트워크 생성 옵션 종합 분석
+                        - listitem [ref=e257]:
+                          - link "Docker Volumes" [ref=e258] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/development/docker/volumes/
+                            - generic [ref=e259]: Docker Volumes
+                        - listitem [ref=e260]:
+                          - link "Vaultwarden Docker Compose 설정 가이드" [ref=e261] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/development/docker/vaultwarden/
+                            - generic [ref=e262]: Vaultwarden Docker Compose 설정 가이드
+                        - listitem [ref=e263]:
+                          - link "LiteLLM + GitHub Copilot Auto-Auth Setup Guide" [ref=e264] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/development/docker/litellm_copilot_guide/
+                            - generic [ref=e265]: LiteLLM + GitHub Copilot Auto-Auth Setup Guide
+                  - listitem [ref=e266]:
+                    - generic [ref=e268]: Git
+                    - navigation "Git" [ref=e270]:
+                      - generic [ref=e271] [cursor=pointer]: Git
+                      - list [ref=e273]:
+                        - listitem [ref=e274]:
+                          - link "GitHub 원격 저장소와 로컬 브랜치 이름 불일치 해결 방법" [ref=e275] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/development/git/branch-management/
+                            - generic [ref=e276]: GitHub 원격 저장소와 로컬 브랜치 이름 불일치 해결 방법
+                        - listitem [ref=e277]:
+                          - link "Git Deploy Keys 설정" [ref=e278] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/development/git/deployment/
+                            - generic [ref=e279]: Git Deploy Keys 설정
+                        - listitem [ref=e280]:
+                          - link "Git 삭제 취소 및 빈 브랜치 생성 방법" [ref=e281] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/development/git/restore-deletion/
+                            - generic [ref=e282]: Git 삭제 취소 및 빈 브랜치 생성 방법
+                  - listitem [ref=e283]:
+                    - generic [ref=e285]: IDE
+                    - navigation "IDE" [ref=e287]:
+                      - generic [ref=e288] [cursor=pointer]: IDE
+                      - list [ref=e290]:
+                        - listitem [ref=e291]:
+                          - link "VS Code Plugins & Extensions" [ref=e292] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/development/ide/vscode-plugins/
+                            - generic [ref=e293]: VS Code Plugins & Extensions
+                        - listitem [ref=e294]:
+                          - link "Code-Server 설치 및 설정 가이드" [ref=e295] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/development/ide/code-server/
+                            - generic [ref=e296]: Code-Server 설치 및 설정 가이드
+                  - listitem [ref=e297]:
+                    - generic [ref=e299]: Languages
+                    - navigation "Languages" [ref=e301]:
+                      - generic [ref=e302] [cursor=pointer]: Languages
+                      - list [ref=e304]:
+                        - listitem [ref=e305]:
+                          - link "Java Installation Guide" [ref=e306] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/development/languages/java-install/
+                            - generic [ref=e307]: Java Installation Guide
+                        - listitem [ref=e308]:
+                          - link "GCC Installation Guide" [ref=e309] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/development/languages/gcc/
+                            - generic [ref=e310]: GCC Installation Guide
+            - listitem [ref=e311]:
+              - generic [ref=e313]: Databases
+              - navigation "Databases" [ref=e315]:
+                - generic [ref=e316] [cursor=pointer]: Databases
+                - list [ref=e318]:
+                  - listitem [ref=e319]:
+                    - link "데이터베이스 문서" [ref=e320] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/databases/
+                      - generic [ref=e321]: 데이터베이스 문서
+                  - listitem [ref=e322]:
+                    - link "Installation" [ref=e323] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/databases/installation/
+                      - generic [ref=e324]: Installation
+                  - listitem [ref=e325]:
+                    - link "PostgreSQL" [ref=e326] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/databases/postgresql-guide/
+                      - generic [ref=e327]: PostgreSQL
+                  - listitem [ref=e328]:
+                    - generic [ref=e330]: Redis
+                    - navigation "Redis" [ref=e332]:
+                      - generic [ref=e333] [cursor=pointer]: Redis
+                      - list [ref=e335]:
+                        - listitem [ref=e336]:
+                          - link "Redis 설정 가이드" [ref=e337] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/databases/redis/overview/
+                            - generic [ref=e338]: Redis 설정 가이드
+                        - listitem [ref=e339]:
+                          - link "Redis Spring Boot Integration" [ref=e340] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/databases/redis/springboot-integration/
+                            - generic [ref=e341]: Redis Spring Boot Integration
+                  - listitem [ref=e342]:
+                    - generic [ref=e344]: JPA
+                    - navigation "JPA" [ref=e346]:
+                      - generic [ref=e347] [cursor=pointer]: JPA
+                      - list [ref=e349]:
+                        - listitem [ref=e350]:
+                          - link "JPA 개요 및 복합키" [ref=e351] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/databases/jpa/overview/
+                            - generic [ref=e352]: JPA 개요 및 복합키
+                        - listitem [ref=e353]:
+                          - link "Querydsl" [ref=e354] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/databases/jpa/querydsl/
+                            - generic [ref=e355]: Querydsl
+                        - listitem [ref=e356]:
+                          - link "JPA Entity Relationships" [ref=e357] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/databases/jpa/relationships/
+                            - generic [ref=e358]: JPA Entity Relationships
+                        - listitem [ref=e359]:
+                          - link "Bean Lifecycle 관리의 중요점" [ref=e360] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/databases/jpa/lifecycle/
+                            - generic [ref=e361]: Bean Lifecycle 관리의 중요점
+            - listitem [ref=e362]:
+              - generic [ref=e364]: Tools
+              - navigation "Tools" [ref=e366]:
+                - generic [ref=e367] [cursor=pointer]: Tools
+                - list [ref=e369]:
+                  - listitem [ref=e370]:
+                    - link "도구 문서" [ref=e371] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/tools/
+                      - generic [ref=e372]: 도구 문서
+                  - listitem [ref=e373]:
+                    - generic [ref=e375]: Terminal
+                    - navigation "Terminal" [ref=e377]:
+                      - generic [ref=e378] [cursor=pointer]: Terminal
+                      - list [ref=e380]:
+                        - listitem [ref=e381]:
+                          - link "모던 터미널 에뮬레이터 & CLI 도구 완벽 가이드" [ref=e382] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/tools/terminal/modern-cli-tools/
+                            - generic [ref=e383]: 모던 터미널 에뮬레이터 & CLI 도구 완벽 가이드
+                        - listitem [ref=e384]:
+                          - link "tmux 세션 관리와 사라지는 세션 문제 해결하기" [ref=e385] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/tools/terminal/tmux/
+                            - generic [ref=e386]: tmux 세션 관리와 사라지는 세션 문제 해결하기
+                        - listitem [ref=e387]:
+                          - link "Vim Guide" [ref=e388] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/tools/terminal/vim/
+                            - generic [ref=e389]: Vim Guide
+                        - listitem [ref=e390]:
+                          - link "리눅스 명령어 완전 가이드" [ref=e391] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/tools/terminal/linux-commands/
+                            - generic [ref=e392]: 리눅스 명령어 완전 가이드
+                        - listitem [ref=e393]:
+                          - link "Pet (CLI Snippet Manager) 설치 가이드" [ref=e394] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/tools/terminal/pet/
+                            - generic [ref=e395]: Pet (CLI Snippet Manager) 설치 가이드
+                        - listitem [ref=e396]:
+                          - link "GNU Stow를 사용한 Dotfiles 관리 방법" [ref=e397] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/tools/terminal/stow/
+                            - generic [ref=e398]: GNU Stow를 사용한 Dotfiles 관리 방법
+                  - listitem [ref=e399]:
+                    - generic [ref=e401]: Remote Access
+                    - navigation "Remote Access" [ref=e403]:
+                      - generic [ref=e404] [cursor=pointer]: Remote Access
+                      - list [ref=e406]:
+                        - listitem [ref=e407]:
+                          - link "Guacamole Docker Compose 설정 및 Nginx Reverse Proxy 구성" [ref=e408] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/tools/remote/guacamole/
+                            - generic [ref=e409]: Guacamole Docker Compose 설정 및 Nginx Reverse Proxy 구성
+                  - listitem [ref=e410]:
+                    - generic [ref=e412]: Automation
+                    - navigation "Automation" [ref=e414]:
+                      - generic [ref=e415] [cursor=pointer]: Automation
+                      - list [ref=e417]:
+                        - listitem [ref=e418]:
+                          - link "Selenium" [ref=e419] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/tools/automation/selenium/
+                            - generic [ref=e420]: Selenium
+                        - listitem [ref=e421]:
+                          - link "changedetection.io의 시간 설정에서 Duration Time의 목적과 작동 원리" [ref=e422] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/tools/automation/change-detection/
+                            - generic [ref=e423]: changedetection.io의 시간 설정에서 Duration Time의 목적과 작동 원리
+                        - listitem [ref=e424]:
+                          - link "레딧 사용자 만족도 높은 비개발자용 스케줄 관리 오픈소스 도커 컨테이너 분석" [ref=e425] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/tools/automation/schedule-manager/
+                            - generic [ref=e426]: 레딧 사용자 만족도 높은 비개발자용 스케줄 관리 오픈소스 도커 컨테이너 분석
+                  - listitem [ref=e427]:
+                    - generic [ref=e429]: AI Tools
+                    - navigation "AI Tools" [ref=e431]:
+                      - generic [ref=e432] [cursor=pointer]: AI Tools
+                      - list [ref=e434]:
+                        - listitem [ref=e435]:
+                          - link "Langflow Docker Compose 설치 및 커스텀 AI API 사용 가이드" [ref=e436] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/tools/ai/langflow/
+                            - generic [ref=e437]: Langflow Docker Compose 설치 및 커스텀 AI API 사용 가이드
+                        - listitem [ref=e438]:
+                          - 'link "Gemini API 호출 스크립트 개선: 사용자 친화적 출력을 위한 최적화" [ref=e439] [cursor=pointer]':
+                            - /url: http://127.0.0.1:9007/tools/ai/gemini-shell/
+                            - generic [ref=e440]: "Gemini API 호출 스크립트 개선: 사용자 친화적 출력을 위한 최적화"
+                        - listitem [ref=e441]:
+                          - link "MCP (Model Context Protocol)" [ref=e442] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/tools/ai/mcp/
+                            - generic [ref=e443]: MCP (Model Context Protocol)
+                  - listitem [ref=e444]:
+                    - link "Split View" [ref=e445] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/tools/split-view/
+                      - generic [ref=e446]: Split View
+            - listitem [ref=e447]:
+              - generic [ref=e449]: Linux
+              - navigation "Linux" [ref=e451]:
+                - generic [ref=e452] [cursor=pointer]: Linux
+                - list [ref=e454]:
+                  - listitem [ref=e455]:
+                    - link "Linux 문서" [ref=e456] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/linux/
+                      - generic [ref=e457]: Linux 문서
+                  - listitem [ref=e458]:
+                    - link "Commands" [ref=e459] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/linux/commands/
+                      - generic [ref=e460]: Commands
+                  - listitem [ref=e461]:
+                    - link "Filesystem" [ref=e462] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/linux/filesystem/
+                      - generic [ref=e463]: Filesystem
+                  - listitem [ref=e464]:
+                    - generic [ref=e466]: Arch Linux
+                    - navigation "Arch Linux" [ref=e468]:
+                      - generic [ref=e469] [cursor=pointer]: Arch Linux
+                      - list [ref=e471]:
+                        - listitem [ref=e472]:
+                          - link "🐧 Arch Linux UEFI 설치 가이드" [ref=e473] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/linux/arch/installation/
+                            - generic [ref=e474]: 🐧 Arch Linux UEFI 설치 가이드
+                        - listitem [ref=e475]:
+                          - link "🎨 KDE Plasma 데스크톱 환경 테마 및 커스터마이징 가이드" [ref=e476] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/linux/arch/kde-theme/
+                            - generic [ref=e477]: 🎨 KDE Plasma 데스크톱 환경 테마 및 커스터마이징 가이드
+                        - listitem [ref=e478]:
+                          - link "🛠️ Arch Linux 문제 해결 가이드" [ref=e479] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/linux/arch/troubleshooting/
+                            - generic [ref=e480]: 🛠️ Arch Linux 문제 해결 가이드
+                  - listitem [ref=e481]:
+                    - generic [ref=e483]: Proxmox
+                    - navigation "Proxmox" [ref=e485]:
+                      - generic [ref=e486] [cursor=pointer]: Proxmox
+                      - list [ref=e488]:
+                        - listitem [ref=e489]:
+                          - link "Proxmox Disk Passthrough" [ref=e490] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/linux/proxmox/drive-mount/
+                            - generic [ref=e491]: Proxmox Disk Passthrough
+                        - listitem [ref=e492]:
+                          - link "Migration" [ref=e493] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/linux/proxmox/migration/
+                            - generic [ref=e494]: Migration
+                        - listitem [ref=e495]:
+                          - link "Wireguard vpn" [ref=e496] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/linux/proxmox/wireguard-vpn/
+                            - generic [ref=e497]: Wireguard vpn
+                  - listitem [ref=e498]:
+                    - generic [ref=e500]: Multimedia
+                    - navigation "Multimedia" [ref=e502]:
+                      - generic [ref=e503] [cursor=pointer]: Multimedia
+                      - list [ref=e505]:
+                        - listitem [ref=e506]:
+                          - link "Ffmpeg" [ref=e507] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/linux/multimedia/ffmpeg/
+                            - generic [ref=e508]: Ffmpeg
+            - listitem [ref=e509]:
+              - generic [ref=e511]: Operating Systems
+              - navigation "Operating Systems" [ref=e513]:
+                - generic [ref=e514] [cursor=pointer]: Operating Systems
+                - list [ref=e516]:
+                  - listitem [ref=e517]:
+                    - link "Operating Systems" [ref=e518] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/os/
+                      - generic [ref=e519]: Operating Systems
+                  - listitem [ref=e520]:
+                    - link "CPU Scheduling" [ref=e521] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/os/cpu-scheduling/
+                      - generic [ref=e522]: CPU Scheduling
+                  - listitem [ref=e523]:
+                    - link "Synchronization" [ref=e524] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/os/synchronization/
+                      - generic [ref=e525]: Synchronization
+                  - listitem [ref=e526]:
+                    - link "Deadlocks" [ref=e527] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/os/deadlocks/
+                      - generic [ref=e528]: Deadlocks
+                  - listitem [ref=e529]:
+                    - link "Memory Management" [ref=e530] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/os/memory/
+                      - generic [ref=e531]: Memory Management
+                  - listitem [ref=e532]:
+                    - link "Process Management" [ref=e533] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/os/process/
+                      - generic [ref=e534]: Process Management
+                  - listitem [ref=e535]:
+                    - link "Virtualization" [ref=e536] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/os/virtualization/
+                      - generic [ref=e537]: Virtualization
+                  - listitem [ref=e538]:
+                    - link "Distributed Deadlocks" [ref=e539] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/os/distributed-deadlocks/
+                      - generic [ref=e540]: Distributed Deadlocks
+            - listitem [ref=e541]:
+              - generic [ref=e543]: Algorithms
+              - navigation "Algorithms" [ref=e545]:
+                - generic [ref=e546] [cursor=pointer]: Algorithms
+                - list [ref=e548]:
+                  - listitem [ref=e549]:
+                    - link "Algorithms & Data Structures" [ref=e550] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/algorithms/
+                      - generic [ref=e551]: Algorithms & Data Structures
+                  - listitem [ref=e552]:
+                    - link "Pointers" [ref=e553] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/algorithms/pointers/
+                      - generic [ref=e554]: Pointers
+                  - listitem [ref=e555]:
+                    - link "Function Pointers" [ref=e556] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/algorithms/function-pointers/
+                      - generic [ref=e557]: Function Pointers
+                  - listitem [ref=e558]:
+                    - link "OOP Patterns" [ref=e559] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/algorithms/oop-patterns/
+                      - generic [ref=e560]: OOP Patterns
+                  - listitem [ref=e561]:
+                    - generic [ref=e563]: Algorithm Architect Visual Docs
+                    - navigation "Algorithm Architect Visual Docs" [ref=e565]:
+                      - generic [ref=e566] [cursor=pointer]: Algorithm Architect Visual Docs
+                      - list [ref=e568]:
+                        - listitem [ref=e569]:
+                          - link "Algorithm Architect Visual Docs" [ref=e570] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/algorithms/algorithm-architect/
+                            - generic [ref=e571]: Algorithm Architect Visual Docs
+                        - listitem [ref=e572]:
+                          - link "Index" [ref=e573] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/algorithms/algorithm-architect/README.md
+                            - generic [ref=e574]: Index
+                        - listitem [ref=e575]:
+                          - generic [ref=e577]: Graph
+                          - navigation "Graph" [ref=e579]:
+                            - generic [ref=e580] [cursor=pointer]: Graph
+                            - list [ref=e582]:
+                              - listitem [ref=e583]:
+                                - link "BFS" [ref=e584] [cursor=pointer]:
+                                  - /url: http://127.0.0.1:9007/algorithms/algorithm-architect/01-graph/01-bfs/
+                                  - generic [ref=e585]: BFS
+                              - listitem [ref=e586]:
+                                - link "DFS" [ref=e587] [cursor=pointer]:
+                                  - /url: http://127.0.0.1:9007/algorithms/algorithm-architect/01-graph/02-dfs/
+                                  - generic [ref=e588]: DFS
+                              - listitem [ref=e589]:
+                                - link "Dijkstra" [ref=e590] [cursor=pointer]:
+                                  - /url: http://127.0.0.1:9007/algorithms/algorithm-architect/01-graph/03-dijkstra/
+                                  - generic [ref=e591]: Dijkstra
+                              - listitem [ref=e592]:
+                                - link "Bellman-Ford" [ref=e593] [cursor=pointer]:
+                                  - /url: http://127.0.0.1:9007/algorithms/algorithm-architect/01-graph/04-bellman-ford/
+                                  - generic [ref=e594]: Bellman-Ford
+                              - listitem [ref=e595]:
+                                - link "Floyd-Warshall" [ref=e596] [cursor=pointer]:
+                                  - /url: http://127.0.0.1:9007/algorithms/algorithm-architect/01-graph/05-floyd-warshall/
+                                  - generic [ref=e597]: Floyd-Warshall
+                        - listitem [ref=e598]:
+                          - generic [ref=e600]: Sorting & Searching
+                          - navigation "Sorting & Searching" [ref=e602]:
+                            - generic [ref=e603] [cursor=pointer]: Sorting & Searching
+                            - list [ref=e605]:
+                              - listitem [ref=e606]:
+                                - link "Binary Search" [ref=e607] [cursor=pointer]:
+                                  - /url: http://127.0.0.1:9007/algorithms/algorithm-architect/02-sorting-searching/01-binary-search/
+                                  - generic [ref=e608]: Binary Search
+                              - listitem [ref=e609]:
+                                - link "Quick Sort" [ref=e610] [cursor=pointer]:
+                                  - /url: http://127.0.0.1:9007/algorithms/algorithm-architect/02-sorting-searching/02-quick-sort/
+                                  - generic [ref=e611]: Quick Sort
+                              - listitem [ref=e612]:
+                                - link "Merge Sort" [ref=e613] [cursor=pointer]:
+                                  - /url: http://127.0.0.1:9007/algorithms/algorithm-architect/02-sorting-searching/03-merge-sort/
+                                  - generic [ref=e614]: Merge Sort
+                        - listitem [ref=e615]:
+                          - generic [ref=e617]: Dynamic Programming
+                          - navigation "Dynamic Programming" [ref=e619]:
+                            - generic [ref=e620] [cursor=pointer]: Dynamic Programming
+                            - list [ref=e622]:
+                              - listitem [ref=e623]:
+                                - link "DP 1D" [ref=e624] [cursor=pointer]:
+                                  - /url: http://127.0.0.1:9007/algorithms/algorithm-architect/03-dynamic-programming/01-dp-1d/
+                                  - generic [ref=e625]: DP 1D
+                              - listitem [ref=e626]:
+                                - link "DP 2D" [ref=e627] [cursor=pointer]:
+                                  - /url: http://127.0.0.1:9007/algorithms/algorithm-architect/03-dynamic-programming/02-dp-2d/
+                                  - generic [ref=e628]: DP 2D
+                              - listitem [ref=e629]:
+                                - link "Knapsack" [ref=e630] [cursor=pointer]:
+                                  - /url: http://127.0.0.1:9007/algorithms/algorithm-architect/03-dynamic-programming/03-knapsack/
+                                  - generic [ref=e631]: Knapsack
+                        - listitem [ref=e632]:
+                          - link "Greedy" [ref=e633] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/algorithms/algorithm-architect/04-greedy/01-greedy/
+                            - generic [ref=e634]: Greedy
+                        - listitem [ref=e635]:
+                          - generic [ref=e637]: Tree
+                          - navigation "Tree" [ref=e639]:
+                            - generic [ref=e640] [cursor=pointer]: Tree
+                            - list [ref=e642]:
+                              - listitem [ref=e643]:
+                                - link "Tree Traversal" [ref=e644] [cursor=pointer]:
+                                  - /url: http://127.0.0.1:9007/algorithms/algorithm-architect/05-tree/01-tree-traversal/
+                                  - generic [ref=e645]: Tree Traversal
+                              - listitem [ref=e646]:
+                                - link "LCA" [ref=e647] [cursor=pointer]:
+                                  - /url: http://127.0.0.1:9007/algorithms/algorithm-architect/05-tree/02-lca/
+                                  - generic [ref=e648]: LCA
+                        - listitem [ref=e649]:
+                          - link "Union-Find" [ref=e650] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/algorithms/algorithm-architect/06-union-find/01-union-find/
+                            - generic [ref=e651]: Union-Find
+                        - listitem [ref=e652]:
+                          - link "Two Pointers" [ref=e653] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/algorithms/algorithm-architect/07-two-pointers/01-two-pointers/
+                            - generic [ref=e654]: Two Pointers
+                        - listitem [ref=e655]:
+                          - link "Sliding Window" [ref=e656] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/algorithms/algorithm-architect/08-sliding-window/01-sliding-window/
+                            - generic [ref=e657]: Sliding Window
+                        - listitem [ref=e658]:
+                          - link "Backtracking" [ref=e659] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/algorithms/algorithm-architect/09-backtracking/01-backtracking/
+                            - generic [ref=e660]: Backtracking
+                        - listitem [ref=e661]:
+                          - link "Topological Sort" [ref=e662] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/algorithms/algorithm-architect/10-topological-sort/01-topological-sort/
+                            - generic [ref=e663]: Topological Sort
+                        - listitem [ref=e664]:
+                          - link "Bit Masking" [ref=e665] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/algorithms/algorithm-architect/11-bit-masking/01-bit-masking/
+                            - generic [ref=e666]: Bit Masking
+                        - listitem [ref=e667]:
+                          - link "Tooling" [ref=e668] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/algorithms/algorithm-architect/convert_md_to_pdf.sh/
+                            - generic [ref=e669]: Tooling
+            - listitem [ref=e670]:
+              - generic [ref=e672]: Compiler Theory
+              - navigation "Compiler Theory" [ref=e674]:
+                - generic [ref=e675] [cursor=pointer]: Compiler Theory
+                - list [ref=e677]:
+                  - listitem [ref=e678]:
+                    - link "컴파일러 이론 문서" [ref=e679] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/compiler/
+                      - generic [ref=e680]: 컴파일러 이론 문서
+                  - listitem [ref=e681]:
+                    - generic [ref=e683]: Lexical Analysis
+                    - navigation "Lexical Analysis" [ref=e685]:
+                      - generic [ref=e686] [cursor=pointer]: Lexical Analysis
+                      - list [ref=e688]:
+                        - listitem [ref=e689]:
+                          - link "NFA (비결정적 유한 오토마타)" [ref=e690] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/compiler/lexical/nfa/
+                            - generic [ref=e691]: NFA (비결정적 유한 오토마타)
+                        - listitem [ref=e692]:
+                          - link "Dfa" [ref=e693] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/compiler/lexical/dfa/
+                            - generic [ref=e694]: Dfa
+                        - listitem [ref=e695]:
+                          - 'link "NFA to DFA 변환: 0(0|1)*1" [ref=e696] [cursor=pointer]':
+                            - /url: http://127.0.0.1:9007/compiler/lexical/nfa-to-dfa/
+                            - generic [ref=e697]: "NFA to DFA 변환: 0(0|1)*1"
+                  - listitem [ref=e698]:
+                    - generic [ref=e700]: Parsing
+                    - navigation "Parsing" [ref=e702]:
+                      - generic [ref=e703] [cursor=pointer]: Parsing
+                      - list [ref=e705]:
+                        - listitem [ref=e706]:
+                          - link "Cfg" [ref=e707] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/compiler/parsing/cfg/
+                            - generic [ref=e708]: Cfg
+                        - listitem [ref=e709]:
+                          - link "LL(1) 파싱 테이블 생성" [ref=e710] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/compiler/parsing/ll-parser/
+                            - generic [ref=e711]: LL(1) 파싱 테이블 생성
+                        - listitem [ref=e712]:
+                          - link "Lr parser" [ref=e713] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/compiler/parsing/lr-parser/
+                            - generic [ref=e714]: Lr parser
+                        - listitem [ref=e715]:
+                          - 'link "Bottom-Up 파싱 완전 정복: 개념부터 LR 파싱까지" [ref=e716] [cursor=pointer]':
+                            - /url: http://127.0.0.1:9007/compiler/parsing/bottom-up/
+                            - generic [ref=e717]: "Bottom-Up 파싱 완전 정복: 개념부터 LR 파싱까지"
+            - listitem [ref=e718]:
+              - generic [ref=e720]: Java
+              - navigation "Java" [ref=e722]:
+                - generic [ref=e723] [cursor=pointer]: Java
+                - list [ref=e725]:
+                  - listitem [ref=e726]:
+                    - link "Java 문서" [ref=e727] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/java/
+                      - generic [ref=e728]: Java 문서
+                  - listitem [ref=e729]:
+                    - link "Core Concepts" [ref=e730] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/java/core-concepts/
+                      - generic [ref=e731]: Core Concepts
+                  - listitem [ref=e732]:
+                    - link "Memory & GC" [ref=e733] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/java/memory-gc/
+                      - generic [ref=e734]: Memory & GC
+            - listitem [ref=e735]:
+              - generic [ref=e737]: AI Engineering
+              - navigation "AI Engineering" [ref=e739]:
+                - generic [ref=e740] [cursor=pointer]: AI Engineering
+                - list [ref=e742]:
+                  - listitem [ref=e743]:
+                    - 'link "BM25(희소 벡터)와 어텐션(Attention): 라우팅과 집중의 메커니즘 차이" [ref=e744] [cursor=pointer]':
+                      - /url: http://127.0.0.1:9007/ai/bm25-vs-attention/
+                      - generic [ref=e745]: "BM25(희소 벡터)와 어텐션(Attention): 라우팅과 집중의 메커니즘 차이"
+                  - listitem [ref=e746]:
+                    - 'link "LangChain vs LangGraph: 제어 흐름과 복잡도의 차이" [ref=e747] [cursor=pointer]':
+                      - /url: http://127.0.0.1:9007/ai/langchain-vs-langgraph/
+                      - generic [ref=e748]: "LangChain vs LangGraph: 제어 흐름과 복잡도의 차이"
+            - listitem [ref=e749]:
+              - generic [ref=e751]: Books Library
+              - navigation "Books Library" [ref=e753]:
+                - generic [ref=e754] [cursor=pointer]: Books Library
+                - list [ref=e756]:
+                  - listitem [ref=e757]:
+                    - link "Under the Hood — CS Knowledge Library Index" [ref=e758] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/books/
+                      - generic [ref=e759]: Under the Hood — CS Knowledge Library Index
+                  - listitem [ref=e760]:
+                    - link "CS References (EN/KR)" [ref=e761] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/books/cs-reference/
+                      - generic [ref=e762]: CS References (EN/KR)
+                  - listitem [ref=e763]:
+                    - link "cs-references" [ref=e764] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/books/cs-references/
+                      - generic [ref=e765]: cs-references
+            - listitem [ref=e766]:
+              - generic [ref=e768]: Projects
+              - navigation "Projects" [ref=e770]:
+                - generic [ref=e771] [cursor=pointer]: Projects
+                - list [ref=e773]:
+                  - listitem [ref=e774]:
+                    - link "Projects Documentation" [ref=e775] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/projects/
+                      - generic [ref=e776]: Projects Documentation
+                  - listitem [ref=e777]:
+                    - link "CBT System" [ref=e778] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/projects/cbt-system/
+                      - generic [ref=e779]: CBT System
+                  - listitem [ref=e780]:
+                    - link "Emotion Diary" [ref=e781] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/projects/emotion-diary/
+                      - generic [ref=e782]: Emotion Diary
+            - listitem [ref=e783]:
+              - generic [ref=e785]: Nginx
+              - navigation "Nginx" [ref=e787]:
+                - generic [ref=e788] [cursor=pointer]: Nginx
+                - list [ref=e790]:
+                  - listitem [ref=e791]:
+                    - link "Nginx Documentation" [ref=e792] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/nginx/
+                      - generic [ref=e793]: Nginx Documentation
+                  - listitem [ref=e794]:
+                    - link "Configuration" [ref=e795] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/nginx/configuration/
+                      - generic [ref=e796]: Configuration
+                  - listitem [ref=e797]:
+                    - link "Proxy Manager" [ref=e798] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/nginx/proxy-manager/
+                      - generic [ref=e799]: Proxy Manager
+                  - listitem [ref=e800]:
+                    - link "K8s Deployment" [ref=e801] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/nginx/docker-k8s-deployment/
+                      - generic [ref=e802]: K8s Deployment
+            - listitem [ref=e803]:
+              - generic [ref=e805]: Prompts
+              - navigation "Prompts" [ref=e807]:
+                - generic [ref=e808] [cursor=pointer]: Prompts
+                - list [ref=e810]:
+                  - listitem [ref=e811]:
+                    - link "Prompts & Templates" [ref=e812] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/prompts/
+                      - generic [ref=e813]: Prompts & Templates
+                  - listitem [ref=e814]:
+                    - link "Document Editor" [ref=e815] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/prompts/docs-editor/
+                      - generic [ref=e816]: Document Editor
+                  - listitem [ref=e817]:
+                    - link "Database Prompt" [ref=e818] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/prompts/database/
+                      - generic [ref=e819]: Database Prompt
+                  - listitem [ref=e820]:
+                    - link "Architecture" [ref=e821] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/prompts/architecture/
+                      - generic [ref=e822]: Architecture
+            - listitem [ref=e823]:
+              - generic [ref=e825]: Extra Resources
+              - navigation "Extra Resources" [ref=e827]:
+                - generic [ref=e828] [cursor=pointer]: Extra Resources
+                - list [ref=e830]:
+                  - listitem [ref=e831]:
+                    - link "Extra Resources" [ref=e832] [cursor=pointer]:
+                      - /url: http://127.0.0.1:9007/extra/
+                      - generic [ref=e833]: Extra Resources
+                  - listitem [ref=e834]:
+                    - generic [ref=e836]: Docker Compose
+                    - navigation "Docker Compose" [ref=e838]:
+                      - generic [ref=e839] [cursor=pointer]: Docker Compose
+                      - list [ref=e841]:
+                        - listitem [ref=e842]:
+                          - link "Index" [ref=e843] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/extra/docker/
+                            - generic [ref=e844]: Index
+                        - listitem [ref=e845]:
+                          - link "Stacks Overview" [ref=e846] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/extra/docker/stacks/
+                            - generic [ref=e847]: Stacks Overview
+                        - listitem [ref=e848]:
+                          - link "Databases" [ref=e849] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/extra/docker/stacks/databases/
+                            - generic [ref=e850]: Databases
+                        - listitem [ref=e851]:
+                          - link "Automation" [ref=e852] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/extra/docker/stacks/automation/
+                            - generic [ref=e853]: Automation
+                        - listitem [ref=e854]:
+                          - link "Devtools" [ref=e855] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/extra/docker/stacks/devtools/
+                            - generic [ref=e856]: Devtools
+                        - listitem [ref=e857]:
+                          - link "Security" [ref=e858] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/extra/docker/stacks/security/
+                            - generic [ref=e859]: Security
+                        - listitem [ref=e860]:
+                          - link "Media" [ref=e861] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/extra/docker/stacks/media/
+                            - generic [ref=e862]: Media
+                        - listitem [ref=e863]:
+                          - link "Storage" [ref=e864] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/extra/docker/stacks/storage/
+                            - generic [ref=e865]: Storage
+                        - listitem [ref=e866]:
+                          - link "Misc" [ref=e867] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/extra/docker/stacks/misc/
+                            - generic [ref=e868]: Misc
+                        - listitem [ref=e869]:
+                          - link "Open Notebook" [ref=e870] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/extra/docker/stacks/misc/open-notebook/
+                            - generic [ref=e871]: Open Notebook
+                        - listitem [ref=e872]:
+                          - link "Monitoring" [ref=e873] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/extra/docker/stacks/monitoring/
+                            - generic [ref=e874]: Monitoring
+                        - listitem [ref=e875]:
+                          - link "Proxy" [ref=e876] [cursor=pointer]:
+                            - /url: http://127.0.0.1:9007/extra/docker/stacks/proxy/
+                            - generic [ref=e877]: Proxy
+        - article [ref=e879]:
+          - link "(외부 링크)" [ref=e880] [cursor=pointer]:
+            - /url: https://github.com/choisimo/document/edit/main/content/docs/index.md
+            - img [ref=e881]
+            - generic "(외부 링크)" [ref=e883]:
+              - img [ref=e884]
+          - link "(외부 링크)" [ref=e888] [cursor=pointer]:
+            - /url: https://github.com/choisimo/document/raw/main/content/docs/index.md
+            - img [ref=e889]
+            - generic "(외부 링크)" [ref=e891]:
+              - img [ref=e892]
+          - heading "Documentation Hub ¶" [level=1] [ref=e896]:
+            - text: Documentation Hub
+            - link "¶" [ref=e897] [cursor=pointer]:
+              - /url: http://127.0.0.1:9007/#documentation-hub
+          - generic [ref=e898]:
+            - paragraph [ref=e899]:
+              - generic [ref=e900]: Documentation Hub
+            - heading "인프라부터 개발 환경까지 한곳에서 찾는 운영 문서 허브 ¶" [level=2] [ref=e901]:
+              - text: 인프라부터 개발 환경까지 한곳에서 찾는 운영 문서 허브
+              - link "¶" [ref=e902] [cursor=pointer]:
+                - /url: http://127.0.0.1:9007/#_1
+            - paragraph [ref=e903]: 실무에서 반복해서 찾게 되는 서버 구성, 보안 설정, 개발 도구, Docker Compose 예제를 빠르게 탐색할 수 있도록 정리했습니다.
+            - paragraph [ref=e905]:
+              - generic [ref=e906]: 100+ 문서
+              - generic [ref=e907]: 15개 주제 영역
+              - generic [ref=e908]: Docker Compose 50+
+            - paragraph [ref=e910]:
+              - link "인프라부터 둘러보기" [ref=e911] [cursor=pointer]:
+                - /url: http://127.0.0.1:9007/infrastructure/
+                - img [ref=e913]
+                - text: 인프라부터 둘러보기
+              - link "Docker Compose 컬렉션" [ref=e915] [cursor=pointer]:
+                - /url: http://127.0.0.1:9007/extra/docker/stacks/
+                - img [ref=e917]
+                - text: Docker Compose 컬렉션
+              - link "도구 문서" [ref=e919] [cursor=pointer]:
+                - /url: http://127.0.0.1:9007/tools/
+                - img [ref=e921]
+                - text: 도구 문서
+          - heading "핵심 문서 영역 ¶" [level=2] [ref=e923]:
+            - text: 핵심 문서 영역
+            - link "¶" [ref=e924] [cursor=pointer]:
+              - /url: http://127.0.0.1:9007/#_2
+          - paragraph [ref=e925]: 가장 자주 참조하는 기술 영역부터 바로 들어갈 수 있도록 정리했습니다.
+          - list [ref=e927]:
+            - listitem [ref=e928]:
+              - paragraph [ref=e929]:
+                - img [ref=e931]
+                - strong [ref=e933]: 인프라
+              - separator [ref=e934]
+              - paragraph [ref=e935]: Proxmox · 네트워크 · 스토리지 · 모니터링
+              - paragraph [ref=e936]:
+                - link "인프라 문서" [ref=e937] [cursor=pointer]:
+                  - /url: http://127.0.0.1:9007/infrastructure/
+                  - img [ref=e939]
+                  - text: 인프라 문서
+            - listitem [ref=e941]:
+              - paragraph [ref=e942]:
+                - img [ref=e944]
+                - strong [ref=e946]: 보안
+              - separator [ref=e947]
+              - paragraph [ref=e948]: SSH · VPN · Zero Trust · 접근 제어
+              - paragraph [ref=e949]:
+                - link "보안 문서" [ref=e950] [cursor=pointer]:
+                  - /url: http://127.0.0.1:9007/security/
+                  - img [ref=e952]
+                  - text: 보안 문서
+            - listitem [ref=e954]:
+              - paragraph [ref=e955]:
+                - img [ref=e957]
+                - strong [ref=e959]: 개발
+              - separator [ref=e960]
+              - paragraph [ref=e961]: Docker · Git · IDE · 프로그래밍 환경
+              - paragraph [ref=e962]:
+                - link "개발 문서" [ref=e963] [cursor=pointer]:
+                  - /url: http://127.0.0.1:9007/development/
+                  - img [ref=e965]
+                  - text: 개발 문서
+            - listitem [ref=e967]:
+              - paragraph [ref=e968]:
+                - img [ref=e970]
+                - strong [ref=e972]: 데이터베이스
+              - separator [ref=e973]
+              - paragraph [ref=e974]: Redis · JPA · QueryDSL
+              - paragraph [ref=e975]:
+                - link "데이터베이스 문서" [ref=e976] [cursor=pointer]:
+                  - /url: http://127.0.0.1:9007/databases/
+                  - img [ref=e978]
+                  - text: 데이터베이스 문서
+            - listitem [ref=e980]:
+              - paragraph [ref=e981]:
+                - img [ref=e983]
+                - strong [ref=e985]: Linux
+              - separator [ref=e986]
+              - paragraph [ref=e987]: 명령어 · 파일시스템 · Arch Linux
+              - paragraph [ref=e988]:
+                - link "Linux 문서" [ref=e989] [cursor=pointer]:
+                  - /url: http://127.0.0.1:9007/linux/
+                  - img [ref=e991]
+                  - text: Linux 문서
+            - listitem [ref=e993]:
+              - paragraph [ref=e994]:
+                - img [ref=e996]
+                - strong [ref=e998]: 도구
+              - separator [ref=e999]
+              - paragraph [ref=e1000]: Tmux · Vim · 자동화 · 원격 접근
+              - paragraph [ref=e1001]:
+                - link "도구 문서" [ref=e1002] [cursor=pointer]:
+                  - /url: http://127.0.0.1:9007/tools/
+                  - img [ref=e1004]
+                  - text: 도구 문서
+            - listitem [ref=e1006]:
+              - paragraph [ref=e1007]:
+                - img [ref=e1009]
+                - strong [ref=e1011]: Books Library
+              - separator [ref=e1012]
+              - paragraph [ref=e1013]: Systems · Algorithms · CS References (EN/KR)
+              - paragraph [ref=e1014]:
+                - link "Books 문서" [ref=e1015] [cursor=pointer]:
+                  - /url: http://127.0.0.1:9007/books/
+                  - img [ref=e1017]
+                  - text: Books 문서
+          - heading "운영용 Docker Compose 컬렉션 ¶" [level=2] [ref=e1019]:
+            - text: 운영용 Docker Compose 컬렉션
+            - link "¶" [ref=e1020] [cursor=pointer]:
+              - /url: http://127.0.0.1:9007/#docker-compose
+          - paragraph [ref=e1021]: 실제로 운영에 활용하는 Compose 스택을 카테고리별로 빠르게 찾아볼 수 있습니다.
+          - list [ref=e1023]:
+            - listitem [ref=e1024]:
+              - paragraph [ref=e1025]:
+                - img [ref=e1027]
+                - strong [ref=e1029]: 데이터베이스
+              - separator [ref=e1030]
+              - paragraph [ref=e1031]: MariaDB · MongoDB · Supabase
+              - paragraph [ref=e1032]:
+                - link "데이터베이스 스택" [ref=e1033] [cursor=pointer]:
+                  - /url: http://127.0.0.1:9007/extra/docker/stacks/databases/
+                  - img [ref=e1035]
+                  - text: 데이터베이스 스택
+            - listitem [ref=e1037]:
+              - paragraph [ref=e1038]:
+                - img [ref=e1040]
+                - strong [ref=e1042]: 자동화
+              - separator [ref=e1043]
+              - paragraph [ref=e1044]: n8n · Change Detection
+              - paragraph [ref=e1045]:
+                - link "자동화 스택" [ref=e1046] [cursor=pointer]:
+                  - /url: http://127.0.0.1:9007/extra/docker/stacks/automation/
+                  - img [ref=e1048]
+                  - text: 자동화 스택
+            - listitem [ref=e1050]:
+              - paragraph [ref=e1051]:
+                - img [ref=e1053]
+                - strong [ref=e1055]: 개발 도구
+              - separator [ref=e1056]
+              - paragraph [ref=e1057]: Gitea · Sourcebot
+              - paragraph [ref=e1058]:
+                - link "개발 도구 스택" [ref=e1059] [cursor=pointer]:
+                  - /url: http://127.0.0.1:9007/extra/docker/stacks/devtools/
+                  - img [ref=e1061]
+                  - text: 개발 도구 스택
+            - listitem [ref=e1063]:
+              - paragraph [ref=e1064]:
+                - img [ref=e1066]
+                - strong [ref=e1068]: 보안
+              - separator [ref=e1069]
+              - paragraph [ref=e1070]: Vaultwarden · Nginx Proxy
+              - paragraph [ref=e1071]:
+                - link "보안 스택" [ref=e1072] [cursor=pointer]:
+                  - /url: http://127.0.0.1:9007/extra/docker/stacks/security/
+                  - img [ref=e1074]
+                  - text: 보안 스택
+          - heading "바로가기 ¶" [level=2] [ref=e1076]:
+            - text: 바로가기
+            - link "¶" [ref=e1077] [cursor=pointer]:
+              - /url: http://127.0.0.1:9007/#_3
+          - list [ref=e1079]:
+            - listitem [ref=e1080]:
+              - paragraph [ref=e1081]:
+                - img [ref=e1083]
+                - strong [ref=e1085]: GitHub 저장소
+              - separator [ref=e1086]
+              - paragraph [ref=e1087]: 문서 원본, 변경 이력, 배포 구성을 확인합니다.
+              - paragraph [ref=e1088]:
+                - link "저장소 방문 (외부 링크)" [ref=e1089] [cursor=pointer]:
+                  - /url: https://github.com/choisimo/document
+                  - img [ref=e1091]
+                  - text: 저장소 방문
+                  - generic "(외부 링크)" [ref=e1093]:
+                    - img [ref=e1094]
+            - listitem [ref=e1098]:
+              - paragraph [ref=e1099]:
+                - img [ref=e1101]
+                - strong [ref=e1103]: 작성자 프로필
+              - separator [ref=e1104]
+              - paragraph [ref=e1105]: 관련 프로젝트와 추가 리소스를 확인합니다.
+              - paragraph [ref=e1106]:
+                - link "GitHub 프로필 (외부 링크)" [ref=e1107] [cursor=pointer]:
+                  - /url: https://github.com/choisimo
+                  - img [ref=e1109]
+                  - text: GitHub 프로필
+                  - generic "(외부 링크)" [ref=e1111]:
+                    - img [ref=e1112]
+      - button "맨위로":
+        - img
+        - text: 맨위로
+    - contentinfo [ref=e1116]:
+      - navigation "하단/푸터" [ref=e1117]:
+        - 'link "다음: 인프라 문서" [ref=e1118] [cursor=pointer]':
+          - /url: http://127.0.0.1:9007/infrastructure/
+          - generic [ref=e1119]:
+            - text: 다음
+            - generic [ref=e1120]: 인프라 문서
+          - img [ref=e1122]
+      - generic [ref=e1125]:
+        - generic [ref=e1127]: Copyright © 2026 nodove - All rights reserved
+        - link "(외부 링크)" [ref=e1129] [cursor=pointer]:
+          - /url: https://github.com/choisimo
+          - img [ref=e1130]
+          - generic "(외부 링크)" [ref=e1132]:
+            - img [ref=e1133]
+  - button "화면 분할 (Ctrl+\\)" [ref=e1137] [cursor=pointer]:
+    - img [ref=e1138]
+  - option "1×1"
+  - option "1×2 (가로)"
+  - option "2×1 (세로)"
+  - option "2×2 (그리드)" [selected]
+  - button "AI 챗봇 열기" [ref=e1140] [cursor=pointer]:
+    - img [ref=e1141]
