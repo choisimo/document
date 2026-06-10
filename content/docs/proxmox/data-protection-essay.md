@@ -1,45 +1,152 @@
-# 되돌리고 싶은 순간들을 위한 기술: Proxmox의 스냅샷, 백업, 그리고 템플릿
+# Proxmox Snapshots, Backups, and Templates
 
-서버를 만지다 보면 등골이 서늘해지는 순간, 한 번쯤 겪어보셨죠?
+Proxmox VE에서 스냅샷, 백업, 템플릿은 모두 "이전 상태를 활용한다"는 점에서 비슷해 보이지만 목적과 실패 조건이 다르다.
 
-터미널 창에 자신 있게 명령어를 입력하고 엔터를 눌렀는데, 갑자기 화면 가득 붉은 에러 메시지가 쏟아질 때의 그 아득함이란. "아, 딱 1분 전으로만 돌아갈 수 있다면!" 하는 간절한 바람을 기술은 꽤 오래전부터 들어주고 있었습니다. 오늘은 Proxmox VE가 우리에게 선물한 세 가지 타임머신—스냅샷, 백업, 그리고 템플릿—에 대해 이야기해 볼까 합니다. 비슷해 보이지만, 속을 들여다보면 각자의 역할이 너무나도 다른 친구들입니다.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
----
+운영 중에는 되돌리고 싶은 순간이 자주 생긴다. 패키지 업데이트, 방화벽 변경, 애플리케이션 배포, 커널 설정 실험처럼 작은 작업도 VM이나 컨테이너를 망가뜨릴 수 있다.
 
-## 찰나를 기억하는 사진 한 장, 스냅샷 (Snapshot)
+하지만 모든 되돌리기 도구를 백업처럼 생각하면 위험하다. 스냅샷은 빠른 롤백 지점이고, 백업은 원본 장애에 대비한 복구 자산이며, 템플릿은 반복 배포를 줄이는 원본 이미지다.
 
-가장 먼저 소개하고 싶은 건 '스냅샷'입니다. 이름처럼 서버의 현재 상태를 사진 찍듣이 찰칵, 하고 박제해두는 기능이죠.
+## 2. 현재 나의 상태 (Baseline)
 
-저는 이걸 게임의 **'세이브 포인트'**라고 부르곤 합니다. 보스 몬스터를 잡으러 가기 직전, 우리는 본능적으로 저장을 누르잖아요? 서버 관리에서도 마찬가지입니다. 운영체제를 업데이트하거나 복잡한 설정을 건드리기 직전, 그 떨리는 손을 진정시켜 주는 게 바로 스냅샷입니다.
+흔한 출발점은 다음과 같다.
 
-스냅샷의 가장 큰 매력은 '속도'입니다. 원본 디스크 전체를 복사하는 게 아니라, 변경된 부분만 살짝 기록해두기 때문에 눈 깜짝할 사이에 만들어집니다. 만약 작업하다가 뭔가 꼬였다? "아, 망했다" 싶을 때 '롤백(Rollback)' 버튼 하나면 마법처럼 문제 없던 시절로 돌아갈 수 있죠.
+- 스냅샷이 있으니 백업이 필요 없다고 생각한다.
+- 백업 파일을 원본 VM과 같은 디스크에만 보관한다.
+- 템플릿을 켜서 수정하려고 한다.
+- linked clone과 full clone의 차이를 모르고 선택한다.
+- 복원 테스트 없이 백업 작업 성공만 확인한다.
 
-하지만 주의할 점이 있습니다. 스냅샷은 어디까지나 '임시' 방편입니다. 원본 디스크에 기대어 존재하기 때문에, 만약 하드디스크가 깨지면 스냅샷도 물거품처럼 사라집니다. 게다가 너무 많이 찍어두거나 오래 묵혀두면 서버가 점점 느려질 수 있어요. 작업이 무사히 끝나면 미련 없이 지워주는 게 스냅샷을 대하는 예의랍니다.
+## 3. 도달하고 싶은 목표 (Target State)
 
-## 든든한 보험, 백업 (Backup)
+목표는 세 도구를 상황에 맞게 구분해서 쓰는 것이다.
 
-스냅샷이 가벼운 '실행 취소'라면, 백업은 묵직하고 든든한 **'생명보험'**입니다.
+- 설정 변경 전에는 짧은 수명의 스냅샷을 만든다.
+- 하드웨어 장애와 랜섬웨어에 대비해 별도 저장소에 백업한다.
+- 반복 배포할 기본 OS와 패키지 상태는 템플릿으로 만든다.
+- linked clone은 속도와 공간 절약, full clone은 독립성을 기준으로 선택한다.
+- 백업은 정기적으로 복원 테스트를 한다.
+- 스냅샷과 백업의 보존 정책을 분리한다.
 
-백업은 서버의 모든 살림살이—데이터부터 설정 파일까지—를 꽁꽁 싸매서 별도의 파일로 만들어두는 작업입니다. 시간이 좀 걸리고 귀찮게 느껴질 수도 있습니다. 하지만 랜섬웨어가 들이닥치거나, 서버실에 물난리가 나서 하드웨어가 망가졌을 때 우리를 구원해 줄 유일한 동아줄은 바로 이 백업 파일뿐입니다.
+## 4. 시스템 번역 (Data Flow)
 
-그래서 백업은 되도록 멀리 두는 게 좋습니다. 같은 서버 안에 두기보다는 NAS나 별도의 백업 서버(PBS) 같은 외부 저장소에 보관해야 진정한 의미가 있죠. 원본 서버가 완전히 사라져도, 백업 파일 하나만 있다면 언제든 다시 시작할 수 있으니까요. "설마 나한테 그런 일이 생기겠어?" 하는 순간이, 백업을 시작해야 할 가장 좋은 타이밍입니다.
+스냅샷 흐름은 다음과 같다.
 
-## 반복의 지루함을 없애는 틀, 템플릿 (Template)
+```text
+before risky change
+  -> create snapshot
+  -> perform change
+  -> verify service
+  -> if failed, rollback
+  -> if successful, remove snapshot
+```
 
-마지막으로, 조금 다른 결을 가진 '템플릿' 이야기를 해보죠.
+백업 흐름은 다음과 같다.
 
-만약 똑같은 리눅스 서버 5대를 만들어야 한다면 어떨까요? ISO 파일을 다운받고, 설치하고, 설정하고... 이 지루한 과정을 다섯 번이나 반복하는 건 정말 고역입니다. 이때 등장하는 구세주가 바로 템플릿, 즉 **'붕어빵 틀'**입니다.
+```text
+scheduled backup
+  -> create consistent archive or PBS snapshot
+  -> store on separate backup storage
+  -> apply retention policy
+  -> periodically restore to test VMID
+```
 
-완벽하게 세팅된 VM 하나를 골라 '템플릿'으로 변환하면, 그 친구는 이제 '불변의 원판'이 됩니다. 더 이상 켜지지도, 수정되지도 않지만, 대신 무한히 많은 복제본(Clone)을 찍어낼 수 있는 능력을 얻게 되죠.
+템플릿 흐름은 다음과 같다.
 
-여기서 재미있는 건 복제 방식입니다. 원판 템플릿과 데이터를 공유하는 'Linked Clone'을 쓰면, 순식간에 새로운 서버를 뚝딱 만들어낼 수 있습니다. 물론 원판과 완전히 독립된 'Full Clone'을 선택할 수도 있고요. 어떤 방식이든, 템플릿 덕분에 우리는 지루한 반복 노동에서 해방되어 좀 더 창의적인 일에 집중할 수 있게 됩니다.
+```text
+install clean VM
+  -> apply baseline packages and cloud-init
+  -> remove machine-specific state
+  -> convert to template
+  -> clone when a new VM is needed
+```
 
----
+## 5. 핵심 구성요소 (Building Blocks)
 
-## 여러분의 도구 상자에는 무엇이 있나요?
+- Snapshot: 특정 시점으로 되돌릴 수 있는 빠른 상태 지점. 원본 스토리지에 의존한다.
+- Backup: 원본과 분리해 보관하는 복구 단위. 장애, 삭제, 손상에 대비한다.
+- Template: 직접 실행하기보다 clone의 원본으로 쓰는 기준 이미지.
+- Linked clone: 템플릿과 기반 데이터를 공유해 빠르게 생성되는 복제본.
+- Full clone: 원본과 독립된 전체 복제본.
+- Retention: 백업과 스냅샷을 얼마나 오래, 몇 개나 남길지 정하는 정책.
+- Restore test: 백업이 실제로 복구 가능한지 확인하는 절차.
 
-자, 이제 정리가 좀 되셨나요?
+## 6. 상태 전이 (State Transition)
 
-서버 설정을 건드리기 전 왠지 모를 불안감이 엄습한다면 가볍게 **스냅샷**을 찍으세요. 데이터가 날아갈까 봐 밤잠을 설치고 있다면 묵직한 **백업**을 걸어두시고요. 그리고 매일 똑같은 서버를 만드느라 하품이 나온다면 **템플릿**을 만들어보세요.
+VM 보호 상태는 다음처럼 볼 수 있다.
 
-기술은 결국 우리를 돕기 위해 존재합니다. 적재적소에 맞는 도구를 꺼내 쓰는 지혜가 여러분의 서버 생활을 조금 더 평온하게 만들어주길 바랍니다.
+```mermaid
+stateDiagram-v2
+    Running --> SnapshotTaken: before change
+    SnapshotTaken --> Changed: update or config edit
+    Changed --> RolledBack: change failed
+    Changed --> SnapshotRemoved: change verified
+    Running --> BackedUp: scheduled backup
+    BackedUp --> RestoreTested: restore to test VMID
+    Running --> ConvertedToTemplate: generalized image
+    ConvertedToTemplate --> Cloned: deploy new VM
+```
+
+스냅샷은 `SnapshotRemoved`까지 가는 임시 상태이고, 백업은 `RestoreTested`까지 가야 신뢰할 수 있다.
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- 스냅샷은 백업이 아니다.
+- 백업은 원본 스토리지와 같은 장애 도메인에만 있으면 안 된다.
+- 백업은 복원 테스트 전까지 완성된 보호책으로 보지 않는다.
+- 템플릿에는 호스트 고유 SSH key, machine-id, 임시 토큰 같은 식별 정보가 남으면 안 된다.
+- linked clone은 템플릿과 기반 스토리지 의존성을 가진다.
+- 스냅샷은 장기간 누적하지 말고 변경 검증 후 정리해야 한다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+패키지 업데이트 전 안전 루틴은 다음과 같다.
+
+```text
+create snapshot named before-upgrade
+run package upgrade
+reboot if required
+check application health
+if healthy, delete snapshot
+if broken, rollback snapshot
+```
+
+백업 루틴은 별도로 둔다.
+
+```text
+nightly backup to PBS or external storage
+keep daily and weekly retention
+monthly restore test to a new VMID
+document restore time and missing steps
+```
+
+## 9. 실패 사례 (What could go wrong?)
+
+- 원본 디스크가 고장 나면 같은 스토리지의 스냅샷도 함께 사라진다.
+- 스냅샷을 오래 유지하면 변경 추적과 스토리지 사용량 때문에 성능이 나빠질 수 있다.
+- 백업이 성공했다고 표시되어도 복원 중 드라이버, 네트워크, 권한 문제가 드러날 수 있다.
+- 백업 저장소가 항상 온라인이고 같은 인증 경계에 있으면 랜섬웨어나 실수 삭제에 함께 노출된다.
+- linked clone 기반 템플릿을 잘못 삭제하거나 이동하면 복제본에 영향이 갈 수 있다.
+- 템플릿 일반화가 부족하면 여러 VM이 같은 식별자나 SSH key를 공유할 수 있다.
+
+## 10. 뇌 확장하기 (Evolution & Variants)
+
+- Proxmox Backup Server를 사용해 중복 제거, 증분 백업, 검증, prune 정책을 운영화한다.
+- 애플리케이션 일관성이 필요한 VM은 guest agent, fsfreeze, 데이터베이스 dump와 함께 백업한다.
+- 3-2-1 백업 원칙을 적용해 서로 다른 매체와 오프사이트 복사본을 둔다.
+- IaC와 cloud-init으로 템플릿 생성 과정을 재현 가능하게 만든다.
+- 스냅샷, 백업, 복제, 고가용성을 각각 RPO/RTO 관점으로 비교한다.
+
+## 11. 최종 체크리스트 (Definition of Done)
+
+- [ ] 설정 변경 전 임시 스냅샷을 만들고 작업 후 삭제한다.
+- [ ] 백업은 원본과 다른 장애 도메인에 저장한다.
+- [ ] 백업 보존 정책과 스냅샷 보존 정책을 분리한다.
+- [ ] 정기적으로 새 VMID에 복원 테스트를 한다.
+- [ ] 템플릿은 machine-specific state를 제거한 뒤 만든다.
+- [ ] linked clone과 full clone의 의존성 차이를 알고 선택한다.
+
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
+
+스냅샷은 빠른 작업 취소, 백업은 장애 복구, 템플릿은 반복 배포를 위한 도구이며 세 가지는 서로 대체물이 아니다.

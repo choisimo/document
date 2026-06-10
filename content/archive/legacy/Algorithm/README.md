@@ -1,2 +1,3 @@
 # Algorithm
-Due to the complexity of the CMake files, I have created this new repository.
+
+CMake 파일 구조가 복잡해지면서 알고리즘 예제와 관련 자료를 분리해 관리한 보관용 디렉터리다.

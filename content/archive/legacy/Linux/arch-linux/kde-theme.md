@@ -1,6 +1,6 @@
-# 🎨 KDE Plasma 데스크톱 환경 테마 및 커스터마이징 가이드
+# 🎨 KDE Plasma 데스크톱 환경 테마 및 커스터마이징 정리
 
-> **✨ KDE Plasma의 매력**: KDE Plasma는 리눅스에서 가장 커스터마이징이 자유로운 데스크톱 환경입니다. 마치 자신만의 운영체제를 만드는 듯한 즐거움을 선사합니다!
+> **✨ KDE Plasma 특징**: KDE Plasma는 Linux 데스크톱 환경 중 커스터마이징 범위가 넓은 편이며, 테마, 위젯, 패널, 단축키를 세밀하게 조정할 수 있다.
 
 ## 📚 목차
 
@@ -168,7 +168,7 @@ graph TD
 
 ## 📦 테마 설치 방법
 
-### 방법 1: 시스템 설정 통합 스토어 (권장)
+### 방법 1: 시스템 설정 통합 스토어
 
 KDE의 가장 큰 장점 중 하나는 시스템 설정에서 바로 테마를 다운로드할 수 있다는 것입니다.
 
@@ -306,7 +306,7 @@ graph LR
 ```
 
 - **특징**: 분홍색 포인트가 돋보이는 현대적 다크 테마
-- **구성**: 완전한 테마 패키지 (글로벌 테마 + 아이콘 + SDDM)
+- **구성**: 통합 테마 패키지 (글로벌 테마 + 아이콘 + SDDM)
 - **설치**:
   ```bash
   yay -S sweet-kde-git sweet-folders-icons-git
@@ -373,7 +373,7 @@ graph LR
   sudo pacman -S arc-kde
   ```
 
-### 🎯 테마 조합 추천
+### 🎯 테마 조합 예시
 
 #### 🌃 다크 모드 최강 조합
 ```bash
@@ -444,7 +444,7 @@ yay -S konsole-dracula
 
 ### 창 장식 커스터마이징
 
-#### Aurorae 테마 (추천)
+#### Aurorae 테마
 ```bash
 # Aurorae 창 장식 설치
 yay -S aurorae-theme-sweet
@@ -552,7 +552,7 @@ flowchart TD
 
 #### 유용한 기본 위젯
 
-| 위젯 이름 | 기능 | 추천 위치 |
+| 위젯 이름 | 기능 | 배치 예시 |
 |-----------|------|----------|
 | **System Monitor** | CPU, 메모리, 네트워크 모니터링 | 패널 |
 | **Weather Widget** | 날씨 정보 표시 | 바탕화면 |
@@ -578,7 +578,7 @@ yay -S plasma5-applets-system-monitor
 yay -S plasma5-applets-netspeed-widget
 ```
 
-#### 추천 위젯 목록
+#### 위젯 목록 예시
 
 | 위젯 이름 | 기능 | 카테고리 |
 |-----------|------|----------|
@@ -634,7 +634,7 @@ graph TD
 
 ### 한글 입력기 설정
 
-#### Fcitx5 설치 (권장)
+#### Fcitx5 설치
 
 ```bash
 # Fcitx5 및 한글 입력기 설치
@@ -800,11 +800,11 @@ kquitapp5 plasmashell && plasmashell &
 
 ```bash
 # 아이콘 캐시 재생성
-sudo gtk-update-icon-cache -f -t /usr/share/icons/your-icon-theme
+sudo gtk-update-icon-cache -f -t /usr/share/icons/icon-theme-name
 kbuildsycoca5 --noincremental
 
 # 사용자 아이콘 캐시 재생성
-gtk-update-icon-cache -f -t ~/.local/share/icons/your-icon-theme
+gtk-update-icon-cache -f -t ~/.local/share/icons/icon-theme-name
 ```
 
 #### 3. SDDM 테마가 적용되지 않음
@@ -912,7 +912,7 @@ kquitapp5 plasmashell && plasmashell &
 
 ---
 
-## 🎯 추천 테마 조합
+## 🎯 테마 조합 예시
 
 ### 🌙 프로페셔널 다크 셋업
 
@@ -966,7 +966,7 @@ sudo pacman -S ttf-fira-code konsole
 
 - 🎨 [KDE Store](https://store.kde.org/) - 공식 테마 및 위젯 스토어
 - 🎨 [Pling.com](https://www.pling.com/browse/cat/104/) - KDE 테마 커뮤니티
-- 📖 [KDE UserBase](https://userbase.kde.org/) - 공식 사용자 가이드
+- 📖 [KDE UserBase](https://userbase.kde.org/) - 공식 사용자 문서
 - 💬 [r/kde](https://reddit.com/r/kde) - KDE 커뮤니티
 - 🐛 [KDE Bugzilla](https://bugs.kde.org/) - 버그 리포트
 
@@ -1002,7 +1002,7 @@ KDE Plasma의 무한한 커스터마이징 가능성을 탐험해보세요!
 3. **성능 고려**: 너무 많은 효과는 시스템 성능에 영향을 줄 수 있음
 4. **백업 습관**: 만족스러운 설정은 백업해두기
 
-### 추천 워크플로우
+### 적용 워크플로우
 
 ```mermaid
 graph TD

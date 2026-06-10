@@ -1,4 +1,4 @@
-# Bottom-Up 파싱 완전 정복: 개념부터 LR 파싱까지
+# Bottom-Up 파싱: 개념부터 LR 파싱까지
 
 Bottom-Up 파싱은 입력 문자열을 잎(leaves, 단말 기호)에서부터 시작 심볼(root)으로 환원해 나가는 방식으로, 오른쪽 최단 유도(Rightmost Derivation)를 역추적합니다.
 

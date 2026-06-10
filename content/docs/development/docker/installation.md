@@ -1,189 +1,137 @@
-# Docker 설치 가이드 (Docker Installation Guide)
+# Docker 설치 가이드 학습 및 기록 노트
 
-이 가이드는 **Linux (다양한 배포판)**, **Windows**, **macOS** 환경에서 Docker를 설치하고 설정하는 상세한 방법을 다룹니다.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
----
+Docker 설치는 운영체제마다 경로가 다르다. Linux server에서는 Docker Engine과 Compose plugin을 package repository로 설치하는 경우가 많고, Windows/macOS 개발 환경에서는 Docker Desktop이 WSL 2 또는 lightweight VM을 관리한다. 설치 후에는 daemon 실행, 권한, Compose v2, hello-world 검증, Desktop license/권한 조건까지 확인해야 한다.
 
-## 1. Linux 설치 가이드
+이 문서는 원문의 Linux, Windows, macOS Docker 설치 가이드를 OS별 설치 선택과 post-install validation 중심으로 재작성한다.
 
-Linux 환경에서는 배포판별 패키지 관리자를 사용하는 것이 가장 권장됩니다. 설치 전 기존의 충돌 가능한 오래된 버전(`docker`, `docker.io`, `docker-engine`)을 제거하는 것이 좋습니다.
+## 2. 현재 나의 상태 (Baseline)
 
-### 사전 준비: 오래된 버전 제거 (공통)
-```bash
-# Ubuntu/Debian
-sudo apt-get remove docker docker-engine docker.io containerd runc
+- Docker Engine과 Docker Desktop이 모두 Docker CLI를 제공한다는 점은 알고 있다.
+- Linux에서는 오래된 package 충돌 제거와 공식 repository 설정이 필요할 수 있다.
+- Windows는 WSL 2 backend와 Docker Desktop installation mode가 중요하다.
+- macOS는 Apple silicon/Intel installer와 Docker Desktop 권한 설정이 필요하다.
+- 설치 후 `docker run --rm hello-world`와 `docker compose version`으로 검증해야 한다.
 
-# CentOS/RHEL/Rocky
-sudo yum remove docker \
-                  docker-client \
-                  docker-client-latest \
-                  docker-common \
-                  docker-latest \
-                  docker-latest-logrotate \
-                  docker-logrotate \
-                  docker-engine
+## 3. 도달하고 싶은 목표 (Target State)
+
+- Linux server와 Desktop 개발 환경의 설치 방식을 구분한다.
+- Ubuntu/Debian 계열에서 공식 apt repository 기반 설치 흐름을 이해한다.
+- Windows Docker Desktop에서 WSL 2 backend와 per-user/all-users installation 차이를 판단한다.
+- macOS Docker Desktop에서 supported macOS, chip architecture, privileged setting을 확인한다.
+- 설치 후 Docker daemon, CLI, Compose plugin, user permission을 검증한다.
+
+## 4. 시스템 번역 (Data Flow)
+
+```mermaid
+flowchart TD
+    A[개발/서버 환경 확인] --> B{OS}
+    B -->|Linux server| C[Docker Engine repository install]
+    B -->|Windows| D[Docker Desktop + WSL 2]
+    B -->|macOS| E[Docker Desktop for chip architecture]
+    C --> F[Docker service start]
+    D --> G[Docker Desktop start]
+    E --> G
+    F --> H[CLI verification]
+    G --> H
+    H --> I[Compose v2 verification]
+    I --> J[Post-install permission/security]
 ```
 
-### A. 자동 설치 스크립트 (가장 간편한 방법)
-대부분의 리눅스 배포판(Ubuntu, Debian, CentOS, Fedora, Raspbian 등)에서 작동하며, 테스팅이나 개발 환경 구성 시 가장 빠릅니다.
+Docker 설치 data flow는 package 설치에서 끝나지 않고, daemon/backend가 실제로 실행되고 CLI가 그 backend와 통신할 수 있는지 검증해야 완료된다.
 
-```bash
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
+## 5. 핵심 구성요소 (Building Blocks)
+
+| 구성요소 | 역할 | 확인 기준 |
+| --- | --- | --- |
+| Docker Engine | Linux daemon과 CLI | `systemctl status docker` |
+| Docker Desktop | Windows/macOS 통합 개발 환경 | Desktop app 실행 및 backend ready |
+| containerd | container runtime 계층 | Engine package와 함께 설치 |
+| Buildx plugin | modern build 기능 | `docker buildx version` |
+| Compose plugin | Compose v2 | `docker compose version` |
+| WSL 2 backend | Windows Linux container backend | WSL version과 integration 확인 |
+| Docker group | Linux non-root CLI 접근 | root-equivalent 권한 주의 |
+| hello-world | 설치 smoke test | image pull/run/exit 성공 |
+
+## 6. 상태 전이 (State Transition)
+
+```mermaid
+stateDiagram-v2
+    [*] --> OSDetected
+    OSDetected --> RepositoryConfigured: Linux
+    OSDetected --> DesktopInstalled: Windows/macOS
+    RepositoryConfigured --> EngineInstalled
+    EngineInstalled --> ServiceRunning
+    DesktopInstalled --> BackendRunning
+    ServiceRunning --> Verified
+    BackendRunning --> Verified
+    Verified --> PostInstallConfigured
+    PostInstallConfigured --> [*]
 ```
 
----
+설치는 `EngineInstalled`나 `DesktopInstalled`가 아니라 `Verified` 이후 권한과 Compose 사용까지 확인되어야 끝난다.
 
-### B. 배포판별 수동 설치
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-#### 1. Ubuntu / Debian 계열 (`apt`)
+- OS별 공식 설치 문서는 수시로 바뀌므로 실행 전 현재 Docker 공식 문서를 확인해야 한다.
+- Linux에서 오래된 `docker`, `docker.io`, `docker-engine` package가 충돌하면 제거 후 설치해야 한다.
+- Docker Desktop의 상업적 사용 조건은 조직 규모와 용도에 따라 확인해야 한다.
+- Windows에서는 WSL 2 version과 virtualization 지원을 확인해야 한다.
+- macOS에서는 현재 및 이전 주요 macOS 지원 범위를 확인해야 한다.
+- Linux에서 `docker` group 권한은 host root 수준 접근이 가능하므로 신뢰된 사용자에게만 부여해야 한다.
+- Compose v2는 일반적으로 `docker-compose`가 아니라 `docker compose` 명령으로 확인한다.
 
-1.  **필수 패키지 설치 및 GPG 키 추가**
-    ```bash
-    sudo apt-get update
-    sudo apt-get install ca-certificates curl gnupg
+## 8. 가장 작은 예제 (Minimal Viable Example)
 
-    # GPG 키 저장 디렉토리 생성
-    sudo install -m 0755 -d /etc/apt/keyrings
-    # Docker 공식 GPG 키 다운로드
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-    sudo chmod a+r /etc/apt/keyrings/docker.gpg
-    ```
-
-2.  **리포지토리 설정**
-    ```bash
-    # Ubuntu의 경우
-    echo \
-      "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-      "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
-      sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-    # Debian의 경우 위 URL의 ubuntu를 debian으로 변경
-    ```
-
-3.  **Docker 엔진 설치**
-    ```bash
-    sudo apt-get update
-    sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-    ```
-
-#### 2. CentOS / RHEL / Rocky Linux / Fedora (`yum`/`dnf`)
-
-1.  **리포지토리 설정**
-    ```bash
-    sudo yum install -y yum-utils
-    sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-    ```
-
-2.  **Docker 엔진 설치**
-    ```bash
-    sudo yum install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-    ```
-
-3.  **서비스 시작**
-    ```bash
-    sudo systemctl start docker
-    sudo systemctl enable docker
-    ```
-
-#### 3. Arch Linux / Manjaro (`pacman`)
-Arch Linux는 공식 리포지토리에서 Docker를 지원합니다.
+Ubuntu 계열 공식 repository 설치 흐름의 개념 예시:
 
 ```bash
-sudo pacman -Syu
-sudo pacman -S docker docker-compose
+sudo apt-get update
+sudo apt-get install ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+  -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
 ```
-
----
-
-### C. Linux 설치 후 필수 설정 (Root 권한 없이 실행하기)
-기본적으로 Docker 명령어는 `sudo`가 필요합니다. 매번 입력하지 않으려면 사용자를 `docker` 그룹에 추가해야 합니다.
 
 ```bash
-# 1. docker 그룹 생성 (이미 존재할 수 있음)
-sudo groupadd docker
-
-# 2. 현재 사용자를 docker 그룹에 추가
-sudo usermod -aG docker $USER
-
-# 3. 변경 사항 적용 (로그아웃 후 재로그인하거나 아래 명령어 실행)
-newgrp docker
-```
-
----
-
-## 2. Windows 설치 가이드 (Docker Desktop)
-
-Windows에서는 **WSL 2 (Windows Subsystem for Linux 2)** 백엔드를 사용하는 것이 성능상 가장 유리합니다.
-
-### 시스템 요구사항
-*   **Windows 10** 버전 2004 이상 (Build 19041 이상) 또는 **Windows 11**.
-*   BIOS에서 **가상화(Virtualization)** 기능 활성화 필요.
-
-### 설치 단계
-1.  **WSL 2 활성화**: PowerShell(관리자 권한)에서 아래 명령어를 실행하여 WSL을 설치 및 업데이트합니다.
-    ```powershell
-    wsl --install
-    ```
-    *안내: 이미 설치되어 있다면 `wsl --update`로 최신 커널로 업데이트하세요.*
-
-2.  **Docker Desktop 다운로드**: [Docker Hub Windows 다운로드](https://docs.docker.com/desktop/install/windows-install/) 페이지에서 설치 파일을 다운로드합니다.
-
-3.  **설치 및 실행**:
-    *   설치 마법사에서 "Use WSL 2 instead of Hyper-V" 옵션이 체크되어 있는지 확인합니다(권장).
-    *   설치 완료 후 재부팅이 필요할 수 있습니다.
-    *   Docker Desktop을 실행하고 라이선스 동의를 진행합니다.
-
-4.  **설정 (Optional)**:
-    *   Docker Desktop 설정 > Resources > WSL Integration 에서 Docker를 사용할 WSL 배포판(예: Ubuntu)을 스위치를 켜서 연동합니다. 이렇게 하면 WSL 터미널 내부에서도 `docker` 명령어를 바로 사용할 수 있습니다.
-
----
-
-## 3. macOS 설치 가이드 (Docker Desktop)
-
-### 시스템 요구사항
-*   macOS 버전 12 (Monterey) 이상 권장.
-*   최소 4GB RAM.
-
-### 설치 단계
-1.  **Docker Desktop 다운로드**: [Docker Hub Mac 다운로드](https://docs.docker.com/desktop/install/mac-install/) 페이지로 이동합니다.
-    *   **Mac with Apple silicon**: M1, M2, M3 등 Apple 칩셋 사용자.
-    *   **Mac with Intel chip**: 구형 Intel 맥 사용자.
-    *   *본인의 칩셋에 맞는 버전을 선택하여 다운로드하세요.*
-
-2.  **설치**:
-    *   다운로드한 `.dmg` 파일을 엽니다.
-    *   Docker 아이콘을 Applications 폴더로 드래그합니다.
-
-3.  **실행**:
-    *   Applications 폴더에서 Docker를 실행합니다.
-    *   초기 설정 시 권한 부여(네트워킹 등)가 필요할 수 있습니다.
-
-4.  **터미널 확인**:
-    *   터미널 앱을 열고 `docker --version`을 입력하여 설치를 확인합니다.
-
----
-
-## 4. 설치 검증 (Hello World)
-
-설치가 완료되었다면 터미널(또는 CMD/PowerShell)을 열고 다음 명령어를 실행하여 정상 작동을 확인합니다.
-
-```bash
-docker run --rm hello-world
-```
-
-**성공 시 출력 예시:**
-```text
-Hello from Docker!
-This message shows that your installation appears to be working correctly.
-...
-```
-
-## 5. Docker Compose 사용 참조
-최신 Docker를 설치했다면 `docker-compose` (하이픈 있음) 대신 `docker compose` (공백, V2 플러그인) 명령어를 사용하는 것이 표준입니다.
-
-```bash
+sudo apt-get update
+sudo apt-get install docker-ce docker-ce-cli containerd.io \
+  docker-buildx-plugin docker-compose-plugin
+sudo systemctl start docker
+sudo docker run --rm hello-world
 docker compose version
 ```
 
-문서 작성일: 2026-01-29
+이 예제는 repository setup, Engine package, service start, smoke test, Compose v2 확인을 분리한다. 실제 repository source line은 OS codename과 architecture에 따라 공식 문서를 따라 작성한다.
+
+## 9. 실패 사례 (What could go wrong?)
+
+- 배포판 repository의 오래된 Docker package와 공식 repository package가 섞인다.
+- WSL 2가 오래되었거나 비활성화되어 Windows Docker Desktop backend가 시작되지 않는다.
+- macOS에서 chip architecture에 맞지 않는 installer를 선택한다.
+- Docker Desktop license 조건을 확인하지 않고 조직 환경에 배포한다.
+- `docker compose` plugin이 설치되지 않아 compose 파일 실행이 실패한다.
+- Linux에서 일반 사용자에게 Docker 권한을 부여하지 않아 매번 `sudo`가 필요하거나, 반대로 불필요한 사용자에게 docker group을 준다.
+- 설치 후 hello-world 검증 없이 바로 업무 container를 올려 daemon/backend 문제를 뒤늦게 발견한다.
+
+## 10. 뇌 확장하기 (Evolution & Variants)
+
+- Linux server는 rootless Docker, Docker Engine, Podman, containerd 단독 사용을 비교할 수 있다.
+- Windows는 WSL 2 backend, Hyper-V backend, per-user/all-users installation mode를 요구사항에 맞게 고른다.
+- macOS Docker Desktop은 symlink 위치, privileged port mapping, default socket 설정을 security policy와 맞춘다.
+- CI 환경에서는 Docker-in-Docker, remote Docker host, rootless buildkit의 trade-off를 별도로 검토한다.
+- 공식 문서 진입점은 Docker Engine install, Docker Desktop Windows/Mac install, Compose plugin install 페이지다.
+
+## 11. 최종 체크리스트 (Definition of Done)
+
+- [x] Linux, Windows, macOS 설치 경로를 구분했다.
+- [x] Docker Engine, Desktop, WSL 2, Compose v2 검증 포인트를 정리했다.
+- [x] Ubuntu repository 설치의 현재 공식 흐름을 개념 예제로 반영했다.
+- [x] Docker group과 Desktop license/권한 조건을 불변식에 포함했다.
+- [x] 원문 Docker installation 문서를 12개 섹션 템플릿으로 재작성했다.
+
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
+
+Docker 설치의 완료 기준은 파일이 설치된 상태가 아니라, daemon/backend가 실행되고 CLI와 Compose가 실제 container를 실행할 수 있는 상태다.

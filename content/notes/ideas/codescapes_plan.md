@@ -1,7 +1,7 @@
 # [Project Idea] CodeScapes: 3D Code Execution Visualization
 
 ## Overview
-**CodeScapes** transforms abstract code execution flow into physical 3D structures. By mapping memory addresses to a 2D plane and time to the vertical Z-axis, we create "sculptures" that reveal patterns in algorithms, memory leaks, and stack behaviors that are invisible in traditional log-based debugging.
+**CodeScapes** transforms abstract code execution flow into physical 3D structures. Mapping memory addresses to a 2D plane and time to the vertical Z-axis creates "sculptures" that reveal patterns in algorithms, memory leaks, and stack behaviors that are invisible in traditional log-based debugging.
 
 ---
 

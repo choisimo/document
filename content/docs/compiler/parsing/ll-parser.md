@@ -1,309 +1,130 @@
-# LL(1) 파싱 테이블 생성
+# LL Parser 학습 및 기록 노트
 
-LL(1) 파싱 테이블을 생성하는 알고리즘과 과정을 설명합니다.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-## 개요
+LL(1) parser는 입력을 왼쪽에서 오른쪽으로 읽고, leftmost derivation을 1-token lookahead로 예측한다. 사람이 작성하는 recursive descent parser와 table-driven predictive parser의 기반이 되지만, grammar가 left recursion이나 FIRST/FOLLOW conflict를 가지면 한 lookahead만으로 production을 고를 수 없다.
 
-LL(1) 파서는 입력을 **왼쪽에서 오른쪽으로(Left-to-right)** 읽고, **최좌단 유도(Leftmost derivation)**를 수행하며, **1개의 선행 토큰(1 lookahead)**으로 결정을 내립니다.
+이 문서는 원문의 LL(1) parsing table 생성 과정을 FIRST, FOLLOW, table entry, conflict 조건 중심으로 재작성한다.
 
-```mermaid
-graph LR
-    subgraph "LL(1) Parser"
-        I[Input<br/>L-to-R] --> P[Parser]
-        P --> D[Leftmost<br/>Derivation]
-        T[1 Lookahead<br/>Token] --> P
-    end
-    
-    style P fill:#e8f5e8
-```
+## 2. 현재 나의 상태 (Baseline)
 
----
+- LL이 left-to-right scan과 leftmost derivation을 뜻한다는 점은 알고 있다.
+- FIRST와 FOLLOW 집합이 table 생성에 어떻게 쓰이는지 더 명확히 해야 한다.
+- ε-production이 있을 때 FOLLOW를 사용해야 하는 이유를 이해해야 한다.
+- Left recursion과 left factoring이 LL parser에 왜 중요한지 정리해야 한다.
+- Table-driven parsing에서 stack과 input이 어떻게 움직이는지 예제로 확인해야 한다.
 
-## 테이블 생성 과정
+## 3. 도달하고 싶은 목표 (Target State)
 
-LL(1) 파싱 테이블 생성은 두 단계로 이루어집니다:
+- LL(1) parsing table `M[A, a]`의 의미를 설명한다.
+- 각 production `A -> alpha`에 대해 FIRST(alpha)로 table을 채운다.
+- `epsilon in FIRST(alpha)`인 경우 FOLLOW(A)로 table을 채운다.
+- 한 cell에 production이 둘 이상 들어가면 LL(1) conflict임을 판단한다.
+- Stack top이 terminal이면 match하고, nonterminal이면 table production으로 expand한다.
+
+## 4. 시스템 번역 (Data Flow)
 
 ```mermaid
 flowchart TD
-    Start([시작]) --> Phase1
-    
-    subgraph Phase1[준비 단계]
-        A1[문법 분석]
-        A2[FIRST 집합 계산]
-        A3[FOLLOW 집합 계산]
-        A1 --> A2 --> A3
-    end
-    
-    Phase1 --> Phase2
-    
-    subgraph Phase2[테이블 채우기]
-        B1[각 규칙 A → α 처리]
-        B2{FIRST α에<br/>ε 포함?}
-        B3["Rule 1: FIRST(α)의<br/>터미널 a에 대해<br/>M[A,a] = A→α"]
-        B4["Rule 2: FOLLOW(A)의<br/>터미널 b에 대해<br/>M[A,b] = A→α"]
-        
-        B1 --> B2
-        B2 -->|아니오| B3
-        B2 -->|예| B3
-        B2 -->|예| B4
-        B3 --> B5[다음 규칙]
-        B4 --> B5
-    end
-    
-    Phase2 --> End([완료])
-    
-    style Phase1 fill:#e3f2fd
-    style Phase2 fill:#fff3e0
+    A[Grammar] --> B[Compute FIRST]
+    B --> C[Compute FOLLOW]
+    C --> D[For each production A -> alpha]
+    D --> E[Fill M[A, FIRST(alpha)]]
+    E --> F{epsilon in FIRST(alpha)?}
+    F -->|yes| G[Fill M[A, FOLLOW(A)]]
+    F -->|no| H[Parsing table]
+    G --> H
+    H --> I[Stack-driven parser]
 ```
 
----
+LL parser는 현재 stack top nonterminal과 현재 lookahead token만으로 다음 production을 예측해야 한다.
 
-## FIRST와 FOLLOW 집합
+## 5. 핵심 구성요소 (Building Blocks)
 
-### FIRST 집합
+| 구성요소 | 역할 | 핵심 질문 |
+| --- | --- | --- |
+| Lookahead | 다음 input token | production 선택에 충분한가? |
+| FIRST(alpha) | alpha가 만들 수 있는 첫 terminal | 어떤 token에서 이 production을 쓰는가? |
+| FOLLOW(A) | A 뒤에 올 수 있는 terminal | A가 epsilon이 될 때 어떤 token이 허용되는가? |
+| Parsing table | `M[nonterminal, terminal]` | cell이 하나의 production만 갖는가? |
+| Stack | 예측해야 할 symbol 저장 | terminal match 또는 nonterminal expand |
+| Left recursion | 자기 자신으로 먼저 유도 | recursive descent에서 무한 재귀 위험 |
+| Left factoring | 공통 prefix 분리 | lookahead 하나로 선택 가능하게 함 |
 
-**FIRST(α)**는 α에서 유도될 수 있는 문자열의 첫 번째 터미널 집합입니다.
+## 6. 상태 전이 (State Transition)
 
 ```mermaid
-graph TD
-    F[FIRST 계산 규칙]
-    F --> R1["터미널 a: FIRST(a) = {a}"]
-    F --> R2["ε: FIRST(ε) = {ε}"]
-    F --> R3["A → α: FIRST(A) ⊇ FIRST(α)"]
-    F --> R4["αβ: FIRST(αβ)에 FIRST(α) 포함<br/>ε ∈ FIRST(α)면 FIRST(β)도 포함"]
+stateDiagram-v2
+    [*] --> StackTop
+    StackTop --> MatchTerminal: top이 lookahead terminal
+    MatchTerminal --> StackTop
+    StackTop --> ExpandNonterminal: top이 nonterminal
+    ExpandNonterminal --> StackTop: table production push
+    StackTop --> Accept: top/input 모두 end marker
+    StackTop --> Error: table entry 없음 또는 mismatch
+    Accept --> [*]
+    Error --> [*]
 ```
 
-### FOLLOW 집합
+Terminal은 input과 직접 match되고, nonterminal은 parsing table이 선택한 production의 RHS로 치환된다.
 
-**FOLLOW(A)**는 논터미널 A 바로 뒤에 나올 수 있는 터미널 집합입니다.
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-```mermaid
-graph TD
-    F[FOLLOW 계산 규칙]
-    F --> R1["시작 기호 S: $ ∈ FOLLOW(S)"]
-    F --> R2["A → αBβ: FIRST(β) - {ε} ⊆ FOLLOW(B)"]
-    F --> R3["A → αB 또는<br/>A → αBβ (ε ∈ FIRST(β)):<br/>FOLLOW(A) ⊆ FOLLOW(B)"]
+- LL(1) table의 한 cell에는 production이 최대 하나만 들어가야 한다.
+- `a in FIRST(alpha)`이면 `M[A, a] = A -> alpha`가 된다.
+- `epsilon in FIRST(alpha)`이면 모든 `b in FOLLOW(A)`에 대해 `M[A, b] = A -> alpha`가 된다.
+- Start symbol의 FOLLOW에는 end marker `$`가 포함되어야 한다.
+- Direct/indirect left recursion은 LL parser 적용 전에 제거해야 한다.
+- 공통 prefix가 있는 production은 left factoring으로 lookahead conflict를 줄여야 한다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+괄호 문법:
+
+```text
+S -> ( S ) S
+S -> epsilon
 ```
 
----
+집합:
 
-## 테이블 생성 알고리즘
+| Nonterminal | FIRST | FOLLOW |
+| --- | --- | --- |
+| `S` | `(`, `epsilon` | `)`, `$` |
 
-### 핵심 규칙
+Parsing table:
 
-| 조건 | 테이블 항목 |
-|------|------------|
-| **Rule 1**: a ∈ FIRST(α), a ≠ ε | M[A, a] := A → α |
-| **Rule 2**: ε ∈ FIRST(α), b ∈ FOLLOW(A) | M[A, b] := A → α |
+| | `(` | `)` | `$` |
+| --- | --- | --- | --- |
+| `S` | `S -> ( S ) S` | `S -> epsilon` | `S -> epsilon` |
 
-### 의사 코드
+입력 `()$`는 stack `$ S`에서 시작해 `S -> ( S ) S`, match `(`, `S -> epsilon`, match `)`, `S -> epsilon`, accept 순서로 처리된다.
 
-```plaintext
-for each 규칙 A → α in Grammar:
-    for each 터미널 a in FIRST(α) - {ε}:
-        M[A, a] := A → α
-    
-    if ε ∈ FIRST(α):
-        for each 터미널 b in FOLLOW(A):
-            M[A, b] := A → α
-```
+## 9. 실패 사례 (What could go wrong?)
 
----
+- `A -> ab | ac`를 그대로 두어 lookahead `a`에서 production을 하나로 고르지 못한다.
+- Left recursion `E -> E + T | T`를 LL parser에 넣어 무한 재귀가 발생한다.
+- ε-production을 FIRST만 보고 table에 넣고 FOLLOW entry를 누락한다.
+- FOLLOW(start)에 `$`를 넣지 않아 입력 종료 시 accept 조건이 깨진다.
+- 한 table cell에 production이 둘 이상 들어갔는데 충돌을 무시한다.
+- Stack push 순서를 뒤집지 않아 RHS가 잘못된 순서로 처리된다.
 
-## 예제: 괄호 문법
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-### 문법 정의
+- Recursive descent parser는 LL grammar를 함수 호출 구조로 직접 구현한다.
+- LL(k)는 lookahead를 k개 사용하지만 grammar 설계 복잡도가 커진다.
+- ANTLR의 LL(*) 계열 parser는 더 강한 lookahead 전략을 사용한다.
+- Expression parsing은 LL grammar rewrite 대신 Pratt parser나 precedence climbing을 사용할 수 있다.
+- LR parser는 bottom-up 방식으로 더 넓은 문법을 처리하며, [LR 파서](lr-parser.md)에서 다룬다.
 
-$$
-\begin{aligned}
-S &\rightarrow (S)S \\
-S &\rightarrow \epsilon
-\end{aligned}
-$$
+## 11. 최종 체크리스트 (Definition of Done)
 
-### FIRST/FOLLOW 계산
+- [x] LL(1)의 입력 방향, derivation 방향, lookahead 의미를 정리했다.
+- [x] FIRST/FOLLOW 기반 table fill 규칙을 설명했다.
+- [x] 괄호 문법 최소 예제로 table을 만들었다.
+- [x] Left recursion, left factoring, conflict 실패 사례를 포함했다.
+- [x] 원문 LL parser 문서를 12개 섹션 템플릿으로 재작성했다.
 
-#### FIRST(S) 계산
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-```mermaid
-graph LR
-    S1["S → (S)S"] --> F1["( ∈ FIRST(S)"]
-    S2["S → ε"] --> F2["ε ∈ FIRST(S)"]
-    
-    F1 & F2 --> R["FIRST(S) = { (, ε }"]
-    
-    style R fill:#e8f5e8
-```
-
-#### FOLLOW(S) 계산
-
-1. S가 시작 기호 → **$** ∈ FOLLOW(S)
-2. `S → (S)S`에서:
-   - 첫 번째 S 뒤에 `)` → **)** ∈ FOLLOW(S)
-   - 두 번째 S 뒤에 아무것도 없음 → FOLLOW(S) ⊆ FOLLOW(S)
-
-$$\text{FOLLOW}(S) = \{ ), \$ \}$$
-
-### 테이블 채우기
-
-#### 규칙 1: S → (S)S
-
-```mermaid
-flowchart LR
-    A["A = S, α = (S)S"] --> B["FIRST((S)S) = { ( }"]
-    B --> C["ε ∈ FIRST? 아니오"]
-    C --> D["M[S, (] = S → (S)S"]
-    
-    style D fill:#e8f5e8
-```
-
-#### 규칙 2: S → ε
-
-```mermaid
-flowchart LR
-    A["A = S, α = ε"] --> B["FIRST(ε) = { ε }"]
-    B --> C["ε ∈ FIRST? 예"]
-    C --> D["FOLLOW(S) = { ), $ }"]
-    D --> E1["M[S, )] = S → ε"]
-    D --> E2["M[S, $] = S → ε"]
-    
-    style E1 fill:#fff3e0
-    style E2 fill:#fff3e0
-```
-
-### 최종 파싱 테이블
-
-|       | `(`            | `)`               | `$`               |
-|:-----:|:--------------:|:-----------------:|:-----------------:|
-| **S** | S → (S)S       | S → ε             | S → ε             |
-
----
-
-## 더 복잡한 예제
-
-### 산술 표현식 문법
-
-$$
-\begin{aligned}
-E &\rightarrow TE' \\
-E' &\rightarrow +TE' \mid \epsilon \\
-T &\rightarrow FT' \\
-T' &\rightarrow *FT' \mid \epsilon \\
-F &\rightarrow (E) \mid id
-\end{aligned}
-$$
-
-### 집합 계산 결과
-
-| 논터미널 | FIRST | FOLLOW |
-|---------|-------|--------|
-| E | { (, id } | { $, ) } |
-| E' | { +, ε } | { $, ) } |
-| T | { (, id } | { +, $, ) } |
-| T' | { *, ε } | { +, $, ) } |
-| F | { (, id } | { *, +, $, ) } |
-
-### 파싱 테이블
-
-|       | id           | +            | *            | (            | )            | $            |
-|:-----:|:------------:|:------------:|:------------:|:------------:|:------------:|:------------:|
-| **E** | E → TE'      |              |              | E → TE'      |              |              |
-| **E'**|              | E' → +TE'    |              |              | E' → ε       | E' → ε       |
-| **T** | T → FT'      |              |              | T → FT'      |              |              |
-| **T'**|              | T' → ε       | T' → *FT'    |              | T' → ε       | T' → ε       |
-| **F** | F → id       |              |              | F → (E)      |              |              |
-
----
-
-## LL(1) 조건
-
-문법이 LL(1)이 되려면:
-
-```mermaid
-graph TD
-    A[LL(1) 조건] --> B[조건 1: 충돌 없음]
-    A --> C[조건 2: Left Recursion 없음]
-    A --> D[조건 3: Left Factoring 완료]
-    
-    B --> B1["같은 논터미널의 두 규칙<br/>A → α | β에 대해<br/>FIRST(α) ∩ FIRST(β) = ∅"]
-    B --> B2["ε ∈ FIRST(α)면<br/>FIRST(β) ∩ FOLLOW(A) = ∅"]
-    
-    style A fill:#e8f5e8
-```
-
-### 충돌 예시
-
-```plaintext
-# 충돌 발생 - LL(1)이 아님
-A → ab | ac
-
-# 해결: Left Factoring
-A → aA'
-A' → b | c
-```
-
----
-
-## 파서 동작
-
-### 테이블 기반 파싱
-
-```mermaid
-sequenceDiagram
-    participant S as Stack
-    participant I as Input
-    participant T as Table
-    
-    Note over S,I: 입력: ( ) $
-    S->>S: Push $, S
-    
-    loop 스택 비어있지 않음
-        S->>T: Top = S, Input = (
-        T->>S: M[S,(] = S → (S)S
-        S->>S: Pop S, Push S)S(
-        
-        S->>S: Top = (, Input = (
-        S->>I: Match (
-        I->>I: 다음 토큰
-        
-        Note over S,I: 반복...
-    end
-```
-
-### 파싱 단계 추적
-
-입력: `( ) $`
-
-| 스택 | 입력 | 동작 |
-|------|------|------|
-| $S | ()$ | S → (S)S 적용 |
-| $S)S( | ()$ | match ( |
-| $S)S | )$ | S → ε 적용 |
-| $S) | )$ | match ) |
-| $S | $ | S → ε 적용 |
-| $ | $ | Accept |
-
----
-
-## 구현 팁
-
-### 오류 처리
-
-```plaintext
-if M[A, a] is empty:
-    # 구문 오류
-    report_error("Expected " + FIRST(A) + ", got " + a)
-    # 복구 전략: panic mode, phrase level
-```
-
-### 테이블 최적화
-
-- 희소 테이블: 해시맵 사용
-- 압축 테이블: 행/열 압축
-
----
-
-## 관련 문서
-
-- [LR 파서](./lr-parser.md)
-- [NFA 이론](../lexical/nfa.md)
+LL(1) parser는 stack top nonterminal과 lookahead token 하나만 보고 production을 예측할 수 있어야 한다.

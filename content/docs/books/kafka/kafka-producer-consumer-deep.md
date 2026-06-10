@@ -318,7 +318,7 @@ flowchart TD
     end
 ```
 
-**Auto-commit pitfall**: Auto-commit fires every `auto.commit.interval.ms` regardless of processing state. If the JVM crashes after `poll()` returns 100 records but before you finish processing all 100, records 50-100 may auto-commit, causing silent data loss.
+**Auto-commit pitfall**: Auto-commit fires every `auto.commit.interval.ms` regardless of processing state. If the JVM crashes after `poll()` returns 100 records but before all 100 are processed, records 50-100 may auto-commit, causing silent data loss.
 
 **Offset commit internals**: Committed offsets are written to the special topic `__consumer_offsets` (50 partitions by default). The partition is determined by `hash(group_id) % 50`. Compact topic — only the latest offset per `(group, topic, partition)` triple is retained.
 

@@ -1,329 +1,152 @@
-# CBT Diary: 전체 기능별 비즈니스 흐름도
+# CBT Diary System
 
-본 문서는 사용자가 React-Native 클라이언트에서 특정 작업을 수행했을 때, Auth-server(Spring Boot), ai-server(Python), 그리고 데이터베이스(MariaDB, Redis) 간에 데이터가 어떻게 흐르는지 시퀀스 다이어그램으로 시각화한 것입니다.
+CBT Diary System은 사용자가 모바일 앱에서 일기를 작성하면 Spring Boot 인증 서버가 데이터를 저장하고, Python AI 서버가 감정 분석 결과를 생성해 MariaDB에 연결하는 감정 기록 시스템이다.
 
-> **참고**: 현재 프로젝트의 주 데이터베이스는 MariaDB입니다. 일기, 사용자 정보, AI 분석 결과 등 핵심 데이터는 모두 MariaDB에 저장 및 관리됩니다.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-## 1. 사용자 인증 (Authentication)
+감정 일기 서비스는 단순 CRUD로 끝나지 않는다. 사용자 인증, 토큰 관리, 일기 저장, AI 분석 요청, 분석 결과 저장, 캘린더 조회, 소유자 검증이 서로 연결된다.
 
-### 1.1. 사용자 회원가입
+이 문서의 목적은 기능 목록보다 데이터 흐름을 명확히 잡는 것이다. 어떤 요청이 어떤 서버를 거치고, 어떤 저장소에 기록되며, 어떤 처리가 동기 또는 비동기로 일어나는지 알면 구현과 디버깅 기준이 생긴다.
 
-사용자가 앱에서 이메일, 비밀번호, 이름 등 정보를 입력하고 '회원가입'을 요청했을 때의 흐름입니다.
+## 2. 현재 나의 상태 (Baseline)
 
-```mermaid
-sequenceDiagram
-    participant Client as CBT-front (React-Native)
-    participant AuthServer as Auth-server (Spring Boot)
-    participant Database as MariaDB
+현재 문서 기준 시스템 구성은 다음과 같다.
 
-    Client->>AuthServer: 1. 회원가입 요청 (POST /api/users/join) <br> {email, password, name}
-    activate AuthServer
+- Client: `CBT-front` React Native 앱.
+- Auth server: Spring Boot 기반 API 서버.
+- AI server: Python/FastAPI 기반 분석 서버.
+- Database: MariaDB가 사용자, 일기, 분석 결과의 주 저장소.
+- Cache: Redis가 refresh token 등 인증 관련 캐시 저장소로 사용됨.
+- External AI: LLM API가 감정 분석 결과 생성에 사용됨.
 
-    AuthServer->>Database: 2. 이메일 중복 확인 (SELECT)
-    activate Database
-    Database-->>AuthServer: 3. 중복 여부 반환
-    deactivate Database
+## 3. 도달하고 싶은 목표 (Target State)
 
-    alt 이메일 사용 가능
-        AuthServer->>AuthServer: 4. 비밀번호 암호화 (BCrypt)
-        AuthServer->>Database: 5. 사용자 정보 저장 (INSERT INTO users)
-        activate Database
-        Database-->>AuthServer: 6. 저장 완료
-        deactivate Database
+목표는 각 기능의 책임 경계를 분명히 하는 것이다.
 
-        AuthServer-->>Client: 7. 회원가입 성공 응답 (201 Created)
-    else 이메일 중복
-        AuthServer-->>Client: 7. 회원가입 실패 응답 (409 Conflict)
-    end
-    deactivate AuthServer
+- 인증 흐름에서 MariaDB와 Redis의 역할을 구분한다.
+- 일기 저장과 AI 분석 저장을 하나의 데이터 흐름으로 설명한다.
+- 일기 조회, 수정, 삭제에서 소유자 검증이 필요한 지점을 표시한다.
+- AI 분석 실패가 일기 저장 성공을 뒤집을지, 별도 실패 상태로 남길지 결정한다.
+- 모바일 클라이언트가 access token과 refresh token을 어떻게 다루는지 정리한다.
+- 기능별 응답 지연과 비동기 처리 경계를 관찰 가능하게 만든다.
+
+## 4. 시스템 번역 (Data Flow)
+
+전체 흐름은 다음과 같다.
+
+```text
+React Native client
+  -> Spring Boot auth/API server
+  -> MariaDB for users, diaries, reports
+  -> Redis for refresh token cache
+  -> FastAPI AI server for diary analysis
+  -> external LLM for analysis generation
 ```
 
-### 1.2. 사용자 로그인 및 토큰 관리
+일기 작성 흐름은 다음과 같다.
 
-사용자가 이메일과 비밀번호로 '로그인'을 요청했을 때의 인증 및 토큰 발급/저장 흐름입니다.
-
-```mermaid
-sequenceDiagram
-    participant Client as CBT-front (React-Native)
-    participant AuthServer as Auth-server (Spring Boot)
-    participant Database as MariaDB
-    participant Cache as Redis
-
-    Client->>AuthServer: 1. 로그인 요청 (POST /api/auth/login) <br> {email, password}
-    activate AuthServer
-
-    AuthServer->>Database: 2. 사용자 정보 및 암호화된 비밀번호 조회 (SELECT)
-    activate Database
-    Database-->>AuthServer: 3. 사용자 정보 반환
-    deactivate Database
-
-    AuthServer->>AuthServer: 4. 비밀번호 일치 여부 확인
-
-    alt 인증 성공
-        AuthServer->>AuthServer: 5. Access & Refresh 토큰 생성 (JWT)
-
-        AuthServer->>Cache: 6. Refresh 토큰 저장 (SET user_email:token)
-        activate Cache
-        Cache-->>AuthServer: 7. 저장 완료
-        deactivate Cache
-
-        AuthServer-->>Client: 8. 토큰 및 사용자 정보 응답 <br> {accessToken, refreshToken, user}
-
-        Client->>Client: 9. 기기에 토큰 및 사용자 정보 저장 (AsyncStorage)
-
-    else 인증 실패
-        AuthServer-->>Client: 8. 로그인 실패 응답 (401 Unauthorized)
-    end
-
-    deactivate AuthServer
+```text
+client sends diary create request
+  -> API server validates access token
+  -> API server stores diary in MariaDB
+  -> API server responds with created diary
+  -> AI analysis is requested
+  -> AI server calls LLM
+  -> report JSON returns to API server
+  -> report is stored and linked to diary
 ```
 
-## 2. 일기 관리 (Diary Management)
+## 5. 핵심 구성요소 (Building Blocks)
 
-### 2.1. 일기 작성 및 AI 감정 분석
+- User: 이메일, 암호화된 비밀번호, 이름 같은 인증 기본 정보.
+- Auth token: access token은 API 인증에, refresh token은 재발급에 사용된다.
+- Diary: 제목, 본문, 날씨, 작성일, 작성자 정보를 가진 핵심 도메인 데이터.
+- Report: AI 분석 결과. 감정, 요약, 피드백, 점수 같은 JSON 구조를 가질 수 있다.
+- Auth server: 사용자 인증, 일기 CRUD, 소유자 검증, AI 결과 저장을 담당한다.
+- AI server: 일기 텍스트를 분석 요청으로 변환하고 결과 JSON을 반환한다.
+- MariaDB: 영속 데이터의 기준 저장소.
+- Redis: 토큰이나 짧은 수명의 인증 상태를 저장하는 캐시.
 
-사용자가 일기를 작성하고 '저장'을 요청했을 때, 일기 저장과 AI 분석이 함께 이루어지는 비동기 흐름입니다.
+## 6. 상태 전이 (State Transition)
 
-```mermaid
-sequenceDiagram
-    participant Client as CBT-front (React-Native)
-    participant AuthServer as Auth-server (Spring Boot)
-    participant AiServer as ai-server (Python/FastAPI)
-    participant OpenAIApi as 외부 LLM (GPT)
-    participant Database as MariaDB
-
-    Client->>AuthServer: 1. 일기 저장 요청 (POST /api/diary) <br> {title, content, weather}
-    activate AuthServer
-
-    AuthServer->>Database: 2. 일기 정보 저장 (INSERT INTO diary)
-    activate Database
-    Database-->>AuthServer: 3. 저장된 일기(diary_id) 반환
-    deactivate Database
-
-    AuthServer-->>Client: 4. 일기 저장 성공 응답 (201 Created)
-
-    par AI 분석 (비동기 처리)
-        AuthServer->>AiServer: 5. 일기 분석 요청 (POST /analyze) <br> {text: diary.content}
-        activate AiServer
-
-        AiServer->>OpenAIApi: 6. 프롬프트 기반 분석 요청
-        activate OpenAIApi
-        OpenAIApi-->>AiServer: 7. 분석 결과 반환
-        deactivate OpenAIApi
-
-        AiServer->>AiServer: 8. 결과 포맷팅 (JSON)
-        AiServer-->>AuthServer: 9. 분석 결과 JSON 응답
-        deactivate AiServer
-
-        AuthServer->>Database: 10. 분석 결과 저장 (INSERT INTO report)
-        activate Database
-        Database-->>AuthServer: 11. 저장된 분석(report_id) 반환
-        deactivate Database
-
-        AuthServer->>Database: 12. 일기와 분석 결과 연결 <br> (UPDATE diary SET report_id = ?)
-    end
-    deactivate AuthServer
-```
-
-### 2.2. 특정 날짜의 일기 목록 조회
-
-사용자가 캘린더에서 특정 날짜를 선택했을 때, 해당 날짜에 작성된 모든 일기의 요약 정보를 가져오는 흐름입니다.
+일기의 상태는 AI 분석 여부에 따라 나눠 볼 수 있다.
 
 ```mermaid
-sequenceDiagram
-    participant Client as CBT-front (React-Native)
-    participant AuthServer as Auth-server (Spring Boot)
-    participant Database as MariaDB
-
-    Client->>AuthServer: 1. 특정 날짜 일기 목록 요청 (GET /api/diary/calendar?date=YYYY-MM-DD)
-    activate AuthServer
-
-    AuthServer->>Database: 2. 해당 날짜의 일기 목록 조회 (SELECT ... WHERE user_id = ? AND created_at LIKE 'YYYY-MM-DD%')
-    activate Database
-    Database-->>AuthServer: 3. 일기 목록(id, title, emotion 등) 반환
-    deactivate Database
-
-    AuthServer-->>Client: 4. 일기 목록 데이터 응답
-    deactivate AuthServer
+stateDiagram-v2
+    [*] --> Draft
+    Draft --> Saved: create diary
+    Saved --> AnalysisRequested: send to AI server
+    AnalysisRequested --> Analyzed: report stored
+    AnalysisRequested --> AnalysisFailed: AI or LLM error
+    Saved --> Updated: edit diary
+    Updated --> AnalysisStale: content changed without reanalysis
+    Saved --> Deleted: delete diary
+    Analyzed --> Deleted: delete diary and report
 ```
 
-### 2.3. 일기 상세 내용 조회
+기존 문서 기준으로는 수정 시 AI 재분석을 수행하지 않는다. 따라서 수정 후 기존 report가 최신 본문과 맞는지 `AnalysisStale` 상태를 명시적으로 다루는 것이 좋다.
 
-사용자가 목록에서 특정 일기를 선택했을 때, 일기의 전체 내용과 AI 분석 결과를 함께 조회하는 흐름입니다.
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-```mermaid
-sequenceDiagram
-    participant Client as CBT-front (React-Native)
-    participant AuthServer as Auth-server (Spring Boot)
-    participant Database as MariaDB
+- 사용자는 자기 일기만 조회, 수정, 삭제할 수 있어야 한다.
+- 비밀번호는 평문으로 저장되면 안 되며 BCrypt 같은 단방향 해시로 저장해야 한다.
+- refresh token은 사용자와 연결되어 재발급 시 검증 가능해야 한다.
+- AI 분석 결과는 어떤 diary에서 생성되었는지 추적 가능해야 한다.
+- 일기 삭제 시 연결된 report를 남길지 함께 삭제할지 정책이 일관되어야 한다.
+- AI 분석 실패가 발생해도 diary 저장 상태는 명확해야 한다.
 
-    Client->>AuthServer: 1. 일기 상세 조회 요청 (GET /api/diary/{diaryId})
-    activate AuthServer
+## 8. 가장 작은 예제 (Minimal Viable Example)
 
-    AuthServer->>Database: 2. 일기 및 연관된 분석 리포트 조회 <br> (SELECT * FROM diary d LEFT JOIN report r ON d.report_id = r.id WHERE d.id = ?)
-    activate Database
-    Database-->>AuthServer: 3. 일기 및 분석 데이터 반환
-    deactivate Database
+회원가입과 일기 작성의 최소 흐름은 다음과 같다.
 
-    AuthServer-->>Client: 4. 상세 데이터(일기+분석) 응답
-    deactivate AuthServer
+```text
+POST /api/users/join
+  request: email, password, name
+  server: email duplicate check
+  server: hash password
+  server: insert user into MariaDB
+  response: 201 Created
 ```
 
-### 2.4. 일기 수정
-
-사용자가 기존에 작성했던 일기의 내용을 수정하고 '저장'을 요청했을 때의 흐름입니다. (현재 로직에서는 수정 시 AI 재분석은 수행되지 않습니다.)
-
-```mermaid
-sequenceDiagram
-    participant Client as CBT-front (React-Native)
-    participant AuthServer as Auth-server (Spring Boot)
-    participant Database as MariaDB
-
-    Client->>AuthServer: 1. 일기 수정 요청 (PUT /api/diary/{diaryId}) <br> {title, content, weather}
-    activate AuthServer
-
-    AuthServer->>Database: 2. 수정할 일기 조회 (소유자 확인)
-    activate Database
-    Database-->>AuthServer: 3. 일기 정보 반환
-    deactivate Database
-
-    alt 소유자 일치
-        AuthServer->>Database: 4. 일기 내용 업데이트 (UPDATE diary SET ...)
-        activate Database
-        Database-->>AuthServer: 5. 업데이트 완료
-        deactivate Database
-
-        AuthServer-->>Client: 6. 수정 성공 응답 (200 OK)
-    else 소유자 불일치 또는 일기 없음
-        AuthServer-->>Client: 6. 실패 응답 (403 Forbidden / 404 Not Found)
-    end
-    deactivate AuthServer
+```text
+POST /api/diary
+  request: title, content, weather
+  server: validate token
+  server: insert diary into MariaDB
+  response: 201 Created
+  async: request AI analysis
+  async: insert report and link diary
 ```
 
-### 2.5. 일기 삭제
+이 최소 흐름만 구현되어도 인증된 사용자가 일기를 저장하고 분석 결과를 나중에 확인하는 핵심 사용자 여정이 성립한다.
 
-사용자가 특정 일기를 삭제하는 흐름입니다.
+## 9. 실패 사례 (What could go wrong?)
 
-```mermaid
-sequenceDiagram
-    participant Client as CBT-front (React-Native)
-    participant AuthServer as Auth-server (Spring Boot)
-    participant Database as MariaDB
+- Redis에 저장된 refresh token과 클라이언트 토큰 상태가 어긋나면 재로그인이 반복될 수 있다.
+- 일기 저장은 성공했지만 AI 분석이 실패하면 사용자에게 분석 대기, 실패, 재시도 상태를 보여줘야 한다.
+- 수정 시 재분석하지 않으면 report가 이전 본문을 설명하는 stale 상태가 된다.
+- 삭제 시 report cascade 정책이 없으면 고아 데이터가 남는다.
+- 소유자 검증 없이 `diaryId`만 조회하면 다른 사용자의 일기에 접근할 수 있다.
+- 외부 LLM 응답 지연을 동기 요청에 묶으면 일기 저장 응답이 느려진다.
 
-    Client->>AuthServer: 1. 일기 삭제 요청 (DELETE /api/diary/{diaryId})
-    activate AuthServer
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-    AuthServer->>Database: 2. 삭제할 일기 조회 (소유자 확인)
-    activate Database
-    Database-->>AuthServer: 3. 일기 정보 반환
-    deactivate Database
+- AI 분석을 HTTP 동기 호출 대신 queue 기반 비동기 작업으로 분리한다.
+- report에 `pending`, `completed`, `failed`, `stale` 상태 컬럼을 둔다.
+- 일기 수정 시 자동 재분석, 수동 재분석, 기존 분석 폐기 중 하나를 정책으로 정한다.
+- refresh token rotation과 재사용 탐지 정책을 추가한다.
+- 사용자별 월간 감정 통계 테이블을 별도로 materialize할지 검토한다.
+- 모바일 로컬 저장소에는 토큰과 민감 데이터 저장 정책을 분리한다.
 
-    alt 소유자 일치
-        AuthServer->>Database: 4. 일기 및 연관된 리포트 삭제 (DELETE)
-        note right of Database: Cascade 설정 또는<br>서비스 로직으로 Report 함께 삭제
-        activate Database
-        Database-->>AuthServer: 5. 삭제 완료
-        deactivate Database
+## 11. 최종 체크리스트 (Definition of Done)
 
-        AuthServer-->>Client: 6. 삭제 성공 응답 (204 No Content)
-    else 소유자 불일치 또는 일기 없음
-        AuthServer-->>Client: 6. 실패 응답 (403 Forbidden / 404 Not Found)
-    end
-    deactivate AuthServer
-```
+- [ ] 회원가입, 로그인, 토큰 재발급 흐름이 문서화되어 있다.
+- [ ] 일기 생성 후 AI 분석 저장 흐름이 동기/비동기로 구분되어 있다.
+- [ ] 일기 조회, 수정, 삭제에서 소유자 검증 지점이 명시되어 있다.
+- [ ] AI 분석 실패와 stale report 상태 처리 정책이 있다.
+- [ ] MariaDB와 Redis에 저장되는 데이터 책임이 분리되어 있다.
+- [ ] 외부 LLM 지연과 실패를 사용자 경험에 어떻게 반영할지 정해져 있다.
 
----
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-## 📊 프로젝트 아키텍처 개요
-
-```mermaid
-graph TB
-    subgraph "Client Layer"
-        A[CBT-front<br/>React-Native]
-    end
-
-    subgraph "Server Layer"
-        B[Auth-server<br/>Spring Boot]
-        C[ai-server<br/>Python/FastAPI]
-    end
-
-    subgraph "Database Layer"
-        D[(MariaDB<br/>Core Data)]
-        E[(Redis<br/>Cache)]
-    end
-
-    subgraph "External Services"
-        F[OpenAI API<br/>GPT Models]
-    end
-
-    A -->|API Requests| B
-    B -->|AI Analysis| C
-    C -->|LLM Requests| F
-    B -->|Data Storage| D
-    B -->|Token Cache| E
-    C -->|Analysis Results| B
-```
-
-## 🔄 전체 시스템 플로우
-
-```mermaid
-flowchart LR
-    Start([사용자 앱 실행]) --> Auth{인증 상태}
-    Auth -->|로그인됨| Main[메인 화면]
-    Auth -->|미로그인| Login[로그인/회원가입]
-
-    Login --> Main
-    Main --> Diary[일기 작성]
-    Main --> Calendar[캘린더 조회]
-    Main --> Analysis[분석 결과 조회]
-
-    Diary --> AI[AI 감정 분석]
-    AI --> Save[데이터 저장]
-    Save --> Main
-
-    Calendar --> DiaryList[일기 목록]
-    DiaryList --> DiaryDetail[일기 상세]
-    DiaryDetail --> Edit[편집/삭제]
-    Edit --> Main
-
-    Analysis --> Report[리포트 생성]
-    Report --> Main
-```
-
-## ⚡ 주요 기능별 처리 시간
-
-| 기능           | 예상 처리 시간 | 비고                  |
-| -------------- | -------------- | --------------------- |
-| 회원가입       | 200-500ms      | 이메일 중복 체크 포함 |
-| 로그인         | 150-300ms      | JWT 토큰 생성         |
-| 일기 저장      | 100-200ms      | AI 분석은 비동기      |
-| AI 감정 분석   | 2-5초          | OpenAI API 응답 시간  |
-| 일기 목록 조회 | 50-150ms       | 페이징 적용 시        |
-| 일기 상세 조회 | 100-200ms      | 조인 쿼리 포함        |
-
-## 🛠️ 기술 스택 상세
-
-### Frontend
-
-- **React Native**: 크로스 플랫폼 모바일 앱
-- **AsyncStorage**: 로컬 데이터 저장 (토큰, 사용자 설정)
-
-### Backend
-
-- **Spring Boot**: RESTful API 서버
-- **Spring Security**: 인증/인가 처리
-- **JWT**: 토큰 기반 인증
-
-### AI Server
-
-- **FastAPI**: 빠른 API 응답을 위한 Python 웹 프레임워크
-- **OpenAI API**: GPT 모델을 활용한 감정 분석
-
-### Database
-
-- **MariaDB**: 주 데이터베이스 (사용자, 일기, 분석 결과)
-- **Redis**: 캐시 및 세션 관리
-
----
-
-_이 문서는 CBT Diary 프로젝트의 전체적인 데이터 흐름을 이해하는 데 도움이 되도록 작성되었습니다. 각 다이어그램은 실제 API 엔드포인트와 데이터베이스 스키마를 기반으로 합니다._
+CBT Diary System의 핵심은 일기 저장을 기준 데이터로 삼고, AI 분석은 실패와 지연을 견딜 수 있는 별도 상태로 연결하는 것이다.

@@ -1,372 +1,247 @@
-# Nginx Proxy Manager
+# Nginx Proxy Manager 운영
 
-Nginx Proxy Manager를 사용한 리버스 프록시 설정 가이드입니다.
+이 문서는 Nginx Proxy Manager를 Docker Compose로 실행하고 reverse proxy host, Let's Encrypt certificate, access list, backup을 관리하는 기준을 정리한다. 목표는 UI로 쉽게 설정하되 admin port와 저장 데이터의 위험을 놓치지 않는 것이다.
 
-## 개요
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-Nginx Proxy Manager는 웹 기반 UI를 통해 Nginx 리버스 프록시를 쉽게 관리할 수 있는 도구입니다. Let's Encrypt SSL 인증서 자동 발급을 지원합니다.
+Nginx Proxy Manager는 Nginx reverse proxy와 certificate 관리를 웹 UI로 단순화한다. 하지만 편리한 UI는 admin port, default credential, database, certificate private key라는 새로운 운영 자산을 만든다.
 
-```mermaid
-graph LR
-    subgraph "Internet"
-        U[Users]
-    end
-    
-    subgraph "Nginx Proxy Manager"
-        NPM[NPM<br/>:80/:443]
-    end
-    
-    subgraph "Internal Services"
-        S1[Service 1<br/>:3000]
-        S2[Service 2<br/>:8080]
-        S3[Service 3<br/>:5000]
-    end
-    
-    U -->|HTTPS| NPM
-    NPM -->|HTTP| S1
-    NPM -->|HTTP| S2
-    NPM -->|HTTP| S3
-    
-    style NPM fill:#009639
+관리 UI를 인터넷에 그대로 노출하거나 `/data`, `/etc/letsencrypt`를 백업하지 않으면 proxy 설정과 인증서를 잃거나 공격면을 키우게 된다.
+
+## 2. 현재 나의 상태 (Baseline)
+
+기존 문서는 Docker Compose, SQLite와 MariaDB, 초기 로그인, proxy host, SSL, access list, stream, troubleshooting, backup을 설명한다. 보완해야 할 점은 다음과 같다.
+
+- Admin UI port `81`이 public으로 열리는 예제가 먼저 나온다.
+- Image가 `latest`로 고정되어 재현성이 약하다.
+- 공식 문서의 최신 setup 흐름과 오래된 DB 예제가 섞일 수 있다.
+- Backup 대상과 restore 검증이 더 앞에 와야 한다.
+- Default credential 변경이 가장 중요한 초기 작업으로 강조되어야 한다.
+
+## 3. 도달하고 싶은 목표 (Target State)
+
+목표는 다음 상태를 만드는 것이다.
+
+- Public port는 HTTP `80`, HTTPS `443`만 연다.
+- Admin UI `81/tcp`는 localhost, VPN, 또는 내부망으로 제한한다.
+- Image tag를 의도적으로 선택한다.
+- `/data`와 `/etc/letsencrypt`가 persistent volume에 저장된다.
+- 첫 로그인 직후 default admin credential을 변경한다.
+- Proxy Host는 DNS, backend reachability, certificate 발급을 검증한다.
+- Backup과 restore 절차가 문서화되어 있다.
+
+## 4. 시스템 번역 (Data Flow)
+
+요청 흐름은 다음과 같다.
+
+```text
+client HTTPS request
+  -> Nginx Proxy Manager ports 80 or 443
+  -> generated Nginx proxy config
+  -> internal service host and port
+  -> response back to client
 ```
 
-### 주요 기능
+관리 흐름은 다음과 같다.
 
-| 기능 | 설명 |
-|------|------|
-| **리버스 프록시** | 내부 서비스로 트래픽 라우팅 |
-| **SSL 인증서** | Let's Encrypt 자동 발급/갱신 |
-| **접근 제어** | IP 화이트리스트, 인증 |
-| **리다이렉션** | URL 리다이렉트 관리 |
-| **스트림** | TCP/UDP 프록시 |
-
----
-
-## Docker Compose 설정
-
-### 기본 구성 (SQLite)
-
-```yaml
-# docker-compose.yml
-version: '3.8'
-
-services:
-  nginx-proxy-manager:
-    image: 'jc21/nginx-proxy-manager:latest'
-    container_name: nginx-proxy-manager
-    restart: unless-stopped
-    ports:
-      - '80:80'     # HTTP
-      - '81:81'     # Admin UI
-      - '443:443'   # HTTPS
-    volumes:
-      - ./data:/data
-      - ./letsencrypt:/etc/letsencrypt
-    healthcheck:
-      test: ["CMD", "/bin/check-health"]
-      interval: 10s
-      timeout: 3s
+```text
+admin browser
+  -> restricted port 81
+  -> NPM UI and API
+  -> database state in /data
+  -> certificates in /etc/letsencrypt
 ```
 
-### MySQL/MariaDB 사용
+Proxy traffic과 admin traffic을 같은 공개 범위에 두지 않는다.
 
-```yaml
-# docker-compose.yml
-version: '3.8'
+## 5. 핵심 구성요소 (Building Blocks)
 
-services:
-  app:
-    image: 'jc21/nginx-proxy-manager:latest'
-    container_name: nginx-proxy-manager
-    restart: unless-stopped
-    ports:
-      - '80:80'
-      - '81:81'
-      - '443:443'
-    environment:
-      DB_MYSQL_HOST: "db"
-      DB_MYSQL_PORT: 3306
-      DB_MYSQL_USER: "npm"
-      DB_MYSQL_PASSWORD: "${DB_PASSWORD}"
-      DB_MYSQL_NAME: "npm"
-    volumes:
-      - npm_data:/data
-      - npm_letsencrypt:/etc/letsencrypt
-    depends_on:
-      - db
-    networks:
-      - npm-network
+NPM container는 Nginx, API, UI를 포함한다.
 
-  db:
-    image: 'mariadb:10.11'
-    container_name: npm-db
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
-      MYSQL_DATABASE: "npm"
-      MYSQL_USER: "npm"
-      MYSQL_PASSWORD: "${DB_PASSWORD}"
-    volumes:
-      - npm_mysql:/var/lib/mysql
-    networks:
-      - npm-network
+Port `80`은 HTTP와 Let's Encrypt HTTP-01 challenge에 필요하다.
 
-volumes:
-  npm_data:
-  npm_letsencrypt:
-  npm_mysql:
+Port `443`은 HTTPS traffic을 처리한다.
 
-networks:
-  npm-network:
-    driver: bridge
+Port `81`은 admin UI다. 외부 공개 기본값으로 두지 않는다.
+
+`/data`는 database, generated config, JWT key 등 운영 상태를 담는다.
+
+`/etc/letsencrypt`는 certificate와 private key를 담는다.
+
+Proxy Host는 domain과 forward host/port를 연결하는 기본 단위다.
+
+Access List는 basic auth 또는 IP 제한 같은 접근 제어를 적용한다.
+
+## 6. 상태 전이 (State Transition)
+
+초기 설치 상태는 다음과 같다.
+
+```text
+compose file written
+  -> container running
+  -> initial database created
+  -> default admin login
+  -> admin credential changed
+  -> proxy host created
+  -> certificate issued
+  -> request verified
 ```
 
-### 환경 변수 파일
+장애 진단 상태는 다음과 같다.
+
+```text
+proxy error
+  -> DNS points to NPM
+  -> public ports reachable
+  -> certificate status checked
+  -> backend reachable from container
+  -> NPM logs checked
+```
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- Admin UI port `81`을 public internet에 열지 않는다.
+- 첫 로그인 직후 default credential을 변경한다.
+- Image tag를 선택하고 upgrade 전 release note를 확인한다.
+- `/data`와 `/etc/letsencrypt`를 함께 백업한다.
+- Certificate private key는 secret으로 취급한다.
+- Proxy Host 생성 전 DNS가 NPM public IP를 가리키는지 확인한다.
+- Backend host와 port가 NPM container에서 접근 가능한지 확인한다.
+- HTTP-01 certificate를 쓰면 port `80`이 외부에서 접근 가능해야 한다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+작업 디렉터리를 만든다.
 
 ```bash
-# .env
-DB_PASSWORD=your_secure_password
-DB_ROOT_PASSWORD=your_root_password
-```
-
----
-
-## 초기 설정
-
-### 1. 디렉토리 구조 생성
-
-```bash
-mkdir -p /opt/nginx-proxy-manager/{data,letsencrypt}
+sudo mkdir -p /opt/nginx-proxy-manager
 cd /opt/nginx-proxy-manager
 ```
 
-### 2. 컨테이너 실행
-
-```bash
-# docker-compose.yml 생성 후
-docker compose up -d
-
-# 로그 확인
-docker compose logs -f
-```
-
-### 3. 웹 UI 접속
-
-- URL: `http://your-server-ip:81`
-- 기본 로그인 정보:
-  - **Email**: `admin@example.com`
-  - **Password**: `changeme`
-
-!!! warning "보안 주의"
-    첫 로그인 후 반드시 관리자 이메일과 비밀번호를 변경하세요!
-
----
-
-## 프록시 호스트 설정
-
-### 새 프록시 호스트 추가
-
-```mermaid
-sequenceDiagram
-    participant A as Admin UI
-    participant N as NPM
-    participant S as Service
-    
-    A->>N: Add Proxy Host
-    A->>N: Domain: app.example.com
-    A->>N: Forward: 192.168.1.10:3000
-    A->>N: SSL: Let's Encrypt
-    N->>N: Configure Nginx
-    N->>S: Test Connection
-    S-->>N: OK
-    N-->>A: Proxy Host Created
-```
-
-### 설정 단계
-
-1. **Dashboard** → **Proxy Hosts** → **Add Proxy Host**
-
-2. **Details 탭**:
-   - Domain Names: `app.example.com`
-   - Scheme: `http` (또는 `https`)
-   - Forward Hostname/IP: `192.168.1.10`
-   - Forward Port: `3000`
-   - Cache Assets: 활성화 (선택)
-   - Block Common Exploits: 활성화 (권장)
-   - Websockets Support: 필요시 활성화
-
-3. **SSL 탭**:
-   - SSL Certificate: Request a new SSL Certificate
-   - Force SSL: 활성화 (권장)
-   - HTTP/2 Support: 활성화
-   - HSTS Enabled: 활성화 (권장)
-   - Email: SSL 인증서용 이메일
-
-4. **Advanced 탭** (선택):
-   ```nginx
-   # 커스텀 Nginx 설정
-   proxy_read_timeout 300;
-   proxy_connect_timeout 300;
-   proxy_send_timeout 300;
-   ```
-
----
-
-## 고급 설정
-
-### 접근 제한
-
-```nginx
-# Advanced 탭에서 IP 제한
-allow 192.168.1.0/24;
-allow 10.0.0.0/8;
-deny all;
-```
-
-### 기본 인증 (Basic Auth)
-
-1. **Access Lists** → **Add Access List**
-2. 사용자 이름/비밀번호 추가
-3. 프록시 호스트에서 Access List 선택
-
-### Websocket 프록시
-
-```nginx
-# Advanced 탭
-location /ws {
-    proxy_pass http://192.168.1.10:3000;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-}
-```
-
----
-
-## 리다이렉션 설정
-
-### HTTP → HTTPS 리다이렉트
-
-SSL 인증서 설정 시 "Force SSL" 옵션으로 자동 처리됩니다.
-
-### 도메인 리다이렉트
-
-**Redirection Hosts** → **Add Redirection Host**
-
-- Domain Names: `old.example.com`
-- Scheme: `$scheme` (자동)
-- Forward Domain: `new.example.com`
-- Preserve Path: 활성화
-
----
-
-## 스트림 (TCP/UDP) 프록시
-
-데이터베이스나 게임 서버 등 TCP/UDP 트래픽 프록시:
-
-**Streams** → **Add Stream**
-
-- Incoming Port: `3306`
-- Forward Host: `192.168.1.20`
-- Forward Port: `3306`
-- TCP Forwarding: 활성화
-
----
-
-## 문제 해결
-
-### SSL 인증서 발급 실패
-
-```bash
-# DNS 확인
-dig app.example.com
-
-# 80 포트 외부 접근 확인
-curl -I http://app.example.com
-
-# Let's Encrypt 로그 확인
-docker compose logs app | grep -i "letsencrypt\|acme"
-```
-
-### 502 Bad Gateway
-
-```bash
-# 내부 서비스 연결 테스트
-docker exec nginx-proxy-manager curl -I http://192.168.1.10:3000
-
-# DNS 해결 확인 (호스트명 사용 시)
-docker exec nginx-proxy-manager nslookup service-name
-```
-
-### 포트 충돌
-
-```bash
-# 사용 중인 포트 확인
-ss -tuln | grep -E ':80|:443|:81'
-
-# 다른 Nginx/Apache 중지
-sudo systemctl stop nginx apache2
-```
-
----
-
-## 백업 및 복원
-
-### 백업
-
-```bash
-# 데이터 디렉토리 백업
-tar -czvf npm-backup-$(date +%Y%m%d).tar.gz \
-  /opt/nginx-proxy-manager/data \
-  /opt/nginx-proxy-manager/letsencrypt
-
-# Docker 볼륨 백업 (volumes 사용 시)
-docker run --rm \
-  -v npm_data:/data \
-  -v $(pwd):/backup \
-  alpine tar -czvf /backup/npm-data.tar.gz /data
-```
-
-### 복원
-
-```bash
-# 컨테이너 중지
-docker compose down
-
-# 데이터 복원
-tar -xzvf npm-backup.tar.gz -C /
-
-# 컨테이너 시작
-docker compose up -d
-```
-
----
-
-## 보안 권장 사항
-
-!!! danger "필수 보안 조치"
-    - 관리자 포트 (81) 외부 노출 금지
-    - 강력한 관리자 비밀번호 설정
-    - 정기적인 SSL 인증서 갱신 확인
-
-### 관리 UI 보호
+Admin UI는 localhost에만 bind한다.
 
 ```yaml
-# 내부 네트워크에서만 관리 UI 접근
-ports:
-  - '80:80'
-  - '127.0.0.1:81:81'  # localhost만 허용
-  - '443:443'
+services:
+  app:
+    image: jc21/nginx-proxy-manager:2.14.0
+    restart: unless-stopped
+    ports:
+    - "80:80"
+    - "443:443"
+    - "127.0.0.1:81:81"
+    environment:
+      TZ: "Asia/Seoul"
+    volumes:
+    - ./data:/data
+    - ./letsencrypt:/etc/letsencrypt
 ```
 
-### VPN 뒤에서 관리
+실행한다.
 
-관리 UI는 Tailscale이나 WireGuard VPN을 통해서만 접근하도록 설정하세요.
+```bash
+sudo docker compose up -d
+sudo docker compose ps
+sudo docker compose logs --tail=100
+```
 
----
+Admin UI에 SSH tunnel로 접속한다.
 
-## 관련 문서
+```bash
+ssh -L 8081:127.0.0.1:81 user@proxy.example.com
+```
 
-- [Nginx 설정](./configuration.md)
-- [Docker 가이드](../development/docker/installation.md)
-- [Cloudflare Zero Trust](../security/zerotrust/cloudflare.md)
+브라우저에서 접속한다.
+
+```text
+http://127.0.0.1:8081
+```
+
+초기 계정은 공식 setup 문서 기준으로 생성된다. 첫 로그인 직후 관리자 이메일과 비밀번호를 변경한다.
+
+```text
+Email: admin@example.com
+Password: changeme
+```
+
+Proxy Host 생성 전 DNS를 확인한다.
+
+```bash
+dig app.example.com
+curl -I http://app.example.com
+```
+
+Backend가 NPM container에서 보이는지 확인한다.
+
+```bash
+sudo docker exec -it nginx-proxy-manager curl -I http://192.168.1.10:3000
+```
+
+Proxy Host UI 설정 기준은 다음과 같다.
+
+```text
+Domain Names: app.example.com
+Scheme: http
+Forward Hostname/IP: 192.168.1.10
+Forward Port: 3000
+Websockets Support: enable only if needed
+SSL Certificate: Request a new SSL Certificate
+Force SSL: enable after certificate issue succeeds
+```
+
+Backup을 만든다.
+
+```bash
+sudo tar -czf npm-backup-$(date +%Y%m%d).tar.gz -C /opt nginx-proxy-manager/data nginx-proxy-manager/letsencrypt
+```
+
+복원은 container를 내린 뒤 같은 경로에 풀고 다시 올린다.
+
+```bash
+sudo docker compose down
+sudo tar -xzf npm-backup-YYYYMMDD.tar.gz -C /opt
+sudo docker compose up -d
+```
+
+## 9. 실패 사례 (What could go wrong?)
+
+Admin UI `81/tcp`를 public으로 열면 credential stuffing과 취약점 공격면이 된다. VPN, SSH tunnel, internal network, reverse proxy access control을 사용한다.
+
+`latest` tag로 upgrade하면 예기치 않은 major change가 들어올 수 있다. Tag를 pin하고 upgrade를 별도 작업으로 처리한다.
+
+DNS가 아직 NPM 서버를 가리키지 않으면 Let's Encrypt HTTP-01 인증서 발급이 실패한다.
+
+Port `80`이 다른 Nginx나 Apache와 충돌하면 HTTP challenge와 redirect가 실패한다.
+
+Backend가 host에서는 보이지만 container network에서는 안 보일 수 있다. NPM container 안에서 curl로 확인한다.
+
+`/data`만 백업하고 `/etc/letsencrypt`를 빼면 certificate와 private key를 잃을 수 있다.
+
+## 10. 뇌 확장하기 (Evolution & Variants)
+
+Public proxy 역할과 admin 역할을 분리하려면 port `81`을 localhost에 bind하고 SSH tunnel이나 VPN으로만 접근하는 구성이 단순하고 안전하다.
+
+여러 service가 같은 Docker host에 있다면 NPM과 backend를 같은 user-defined network에 붙이고 service name으로 forward할 수 있다.
+
+규모가 커지면 UI 수동 설정보다 Terraform provider, API, GitOps 방식으로 proxy 설정을 관리할지 검토한다. 이 경우에도 NPM database backup은 필요하다.
+
+공식 문서는 image tag와 database option을 갱신하므로 설치 전 확인한다.
+
+- Nginx Proxy Manager setup: <https://nginxproxymanager.com/setup/>
+- Nginx Proxy Manager develop setup: <https://develop.nginxproxymanager.com/setup/>
+- Nginx Proxy Manager upgrading: <https://nginxproxymanager.com/upgrading/>
+
+## 11. 최종 체크리스트 (Definition of Done)
+
+- [ ] Image tag를 의도적으로 선택했다.
+- [ ] Admin UI port는 localhost, VPN, 또는 내부망으로 제한했다.
+- [ ] 첫 로그인 후 default credential을 변경했다.
+- [ ] `/data`와 `/etc/letsencrypt`를 persistent storage에 둔다.
+- [ ] DNS가 NPM public IP를 가리킨다.
+- [ ] Port `80`과 `443`이 외부에서 접근 가능하다.
+- [ ] Backend가 NPM container에서 접근 가능하다.
+- [ ] Certificate 발급과 Force SSL 적용을 검증했다.
+- [ ] Backup과 restore 절차를 테스트했다.
+
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
+
+Nginx Proxy Manager는 Nginx 설정을 쉽게 만드는 대신 admin UI, database, certificate key라는 운영 자산을 만든다. Public traffic은 80/443으로 받고, admin port와 `/data`, `/etc/letsencrypt`는 보호해야 한다.

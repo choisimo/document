@@ -1,653 +1,181 @@
-3개의 서로 다른 VM 서버의 로그를 통합하여 보기 위해 
+# Prometheus, Grafana, Loki 관측 스택 학습 노트
 
-**Prometheus + Loki + Grafana**를 설정하는 방법을 안내하겠습니다. 
+Prometheus, Grafana, Loki는 메트릭과 로그를 함께 보는 관측 스택이다. 이 문서의 중심은 세 VM의 로그를 중앙에서 보기 위한 흐름이며, 신규 로그 수집 에이전트는 Promtail이 아니라 Grafana Alloy를 기준으로 검토한다.
 
-이 구성은 경량화된 설치와 운영이 가능하며, 
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-로그와 메트릭을 동시에 시각화할 수 있는 강력한 솔루션입니다.
+서버가 여러 대로 나뉘면 장애 원인을 찾기 위해 각 VM에 SSH로 접속해 로그를 보는 방식은 곧 한계에 닿는다. 메트릭은 Prometheus, 로그는 Loki, 시각화는 Grafana로 모으면 시간대별로 증상과 원인을 함께 볼 수 있다.
 
----
+다만 관측 스택은 설치만으로 끝나지 않는다. 로그 수집 에이전트, 라벨 설계, 저장 경로, 인증, 보존 기간, 알림 정책이 맞지 않으면 데이터가 쌓여도 검색과 운영 판단이 어렵다.
 
-## **구성 목표**
-- 각 VM에서 로그를 수집하여 Loki에 전송.
-- Loki에 수집된 로그를 Grafana로 시각화.
-- Prometheus를 통해 추가적인 메트릭 데이터도 관리 가능.
+## 2. 현재 나의 상태 (Baseline)
 
----
+기존 문서는 다음 내용을 포함했다.
 
-## **구성 요소**
-1. **Promtail**: 각 서버(VM)에서 로그를 수집하고 Loki에 전송.
-2. **Loki**: 중앙 로그 저장소.
-3. **Grafana**: 로그 및 메트릭 데이터 시각화.
+- Loki와 Promtail 바이너리 수동 다운로드
+- Promtail systemd service 예시
+- Promtail scrape config 예시
+- Loki local filesystem 설정
+- Grafana 설치와 Loki datasource 추가
+- `Too Many Outstanding Requests` 완화 설정
 
----
+하지만 현재 Grafana 공식 문서 기준으로 Promtail은 신규 구성의 기본 선택지가 아니다. Grafana Alloy가 Loki로 로그를 보내는 권장 에이전트이며, Promtail은 기존 구성의 마이그레이션 대상으로 보는 것이 안전하다.
 
-## **설치 및 설정 단계**
+## 3. 도달하고 싶은 목표 (Target State)
 
-### **1. Loki 설치 (중앙 서버)**
-중앙 서버에 Loki를 설치합니다.
+목표는 다음 상태다.
 
-#### (1) Loki 바이너리 다운로드 및 실행
-1. Loki 바이너리 다운로드:
+- 메트릭과 로그의 책임을 구분한다.
+- Loki는 중앙 로그 저장소로 배치한다.
+- 신규 로그 수집은 Grafana Alloy 기준으로 설계한다.
+- Grafana는 Loki와 Prometheus datasource를 분리해 연결한다.
+- 로그 라벨은 검색에 필요한 최소 기준으로 설계한다.
+- Loki 저장 경로, 보존 기간, 인증 경계를 운영 기준으로 정한다.
+
+## 4. 시스템 번역 (Data Flow)
+
+로그 수집 흐름은 다음과 같다.
+
+```text
+VM log files
+  -> Grafana Alloy
+  -> Loki push API
+  -> Loki storage
+  -> Grafana Explore and dashboard
+```
+
+메트릭 수집 흐름은 다음과 같다.
+
+```text
+exporter targets
+  -> Prometheus scrape
+  -> Prometheus TSDB
+  -> Grafana dashboard and alerting
+```
+
+Grafana는 데이터를 저장하는 주체가 아니라 datasource를 조회하고 시각화하는 계층이다.
+
+## 5. 핵심 구성요소 (Building Blocks)
+
+| 구성요소 | 역할 | 주의점 |
+| --- | --- | --- |
+| Loki | 로그 저장과 LogQL 질의 | 인증 계층 없음, reverse proxy 필요 |
+| Grafana Alloy | 로그와 telemetry 수집 에이전트 | 신규 Promtail 대체 기준 |
+| Prometheus | 메트릭 수집과 저장 | scrape target과 label 설계 |
+| Grafana | 시각화와 탐색 | datasource URL과 권한 |
+| Log labels | 로그 검색 인덱스 기준 | 과도한 cardinality 방지 |
+| Storage schema | Loki 저장 구조 | 신규 설치는 최신 권장 schema 확인 |
+
+Loki 신규 설치에서는 `tsdb` store와 `v13` schema를 기준으로 공식 문서를 확인한다. 기존 `boltdb` 기반 예시는 레거시 설정으로 취급한다.
+
+## 6. 상태 전이 (State Transition)
+
+관측 스택 구축 흐름은 다음과 같다.
+
+```text
+관측 대상 정의
+  -> 로그와 메트릭 분리
+  -> 중앙 Loki와 Prometheus 배치
+  -> 에이전트 설치
+  -> datasource 연결
+  -> 쿼리와 대시보드 검증
+  -> 보존 기간과 알림 설정
+```
+
+각 단계의 통과 기준은 다음과 같다.
+
+- 대상 정의: 어떤 VM, 어떤 로그, 어떤 metric이 필요한지 정한다.
+- 중앙 배치: Loki와 Prometheus의 데이터 경로가 영구 저장소다.
+- 에이전트: 각 VM에서 로그가 Loki로 실제 전송된다.
+- datasource: Grafana에서 Save & Test가 성공한다.
+- 쿼리 검증: LogQL과 PromQL로 기대한 데이터가 조회된다.
+- 운영 설정: 인증, 백업, 보존, 알림 정책이 있다.
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- Loki를 공개 네트워크에 인증 없이 노출하지 않는다.
+- 로그 라벨에 요청 ID, 사용자 ID 같은 고카디널리티 값을 무분별하게 넣지 않는다.
+- Loki storage를 `/tmp` 같은 임시 경로에 두지 않는다.
+- 신규 구성에서 Promtail을 기본 선택지로 두지 않는다.
+- 기존 Promtail 구성은 Grafana Alloy로의 마이그레이션 계획을 둔다.
+- Grafana 기본 `admin/admin` 계정은 초기 로그인 후 즉시 변경한다.
+- 로그 수집 여부는 Grafana 화면이 아니라 Loki query와 에이전트 로그로 검증한다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+Loki readiness를 확인한다.
+
 ```bash
-  wget https://github.com/grafana/loki/releases/download/v2.9.1/loki-linux-amd64.zip
-  wget https://github.com/grafana/loki/releases/download/v2.9.1/promtail-linux-amd64.zip
-  wget https://raw.githubusercontent.com/grafana/loki/master/cmd/loki/loki-local-config.yaml
-wget https://raw.githubusercontent.com/grafana/loki/main/clients/cmd/promtail/promtail-local-config.yaml
-
-  sudo apt-get install unzip
-  unzip locki-linux.amd64.zip
-  unzip promtail-linux-amd64.zip
-
-  chmod +x loki-linux-amd64
-  chmod +x promtail-linux-amd64
-
-# port 3100
-
-nohup ./loki-linux-amd64 -config.file=/workspace/Loki/loki-local-config.yaml > loki.log 2>&1 &
-
-# port 9080
-
-nohup /workspace/Loki/promtail/promtail-linux-amd64 \
--config.file=/workspace/Loki/promtail/promtail-local-config.yaml \
-> ./promtail.log 2>&1 &
-
+curl http://127.0.0.1:3100/ready
 ```
-## promtail systemd service 등록 (부팅 관리)
+
+Loki metrics endpoint를 확인한다.
+
 ```bash
-sudo vim /etc/systemd/system/promtail_service.service
-```
-### service
-```
-[Unit]
-Description=Promtail Log Collector
-After=network.target
-
-[Service]
-ExecStart=/workspace/Loki/promtail/promtail-linux-amd64 \
--config.file=/workspace/Loki/promtail/promtail-local-config.yaml
-Restart=always
-User=nodove
-Group=nodove
-WorkingDirectory=/workspace/Loki/promtail
-
-[Install]
-WantedBy=multi-user.target
-```
-## service enable
-```
-sudo systemctl daemon-reload
-sudo systemctl start promtail_service
-sudo systemctl enable promtail_service
-sudo systemctl status promtail_service
+curl http://127.0.0.1:3100/metrics
 ```
 
-## promtail 설정 (promtail.yaml) : 
-```yaml
-server:
-  http_listen_port: 9080  # Promtail HTTP 서버 포트
-  grpc_listen_port: 0
+Grafana에서 Loki datasource URL은 중앙 Loki 주소를 사용한다.
 
-positions:
-  filename: /tmp/positions.yaml  # Promtail이 마지막으로 읽은 로그 위치 저장 경로
-
-clients:
-  - url: http://<Loki_Server_IP>:3100/loki/api/v1/push  # Loki 서버의 HTTP URL
-
-scrape_configs:
-  - job_name: system_logs
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: system_logs
-          host: ${HOSTNAME}
-          __path__: /var/log/*.log  # 로그 파일 경로
+```text
+http://loki.example.internal:3100
 ```
 
-## promtail 설정 multi (promtail.yaml) : 
-```yaml
-server:
-  http_listen_port: 9080
-  grpc_listen_port: 0
+Grafana Explore에서 로그가 들어오는지 확인한다.
 
-positions:
-  filename: /tmp/positions.yaml
-
-clients:
-  - url: http://192.168.0.44:3200/loki/api/v1/push
-
-scrape_configs:
-  - job_name: backend-logs
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: backend-log
-          level: debug
-          __path__: /server/log/backend.log
-
-  - job_name: frontend-logs
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: frontend-log
-          level: debug
-          __path__: /server/log/front.log
-```
----
-
-**Promtail**은 Grafana Loki와 함께 사용되는 **로그 수집 도구**로, 시스템 로그나 애플리케이션 로그를 Loki로 전송하는 역할을 합니다. <br/>
-Promtail은 **log shipper**로서 Loki의 데이터 모델과 호환되는 메타데이터(라벨)를 추가하여 로그를 구조화합니다.<br/>
- Promtail은 주로 시스템에서 로그를 수집, 처리, 라벨링하고 Loki에 푸시하는 데 사용됩니다.
-
----
-
-### **Promtail 주요 기능**
-1. **로그 수집**:
-   - 시스템 파일 로그(`/var/log`와 같은 디렉토리).
-   - 컨테이너 로그(Docker 또는 Kubernetes 환경에서 사용).
-
-2. **라벨링**:
-   - Loki와 호환되는 메타데이터(라벨)를 로그와 함께 전송하여, Loki에서 쿼리를 통해 데이터를 효과적으로 검색 가능.
-
-3. **로그 전송**:
-   - 수집한 로그를 Loki API로 푸시.
-
-4. **플랫폼 지원**:
-   - 로컬 로그 파일.
-   - Docker 컨테이너 로그.
-   - Kubernetes 로그.
-
----
-
-### **Promtail 설정 파일 설명**
-
-Promtail의 설정 파일(예: `promtail-config.yml`)은 다음과 같은 주요 섹션으로 구성됩니다:
-
-#### **1. `server` 섹션**
-Promtail 자체의 서버 설정입니다.
-
-```yaml
-server:
-  http_listen_port: 9080
-  grpc_listen_port: 0
+```logql
+{job="system"}
 ```
 
-- **`http_listen_port`**: Promtail의 HTTP 상태 페이지 및 메트릭스를 확인할 수 있는 포트를 설정합니다. (기본적으로 9080).
-- **`grpc_listen_port`**: gRPC 서버 포트를 설정합니다. 기본적으로 비활성화(0)됩니다.
+Prometheus target 상태는 Prometheus UI 또는 API로 확인한다.
 
----
-
-#### **2. `positions` 섹션**
-Promtail이 수집한 로그의 마지막 읽기 위치를 저장하는 파일 경로를 정의합니다.
-
-```yaml
-positions:
-  filename: /tmp/positions.yaml
-```
-
-- **`filename`**: 로그 파일의 마지막 읽은 위치를 저장하는 YAML 파일의 경로입니다.
-  - Promtail은 이 파일을 통해 이전 로그의 읽기 위치를 기억하고, 다음 실행 시 동일한 위치에서 다시 시작합니다.
-
----
-
-#### **3. `clients` 섹션**
-Promtail이 로그를 전송할 Loki 서버의 URL을 지정합니다.
-
-```yaml
-clients:
-  - url: http://localhost:3100/loki/api/v1/push
-```
-
-- **`url`**: Loki API의 푸시 엔드포인트. Promtail이 이 주소로 로그를 전송합니다.
-  - 예: `http://<Loki-Server-IP>:3100/loki/api/v1/push`.
-
----
-
-#### **4. `scrape_configs` 섹션**
-Promtail이 수집할 로그 파일 경로 및 라벨을 설정하는 섹션입니다. 여러 `scrape_configs`를 정의하여 다양한 로그 경로와 라벨링을 설정할 수 있습니다.
-
-```yaml
-scrape_configs:
-- job_name: system
-  static_configs:
-  - targets:
-      - localhost
-    labels:
-      job: was-log
-      __path__: /home/ubuntu/be-log/*.log
-```
-
-- **`job_name`**: 로그 수집 작업(job)의 이름입니다. (예: `system`).
-- **`static_configs`**:
-  - **`targets`**: Promtail이 설치된 서버를 지정합니다. 대부분 `localhost`를 설정.
-  - **`labels`**: Loki에 전달될 메타데이터로, 로그 검색 시 필터로 사용됩니다.
-    - **`job`**: 로그의 그룹 또는 작업(job) 이름을 정의합니다. (예: `was-log`).
-    - **`__path__`**: 수집할 로그 파일의 경로를 지정합니다.
-      - 예: `/home/ubuntu/be-log/*.log`는 `/home/ubuntu/be-log/` 디렉터리의 모든 `.log` 파일을 대상으로 함.
-
----
-
-### **Promtail 작동 흐름**
-1. Promtail이 설정된 로그 파일 경로(예: `/home/ubuntu/be-log/*.log`)를 주기적으로 스캔.
-2. 새 로그가 감지되면:
-   - 라벨링(예: `job=was-log`)을 추가.
-3. 수집한 로그를 Loki 서버(`http://localhost:3100/loki/api/v1/push`)로 전송.
-4. Loki는 이를 저장하고, Grafana를 통해 시각화 및 검색 가능.
-
----
-
-### **Promtail 구성 예시**
-다음은 다양한 환경에서 Promtail을 구성하는 예시입니다:
-
-#### **1. 기본 로그 파일 수집**
-```yaml
-scrape_configs:
-- job_name: varlogs
-  static_configs:
-  - targets:
-      - localhost
-    labels:
-      job: system-logs
-      __path__: /var/log/*.log
-```
-- `/var/log` 디렉터리의 모든 `.log` 파일을 Loki로 전송.
-
-#### **2. Docker 컨테이너 로그 수집**
-```yaml
-scrape_configs:
-- job_name: docker-logs
-  static_configs:
-  - targets:
-      - localhost
-    labels:
-      job: container-logs
-      __path__: /var/lib/docker/containers/*/*.log
-```
-- Docker 컨테이너 로그를 Loki로 전송.
-
-#### **3. Kubernetes 로그 수집**
-Promtail은 Kubernetes 환경에서 **ConfigMap**으로 설정 파일을 제공하여 사용됩니다:
-```yaml
-scrape_configs:
-- job_name: kubernetes-pods
-  kubernetes_sd_configs:
-  - role: pod
-    labels:
-      job: kubernetes-logs
-```
-
----
-
-### **Promtail 설치 및 실행**
-1. **Promtail 바이너리 다운로드**:
-   ```bash
-   wget https://github.com/grafana/loki/releases/download/v2.8.0/promtail-linux-amd64.zip
-   unzip promtail-linux-amd64.zip
-   chmod +x promtail-linux-amd64
-   ```
-
-2. **설정 파일 작성**:
-   설정 파일(`promtail-config.yml`)을 작성.
-
-3. **Promtail 실행**:
-   ```bash
-   ./promtail-linux-amd64 --config.file=promtail-config.yml
-   ```
-
----
-
-### **Promtail 사용 예시**
-Promtail은 **단독으로 사용**하기보다 Loki 및 Grafana와 함께 사용하여 강력한 **로그 수집 및 분석 환경**을 구성합니다. Promtail 설정이 Loki의 요구사항에 맞게 제대로 작성되면, 로그 데이터를 중앙화하고 쉽게 검색, 분석할 수 있습니다.
-
-
-
-### loki data folders
-1.1. make: 
 ```bash
-    sudo mkdir -p /data/loki/index /data/loki/chunks /data/loki/compactor
-    sudo chown user:user /data/loki/index /data/loki/chunks /data/loki/compactor
-    chmod -R 755 /data/loki
+curl http://127.0.0.1:9090/-/ready
+curl http://127.0.0.1:9090/api/v1/targets
 ```
 
+기존 Promtail 서비스를 쓰고 있다면 새 설치 대신 마이그레이션 대상으로 표시한다.
 
-2. Loki 기본 설정 파일 생성 (`/etc/loki/config.yml`) [24.11.30_tested]:
-```yaml
-auth_enabled: false
-
-server:
-  http_listen_port: 3100
-  grpc_listen_port: 9096
-  log_level: debug
-  grpc_server_max_concurrent_streams: 1000
-
-common:
-  instance_addr: 127.0.0.1
-  path_prefix: /tmp/loki
-  replication_factor: 1
-  ring:
-    kvstore:
-      store: inmemory
-
-storage_config:
-  boltdb:
-    directory: /tmp/loki/index
-  filesystem:
-    directory: /tmp/loki/chunks
-
-query_range:
-  results_cache:
-    cache:
-      embedded_cache:
-        enabled: true
-        max_size_mb: 100
-
-schema_config:
-  configs:
-    - from: 2020-10-24
-      store: boltdb
-      object_store: filesystem
-      schema: v13
-      index:
-        prefix: index_
-        period: 24h
-
-ruler:
-  alertmanager_url: http://localhost:9093
-```
-
-3. Loki 실행:
-   ```bash
-   loki --config.file=/etc/loki/config.yml
-   ```
-
-4. Loki가 **3100 포트**에서 실행되고 있는지 확인:
-   ```bash
-   curl http://localhost:3100/ready
-   ```
-
----
-
-### **2. Promtail 설치 (각 VM)**
-각 VM에서 로그를 수집하고 Loki로 전송하기 위해 Promtail을 설치합니다.
-
-#### (1) Promtail 바이너리 다운로드 및 실행
-1. Promtail 다운로드:
-   ```bash
-   wget https://github.com/grafana/loki/releases/download/v2.8.0/promtail-linux-amd64.zip
-   unzip promtail-linux-amd64.zip
-   chmod +x promtail-linux-amd64
-   mv promtail-linux-amd64 /usr/local/bin/promtail
-   ```
-
-2. Promtail 설정 파일 생성 (`/etc/promtail/config.yml`):
-   ```yaml
-   server:
-     http_listen_port: 9080
-     grpc_listen_port: 0
-
-   clients:
-     - url: http://<Loki_Server_IP>:3100/loki/api/v1/push
-
-   positions:
-     filename: /tmp/positions.yaml
-
-   scrape_configs:
-     - job_name: system
-       static_configs:
-         - targets:
-             - localhost
-           labels:
-             job: varlogs
-             __path__: /var/log/*.log
-     - job_name: application
-       static_configs:
-         - targets:
-             - localhost
-           labels:
-             job: applogs
-             __path__: /path/to/your/application/logs/*.log
-   ```
-
-3. Promtail 실행:
-   ```bash
-   promtail --config.file=/etc/promtail/config.yml
-   ```
-
-#### (2) 각 VM의 Promtail 설정
-- `clients.url`: Loki 서버의 IP 주소를 설정.
-- `__path__`: 각 VM에서 수집할 로그 경로를 설정.
-
----
-
-### **3. Grafana 설치 및 Loki 데이터 소스 설정**
-중앙 서버에 Grafana를 설치하고 Loki를 데이터 소스로 추가합니다.
-Grafana 란? 오픈소스로 제공되는 대시보드 및 시각화 플랫폼
-
-#### (1) Grafana 설치
-1. Grafana 설치:
-  ```bash
-wget https://dl.grafana.com/enterprise/release/grafana-enterprise-10.1.2.linux-amd64.tar.gz
-tar -zxvf grafana-enterprise-10.1.2.linux-amd64.tar.gz
-   ```
-
-- Grafana 실행:
-   ```bash
-   sudo systemctl start grafana-server
-   sudo systemctl enable grafana-server
-
-   sudo vim /etc/systemd/system/grafana-custom.service
-   ```
-
-2. Grafana Service:
 ```bash
-[Unit]
-Description=Grafana
-After=network.target
-
-[Service]
-Type=simple
-User=ubuntu
-WorkingDirectory=/home/ubuntu/grafana-10.1.2
-ExecStart=/home/ubuntu/grafana-10.1.2/bin/grafana-server
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
-```
-```bash
-#서비스 파일 권한 설정 후 데몬 리로드
-sudo chmod 644 /etc/systemd/system/grafana-custom.service
-sudo systemctl daemon-reload
-#Grafana 시작
-sudo systemctl start grafana-custom
-#시스템 부팅 시 자동 시작 설정
-sudo systemctl enable grafana-custom
-#그라파나 실행 확인
-sudo systemctl status grafana-custom
+systemctl status promtail
+journalctl -u promtail --since today
 ```
 
-3. 브라우저로 Grafana에 접속:
-   - URL: `http://<Server_IP>:3000`
-   - 기본 로그인:
-     - ID: `admin`
-     - PW: `admin`
+## 9. 실패 사례 (What could go wrong?)
 
----
+첫 번째 실패는 오래된 Promtail 설치 절차를 신규 구성에 그대로 적용하는 것이다. Promtail은 지원 수명 관점에서 신규 표준으로 보기 어렵고, Alloy 전환을 계획해야 한다.
 
-#### (2) Loki 데이터 소스 추가
-1. Grafana 대시보드에 로그인.
-2. "Configuration" → "Data Sources" → "Add data source".
-3. "Loki" 선택 후 아래 설정 입력:
-   - **URL**: `http://<Loki_Server_IP>:3100`
-   - "Save & Test" 버튼 클릭.
+두 번째 실패는 Loki를 인증 없이 노출하는 것이다. Loki 자체에 포함된 인증 계층이 없으므로 reverse proxy, 네트워크 제한, Grafana datasource 권한을 함께 설계해야 한다.
 
----
+세 번째 실패는 로그 라벨을 너무 세분화하는 것이다. 라벨 cardinality가 커지면 저장소와 쿼리 비용이 급격히 증가한다.
 
-### **4. Grafana에서 로그 대시보드 설정**
-1. Grafana에서 대시보드 생성.
-2. "Explore" 탭에서 Loki 쿼리를 사용하여 로그 확인:
-   - 예시 쿼리:
-     ```logql
-     {job="varlogs"}
-     ```
-   - 특정 애플리케이션 로그 확인:
-     ```logql
-     {job="applogs"}
-     ```
+네 번째 실패는 `/tmp/loki` 같은 임시 경로에 저장하는 것이다. 재부팅이나 정리 작업으로 로그가 사라질 수 있다.
 
----
+다섯 번째 실패는 `Too Many Outstanding Requests`를 단순히 제한값만 올려 해결하려는 것이다. 수집량, batch, label cardinality, query 범위, 저장소 성능을 함께 봐야 한다.
 
-## **요약**
-1. **Loki 설치**: 중앙에서 로그를 저장.
-2. **Promtail 설치**: 각 VM에서 로그를 수집하여 Loki로 전송.
-3. **Grafana 설치**: Loki 데이터를 시각화.
+## 10. 뇌 확장하기 (Evolution & Variants)
 
----
+작은 홈랩에서는 Loki single binary와 로컬 파일시스템 저장소로 시작할 수 있다. 그래도 저장 경로와 백업, 인증 프록시는 필요하다.
 
-### **추가 사항**
-- Prometheus를 Loki와 함께 설치하면 애플리케이션 메트릭도 모니터링할 수 있습니다.
-- 추가적인 알림 설정은 Grafana의 "Alerting" 기능을 사용하세요.
+운영 환경에서는 object storage, retention, compactor, ruler, Alertmanager, Grafana provisioning을 함께 검토한다.
 
-#### promtail <-> loki connection
-```bash
-curl -X GET http://192.168.0.44:3100/metrics | grep promtail
-```
+기존 Promtail 설정이 많다면 Alloy로 변환 가능한 단위부터 나누어 이전한다. VM별 로그 경로와 label 구조를 그대로 보존하면 Grafana dashboard 변경을 줄일 수 있다.
 
+Prometheus와 Loki를 함께 쓰면 장애 시점의 metric spike와 관련 로그를 같은 시간축에서 볼 수 있다. 이때 host label, service label, environment label을 일관되게 맞추는 것이 중요하다.
 
-### **Extension**
+공식 기준은 Grafana Loki local install, storage schema, Alloy migration 문서를 우선한다.
 
-현재 Loki의 설정 파일을 기반으로 문제를 분석하고 수정해야 할 사항을 몇 가지 제안할 수 있습니다.
+## 11. 최종 체크리스트 (Definition of Done)
 
----
+- [ ] 관측 대상 VM과 로그 경로를 정했다.
+- [ ] Loki 저장 경로가 영구 저장소다.
+- [ ] 신규 로그 수집 에이전트는 Alloy 기준으로 검토했다.
+- [ ] 기존 Promtail은 마이그레이션 대상으로 표시했다.
+- [ ] Grafana에서 Loki datasource 테스트가 성공한다.
+- [ ] LogQL로 기대한 로그가 조회된다.
+- [ ] Prometheus target이 up 상태다.
+- [ ] 인증, 보존 기간, 백업, 알림 정책을 정했다.
 
-### **1. Loki 설정 파일 요약**
-#### 주요 설정:
-- **Server**:
-  - HTTP 포트: `3100`.
-  - gRPC 포트: `9096`.
-  - `grpc_server_max_concurrent_streams`: `1000` (동시 스트림 처리 제한).
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-- **Storage Config**:
-  - `boltdb` 인덱스 저장 위치: `/tmp/loki/index`.
-  - `filesystem` 저장 위치: `/tmp/loki/chunks`.
-
-- **Query Range**:
-  - 캐시 활성화: `true`.
-  - 최대 캐시 크기: `100MB`.
-
-- **Schema Config**:
-  - `store`: `boltdb`.
-  - `object_store`: `filesystem`.
-  - `schema`: `v11`.
-
-- **Ruler**:
-  - Alertmanager URL: `http://localhost:9093`.
-
----
-
-### **2. "Too Many Outstanding Requests" 해결을 위한 수정**
-`Too Many Outstanding Requests` 오류는 보통 Loki의 요청 처리 능력을 초과했을 때 발생합니다. 설정 파일을 다음과 같이 수정하여 문제를 완화할 수 있습니다.
-
----
-
-#### **a. `grpc_server_max_concurrent_streams` 값 조정**
-현재 `grpc_server_max_concurrent_streams` 값이 `1000`으로 설정되어 있습니다. 요청이 더 많은 경우 이 값을 늘려 동시 요청 제한을 완화하세요:
-```yaml
-grpc_server_max_concurrent_streams: 2000
-```
-
----
-
-#### **b. Loki `limits_config` 추가**
-현재 설정에는 `limits_config` 섹션이 없습니다. 이를 추가하여 Loki의 수집 및 처리 제한을 명확히 설정하세요.
-
-```yaml
-limits_config:
-  ingestion_rate_mb: 10        # 초당 10MB 데이터 처리 (기본값 4MB).
-  ingestion_burst_size_mb: 20  # 최대 처리량을 20MB로 설정.
-  max_streams_per_user: 5000   # 사용자당 최대 스트림 수를 5000으로 설정.
-```
-
----
-
-#### **c. 디스크 경로 최적화**
-현재 Loki는 `/tmp` 경로를 사용하고 있습니다. `/tmp`는 메모리에 종속되거나 크기가 제한적일 수 있습니다. 더 안정적인 저장소를 사용하도록 설정을 변경하세요:
-```yaml
-storage_config:
-  boltdb:
-    directory: /var/loki/index
-  filesystem:
-    directory: /var/loki/chunks
-```
-
----
-
-#### **d. Query 캐시 용량 확대**
-현재 캐시 크기가 `100MB`로 설정되어 있습니다. 더 많은 요청을 처리하려면 캐시 크기를 늘려보세요:
-```yaml
-query_range:
-  results_cache:
-    cache:
-      embedded_cache:
-        enabled: true
-        max_size_mb: 500  # 500MB로 확대.
-```
-
----
-
-#### **e. Promtail 설정 조정**
-Promtail에서 데이터를 보내는 빈도와 크기를 조정하여 Loki로 들어오는 요청 수를 제한하세요. Promtail 설정 파일에서 다음 항목을 수정하세요:
-```yaml
-clients:
-  - url: http://<loki-server>:3100/loki/api/v1/push
-    batchsize: 102400    # 100KB로 줄임.
-    batchwait: 5s        # 전송 주기를 5초로 늘림.
-```
-
----
-
-### **3. Loki 서버 상태 확인**
-변경 사항을 적용한 후 Loki 서버가 제대로 작동하는지 확인하세요:
-
-#### Loki 서버 상태 점검:
-1. Loki 서버 상태 확인:
-   ```bash
-   curl -X GET http://localhost:3100/ready
-   ```
-   - 응답이 `"ready"`이면 서버가 정상 작동 중.
-
-2. Loki 로그 확인:
-   ```bash
-   journalctl -u loki.service
-   ```
-
----
-
-### **4. 적용 후 검증**
-1. **Promtail 재시작**:
-   ```bash
-   sudo systemctl restart promtail
-   ```
-
-2. **Loki 재시작**:
-   ```bash
-   sudo systemctl restart loki
-   ```
-
-3. Grafana에서 Loki 쿼리를 실행하여 로그가 제대로 수집되고 표시되는지 확인:
-   ```
-   {job="nginx-main-access-log"}
-   ```
-
----
-
-### **요약**
-- `grpc_server_max_concurrent_streams` 값을 늘리고, `limits_config`로 Loki의 처리 제한을 조정.
-- 디스크 저장 경로를 `/tmp`에서 더 안정적인 경로로 변경.
-- 캐시 크기를 늘려 쿼리 성능 향상.
-- Promtail의 전송 빈도와 크기를 조정하여 Loki의 부하를 줄임.
-
-위 단계를 적용하면 "Too Many Outstanding Requests" 문제를 해결할 수 있을 것입니다. 추가로 문제가 발생하면 말씀해주세요!
+관측 스택은 Grafana 화면이 아니라 데이터 흐름이다. 로그는 `__________`를 거쳐 Loki에 들어가고, 메트릭은 `__________`가 수집한다. 신규 로그 에이전트는 Promtail보다 `__________`를 기준으로 검토한다.

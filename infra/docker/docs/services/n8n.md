@@ -1,6 +1,6 @@
 # n8n 워크플로우용 종합 Docker Compose 스택
 
-n8n 워크플로우에서 자주 사용되는 **Redis**를 포함한 모든 인기 컨테이너들을 한 번에 구성할 수 있는 **종합 `docker-compose.yml`** 파일을 제공합니다.
+n8n 워크플로우에서 자주 사용되는 **Redis**를 포함해 주요 컨테이너를 한 번에 구성하는 **종합 `docker-compose.yml`** 파일이다.
 
 ## 환경 변수 설정 (.env 파일)
 
@@ -13,7 +13,7 @@ POSTGRES_DB=n8n
 # n8n 설정
 N8N_USER=admin
 N8N_PASS=adminpass
-N8N_ENCRYPTION_KEY=your-encryption-key-here
+N8N_ENCRYPTION_KEY=CHANGE_ME_ENCRYPTION_KEY
 
 # Redis 설정
 REDIS_PASSWORD=redispass
@@ -94,4 +94,4 @@ docker compose up -d n8n postgres redis mongodb qdrant
 - **모니터링**: Prometheus + Grafana를 통한 시스템 모니터링.
 - **관리 도구**: 각 데이터베이스별 전용 관리 도구 제공.
 
-이 구성으로 **로컬 환경에서 n8n의 모든 기능을 활용할 수 있는 완전한 개발 환경**을 구축할 수 있습니다. 필요에 따라 일부 서비스만 선택적으로 사용하거나 추가 서비스를 확장할 수 있습니다.
+이 구성은 **로컬 환경에서 n8n 주요 기능을 검증할 수 있는 개발 환경**을 만든다. 필요에 따라 일부 서비스만 선택적으로 사용하거나 추가 서비스를 확장할 수 있다.

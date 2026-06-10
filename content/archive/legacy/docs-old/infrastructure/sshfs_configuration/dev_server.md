@@ -143,9 +143,9 @@ sudo nano /etc/hosts
 다음과 같이 추가:
 ```
 # SSHFS 호스트
-192.168.x.x  nano_pi  # 실제 IP 주소로 변경하세요
-192.168.x.x  rasp     # 실제 IP 주소로 변경하세요
-192.168.x.x  jcloud   # 실제 IP 주소로 변경하세요
+192.168.x.x  nano_pi  # 실제 IP 주소로 변경
+192.168.x.x  rasp     # 실제 IP 주소로 변경
+192.168.x.x  jcloud   # 실제 IP 주소로 변경
 ```
 
 ## 6. 상태 확인
@@ -265,9 +265,9 @@ WantedBy=multi-user.target
    - 이는 원격과 로컬의 사용자 이름이 같아도 UID가 다를 경우 발생하는 권한 문제를 해결합니다[2][3]
 
 2. **uid=1000,gid=1000**
-   - 로컬 nodove 사용자의 실제 UID/GID 값으로 변경해야 합니다
+   - 로컬 nodove 사용자의 실제 UID/GID 값으로 변경한다
    - 특정 로컬 사용자 권한으로 파일 액세스를 강제합니다
-   - `id nodove` 명령으로 확인한 실제 값을 사용하세요[2]
+   - `id nodove` 명령으로 확인한 실제 값을 사용한다[2]
 
 3. **ServerAliveInterval=15,ServerAliveCountMax=3**
    - 15초마다 keepalive 패킷을 보내 연결이 끊어지지 않도록 유지합니다
@@ -275,7 +275,7 @@ WantedBy=multi-user.target
 
 4. **reconnect**
    - 연결이 끊어지면 자동으로 재연결을 시도합니다
-   - 네트워크 불안정성에 대비한 필수 옵션입니다[4]
+   - 네트워크 불안정성에 대비한 필요 옵션입니다[4]
 
 5. **follow_symlinks**
    - 원격 서버의 심볼릭 링크를 따라갑니다[4]

@@ -1,120 +1,208 @@
-리눅스에서 비디오 파일을 여러 개의 작은 파일로 쪼개는 방법
+# FFmpeg 동영상 분할
 
-리눅스에서 비디오 파일을 다루는 가장 강력하고 표준적인 도구는 FFmpeg입니다. FFmpeg를 사용하면 재인코딩을 통해 화질 손실을 감수하고 정밀하게 자르거나, 화질 손실 없이 키프레임 기준으로 매우 빠르게 자르는 등 다양한 방법으로 동영상을 분할할 수 있습니다.
-1단계: FFmpeg 설치
+이 문서는 Linux에서 FFmpeg로 동영상 파일을 자르거나 일정 간격으로 분할할 때 필요한 기준을 정리한다. 목표는 명령어를 복사하는 것이 아니라 `-c copy`와 재인코딩의 차이를 이해하고 원하는 정확도와 속도를 선택하는 것이다.
 
-FFmpeg가 설치되어 있지 않다면, 사용 중인 배포판에 맞는 명령어로 먼저 설치해야 합니다.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-    Arch Linux (Manjaro 등):
-    Bash
+동영상 분할은 “몇 초부터 몇 초까지 자른다”처럼 보이지만 실제로는 container, codec, keyframe, timestamp가 함께 영향을 준다. 빠르게 자르려고 `-c copy`를 쓰면 화질 손실은 없지만 keyframe 기준으로 잘릴 수 있다.
 
+정확한 frame 단위가 필요하면 재인코딩이 필요하다. 이때는 속도와 품질, 파일 크기 trade-off를 받아들여야 한다.
+
+## 2. 현재 나의 상태 (Baseline)
+
+기존 문서는 FFmpeg 설치, 특정 구간 자르기, 일정 간격 분할, 파일 크기 기준 근사 분할을 설명한다. 보완해야 할 점은 다음과 같다.
+
+- Markdown 구조가 깨져 있고 명령어와 설명이 섞여 있다.
+- stream copy의 keyframe 제약과 정확도 한계가 더 명확해야 한다.
+- 원본 파일 보호와 출력 파일 검증 절차가 약하다.
+- 파일 크기 기준 분할은 정확한 기능이 아니라 bitrate 기반 근사라는 점을 더 분명히 해야 한다.
+
+## 3. 도달하고 싶은 목표 (Target State)
+
+목표는 다음 작업을 선택적으로 수행하는 것이다.
+
+- 입력 파일의 stream과 duration을 확인한다.
+- 무손실에 가까운 빠른 cut을 수행한다.
+- 정확한 시간 기준 cut을 위해 재인코딩한다.
+- 긴 파일을 일정 시간 segment로 나눈다.
+- 출력 파일의 duration, stream, 재생 가능 여부를 확인한다.
+- 원본 파일을 덮어쓰지 않는다.
+
+## 4. 시스템 번역 (Data Flow)
+
+FFmpeg 처리 흐름은 다음과 같다.
+
+```text
+input container
+  -> demux video, audio, subtitle streams
+  -> seek to requested time
+  -> copy streams or decode and encode
+  -> mux streams into output container
+  -> verify output metadata and playback
+```
+
+`-c copy`는 decode와 encode를 건너뛰고 stream packet을 새 container에 다시 담는다. 빠르지만 cut 지점은 codec과 keyframe 구조의 영향을 받는다.
+
+## 5. 핵심 구성요소 (Building Blocks)
+
+`ffprobe`는 입력 파일의 duration, codec, bitrate, stream 구성을 확인한다.
+
+`-ss`는 시작 시간을 지정한다. 위치와 codec copy 여부에 따라 seeking 정확도와 속도가 달라질 수 있다.
+
+`-t`는 시작 지점부터의 길이를 지정한다.
+
+`-to`는 종료 시각을 지정한다. `-t`와 동시에 쓰지 말고 하나만 선택한다.
+
+`-c copy`는 video, audio, subtitle stream을 재인코딩하지 않고 복사한다.
+
+재인코딩은 `libx264`, `libx265`, `aac` 같은 encoder를 사용해 새 bitstream을 만든다.
+
+Segment muxer는 하나의 입력을 일정 시간 단위의 여러 출력으로 나눈다.
+
+## 6. 상태 전이 (State Transition)
+
+빠른 cut은 다음 상태로 진행한다.
+
+```text
+input inspected
+  -> keyframe-tolerant cut selected
+  -> stream copy output created
+  -> output checked
+```
+
+정확한 cut은 다음 상태로 진행한다.
+
+```text
+input inspected
+  -> exact timestamp selected
+  -> decode and encode
+  -> quality checked
+  -> output checked
+```
+
+Batch segment는 다음 상태로 진행한다.
+
+```text
+segment duration chosen
+  -> output pattern prepared
+  -> segment muxer writes files
+  -> timestamps and playback verified
+```
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- 원본 파일을 출력 경로로 덮어쓰지 않는다.
+- 작업 전 `ffprobe`로 duration과 stream 구성을 확인한다.
+- `-c copy` 결과는 정확한 frame cut이 아닐 수 있다.
+- 정확도가 중요하면 재인코딩을 선택한다.
+- `-t`와 `-to`의 의미를 혼동하지 않는다.
+- subtitle, multiple audio stream을 유지하려면 `-map 0`을 명시한다.
+- 출력 파일을 `ffprobe`와 실제 재생으로 확인한다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+FFmpeg를 설치한다.
+
+```bash
 sudo pacman -S ffmpeg
-
-Debian / Ubuntu / Mint 등:
-Bash
-
-sudo apt update
 sudo apt install ffmpeg
+sudo dnf install ffmpeg
+```
 
-Fedora / CentOS / RHEL 등:
-Bash
+입력 파일을 확인한다.
 
-    sudo dnf install ffmpeg
+```bash
+ffprobe -hide_banner input.mp4
+ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 input.mp4
+```
 
-핵심 개념: 재인코딩 vs 스트림 복사
+10초 지점부터 30초 분량을 빠르게 자른다.
 
-FFmpeg로 파일을 쪼개는 방법은 크게 두 가지이며, 이 차이를 이해하는 것이 중요합니다.
+```bash
+ffmpeg -ss 00:00:10 -i input.mp4 -t 00:00:30 -map 0 -c copy cut-copy.mp4
+```
 
-    재인코딩 (기본 방식):
-        동영상을 디코딩(해독)한 후 원하는 부분만 잘라내어 다시 인코딩합니다.
-        장점: 프레임 단위로 매우 정확한 위치에서 자를 수 있습니다.
-        단점: 인코딩 과정 때문에 시간이 오래 걸리고, 원본과 완전히 동일한 화질을 보장하기 어렵습니다. (물론 옵션으로 품질 조절 가능)
+정확한 시간 기준으로 자르고 H.264/AAC로 재인코딩한다.
 
-    스트림 복사 (-c copy 옵션):
-        동영상을 다시 인코딩하지 않고, 기존 데이터(비디오/오디오 스트림)를 그대로 복사해서 새로운 파일에 담기만 합니다.
-        장점: 재인코딩이 없으므로 화질 손실이 전혀 없으며, 작업 속도가 매우 빠릅니다.
-        단점: 동영상의 키프레임(Keyframe) 단위로만 자를 수 있습니다. 만약 자르는 시작 지점이 키프레임이 아니면, 해당 지점부터 재생이 깨지거나 음성만 나오는 등의 문제가 발생할 수 있습니다. (키프레임: 압축된 비디오에서 완전한 정보를 가진 기준 프레임)
+```bash
+ffmpeg -i input.mp4 -ss 00:00:10.500 -t 00:00:30 \
+  -map 0:v:0 -map 0:a? \
+  -c:v libx264 -crf 18 -preset medium \
+  -c:a aac -b:a 192k \
+  cut-encoded.mp4
+```
 
-방법 1: 특정 시간 기준으로 파일 1개 잘라내기
+긴 파일을 2분 단위로 나눈다.
 
-원본 파일(input.mp4)에서 원하는 특정 구간만 잘라내어 새로운 파일(output.mp4)로 저장합니다.
-A. 스트림 복사로 빠르게 자르기 (추천)
+```bash
+mkdir -p segments
+ffmpeg -i input.mp4 -map 0 -c copy -f segment -segment_time 120 -reset_timestamps 1 segments/part_%03d.mp4
+```
 
-가장 많이 사용되는 방법입니다. 화질 저하 없이 특정 구간을 빠르게 잘라냅니다.
-Bash
+Segment 길이가 keyframe 때문에 정확하지 않으면 재인코딩하면서 keyframe 간격을 맞춘다.
 
-# 10초 지점부터 30초 분량의 동영상을 잘라냅니다. (총 10초~40초 구간)
-ffmpeg -i input.mp4 -ss 00:00:10 -t 00:00:30 -c copy output.mp4
+```bash
+ffmpeg -i input.mp4 -map 0 \
+  -c:v libx264 -crf 20 -preset medium -force_key_frames 'expr:gte(t,n_forced*120)' \
+  -c:a aac -b:a 192k \
+  -f segment -segment_time 120 -reset_timestamps 1 segments/part_%03d.mp4
+```
 
-    -i input.mp4: 입력 파일 지정
-    -ss 00:00:10: 자르기 시작할 시간 (시:분:초 형식 또는 초 단위 숫자)
-    -t 00:00:30: 시작 시간(-ss)으로부터 잘라낼 길이(duration)
-    -to 00:00:40: -t 대신 -to를 사용하면 종료 시간을 직접 지정할 수 있습니다. (예: -to 00:00:40는 40초 지점에서 종료)
-    -c copy: 비디오와 오디오 코덱을 그대로 복사 (스트림 복사)
+출력 파일을 확인한다.
 
-B. 재인코딩으로 정확하게 자르기
+```bash
+ffprobe -hide_banner cut-copy.mp4
+ffprobe -hide_banner cut-encoded.mp4
+find segments -type f -name 'part_*.mp4' -print
+```
 
-키프레임 위치와 상관없이, 지정한 시간에서 프레임 단위로 정확하게 잘라야 할 때 사용합니다.
-Bash
+파일 크기 기준 분할은 직접 기능이 아니라 bitrate 기반 근사다.
 
-# 10초 500ms 지점부터 30초 분량을 정확히 잘라냅니다.
-ffmpeg -i input.mp4 -ss 00:00:10.500 -t 00:00:30 output.mp4
+```bash
+ffprobe -v error -show_entries format=bit_rate -of default=nw=1:nk=1 input.mp4
+```
 
-주의: -c copy 옵션이 없으면 FFmpeg는 기본적으로 재인코딩을 시도합니다. 이 경우 화질이 떨어질 수 있으므로 -crf (비디오 품질)나 -b:v (비디오 비트레이트) 같은 옵션을 추가하여 품질을 조절하는 것이 좋습니다.
-방법 2: 긴 동영상을 일정한 시간 간격으로 모두 쪼개기
+예상 시간은 다음 식으로 계산한다.
 
-10분짜리 동영상을 2분짜리 파일 5개로 나누는 등, 일정한 시간 간격으로 모든 구간을 분할할 때 매우 유용합니다.
-A. 스트림 복사로 빠르게 쪼개기 (추천)
-Bash
+```text
+seconds = target_size_megabytes * 8 * 1024 * 1024 / bitrate_bits_per_second
+```
 
-# input.mp4 파일을 120초(2분) 간격으로 잘라 output_001.mp4, output_002.mp4... 로 저장
-ffmpeg -i input.mp4 -c copy -map 0 -segment_time 120 -f segment -reset_timestamps 1 output_%03d.mp4
+## 9. 실패 사례 (What could go wrong?)
 
-    -c copy: 화질 저하 없이 빠르게 스트림을 복사합니다.
-    -map 0: 원본 파일의 모든 스트림(비디오, 오디오, 자막 등)을 대상으로 합니다.
-    -f segment: 동영상을 여러 조각으로 나누는 '세그먼트' 기능을 사용합니다.
-    -segment_time 120: 각 조각의 길이를 초 단위로 지정합니다. (120초 = 2분)
-    -reset_timestamps 1: 각 조각 파일이 0초부터 시작하도록 타임스탬프를 초기화합니다. 이 옵션이 없으면 재생 시 문제가 생길 수 있습니다.
-    output_%03d.mp4: 출력 파일 이름 형식. %03d는 파일명에 001, 002, 003과 같이 3자리 숫자를 순서대로 붙이라는 의미입니다.
+`-c copy`로 자른 파일이 시작 부분에서 깨지거나 검은 화면이 나오면 시작 지점이 keyframe이 아닐 수 있다. 재인코딩하거나 cut 지점을 keyframe 근처로 조정한다.
 
-참고: 스트림 복사 방식이므로 -segment_time에 지정한 시간과 정확히 일치하지 않을 수 있습니다. FFmpeg는 지정된 시간에서 가장 가까운 키프레임을 기준으로 파일을 나누기 때문입니다.
-B. 재인코딩으로 정확하게 쪼개기
+Audio와 video sync가 어긋나면 timestamp 처리와 container compatibility를 확인한다. `-reset_timestamps 1`은 segment 출력에서 도움이 되지만 모든 codec 조합에 보편 해답은 아니다.
 
-시간을 매우 정확하게 맞춰야 한다면 -c copy 옵션을 빼고 실행합니다. (속도는 훨씬 느려집니다.)
-Bash
+Subtitle이나 두 번째 audio track이 사라지면 `-map 0` 없이 기본 stream selection만 사용했을 가능성이 있다.
 
-ffmpeg -i input.mp4 -map 0 -segment_time 120 -f segment -reset_timestamps 1 output_%03d.mp4
+출력 확장자와 codec/container 조합이 맞지 않으면 player에서 재생되지 않을 수 있다. MP4에는 일반적으로 H.264/AAC 조합이 무난하다.
 
-방법 3: 특정 파일 크기 기준으로 쪼개기
+재인코딩 품질이 낮으면 `-crf` 값을 낮추거나 preset을 조정한다. CRF가 낮을수록 품질과 파일 크기가 증가한다.
 
-FFmpeg는 파일 크기를 기준으로 직접 자르는 옵션을 제공하지 않습니다. 하지만 아래와 같이 비트레이트(bitrate)를 계산하여 간접적으로 할 수 있습니다.
+파일 크기 기준 분할은 variable bitrate 파일에서 정확하지 않다. 정확한 크기 제한이 필요한 배포 환경은 별도 packaging 정책을 고려한다.
 
-1단계: 동영상 정보(비트레이트) 확인
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-ffprobe (FFmpeg에 포함된 도구)를 사용하여 동영상의 평균 비트레이트를 확인합니다.
-Bash
+정확한 편집이 중요하면 FFmpeg 단독 CLI보다 non-linear editor나 lossless cutting tool을 검토할 수 있다. FFmpeg는 자동화와 반복 작업에 강하다.
 
-ffprobe -v error -show_format -show_streams input.mp4 | grep "bit_rate="
+HLS나 DASH처럼 streaming delivery를 목표로 한다면 단순 segment muxer보다 전용 muxer와 playlist 생성 옵션을 사용한다.
 
-명령어를 실행하면 bit_rate=3000000 과 같은 결과를 얻을 수 있습니다. (bps 단위)
+공식 문서는 option 동작을 계속 갱신한다.
 
-2단계: 원하는 크기에 맞는 시간 계산
+- FFmpeg tool documentation: <https://ffmpeg.org/ffmpeg.html>
+- FFmpeg formats and segment muxer: <https://ffmpeg.org/ffmpeg-formats.html>
 
-    계산식: 쪼갤 시간(초) = (원하는 파일 크기(MB) * 8 * 1024 * 1024) / 비트레이트(bps)
+## 11. 최종 체크리스트 (Definition of Done)
 
-예를 들어, 비트레이트가 3,000,000 bps (3000 kbps)인 동영상을 100MB 크기로 자르고 싶다면:
-시간(초) = (100 * 8 * 1024 * 1024) / 3000000 ≈ 279.6 초
+- [ ] 원본 파일 metadata를 `ffprobe`로 확인했다.
+- [ ] 빠른 cut과 정확한 cut 중 하나를 의도적으로 선택했다.
+- [ ] 원본 파일을 덮어쓰지 않았다.
+- [ ] 필요한 stream을 유지하기 위해 `-map`을 검토했다.
+- [ ] `-t`와 `-to`를 혼동하지 않았다.
+- [ ] Segment 출력 파일의 개수와 재생 가능 여부를 확인했다.
+- [ ] 출력 파일을 `ffprobe`와 player로 검증했다.
 
-3단계: 계산한 시간으로 segment 기능 사용
-Bash
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-# 약 280초 간격으로 동영상을 분할
-ffmpeg -i input.mp4 -c copy -map 0 -segment_time 280 -f segment -reset_timestamps 1 output_%03d.mp4
-
-이 방법은 평균 비트레이트를 사용하므로 파일 크기가 정확하게 맞지는 않지만, 근사치로 쪼개는 데 유용합니다.
-요약
-목적	추천 명령어	특징
-특정 구간 1개 자르기	ffmpeg -i input.mp4 -ss [시작] -t [길이] -c copy output.mp4	가장 일반적. 화질 손실 없고 빠름.
-일정한 시간 간격으로 모두 쪼개기	ffmpeg -i input.mp4 -c copy -f segment -segment_time [초] ... output_%03d.mp4	긴 동영상을 여러 개로 나눌 때 편리.
-정확한 시간/프레임에 맞춰 자르기	-c copy 옵션 제거	재인코딩으로 느리지만 정확함.
-
+FFmpeg 분할의 핵심 선택은 빠른 stream copy와 정확한 재인코딩 사이의 trade-off다. `-c copy`는 빠르고 무손실에 가깝지만 keyframe 제약을 받으며, 정확한 cut은 인코딩 비용을 치른다.

@@ -291,7 +291,7 @@ flowchart LR
 
 ## 9. STM: 소프트웨어 트랜잭션 메모리 내부
 
-Haskell의 STM은 잠금 없이 구성 가능한 원자 블록을 제공합니다.
+Haskell의 STM은 잠금 없이 구성 가능한 원자 블록을 지원한다.
 
 ```mermaid
 sequenceDiagram

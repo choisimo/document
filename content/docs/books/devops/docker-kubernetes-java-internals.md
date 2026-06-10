@@ -6,7 +6,7 @@
 
 ## 1. Docker Image Internals: Layered Filesystem Architecture
 
-Every Docker image is a stack of immutable, read-only **content-addressable layers** stored as compressed tar archives (OCI Image Format). When you build a Java application image, each Dockerfile instruction generates a new layer identified by its SHA-256 digest.
+Every Docker image is a stack of immutable, read-only **content-addressable layers** stored as compressed tar archives (OCI Image Format). During a Java application image build, each Dockerfile instruction generates a new layer identified by its SHA-256 digest.
 
 ```mermaid
 flowchart BT
@@ -141,7 +141,7 @@ sequenceDiagram
 
 ### Port Binding: DNAT Rule Creation
 
-When you `docker run -p 8080:80`, Docker inserts iptables DNAT rules:
+When `docker run -p 8080:80` is executed, Docker inserts iptables DNAT rules:
 
 ```mermaid
 flowchart LR

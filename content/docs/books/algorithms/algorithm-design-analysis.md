@@ -43,6 +43,7 @@ Pattern: constant work per level, n levels → T(n) = Θ(n).
 ### Binary Recursion: T(n) = T(n/2) + 1
 
 For n = 2^k:
+
 ```
 T(2^k) = T(2^(k-1)) + 1
         = T(2^(k-2)) + 2
@@ -63,6 +64,7 @@ graph TD
 ```
 
 Backward substitution:
+
 ```
 M(n) = 2M(n-1) + 1
      = 2[2M(n-2)+1] + 1 = 2²M(n-2) + 2 + 1
@@ -232,6 +234,7 @@ block-beta
 **Heap allocation:** Runtime-determined. `malloc(n)` searches free-list for block ≥ n bytes. Returns pointer; adds header (size, next-free pointer). `free(p)` marks block as available, coalesces adjacent free blocks.
 
 **Interview gotcha: use-after-free:**
+
 ```c
 int* f() {
     int x = 5;
@@ -272,6 +275,7 @@ flowchart LR
 **Power-of-2 check:** `(n & (n-1)) == 0`
 
 Binary: powers of 2 have exactly one 1-bit.
+
 ```
 n     = 0b01000000  (= 64)
 n-1   = 0b00111111
@@ -283,12 +287,14 @@ n & (n-1) = 0b01000000  → not zero: not power of 2
 ```
 
 **Bit count (Hamming weight) — Brian Kernighan's method:**
+
 ```
 count = 0
 while n != 0:
     n = n & (n-1)   // clears the lowest set bit each iteration
     count++
 ```
+
 Each iteration removes exactly one 1-bit → runs in O(number of set bits) iterations, not O(word size).
 
 ---

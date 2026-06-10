@@ -1,6 +1,6 @@
-# 🐧 Arch Linux UEFI 설치 가이드
+# 🐧 Arch Linux UEFI 설치 절차
 
-> **⚠️ 주의사항**: 이 가이드는 UEFI 모드에서의 Arch Linux 설치를 다룹니다. 기존 운영체제가 삭제될 수 있으므로 중요한 데이터는 사전에 백업하세요.
+> **⚠️ 경고**: 이 문서는 UEFI 모드에서의 Arch Linux 설치 절차를 다룬다. 기존 운영체제가 삭제될 수 있으므로 중요한 데이터는 사전에 백업한다.
 
 ## 📋 설치 과정 개요
 
@@ -36,18 +36,18 @@ flowchart TD
 
 🔗 **공식 다운로드 페이지**: [https://archlinux.org/download/](https://archlinux.org/download/)
 
-> 💡 **권장사항**: 항상 최신 ISO 이미지를 다운로드하여 최신 패키지와 보안 업데이트를 적용받으세요.
+> 💡 **기준**: 최신 ISO 이미지를 사용하면 설치 환경의 패키지와 보안 업데이트가 최신 상태에 가깝다.
 
 ### 1.2 부팅 가능한 USB 드라이브 제작
 
 #### Windows 사용자
-- **권장 도구**: Rufus 또는 Ventoy
-- **Rufus 설정**: `DD 이미지 모드` 사용 권장
+- **사용 도구**: Rufus 또는 Ventoy
+- **Rufus 설정**: `DD 이미지 모드`
 
 #### Linux/macOS 사용자
 ```bash
 # ⚠️ 경고: 잘못된 장치 지정 시 데이터 손실 위험!
-# lsblk 명령어로 USB 장치 확인 필수
+# lsblk 명령어로 USB 장치 확인
 lsblk
 
 # ISO 파일을 USB에 작성
@@ -56,9 +56,9 @@ sudo dd bs=4M if=/path/to/archlinux.iso of=/dev/sdX status=progress oflag=sync
 
 ### 1.3 UEFI/BIOS 설정
 
-| 설정 항목 | 권장 값 | 설명 |
+| 설정 항목 | 기준 값 | 설명 |
 |----------|---------|------|
-| **Secure Boot** | `Disabled` | 보안 부팅 비활성화 (필수) |
+| **Secure Boot** | `Disabled` | 보안 부팅 비활성화 |
 | **Boot Mode** | `UEFI` | UEFI 모드 활성화 |
 | **Boot Order** | `USB First` | USB 드라이브 우선 부팅 |
 
@@ -70,7 +70,7 @@ sudo dd bs=4M if=/path/to/archlinux.iso of=/dev/sdX status=progress oflag=sync
 
 1. USB로 부팅하면 **Arch Linux 부팅 메뉴**가 나타납니다
 2. 첫 번째 옵션 `Arch Linux install medium` 선택
-3. `root@archiso ~ #` 프롬프트가 나타나면 성공 ✅
+3. `root@archiso ~ #` 프롬프트가 나타나면 라이브 환경 진입 완료
 
 ### 2.2 UEFI 모드 확인
 
@@ -173,7 +173,7 @@ graph LR
     A[EFI System<br/>1GB<br/>FAT32] --> B[Swap<br/>RAM 크기<br/>swap] --> C[Root /<br/>나머지 공간<br/>ext4]
 ```
 
-#### UEFI 시스템 권장 파티션 구성
+#### UEFI 시스템 파티션 구성 예시
 
 | 파티션 | 크기 | 파일시스템 | 마운트 포인트 | 용도 |
 |--------|------|------------|---------------|------|
@@ -245,7 +245,7 @@ mount /dev/sdX1 /mnt/boot/efi
 lsblk
 ```
 
-> ⚠️ **중요**: EFI 파티션은 반드시 `/mnt/boot/efi`에 마운트해야 GRUB 부트로더가 정상 작동합니다.
+> ⚠️ **중요**: GRUB UEFI 설치에서는 EFI 파티션을 `/mnt/boot/efi`에 마운트해야 한다.
 
 ---
 
@@ -268,7 +268,7 @@ reflector --country 'South Korea' --country 'Japan' \
           --save /etc/pacman.d/mirrorlist
 ```
 
-### 5.2 필수 패키지 설치 (pacstrap)
+### 5.2 기본 패키지 설치 (pacstrap)
 
 ```bash
 pacstrap /mnt base linux linux-firmware nano networkmanager
@@ -276,13 +276,13 @@ pacstrap /mnt base linux linux-firmware nano networkmanager
 
 #### 패키지 설명
 
-| 패키지 | 용도 | 필수도 |
+| 패키지 | 용도 | 설치 기준 |
 |--------|------|--------|
-| `base` | 기본 시스템 | ✅ 필수 |
-| `linux` | 리눅스 커널 | ✅ 필수 |
-| `linux-firmware` | 하드웨어 펌웨어 | ✅ 필수 |
-| `nano` | 텍스트 편집기 | 🔧 권장 |
-| `networkmanager` | 네트워크 관리 도구 | 🔧 권장 |
+| `base` | 기본 시스템 | 기본 |
+| `linux` | 리눅스 커널 | 기본 |
+| `linux-firmware` | 하드웨어 펌웨어 | 기본 |
+| `nano` | 텍스트 편집기 | 선택 |
+| `networkmanager` | 네트워크 관리 도구 | 선택 |
 
 ### 5.3 Fstab 생성
 
@@ -336,7 +336,7 @@ en_US.UTF-8 UTF-8
 # 로케일 생성
 locale-gen
 
-# 시스템 기본 언어 설정 (터미널 한글 깨짐 방지를 위해 영어 권장)
+# 시스템 기본 언어 설정 (터미널 한글 깨짐 방지를 줄이기 위해 영어 사용)
 echo "LANG=en_US.UTF-8" > /etc/locale.conf
 ```
 
@@ -401,7 +401,7 @@ pacman -S grub efibootmgr
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=ARCH
 ```
 
-**성공 메시지**: `Installation finished. No error reported.`
+**완료 메시지**: `Installation finished. No error reported.`
 
 ### 7.3 GRUB 설정 파일 생성
 
@@ -426,7 +426,7 @@ umount -R /mnt
 reboot
 ```
 
-> ⚠️ **중요**: 재부팅 시 USB 드라이브를 반드시 제거해야 합니다.
+> ⚠️ **중요**: 재부팅 시 USB 드라이브를 제거한다.
 
 ---
 
@@ -441,11 +441,11 @@ reboot
 
 ### 9.2 일반 사용자 계정 생성
 
-보안을 위해 root가 아닌 일반 사용자 계정을 만들어 사용해야 합니다.
+운영 계정은 root가 아닌 일반 사용자 계정으로 분리한다.
 
 ```bash
-useradd -m -G wheel -s /bin/bash your_username
-passwd your_username
+useradd -m -G wheel -s /bin/bash username
+passwd username
 ```
 
 #### 매개변수 설명
@@ -496,15 +496,15 @@ systemctl enable gdm
 reboot
 ```
 
-> 📖 **참고**: GNOME 테마 및 커스터마이징에 대한 자세한 내용은 [GNOME 테마 가이드](./gnome-theme.md)를 참조하세요.
+> 📖 **참고**: GNOME 테마 및 커스터마이징 내용은 [GNOME 테마 문서](./gnome-theme.md)에 정리되어 있다.
 
 ---
 
-## 🎉 설치 완료!
+## 🎉 설치 완료
 
-축하합니다! Arch Linux 기본 설치가 완료되었습니다.
+Arch Linux 기본 설치가 완료된 상태다.
 
-### 다음 단계 권장사항
+### 다음 단계 예시
 
 ```mermaid
 graph TD
@@ -519,12 +519,12 @@ graph TD
     E --> I[성능 튜닝 및 보안 설정]
 ```
 
-1. **필수 패키지 설치**
+1. **기본 패키지 설치**
    ```bash
    pacman -S firefox git vim htop
    ```
 
-2. **AUR 헬퍼 설치** (yay 권장)
+2. **AUR 헬퍼 설치** (`yay` 예시)
    ```bash
    git clone https://aur.archlinux.org/yay.git
    cd yay
@@ -538,7 +538,7 @@ graph TD
 
 ### 유용한 리소스
 
-- 📚 [Arch Wiki](https://wiki.archlinux.org/) - 가장 완전한 Linux 문서
+- 📚 [Arch Wiki](https://wiki.archlinux.org/) - Arch Linux 공식 문서
 - 🔧 [AUR (Arch User Repository)](https://aur.archlinux.org/) - 커뮤니티 패키지 저장소
 - 💬 [Arch Linux 포럼](https://bbs.archlinux.org/) - 커뮤니티 지원
 
@@ -551,7 +551,7 @@ graph TD
 #### 부팅 실패
 - EFI 파티션이 올바르게 마운트되었는지 확인
 - GRUB 설치 과정 재확인
-- [부팅 문제 해결 가이드](./trouble-shooting.md) 참조
+- [부팅 문제 해결 문서](./trouble-shooting.md) 확인
 
 #### 네트워크 연결 안됨
 ```bash
@@ -564,4 +564,4 @@ systemctl enable NetworkManager
 pacman -S ibus ibus-hangul
 ```
 
-> 💡 **팁**: 문제가 발생하면 Arch Wiki를 먼저 참조하세요. 대부분의 문제에 대한 해결책이 있습니다.
+> 💡 **팁**: 문제 발생 시 Arch Wiki와 관련 로그를 함께 확인한다.

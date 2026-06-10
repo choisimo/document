@@ -20,7 +20,7 @@ Configuration for monitoring and logging services:
 
 ## Configuration Management
 
-### Best Practices
+### Practices
 
 1. **Version Control**: Keep configs in git
 2. **Backup**: Backup before changes

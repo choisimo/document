@@ -1,444 +1,197 @@
-# Ansible 설치 및 초기 설정
+# Ansible 설치와 초기 설정
 
-## 📖 개요
+Ansible은 control node에서 inventory의 host로 SSH 접속한 뒤 module을 실행해 원하는 상태를 맞추는 자동화 도구다. 이 문서는 설치 방법 자체보다 “어떤 host에 어떤 사용자와 key로 접속하고, 반복 실행해도 안전한가”를 기준으로 정리한다.
 
-Ansible은 에이전트가 필요 없는 자동화 도구로, SSH를 통해 원격 서버를 관리합니다. Python으로 작성되었으며 YAML 문법을 사용합니다.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-## 🎯 학습 목표
+서버가 늘어나면 패키지 설치, 설정 파일 배포, 서비스 재시작을 수동으로 반복하기 어렵다. Ansible은 agent를 설치하지 않고 SSH와 Python을 이용해 여러 서버의 상태를 일관되게 맞출 수 있다.
 
-- Ansible 설치 및 환경 설정
-- 첫 번째 Ad-hoc 명령 실행
-- Inventory 파일 작성
-- SSH 키 기반 인증 설정
+문제는 초기 설정에서 inventory, SSH key, sudo, Python interpreter가 조금만 어긋나도 모든 task가 실패한다는 점이다. 설치보다 연결 계약을 먼저 잡아야 한다.
 
-## 📦 설치
+## 2. 현재 나의 상태 (Baseline)
 
-### Ubuntu/Debian
+기존 문서는 OS별 설치, Docker/Vagrant 테스트 노드, SSH 키, inventory, ad-hoc 명령, facts, troubleshooting을 한 번에 제공한다.
+
+repository에는 실제 Ansible 예시도 있다.
+
+- `infra/ansible/ansible.cfg`: `inventory = ./inventory`, `remote_user = ansible`, `host_key_checking = False`, `become = True`
+- `infra/ansible/inventory/hosts.ini`: Proxmox node group과 `ansible_host` 예시
+- `infra/ansible/playbooks/site.yml`: `webservers.yml`, `dbservers.yml`, `infrastructures.yml` import 구조
+
+이 문서는 그 구조와 맞춰 control node, inventory, SSH, 첫 연결 검증에 집중한다.
+
+## 3. 도달하고 싶은 목표 (Target State)
+
+목표는 Ansible control node에서 대상 host에 안전하게 접속하고, 첫 ad-hoc 명령이 성공하는 것이다.
+
+- Ansible 설치 경로를 하나로 정한다.
+- inventory에 host와 접속 변수를 명시한다.
+- SSH key 인증과 sudo 권한을 검증한다.
+- `ansible all -m ping`이 성공한다.
+- `--check`와 idempotency 개념을 초기에 이해한다.
+
+## 4. 시스템 번역 (Data Flow)
+
+Ansible 실행 흐름은 다음과 같다.
+
+```text
+ansible command
+  -> ansible.cfg
+  -> inventory
+  -> SSH connection
+  -> remote Python
+  -> module execution
+  -> changed or ok result
+```
+
+control node에는 Ansible이 필요하고, managed node에는 SSH 접속과 Python 실행 환경이 필요하다. Windows나 network 장비는 연결 방식이 다르므로 별도 문서가 필요하다.
+
+## 5. 핵심 구성요소 (Building Blocks)
+
+Control node는 `ansible` 명령을 실행하는 로컬 또는 CI 머신이다.
+
+Managed node는 Ansible이 SSH로 접속해 module을 실행하는 대상 host다.
+
+Inventory는 host 목록과 group, 접속 변수의 source of truth다.
+
+`ansible.cfg`는 inventory 경로, remote user, SSH 정책, privilege escalation 같은 기본값을 정한다.
+
+Module은 실제 작업 단위다. `ansible.builtin.apt`, `file`, `copy`, `service`, `shell` 같은 module이 있다.
+
+Idempotency는 같은 작업을 반복 실행해도 결과 상태가 같아야 한다는 원칙이다.
+
+## 6. 상태 전이 (State Transition)
+
+초기 설정은 다음 순서로 진행한다.
+
+```text
+Ansible installed
+  -> project directory created
+  -> ansible.cfg written
+  -> inventory written
+  -> SSH key works
+  -> sudo works
+  -> ping module succeeds
+  -> first idempotent task succeeds
+```
+
+`ping` module은 ICMP ping이 아니라 Ansible이 remote Python module을 실행할 수 있는지 확인하는 테스트다.
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- 설치 방법은 OS package, pip, pipx 중 하나로 통일한다.
+- inventory에 private key나 password를 평문으로 넣지 않는다.
+- production에서 host key checking을 무심코 끄지 않는다.
+- `shell`보다 전용 module을 우선 사용한다.
+- `become=True`는 필요한 task에만 쓰는 방향으로 좁힌다.
+- playbook은 반복 실행 시 불필요한 `changed`가 나오지 않아야 한다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+Debian/Ubuntu control node에서 설치한다.
+
 ```bash
-# 패키지 업데이트
 sudo apt update
-
-# Ansible 설치
 sudo apt install -y ansible
-
-# 설치 확인
 ansible --version
 ```
 
-### CentOS/RHEL
-```bash
-# EPEL 저장소 추가
-sudo yum install -y epel-release
-
-# Ansible 설치
-sudo yum install -y ansible
-```
-
-### macOS
-```bash
-# Homebrew 사용
-brew install ansible
-```
-
-### Python pip 사용 (모든 OS)
-```bash
-pip install ansible
-
-# 또는 최신 버전
-pip install --upgrade ansible
-```
-
-## 🔧 기본 구성
-
-### 디렉토리 구조 생성
+프로젝트 구조를 만든다.
 
 ```bash
-mkdir -p ~/ansible-lab/{inventory,playbooks,roles}
-cd ~/ansible-lab
+mkdir -p ansible-lab/inventory ansible-lab/playbooks ansible-lab/roles
+cd ansible-lab
 ```
 
-권장 프로젝트 구조:
-```
-ansible-lab/
-├── ansible.cfg          # Ansible 설정 파일
-├── inventory/
-│   ├── hosts            # 인벤토리 파일
-│   └── group_vars/      # 그룹 변수
-├── playbooks/           # 플레이북 파일들
-├── roles/               # 역할(Role) 디렉토리
-└── files/               # 배포할 파일들
-```
-
-### ansible.cfg 설정
-
-프로젝트 루트에 `ansible.cfg` 생성:
+`ansible.cfg`를 둔다.
 
 ```ini
 [defaults]
-# 인벤토리 파일 위치
-inventory = ./inventory/hosts
-
-# SSH 설정
-host_key_checking = False
-remote_user = ubuntu
-private_key_file = ~/.ssh/id_rsa
-
-# 출력 설정
-stdout_callback = yaml
-display_skipped_hosts = False
-
-# 성능 최적화
-forks = 10
-gathering = smart
-fact_caching = jsonfile
-fact_caching_connection = /tmp/ansible_facts
-fact_caching_timeout = 3600
-
-# 로그
-log_path = ./ansible.log
+inventory = ./inventory/hosts.ini
+remote_user = ansible
+roles_path = ./roles
+retry_files_enabled = False
 
 [privilege_escalation]
-# sudo 설정
 become = True
 become_method = sudo
 become_user = root
 become_ask_pass = False
 ```
 
-## 🖥️ 테스트 환경 준비
-
-### 옵션 1: Docker로 테스트 노드 생성
-
-```bash
-# Docker 이미지로 3개의 테스트 노드 실행
-docker run -d --name node1 -p 2221:22 ubuntu/ubuntu:22.04 sleep infinity
-docker run -d --name node2 -p 2222:22 ubuntu/ubuntu:22.04 sleep infinity
-docker run -d --name node3 -p 2223:22 ubuntu/ubuntu:22.04 sleep infinity
-
-# 각 컨테이너에 SSH 설치
-for node in node1 node2 node3; do
-  docker exec $node bash -c "apt update && apt install -y openssh-server python3"
-  docker exec $node bash -c "mkdir /var/run/sshd && /usr/sbin/sshd"
-done
-```
-
-### 옵션 2: Vagrant로 가상머신 생성
-
-```ruby
-# Vagrantfile
-Vagrant.configure("2") do |config|
-  (1..3).each do |i|
-    config.vm.define "node#{i}" do |node|
-      node.vm.box = "ubuntu/jammy64"
-      node.vm.hostname = "node#{i}"
-      node.vm.network "private_network", ip: "192.168.56.#{10+i}"
-      
-      node.vm.provider "virtualbox" do |vb|
-        vb.memory = "512"
-        vb.cpus = 1
-      end
-    end
-  end
-end
-```
-
-```bash
-vagrant up
-```
-
-## 🔐 SSH 키 설정
-
-### 1. SSH 키 생성
-
-```bash
-# 키 생성 (비밀번호 없이)
-ssh-keygen -t rsa -b 4096 -f ~/.ssh/ansible_key -N ""
-```
-
-### 2. 공개키 배포
-
-```bash
-# 대상 서버에 공개키 복사
-ssh-copy-id -i ~/.ssh/ansible_key.pub user@node1.example.com
-ssh-copy-id -i ~/.ssh/ansible_key.pub user@node2.example.com
-ssh-copy-id -i ~/.ssh/ansible_key.pub user@node3.example.com
-
-# 또는 수동으로
-cat ~/.ssh/ansible_key.pub | ssh user@node1 "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"
-```
-
-### 3. SSH 접속 테스트
-
-```bash
-ssh -i ~/.ssh/ansible_key user@node1.example.com
-```
-
-## 📋 첫 번째 Inventory 파일
-
-`inventory/hosts` 파일 생성:
+실습 환경에서만 host key checking을 끄려면 의도를 남긴다.
 
 ```ini
-# 단일 호스트 정의
-node1.example.com
+[defaults]
+host_key_checking = False
+```
 
-# 그룹 정의
+`inventory/hosts.ini`를 작성한다.
+
+```ini
 [webservers]
-web1.example.com
-web2.example.com ansible_host=192.168.1.11
+web1 ansible_host=192.168.56.11
+web2 ansible_host=192.168.56.12
 
-[databases]
-db1.example.com ansible_host=192.168.1.21 ansible_port=2222
-
-# 그룹의 그룹
-[production:children]
-webservers
-databases
-
-# 그룹 변수
 [webservers:vars]
-ansible_user=ubuntu
-http_port=80
-app_env=production
-
-[databases:vars]
-ansible_user=admin
-db_port=5432
+ansible_user=ansible
+ansible_ssh_private_key_file=~/.ssh/ansible_key
+ansible_python_interpreter=/usr/bin/python3
 ```
 
-### Inventory 변수 설명
-
-| 변수 | 설명 | 예시 |
-|------|------|------|
-| `ansible_host` | 실제 IP 주소 | `192.168.1.10` |
-| `ansible_port` | SSH 포트 | `22` |
-| `ansible_user` | SSH 사용자 | `ubuntu` |
-| `ansible_ssh_private_key_file` | SSH 키 경로 | `~/.ssh/id_rsa` |
-| `ansible_connection` | 연결 방식 | `ssh`, `local` |
-| `ansible_python_interpreter` | Python 경로 | `/usr/bin/python3` |
-
-## 🚀 첫 번째 Ad-hoc 명령
-
-### 1. 연결 테스트 (ping)
+SSH 접속을 먼저 확인한다.
 
 ```bash
-# 모든 호스트에 ping
+ssh -i ~/.ssh/ansible_key ansible@192.168.56.11
+```
+
+Ansible 연결을 확인한다.
+
+```bash
 ansible all -m ping
-
-# 특정 그룹에만
-ansible webservers -m ping
-
-# 특정 호스트에만
-ansible node1.example.com -m ping
+ansible webservers -m ansible.builtin.command -a "uptime"
 ```
 
-**성공 출력:**
-```yaml
-node1.example.com | SUCCESS => {
-    "changed": false,
-    "ping": "pong"
-}
-```
-
-### 2. 명령어 실행
+idempotent module을 실행한다.
 
 ```bash
-# 모든 서버에서 uptime 확인
-ansible all -m shell -a "uptime"
-
-# 디스크 사용량 확인
-ansible all -m shell -a "df -h"
-
-# 메모리 확인
-ansible all -m shell -a "free -m"
+ansible webservers -m ansible.builtin.file -a "path=/tmp/ansible-check state=directory mode=0755"
+ansible webservers -m ansible.builtin.file -a "path=/tmp/ansible-check state=directory mode=0755"
 ```
 
-### 3. 파일 작업
+두 번째 실행에서 `changed`가 아니라 `ok`에 가까운 결과가 나와야 한다.
 
-```bash
-# 파일 생성
-ansible all -m file -a "path=/tmp/test.txt state=touch"
+## 9. 실패 사례 (What could go wrong?)
 
-# 디렉토리 생성
-ansible all -m file -a "path=/tmp/mydir state=directory mode=0755"
+`Failed to connect to the host via ssh`는 Ansible 문제가 아니라 SSH 사용자, key, port, known_hosts 문제인 경우가 많다. 같은 옵션으로 직접 `ssh`를 먼저 실행한다.
 
-# 파일 복사
-ansible all -m copy -a "src=/tmp/test.txt dest=/tmp/remote.txt"
-```
+`/usr/bin/python`을 찾지 못하면 managed node에 Python이 없거나 interpreter 경로가 다르다. inventory에 `ansible_python_interpreter=/usr/bin/python3`를 명시한다.
 
-### 4. 패키지 관리
+`Missing sudo password`가 나오면 sudoers 정책과 `become_ask_pass` 설정을 확인한다. 무조건 passwordless sudo를 요구하지 말고 운영 보안 정책을 따른다.
 
-```bash
-# 패키지 설치 (Ubuntu/Debian)
-ansible all -m apt -a "name=nginx state=present" --become
+`host_key_checking = False`는 MITM 보호를 약화한다. lab에서는 편하지만 production에서는 known_hosts 관리 방식을 정해야 한다.
 
-# 패키지 업데이트
-ansible all -m apt -a "update_cache=yes" --become
+`shell` module로 package 설치나 service 제어를 반복하면 idempotency를 잃기 쉽다. 전용 module을 먼저 찾는다.
 
-# 패키지 제거
-ansible all -m apt -a "name=nginx state=absent" --become
-```
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-### 5. 서비스 관리
+Ansible에는 `ansible-core`와 community collection을 포함한 `ansible` package가 있다. 공식 설치 문서는 OS package 또는 선택한 Python 환경의 pip 설치를 안내한다. 팀에서는 버전과 설치 방식을 고정해야 한다.
 
-```bash
-# 서비스 시작
-ansible all -m service -a "name=nginx state=started" --become
+Inventory는 INI, YAML, dynamic inventory 모두 가능하다. Cloud 환경에서는 Terraform output을 inventory로 연결하거나 dynamic inventory plugin을 사용할 수 있다.
 
-# 서비스 재시작
-ansible all -m service -a "name=nginx state=restarted" --become
+운영 playbook은 role, group_vars, host_vars, vault, tags, check mode, diff mode로 발전한다. 초기 문서에서는 연결과 idempotency를 먼저 증명한다.
 
-# 서비스 상태 확인
-ansible all -m service -a "name=nginx state=status" --become
-```
+## 11. 최종 체크리스트 (Definition of Done)
 
-## 📊 정보 수집 (Facts)
+- [ ] Ansible 설치 방식과 버전을 확인했다.
+- [ ] `ansible.cfg`가 project directory에서 로드된다.
+- [ ] inventory host와 group이 실제 대상과 일치한다.
+- [ ] SSH key 접속이 직접 성공한다.
+- [ ] managed node에서 Python interpreter를 찾을 수 있다.
+- [ ] `ansible all -m ping`이 성공한다.
+- [ ] sudo/become 정책을 확인했다.
+- [ ] 첫 idempotent task를 두 번 실행해 결과를 비교했다.
 
-```bash
-# 모든 시스템 정보 수집
-ansible all -m setup
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-# 특정 정보만 필터링
-ansible all -m setup -a "filter=ansible_distribution*"
-
-# 네트워크 정보
-ansible all -m setup -a "filter=ansible_default_ipv4"
-
-# 메모리 정보
-ansible all -m setup -a "filter=ansible_memory_mb"
-```
-
-### 유용한 Facts
-
-```yaml
-ansible_hostname          # 호스트명
-ansible_distribution      # OS 배포판 (Ubuntu, CentOS 등)
-ansible_distribution_version   # OS 버전
-ansible_processor_cores   # CPU 코어 수
-ansible_memtotal_mb      # 총 메모리
-ansible_default_ipv4.address  # IP 주소
-```
-
-## 💡 Ad-hoc 명령어 패턴
-
-### 패턴 문법
-
-```bash
-# 모든 호스트
-ansible all -m ping
-
-# 특정 그룹
-ansible webservers -m ping
-
-# 여러 그룹
-ansible webservers:databases -m ping
-
-# 그룹 제외
-ansible all:!databases -m ping
-
-# 그룹 교집합
-ansible webservers:&production -m ping
-
-# 정규식
-ansible ~web.* -m ping
-
-# 범위
-ansible webservers[0:2] -m ping
-```
-
-## 🔍 디버깅
-
-### 상세 출력 레벨
-
-```bash
-# 상세도 레벨 1 (-v)
-ansible all -m ping -v
-
-# 레벨 2 (-vv): 더 상세한 정보
-ansible all -m ping -vv
-
-# 레벨 3 (-vvv): 연결 정보 포함
-ansible all -m ping -vvv
-
-# 레벨 4 (-vvvv): 모든 디버그 정보
-ansible all -m ping -vvvv
-```
-
-### 실행 확인 (Dry-run)
-
-```bash
-# 실제 변경 없이 테스트
-ansible all -m apt -a "name=nginx state=present" --check
-```
-
-## 🛠️ 실습 과제
-
-### 과제 1: 웹 서버 3대에 Nginx 설치
-
-```bash
-# 1. Inventory에 webservers 그룹 추가
-# 2. Ad-hoc 명령으로 Nginx 설치
-ansible webservers -m apt -a "name=nginx state=present" --become
-
-# 3. Nginx 시작 및 활성화
-ansible webservers -m service -a "name=nginx state=started enabled=yes" --become
-
-# 4. 상태 확인
-ansible webservers -m shell -a "systemctl status nginx | grep Active"
-```
-
-### 과제 2: 모든 서버의 시스템 정보 수집
-
-```bash
-# OS, IP, 메모리, 디스크 정보를 파일로 저장
-ansible all -m setup --tree /tmp/facts
-```
-
-### 과제 3: 보안 업데이트 적용
-
-```bash
-# 모든 서버에 보안 업데이트
-ansible all -m apt -a "upgrade=dist update_cache=yes" --become
-```
-
-## 🐛 트러블슈팅
-
-### 문제 1: "Failed to connect to the host via ssh"
-**해결:**
-```bash
-# SSH 키 확인
-ssh -i ~/.ssh/ansible_key user@host
-
-# ansible.cfg에 올바른 키 경로 설정
-private_key_file = ~/.ssh/ansible_key
-```
-
-### 문제 2: "Permission denied"
-**해결:**
-```bash
-# --become 플래그 추가
-ansible all -m apt -a "name=nginx state=present" --become
-
-# sudo 비밀번호 필요 시
-ansible all -m apt -a "name=nginx state=present" --become --ask-become-pass
-```
-
-### 문제 3: "MODULE FAILURE"
-**해결:**
-```bash
-# Python이 설치되어 있는지 확인
-ansible all -m raw -a "which python3"
-
-# Python 설치
-ansible all -m raw -a "apt install -y python3" --become
-```
-
-## 📚 다음 단계
-
-- [Inventory 작성 방법](02-inventory-basics.md)
-- [Playbook 작성 실습](03-playbook-examples.md)
-
-## 🔗 참고 자료
-
-- [Ansible 공식 문서](https://docs.ansible.com/)
-- [Ansible 모듈 목록](https://docs.ansible.com/ansible/latest/collections/index_module.html)
-- [Ansible 베스트 프랙티스](https://docs.ansible.com/ansible/latest/user_guide/playbooks_best_practices.html)
+Ansible 초기 설정의 핵심은 설치가 아니라 `ansible.cfg -> inventory -> SSH -> remote Python -> module result` 경로를 검증하는 것이다. 직접 SSH가 안 되면 Ansible도 안정적으로 동작하지 않는다.

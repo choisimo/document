@@ -1,302 +1,136 @@
-# Git Deploy Keys 설정
+# Git Deploy Keys 설정 학습 및 기록 노트
 
-Deploy Keys를 사용하여 특정 저장소에 안전하게 접근하는 방법을 설명합니다.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-## 개요
+배포 서버나 CI가 Git 저장소를 clone/pull해야 할 때 개인 SSH key를 그대로 쓰면 계정 전체 저장소 접근권이 서버에 퍼진다. Deploy Key는 특정 repository에만 연결되는 SSH key라서 배포 자동화의 권한 범위를 줄일 수 있다. 다만 key 파일 권한, SSH host alias, read/write access, known_hosts 검증을 잘못 잡으면 인증 실패나 과도한 권한 부여가 생긴다.
 
-Deploy Keys는 단일 GitHub/GitLab 저장소에 대한 읽기 전용(또는 쓰기 가능) SSH 접근을 제공합니다. 서버 배포나 CI/CD 파이프라인에서 전체 계정 접근 권한 없이 특정 저장소만 접근할 때 유용합니다.
+이 문서는 원문의 Git Deploy Keys 설정 가이드를 repository-scoped SSH access와 최소 권한 배포 흐름 중심으로 재작성한다.
 
-```mermaid
-graph LR
-    subgraph "서버"
-        A[Deploy Key<br/>Private]
-    end
-    
-    subgraph "GitHub"
-        B[Repository A]
-        C[Repository B]
-        D[Repository C]
-    end
-    
-    A -->|읽기/쓰기| B
-    A -.->|접근 불가| C
-    A -.->|접근 불가| D
-    
-    style A fill:#e8f5e8
-    style B fill:#e3f2fd
-    style C fill:#ffebee
-    style D fill:#ffebee
-```
+## 2. 현재 나의 상태 (Baseline)
 
-## Deploy Key vs 개인 SSH Key
+- SSH key로 GitHub/GitLab에 접속할 수 있다는 점은 알고 있다.
+- Deploy Key가 사용자 계정 key가 아니라 repository에 붙는 key라는 점을 명확히 해야 한다.
+- 여러 repository에 접근할 때 SSH config host alias가 왜 필요한지 이해해야 한다.
+- CI/CD secret으로 private key를 주입할 때 file permission과 known_hosts를 설정해야 한다.
+- Read-only와 write access를 배포 목적에 맞게 구분해야 한다.
 
-| 특성 | Deploy Key | 개인 SSH Key |
-|------|------------|--------------|
-| 접근 범위 | 단일 저장소 | 계정의 모든 저장소 |
-| 보안 | 제한된 권한 | 전체 계정 권한 |
-| 사용 사례 | 서버, CI/CD | 개발 환경 |
-| 키 소유 | 저장소 | 사용자 계정 |
+## 3. 도달하고 싶은 목표 (Target State)
 
-## Deploy Key 설정
+- Repository별 deploy key pair를 생성하고 공개 key만 repository에 등록한다.
+- Private key는 서버 또는 CI secret에만 저장한다.
+- SSH config에서 host alias와 `IdentityFile`을 명시해 올바른 key를 사용한다.
+- Clone/pull 접속을 테스트하고 문제 발생 시 verbose log로 진단한다.
+- 사용하지 않는 key를 제거하고 정기적으로 rotation한다.
 
-### 1. SSH 키 생성
-
-```bash
-# Ed25519 키 생성 (권장)
-ssh-keygen -t ed25519 -C "deploy-key-project-name" -f ~/.ssh/id_deploy_projectname
-
-# RSA 키 (레거시 시스템용)
-ssh-keygen -t rsa -b 4096 -C "deploy-key-project-name" -f ~/.ssh/id_rsa_projectname
-```
-
-!!! tip "키 이름 규칙"
-    키 파일명에 용도를 명시하면 관리가 쉬워집니다:
-    - `id_deploy_frontend` - 프론트엔드 저장소용
-    - `id_deploy_backend` - 백엔드 저장소용
-    - `id_deploy_infra` - 인프라 저장소용
-
-### 2. GitHub에 공개 키 등록
-
-```bash
-# 공개 키 내용 확인
-cat ~/.ssh/id_deploy_projectname.pub
-```
-
-GitHub 저장소에서:
-
-1. **Settings** → **Deploy keys** → **Add deploy key**
-2. Title: 의미 있는 이름 (예: `Production Server`)
-3. Key: 공개 키 내용 붙여넣기
-4. **Allow write access** 체크 (push 필요 시)
+## 4. 시스템 번역 (Data Flow)
 
 ```mermaid
-sequenceDiagram
-    participant S as 서버
-    participant G as GitHub
-    
-    Note over S: 키 쌍 생성
-    S->>S: ssh-keygen (비공개 키 + 공개 키)
-    S->>G: 공개 키 등록 (Deploy Key)
-    Note over G: 저장소에 키 연결
-    
-    S->>G: git clone (비공개 키 사용)
-    G->>G: 공개 키로 인증 확인
-    G->>S: 저장소 데이터 전송
+flowchart TD
+    A[Deploy server/CI] --> B[Private deploy key]
+    B --> C[SSH config host alias]
+    C --> D[Git SSH connection]
+    D --> E[Repository deploy key public half]
+    E --> F{권한 확인}
+    F -->|read allowed| G[git clone/pull]
+    F -->|write allowed| H[git push 가능]
+    F -->|denied| I[Permission denied]
 ```
 
-### 3. SSH 설정 파일 구성
+Deploy key data flow는 private key를 들고 있는 실행 환경이 repository에 등록된 public key와 매칭되어 단일 repository 권한만 얻는 구조다.
 
-`~/.ssh/config` 파일에 호스트 별칭 추가:
+## 5. 핵심 구성요소 (Building Blocks)
 
-```bash
-# ~/.ssh/config
+| 구성요소 | 명령/설정 | 역할 |
+| --- | --- | --- |
+| Key pair | `ssh-keygen -t ed25519` | deploy 전용 SSH key 생성 |
+| Public key | `*.pub` | GitHub/GitLab repository에 등록 |
+| Private key | `id_deploy_*` | 서버/CI secret에만 보관 |
+| SSH config | `Host`, `IdentityFile` | repository별 key 선택 |
+| `IdentitiesOnly yes` | SSH key 후보 제한 | 다른 agent key 오사용 방지 |
+| Known hosts | `known_hosts` | 원격 host identity 검증 |
+| Read-only key | default deploy access | clone/pull 전용 |
+| Write access | 선택 권한 | push가 필요한 자동화에만 허용 |
 
-# 프로젝트 A - 프론트엔드
-Host github-frontend
-    HostName github.com
-    User git
-    IdentityFile ~/.ssh/id_deploy_frontend
-    IdentitiesOnly yes
-
-# 프로젝트 B - 백엔드
-Host github-backend
-    HostName github.com
-    User git
-    IdentityFile ~/.ssh/id_deploy_backend
-    IdentitiesOnly yes
-
-# 프로젝트 C - 인프라
-Host github-infra
-    HostName github.com
-    User git
-    IdentityFile ~/.ssh/id_deploy_infra
-    IdentitiesOnly yes
-```
-
-!!! warning "IdentitiesOnly yes"
-    이 옵션은 지정된 키만 사용하도록 강제합니다. 없으면 SSH 에이전트의 다른 키를 시도할 수 있습니다.
-
-### 4. 저장소 클론 및 사용
-
-```bash
-# 호스트 별칭을 사용하여 클론
-git clone git@github-frontend:username/frontend-repo.git
-git clone git@github-backend:username/backend-repo.git
-git clone git@github-infra:username/infra-repo.git
-
-# 기존 저장소의 리모트 URL 변경
-git remote set-url origin git@github-frontend:username/frontend-repo.git
-```
-
-## 다중 저장소 설정 예제
-
-여러 서버에서 여러 저장소에 접근하는 구성:
+## 6. 상태 전이 (State Transition)
 
 ```mermaid
-graph TB
-    subgraph "Production Server"
-        PK1[frontend-deploy-key]
-        PK2[backend-deploy-key]
-    end
-    
-    subgraph "Staging Server"
-        SK1[frontend-deploy-key]
-        SK2[backend-deploy-key]
-    end
-    
-    subgraph "GitHub"
-        FR[Frontend Repo]
-        BR[Backend Repo]
-    end
-    
-    PK1 -->|읽기| FR
-    PK2 -->|읽기| BR
-    SK1 -->|읽기/쓰기| FR
-    SK2 -->|읽기/쓰기| BR
-    
-    style FR fill:#e3f2fd
-    style BR fill:#e3f2fd
+stateDiagram-v2
+    [*] --> KeyGenerated
+    KeyGenerated --> PublicKeyRegistered
+    PublicKeyRegistered --> PrivateKeyInstalled
+    PrivateKeyInstalled --> SSHConfigWritten
+    SSHConfigWritten --> ConnectionTested
+    ConnectionTested --> RepositoryCloned
+    RepositoryCloned --> KeyRotated: rotation 필요
+    KeyRotated --> PublicKeyRegistered
 ```
 
-### SSH Config 전체 예제
+Private key를 배포 서버에 두기 전에 public key를 repository에 등록하고, clone 전에 connection test를 수행하면 실패 지점을 분리하기 쉽다.
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- Private key는 절대 repository에 commit하지 않는다.
+- Deploy key는 가능하면 repository별, 환경별로 분리한다.
+- Read-only로 충분하면 write access를 켜지 않는다.
+- Key file은 `chmod 600`, `.ssh` directory는 `chmod 700` 수준으로 제한한다.
+- CI secret에 저장한 private key는 log에 출력되지 않아야 한다.
+- `ssh-keyscan` 결과는 가능하면 공식 fingerprint와 검증해야 한다.
+- 권한이 더 이상 필요 없는 deploy key는 repository settings에서 제거한다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+Key 생성:
 
 ```bash
-# ~/.ssh/config
+ssh-keygen -t ed25519 -C "deploy-key-project" -f ~/.ssh/id_deploy_project
+chmod 600 ~/.ssh/id_deploy_project
+cat ~/.ssh/id_deploy_project.pub
+```
 
-# === Production Server ===
-# 프론트엔드 (읽기 전용)
-Host github-prod-frontend
+SSH config:
+
+```sshconfig
+Host github-project
     HostName github.com
     User git
-    IdentityFile ~/.ssh/id_deploy_prod_frontend
-    IdentitiesOnly yes
-
-# 백엔드 (읽기 전용)
-Host github-prod-backend
-    HostName github.com
-    User git
-    IdentityFile ~/.ssh/id_deploy_prod_backend
-    IdentitiesOnly yes
-
-# === 공통 설정 ===
-Host github.com
-    AddKeysToAgent yes
+    IdentityFile ~/.ssh/id_deploy_project
     IdentitiesOnly yes
 ```
 
-## CI/CD 환경 설정
-
-### GitHub Actions
-
-```yaml
-# .github/workflows/deploy.yml
-name: Deploy
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Setup SSH
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_KEY }}
-        run: |
-          mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
-          
-      - name: Clone and Deploy
-        run: |
-          GIT_SSH_COMMAND="ssh -i ~/.ssh/deploy_key" git clone git@github.com:org/repo.git
-```
-
-### GitLab CI
-
-```yaml
-# .gitlab-ci.yml
-deploy:
-  stage: deploy
-  before_script:
-    - eval $(ssh-agent -s)
-    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
-    - mkdir -p ~/.ssh
-    - chmod 700 ~/.ssh
-    - ssh-keyscan github.com >> ~/.ssh/known_hosts
-  script:
-    - git clone git@github.com:org/repo.git
-```
-
-## 연결 테스트
+Clone:
 
 ```bash
-# 특정 호스트 별칭으로 연결 테스트
-ssh -T git@github-frontend
-
-# 디버그 모드로 문제 진단
-ssh -vT git@github-frontend
-
-# 에이전트에 키 추가 확인
-ssh-add -l
+ssh -T git@github-project
+git clone git@github-project:owner/repository.git
 ```
 
-예상 출력:
-```
-Hi username/repo-name! You've successfully authenticated, but GitHub does not provide shell access.
-```
+이 예제는 repository settings에는 public key만 등록하고, 서버에는 private key와 SSH alias만 두는 최소 구성을 보여준다.
 
-## 보안 모범 사례
+## 9. 실패 사례 (What could go wrong?)
 
-!!! danger "비공개 키 보호"
-    - 비공개 키를 절대 공유하거나 커밋하지 마세요
-    - 키 파일 권한: `chmod 600 ~/.ssh/id_*`
-    - 정기적으로 키 교체 (6-12개월)
+- 개인 SSH key를 production server에 복사해 계정 전체 repository 접근권을 노출한다.
+- 하나의 deploy key를 여러 환경에서 공유해 사고 발생 시 영향 범위를 좁히지 못한다.
+- Write access를 불필요하게 켜서 배포 서버가 repository를 push할 수 있게 된다.
+- SSH agent가 다른 key를 먼저 제시해 인증이 실패한다.
+- `known_hosts` 검증 없이 자동으로 host key를 신뢰해 MITM 탐지 기회를 잃는다.
+- CI log에 private key 또는 clone URL secret이 출력된다.
 
-!!! tip "최소 권한 원칙"
-    - 읽기 전용이 충분한 경우 쓰기 권한 부여 금지
-    - 각 서버/환경별로 별도의 Deploy Key 사용
-    - 사용하지 않는 키는 즉시 제거
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-### 키 관리 체크리스트
+- GitHub Actions에서는 repository secret 또는 environment secret에 private key를 저장한다.
+- 여러 repository를 한 서버에서 clone할 때는 host alias를 repository별로 분리한다.
+- 배포가 push를 요구하지 않는다면 read-only deploy key와 pull-based deployment를 우선한다.
+- 더 넓은 자동화가 필요하면 deploy key 대신 GitHub App, machine user, fine-grained token을 비교한다.
+- Related: [Git 브랜치 관리](./branch-management.md), [삭제 복구](./restore-deletion.md)
 
-- [ ] 각 저장소별 별도의 Deploy Key 생성
-- [ ] 의미 있는 키 이름 사용
-- [ ] 필요한 최소 권한만 부여
-- [ ] `~/.ssh/config`에 호스트 별칭 설정
-- [ ] 키 파일 권한 확인 (600)
-- [ ] 연결 테스트 완료
-- [ ] 비공개 키 백업 (안전한 위치)
+## 11. 최종 체크리스트 (Definition of Done)
 
-## 문제 해결
+- [x] Deploy Key와 개인 SSH key의 권한 범위 차이를 정리했다.
+- [x] Key 생성, public key 등록, SSH config, clone 테스트 흐름을 설명했다.
+- [x] CI/CD private key 주입과 known_hosts 검증 주의점을 포함했다.
+- [x] 최소 권한, key rotation, write access 위험을 불변식으로 명시했다.
+- [x] 원문 deploy key 문서를 12개 섹션 템플릿으로 재작성했다.
 
-### 권한 거부 오류
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-```bash
-# 키 파일 권한 확인
-ls -la ~/.ssh/
-
-# 올바른 권한 설정
-chmod 700 ~/.ssh
-chmod 600 ~/.ssh/id_*
-chmod 644 ~/.ssh/*.pub
-chmod 644 ~/.ssh/config
-```
-
-### 잘못된 키 사용
-
-```bash
-# SSH가 사용하는 키 확인
-ssh -vT git@github-frontend 2>&1 | grep "Offering"
-
-# SSH 에이전트 초기화 후 특정 키만 추가
-ssh-add -D
-ssh-add ~/.ssh/id_deploy_frontend
-```
-
-## 관련 문서
-
-- [SSH 설정](../../security/ssh/configuration.md)
-- [Git 브랜치 관리](./branch-management.md)
+Deploy Key는 배포 자동화에 필요한 Git 접근권을 사용자 계정 전체가 아니라 특정 repository 하나로 줄이는 장치다.

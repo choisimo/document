@@ -1,461 +1,141 @@
-# Computer Architecture Internals: From Gates to Pipeline Hazards
+# Computer Architecture Internals 학습 및 기록 노트
 
-> **Under the Hood** — How instructions flow through pipeline stages, how caches exploit spatial/temporal locality, how memory hierarchies hide latency, and how multiprocessors maintain coherence. Sources: *Computer Organization and Architecture* (Stallings, 9th ed.), *The Architecture of Computer Hardware, System Software, and Networking* (Englander), *Digital Logic and Computer Design* (Mano), *PC Hardware: A Beginner's Guide*, *Code: The Hidden Language of Computer Hardware and Software* (Petzold).
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
----
+소프트웨어 성능 문제는 종종 코드가 아니라 하드웨어 상태 전이에서 발생한다. pipeline hazard, cache miss, TLB miss, branch misprediction, memory ordering, DMA, interrupt, floating point rounding은 모두 코드 한 줄 아래에서 실행 시간을 결정한다.
 
-## 1. Instruction Pipeline: The 5-Stage RISC Model
+이 문서는 원문의 컴퓨터 아키텍처 내부 설명을 CPU pipeline에서 memory hierarchy, virtual memory, out-of-order execution, cache coherence까지 한 흐름으로 재작성한다.
 
-The fundamental insight of pipelining: while one instruction executes, the next is being decoded, and the one after is being fetched. Throughput approaches 1 instruction/cycle asymptotically.
+## 2. 현재 나의 상태 (Baseline)
 
-```mermaid
-flowchart LR
-    subgraph CYCLE_1["Clock Cycle 1"]
-        IF1["IF\nInstr 1"]
-    end
-    subgraph CYCLE_2["Clock Cycle 2"]
-        ID2["ID\nInstr 1"]
-        IF2["IF\nInstr 2"]
-    end
-    subgraph CYCLE_3["Clock Cycle 3"]
-        EX3["EX\nInstr 1"]
-        ID3["ID\nInstr 2"]
-        IF3["IF\nInstr 3"]
-    end
-    subgraph CYCLE_4["Clock Cycle 4"]
-        MEM4["MEM\nInstr 1"]
-        EX4["EX\nInstr 2"]
-        ID4["ID\nInstr 3"]
-        IF4["IF\nInstr 4"]
-    end
-    subgraph CYCLE_5["Clock Cycle 5"]
-        WB5["WB\nInstr 1"]
-        MEM5["MEM\nInstr 2"]
-        EX5["EX\nInstr 3"]
-        ID5["ID\nInstr 4"]
-        IF5["IF\nInstr 5"]
-    end
-    CYCLE_1 --> CYCLE_2 --> CYCLE_3 --> CYCLE_4 --> CYCLE_5
-```
+- CPU가 instruction을 fetch/decode/execute한다는 수준은 알고 있다.
+- cache hierarchy와 locality 개념은 알고 있지만 set/way/tag, miss penalty, TLB walk를 세부 흐름으로 설명하는 데 약하다.
+- pipeline hazard와 forwarding, branch prediction의 관계를 다시 정리해야 한다.
+- out-of-order execution, reorder buffer, register renaming은 이름은 알지만 상태 기계로 설명하기 어렵다.
+- MESI, DMA, interrupt, RISC/CISC, IEEE 754를 개별 개념이 아니라 실행 경로의 일부로 연결해야 한다.
 
-### Pipeline Register Content Between Stages
+## 3. 도달하고 싶은 목표 (Target State)
 
-```mermaid
-flowchart LR
-    PC["PC\nProgram Counter"] --> IF_STAGE["IF Stage\nInstruction Memory\nPC → IR"]
-    IF_STAGE --> IF_ID["IF/ID\nRegister\nIR, PC+4"]
-    IF_ID --> ID_STAGE["ID Stage\nRegister File Read\nControl Signal Decode"]
-    ID_STAGE --> ID_EX["ID/EX\nRegister\nRS, RT, Imm,\nControl bits"]
-    ID_EX --> EX_STAGE["EX Stage\nALU Operation\nAddress Calc"]
-    EX_STAGE --> EX_MEM["EX/MEM\nRegister\nALU_result,\nBranch target,\nZero flag"]
-    EX_MEM --> MEM_STAGE["MEM Stage\nData Memory\nLoad/Store"]
-    MEM_STAGE --> MEM_WB["MEM/WB\nRegister\nRead data,\nALU result"]
-    MEM_WB --> WB_STAGE["WB Stage\nWrite to\nRegister File"]
-```
+- instruction이 pipeline stage와 pipeline register를 거쳐 완료되는 흐름을 설명한다.
+- data/control/structural hazard와 stall, forwarding, branch prediction의 해결 방식을 구분한다.
+- cache hit/miss, TLB hit/miss, page fault의 비용 차이를 추적한다.
+- OoO 실행에서 rename, reservation station, ROB, in-order retire의 역할을 설명한다.
+- multicore에서 MESI protocol이 cache line 소유권을 어떻게 전이시키는지 이해한다.
 
----
-
-## 2. Pipeline Hazards: Data, Control, Structural
-
-### Data Hazard: RAW (Read After Write)
-
-```mermaid
-sequenceDiagram
-    participant IF
-    participant ID
-    participant EX
-    participant MEM
-    participant WB
-
-    Note over IF,WB: ADD R1, R2, R3 — writes R1 in WB (cycle 5)
-    Note over IF,WB: SUB R4, R1, R5 — reads R1 in ID (cycle 3) ← STALE!
-
-    rect rgb(80, 20, 20)
-        Note over ID: Read R1 before ADD writes it
-        Note over ID: RAW Hazard detected
-    end
-    
-    Note over IF,WB: STALL: Insert 2 bubble NOPs
-    Note over IF,WB: OR: Forwarding from EX/MEM → EX input
-```
-
-**Forwarding (bypassing) paths:**
+## 4. 시스템 번역 (Data Flow)
 
 ```mermaid
 flowchart TD
-    EX_MEM_REG["EX/MEM Register\nALU_result (from ADD)"] -->|"Forward to EX input"| MUX_A["MUX A\nEX stage ALU input"]
-    MEM_WB_REG["MEM/WB Register\nALU_result or Mem_data"] -->|"Forward to EX input"| MUX_A
-    REG_FILE["Register File\nNormal read path"] --> MUX_A
-    MUX_A --> ALU["ALU\nCurrent instruction"]
-    HAZARD_UNIT["Hazard Detection Unit\nCompares EX/MEM.Rd, MEM/WB.Rd\nwith ID/EX.Rs, ID/EX.Rt"] -->|"ForwardA, ForwardB\nselect signals"| MUX_A
+    A[Instruction stream] --> B[Fetch]
+    B --> C[Decode/Rename]
+    C --> D[Issue/Execute]
+    D --> E{Memory access?}
+    E -->|예| F[TLB + Cache hierarchy]
+    E -->|아니오| G[ALU/FPU result]
+    F --> H[ROB commit]
+    G --> H
+    H --> I[Architectural state update]
 ```
 
-### Control Hazard: Branch Penalty
+아키텍처 관점에서 프로그램은 명령어 stream이고, microarchitecture 관점에서 프로그램은 pipeline stage와 memory hierarchy를 통과하는 상태 전이다.
+
+## 5. 핵심 구성요소 (Building Blocks)
+
+| 구성요소 | 역할 | 핵심 상태 |
+| --- | --- | --- |
+| IF/ID/EX/MEM/WB | 5-stage pipeline의 기본 단계 | 각 stage 사이 pipeline register |
+| Forwarding unit | RAW hazard 완화 | 이전 stage 결과를 EX input으로 우회 |
+| Branch predictor | control hazard 완화 | branch history와 target cache |
+| Set-associative cache | locality를 이용한 빠른 메모리 | tag/index/offset, valid bit, replacement state |
+| TLB | virtual->physical translation cache | VPN -> PPN mapping과 권한 bit |
+| Page table | 가상 주소 매핑 원장 | PTE present/RW/user/NX bit |
+| Reorder Buffer | OoO 결과를 순서대로 commit | in-flight instruction entry |
+| Register renaming | WAR/WAW hazard 제거 | architectural register -> physical register |
+| MESI protocol | cache coherence 유지 | Modified/Exclusive/Shared/Invalid 상태 |
+| DMA | CPU를 거치지 않는 장치-메모리 전송 | descriptor, bus master, completion interrupt |
+| IEEE 754 | 부동소수점 표현과 rounding | sign/exponent/mantissa, special values |
+
+## 6. 상태 전이 (State Transition)
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Fetch_Branch: BEQ instruction fetched
-    Fetch_Branch --> Decode_Branch: Pipeline progresses
-    Decode_Branch --> Evaluate_Branch: EX stage - compute condition
-    Evaluate_Branch --> Branch_Taken: Zero=1, jump to target
-    Evaluate_Branch --> Branch_Not_Taken: Zero=0, continue
-    Branch_Taken --> Flush_2: Flush 2 instructions already fetched
-    Branch_Not_Taken --> Continue: No flush needed
-    Flush_2 --> [*]: 2-cycle branch penalty
+    [*] --> Fetch
+    Fetch --> Decode
+    Decode --> Execute
+    Execute --> Memory: load/store
+    Execute --> WriteBack: ALU/FPU result
+    Memory --> TLBCheck
+    TLBCheck --> CacheCheck: TLB hit
+    TLBCheck --> PageWalk: TLB miss
+    PageWalk --> PageFault: PTE not present
+    PageWalk --> CacheCheck: translation found
+    CacheCheck --> WriteBack
+    WriteBack --> Commit
+    Commit --> [*]
 ```
 
-**Branch prediction strategies:**
+단순한 load instruction도 실제로는 TLB lookup, cache tag compare, miss handling, possible page fault를 거칠 수 있다.
 
-```mermaid
-flowchart TD
-    subgraph STATIC["Static Prediction"]
-        ST1["Predict not-taken\nAlways fall through\nAccuracy: ~50%"]
-        ST2["Predict backward taken\nForward not taken\nLoop optimization\nAccuracy: ~65%"]
-    end
-    subgraph DYNAMIC["Dynamic Prediction (BTB + BHT)"]
-        BTB["Branch Target Buffer\nPC-indexed cache\nStores target address"]
-        BHT["Branch History Table\n2-bit saturating counter\n00=strong NT, 11=strong T"]
-        PHT["Pattern History Table\nGlobal/local history shift reg\nMaps history→prediction"]
-        BTB --> BHT --> PHT
-    end
-    subgraph TOURNAMENT["Tournament Predictor (modern)"]
-        LOCAL["Local predictor\nPer-branch history"]
-        GLOBAL["Global predictor\nGlobal history register"]
-        META["Meta-predictor\nChooses which to trust"]
-        LOCAL --> META
-        GLOBAL --> META
-    end
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- Pipeline은 data dependency가 해결되지 않은 값을 읽으면 안 된다.
+- Forwarding은 정확한 producer instruction의 최신 값을 consumer에게 전달해야 한다.
+- Branch misprediction이 감지되면 잘못 fetch된 instruction은 architectural state를 변경하면 안 된다.
+- Cache hit는 tag match와 valid bit가 모두 참이어야 한다.
+- Page table 권한 bit는 user/kernel, read/write, execute 권한을 위반하면 fault를 발생시켜야 한다.
+- OoO 실행은 out-of-order로 실행해도 commit은 program order를 지켜야 한다.
+- MESI에서 같은 cache line을 여러 core가 동시에 Modified 상태로 보유하면 안 된다.
+- DMA는 OS가 지정한 buffer 범위를 벗어나 메모리를 쓰면 안 된다.
+- IEEE 754 연산은 선택된 rounding mode와 NaN/Inf 규칙을 지켜야 한다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+```text
+1: ADD R1, R2, R3
+2: SUB R4, R1, R5
 ```
-
----
-
-## 3. Cache Architecture: SRAM Sets, Ways, Tags
-
-```mermaid
-flowchart TD
-    subgraph CACHE_STRUCT["4-Way Set-Associative Cache"]
-        INDEX["Address bits [11:6]\nIndex → Select set (64 sets)"]
-        TAG_BITS["Address bits [31:12]\nTag → Compare all 4 ways"]
-        OFFSET["Address bits [5:0]\nBlock offset (64B line)"]
-        
-        subgraph SET_N["Set N (4 ways)"]
-            W0["Way 0\nValid | Tag | Data[64B]"]
-            W1["Way 1\nValid | Tag | Data[64B]"]
-            W2["Way 2\nValid | Tag | Data[64B]"]
-            W3["Way 3\nValid | Tag | Data[64B]"]
-        end
-        
-        INDEX --> SET_N
-        TAG_BITS -->|"Compare"| W0 & W1 & W2 & W3
-        
-        HIT["Tag match + Valid\n= Cache Hit\nReturn data[offset]"]
-        MISS["No match\n= Cache Miss\nFetch from L2/L3/DRAM"]
-        W0 & W1 & W2 & W3 --> HIT
-        W0 & W1 & W2 & W3 --> MISS
-    end
-```
-
-### Cache Miss Penalty and Memory Hierarchy
-
-```mermaid
-flowchart LR
-    CPU["CPU\nRegisters\n~0 cycles"]
-    L1["L1 Cache\n32KB I + 32KB D\n4 cycles\nSRAM"]
-    L2["L2 Cache\n256KB unified\n12 cycles\nSRAM"]
-    L3["L3 Cache\n8MB shared\n40 cycles\nSRAM"]
-    DRAM["Main Memory\nDRAM\n100-300 cycles\n4ns access + tRCD + tCL"]
-    DISK["NVMe SSD\n50-100µs\nor HDD: 5-10ms"]
-    
-    CPU -->|"L1 hit 95%"| L1
-    L1 -->|"L1 miss → L2"| L2
-    L2 -->|"L2 miss → L3"| L3
-    L3 -->|"LLC miss → DRAM"| DRAM
-    DRAM -->|"Page fault → Disk"| DISK
-```
-
-### DRAM Timing Internals: Why Access is 100+ Cycles
 
 ```mermaid
 sequenceDiagram
-    participant CPU
-    participant MC as Memory Controller
-    participant DRAM
+    participant ADD as ADD pipeline
+    participant SUB as SUB pipeline
+    participant FWD as Forwarding Unit
 
-    CPU->>MC: Read address 0x1A2B3C4D
-    MC->>DRAM: ACTIVATE (RAS): Row 0x1A2B (tRCD=14ns)
-    Note over DRAM: Charge sense amplifiers latch row into row buffer
-    MC->>DRAM: READ (CAS): Column 0x3C (CL=14ns)
-    Note over DRAM: Column amplifiers drive data onto bus
-    DRAM-->>MC: Data burst (8 transfers × 8B = 64B cache line)
-    MC-->>CPU: Cache line loaded (total ~100ns = ~400 cycles @ 4GHz)
-    MC->>DRAM: PRECHARGE (tRP=14ns): Close row, restore sense amps
+    ADD->>ADD: EX stage에서 R1 결과 생성
+    SUB->>SUB: EX stage에서 R1 필요
+    FWD->>SUB: ADD 결과를 register write-back 전에 전달
+    SUB->>SUB: forwarded R1로 ALU 실행
 ```
 
----
+이 예제는 pipeline 성능의 핵심을 보여준다. register file에 아직 쓰이지 않은 값을 forwarding path로 전달하면 stall 없이 RAW hazard를 해결할 수 있다.
 
-## 4. Virtual Memory: TLB, Page Tables, Page Faults
+## 9. 실패 사례 (What could go wrong?)
 
-```mermaid
-flowchart TD
-    subgraph VA_TRANSLATION["Virtual Address Translation (x86-64 4-level paging)"]
-        VA["Virtual Address\n[63:48] sign extend\n[47:39] PML4 index\n[38:30] PDP index\n[29:21] PD index\n[20:12] PT index\n[11:0] page offset"]
-        CR3["CR3 register\nPhysical addr of PML4"]
-        PML4["PML4 Table\nPhysical page, 512 entries"]
-        PDP["PDP Table\nPhysical page, 512 entries"]
-        PD["Page Directory\nPhysical page, 512 entries"]
-        PT["Page Table\nPTE: Physical addr\n+ Present/RW/User/NX bits"]
-        PHYS["Physical Address\nPT.physical_page + offset"]
-        CR3 --> PML4
-        VA --> PML4 --> PDP --> PD --> PT --> PHYS
-    end
-    subgraph TLB["TLB (Translation Lookaside Buffer)"]
-        TLB_ENTRY["Fully associative SRAM\nVPN → PPN + flags\n~64 L1-TLB entries\n~1024 L2-TLB entries"]
-        TLB_HIT["TLB Hit\n~1 cycle"]
-        TLB_MISS["TLB Miss\nHardware Page Table Walk\n~100 cycles + DRAM accesses"]
-        TLB_ENTRY --> TLB_HIT
-        TLB_ENTRY --> TLB_MISS
-    end
-```
+- Forwarding 조건을 놓치면 stale register 값을 읽어 잘못된 결과를 만든다.
+- Branch misprediction flush가 누락되면 잘못된 경로의 store나 register write가 commit될 수 있다.
+- Cache locality를 무시한 random access는 L1/L2 hit rate를 떨어뜨리고 DRAM latency를 드러낸다.
+- TLB miss가 많은 workload는 cache hit가 높아도 page table walk 비용 때문에 느려질 수 있다.
+- Recursive 또는 pointer-heavy 구조는 cache line을 잘 활용하지 못해 theoretical complexity보다 느릴 수 있다.
+- MESI invalidation storm은 false sharing에서 성능 병목을 만든다.
+- Floating point를 정수처럼 비교하면 NaN, rounding, denormal 때문에 예상과 다른 결과가 나온다.
 
-### Page Fault Handler Flow
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-```mermaid
-sequenceDiagram
-    participant CPU
-    participant MMU
-    participant OS as OS Kernel
-    participant DISK
+- Pipeline은 superscalar issue, speculative execution, branch prediction, micro-op cache로 확장된다.
+- Cache는 inclusive/exclusive policy, write-back/write-through, prefetcher, victim cache까지 비교한다.
+- Virtual memory는 huge page, copy-on-write, page cache, memory-mapped file과 연결된다.
+- OoO는 ROB 크기, reservation station, load/store queue, memory disambiguation이 성능 한계를 만든다.
+- Multicore는 MESI뿐 아니라 memory consistency model, fences, atomic operation까지 함께 봐야 한다.
+- I/O는 polling, interrupt, DMA, MSI-X, NVMe queue pair 구조로 확장된다.
 
-    CPU->>MMU: Access virtual address VA
-    MMU->>MMU: TLB miss → page table walk
-    MMU->>MMU: PTE.Present = 0 → Page Not Present
-    MMU->>CPU: #PF Page Fault Exception (vector 14)
-    CPU->>OS: Save context, enter kernel mode
-    OS->>OS: Find VMA for VA (is access legal?)
-    OS->>DISK: Read page from swap/file (blocking I/O)
-    DISK-->>OS: Page data loaded
-    OS->>OS: Allocate physical frame
-    OS->>OS: Update PTE: physical addr + Present=1
-    OS->>MMU: TLB shootdown (INVLPG)
-    OS->>CPU: Return from exception, retry instruction
-```
+## 11. 최종 체크리스트 (Definition of Done)
 
----
+- [x] Pipeline stage, hazard, forwarding, branch prediction을 상태 전이로 정리했다.
+- [x] Cache, TLB, page table, page fault의 역할과 비용 차이를 분리했다.
+- [x] OoO 실행의 rename, ROB, commit 규칙을 포함했다.
+- [x] MESI, DMA, RISC/CISC, IEEE 754를 핵심 구성요소로 정리했다.
+- [x] RAW hazard 최소 예제로 forwarding의 필요성을 설명했다.
 
-## 5. CPU Microarchitecture: Out-of-Order Execution Internals
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-```mermaid
-flowchart TD
-    subgraph FRONTEND["Front End"]
-        FETCH["Fetch Unit\nI-cache line\n→ 4-8 instructions"]
-        DECODE["Decode Unit\nx86 → micro-ops (µops)\n1 CISC → 1-4 µops"]
-        RENAME["Register Rename\nPhysical RF (168 entries)\nEliminate WAR/WAW hazards\nROB allocation"]
-    end
-    subgraph BACKEND["Back End (OoO Engine)"]
-        ROB["Reorder Buffer (ROB)\nCircular queue\nIn-order commit\n~224 entries"]
-        RS["Reservation Stations\n~97 entries\nWait for operands"]
-        DISPATCH["Dispatch\nIssue µops to\nexecution units\nwhen operands ready"]
-        subgraph EXEC_UNITS["Execution Units"]
-            ALU1["ALU 0\nInteger"]
-            ALU2["ALU 1\nInteger"]
-            FPU["FPU\nFloating Point\nAVX/SSE"]
-            LOAD["Load Unit\nD-cache read"]
-            STORE["Store Unit\nStore buffer"]
-        end
-    end
-    FETCH --> DECODE --> RENAME --> ROB & RS
-    RS --> DISPATCH --> EXEC_UNITS
-    EXEC_UNITS -->|"Complete\nWrite result"| ROB
-    ROB -->|"In-order retire\nCommit to ARF"| ARF["Architectural\nRegister File"]
-```
-
----
-
-## 6. Multiprocessor Cache Coherence: MESI Protocol
-
-```mermaid
-stateDiagram-v2
-    [*] --> Invalid: Cache line not cached
-    
-    Invalid --> Exclusive: Local read miss\nLoad from memory\nNo other caches have it
-    Invalid --> Shared: Local read miss\nAnother cache also has it
-    Invalid --> Modified: Local write miss\nInvalidate others\nOwn copy exclusively
-    
-    Exclusive --> Modified: Local write\nNo bus transaction needed
-    Exclusive --> Shared: Another CPU reads\nDowngrade to Shared
-    Exclusive --> Invalid: Another CPU writes\nBus invalidation
-    
-    Shared --> Modified: Local write\nBus invalidates others\nBecome sole owner
-    Shared --> Invalid: Another CPU writes\nBus invalidation
-    
-    Modified --> Invalid: Another CPU reads/writes\nWrite-back to memory first\nThen transition
-    Modified --> Shared: Another CPU reads\nWrite-back to memory\nShare clean copy
-```
-
-### Cache Coherence Bus Snooping
-
-```mermaid
-sequenceDiagram
-    participant CPU0
-    participant BUS as Shared Bus / Interconnect
-    participant CPU1
-    participant MEM as Main Memory
-
-    Note over CPU0,CPU1: CPU0 holds M state for cache line A
-    
-    CPU1->>BUS: BusRd (Read) for line A
-    CPU0->>BUS: Snoop: see BusRd for MY Modified line
-    CPU0->>MEM: Write-back modified data (M→I or M→S)
-    MEM-->>CPU1: Supply clean data
-    Note over CPU0,CPU1: Both now in S state
-    
-    CPU0->>BUS: BusRdX (Read Exclusive / Write intent)
-    BUS->>CPU1: Invalidation signal
-    CPU1->>CPU1: Transition S→I
-    MEM-->>CPU0: Supply data (exclusive)
-    Note over CPU0: CPU0 in E state, free to write → M
-```
-
----
-
-## 7. I/O Architecture: DMA, Interrupts, and Bus Protocols
-
-```mermaid
-flowchart TD
-    subgraph CPU_SIDE["CPU + Memory Side"]
-        CPU2["CPU Core"]
-        NORTH["Northbridge / MCH\nMemory Controller Hub"]
-        DRAM2["DRAM\nDIMM Slots"]
-    end
-    subgraph IO_SIDE["I/O Side"]
-        PCIE["PCIe Root Complex\nGen 4: 16 GT/s per lane\nx16 = 32 GB/s"]
-        SOUTH["Southbridge / ICH\nI/O Controller Hub"]
-        USB["USB 3.0\n5 Gbps"]
-        SATA["SATA / NVMe\nStorage"]
-        GBE["Gigabit Ethernet\n125 MB/s"]
-    end
-    CPU2 <--> NORTH
-    NORTH <--> DRAM2
-    NORTH <--> PCIE
-    PCIE <--> SOUTH
-    SOUTH <--> USB & SATA & GBE
-    subgraph DMA_FLOW["DMA Transfer Flow"]
-        DRV["Device Driver\nPrograms DMA descriptor:\nsrc addr, dst addr, length"]
-        DMAC["DMA Controller\nMaster on bus\nDirectly writes to DRAM"]
-        IRQ["Interrupt to CPU\nTransfer complete\nCPU picks up result"]
-        DRV --> DMAC --> DRAM2 --> IRQ --> CPU2
-    end
-```
-
----
-
-## 8. RISC vs. CISC: Decode Complexity Tradeoff
-
-```mermaid
-flowchart LR
-    subgraph CISC["CISC (x86)"]
-        C_INSTR["Variable-length instructions\n1-15 bytes\nMany addressing modes\nMemory operands allowed"]
-        C_DECODE["Complex Decoder\nMicrocode ROM\nCISC → µops translation\n4-6 decoder stages"]
-        C_UOPS["Internal µops\nRISC-like 3-operand\nHomogeneous execution"]
-        C_INSTR --> C_DECODE --> C_UOPS
-    end
-    subgraph RISC["RISC (ARM/MIPS/RISC-V)"]
-        R_INSTR["Fixed-length instructions\n32 bits (most)\nLoad/store architecture\nRegister operands only"]
-        R_DECODE["Simple Decoder\n1-2 cycles\nDirect to execution"]
-        R_EXEC["Execution Units\nDirectly execute\ndecoded instruction"]
-        R_INSTR --> R_DECODE --> R_EXEC
-    end
-    NOTE["Modern x86 CPUs internally\noperate as RISC µop machines\n— CISC is a compatibility\nencoding layer on top"]
-```
-
----
-
-## 9. Floating Point: IEEE 754 Internal Representation
-
-```mermaid
-flowchart LR
-    subgraph FP32["32-bit Float (single)"]
-        SIGN["Bit 31\nSign (1=neg)"]
-        EXP["Bits 30-23\n8-bit exponent\nBias=127"]
-        MANT["Bits 22-0\n23-bit mantissa\nImplied leading 1"]
-    end
-    subgraph FP64["64-bit Double"]
-        SIGN2["Bit 63\nSign"]
-        EXP2["Bits 62-52\n11-bit exponent\nBias=1023"]
-        MANT2["Bits 51-0\n52-bit mantissa"]
-    end
-    subgraph SPECIAL["Special Values"]
-        INF["Exponent=all 1s\nMantissa=0\n→ ±Infinity"]
-        NAN["Exponent=all 1s\nMantissa≠0\n→ NaN (quiet/signaling)"]
-        DENORM["Exponent=0\nMantissa≠0\n→ Denormalized\n(near-zero precision)"]
-        ZERO["Exponent=0\nMantissa=0\n→ ±0"]
-    end
-```
-
-### FPU Pipeline: Fused Multiply-Add (FMA)
-
-```mermaid
-flowchart LR
-    A["Operand A\nExponent + Mantissa"] --> ALIGN["Exponent\nAlignment\nRight-shift smaller"]
-    B["Operand B"] --> MULTIPLY["Mantissa\nMultiply\n53×53 bit product"]
-    C["Operand C"] --> ALIGN
-    ALIGN --> ADDER["105-bit\nAdder"]
-    MULTIPLY --> ADDER
-    ADDER --> NORMALIZE["Normalize\nLeading 1\nShift left/right"]
-    NORMALIZE --> ROUND["Round\nRTZ/RNE/RUP/RDN\n(IEEE 754 modes)"]
-    ROUND --> RESULT["Result\nIEEE 754 float"]
-```
-
----
-
-## 10. Computer Architecture Design Principles (Patterson & Hennessy)
-
-```mermaid
-mindmap
-    root((Architecture Design Principles))
-        Simplicity
-            Fixed instruction length
-            Regularity in ISA
-            Favor 3-register format
-        Common Case
-            Optimize frequent operations
-            Not the worst case
-            SPEC benchmarks guide
-        Smaller = Faster
-            Fewer registers → faster
-            Smaller caches → lower latency
-            But miss rate increases
-        Good Design
-            Compromise when needed
-            Branch delay slots
-            MIPS: filled by compiler
-        Parallelism
-            Instruction-level pipelining
-            Data-level SIMD
-            Thread-level multicore
-        Locality
-            Temporal: reuse recently accessed
-            Spatial: access nearby addresses
-            Cache exploits both
-```
-
----
-
-## 11. Modern CPU Microarchitecture Numbers (Intel Ice Lake / AMD Zen 3)
-
-| Resource | Intel Ice Lake | AMD Zen 3 |
-|----------|----------------|-----------|
-| ROB entries | 352 | 256 |
-| Reservation stations | 160 | 128 |
-| Physical int registers | 280 | 192 |
-| L1-I cache | 32KB, 8-way | 32KB, 8-way |
-| L1-D cache | 48KB, 12-way | 32KB, 8-way |
-| L2 cache | 512KB, 16-way | 512KB, 8-way |
-| L3 cache | 12MB, 12-way | 32MB, 16-way |
-| Decode width | 5-wide | 4-wide (up to 6 µops) |
-| Branch predictor | TAGE-based | Hybrid TAGE |
-| FMA latency | 4 cycles | 4 cycles |
-| L1-D latency | 5 cycles | 4 cycles |
-| DRAM latency | ~70ns | ~70ns |
-
-The relentless improvement in out-of-order window size (ROB, RS, physical registers) is the primary lever for extracting ILP from sequential code — every doubling of ROB size exposes more parallelism across loop iterations, function calls, and independent statement sequences.
+컴퓨터 아키텍처는 명령어가 실제 하드웨어 상태를 통과하는 경로다. 성능을 이해하려면 코드보다 pipeline, cache, TLB, coherence 상태를 함께 봐야 한다.

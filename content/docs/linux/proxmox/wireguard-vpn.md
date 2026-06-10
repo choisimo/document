@@ -1,111 +1,260 @@
- -+WG-Easy 기반 WireGuard VPN 서버 구축 가이드WG-Easy는 Docker를 기반으로 동작하며, 직관적인 웹 UI를 통해 WireGuard 서버와 클라이언트(피어)를 매우 쉽게 관리할 수 있게 해주는 도구입니다.1단계: 사전 준비 (WireGuard 서버에서 실행)두 대의 우분투 서버(하나는 서버, 하나는 클라이언트 역할)가 준비되어 있고, 각 서버에 sudo 권한이 있는 사용자로 접속할 수 있어야 합니다.시스템 패키지 업데이트 및 Docker 설치# 시스템 패키지 목록을 최신 상태로 업데이트
-sudo apt update && sudo apt upgrade -y
+# Proxmox 환경 WireGuard VPN
 
-# Docker 설치에 필요한 패키지 설치
-sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
+이 문서는 Proxmox 환경에서 WireGuard VPN을 운영할 때 `wg-easy`를 별도 VM 또는 LXC에 배치하는 기준을 정리한다. 목표는 VPN 터널 포트와 관리 UI 포트를 분리하고, Proxmox host 방화벽과 guest 방화벽의 책임을 혼동하지 않는 것이다.
 
-# Docker 공식 GPG 키 추가
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-# Docker 저장소 설정
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+WireGuard는 설정이 단순하지만 routing, forwarding, NAT, firewall이 조금만 어긋나도 “연결은 된 것 같은데 통신이 안 되는” 상태가 된다. `wg-easy`는 peer 생성과 QR code 관리가 편하지만 관리 UI를 인터넷에 그대로 노출하면 공격면이 커진다.
 
-# 패키지 목록 다시 업데이트 후 Docker 및 Docker Compose 설치
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+Proxmox host에 직접 VPN stack을 얹으면 가상화 host의 네트워크와 방화벽을 건드리게 된다. 가능하면 전용 VM 또는 LXC에 넣어 책임 경계를 분리하는 편이 안전하다.
 
-WG-Easy 설정 디렉토리 생성WG-Easy의 설정 파일(docker-compose.yml)을 저장할 디렉토리를 만듭니다.mkdir ~/wg-easy
-cd ~/wg-easy
+## 2. 현재 나의 상태 (Baseline)
 
-2단계: WG-Easy 설정 및 실행 (WireGuard 서버)docker-compose.yml 파일을 생성하여 WG-Easy 실행 환경을 정의합니다.docker-compose.yml 파일 작성nano docker-compose.yml 명령어로 편집기를 열고 아래 내용을 붙여넣습니다.version: "3.8"
+기존 문서는 Ubuntu 서버에 Docker와 `wg-easy`를 설치하고 TCP/UDP 51821을 모두 여는 흐름을 설명한다. 보완해야 할 점은 다음과 같다.
+
+- `wg-easy` v15의 setup 방식과 오래된 environment 방식이 섞일 수 있다.
+- Web UI port를 public으로 여는 전제가 위험하다.
+- WireGuard tunnel UDP port와 UI TCP port가 같은 번호로 섞여 있다.
+- NAT와 forwarding을 UFW에 직접 넣는 방식이 Docker network와 충돌할 수 있다.
+- Proxmox host와 VPN guest의 책임 경계가 분명하지 않다.
+
+## 3. 도달하고 싶은 목표 (Target State)
+
+목표는 다음 상태를 만드는 것이다.
+
+- Proxmox host가 아니라 전용 Linux VM 또는 LXC에서 `wg-easy`를 실행한다.
+- WireGuard UDP port만 외부에 노출한다.
+- 관리 UI는 localhost bind, SSH tunnel, 또는 HTTPS reverse proxy 뒤에 둔다.
+- `wg-easy` setup 화면에서 host와 port를 명시한다.
+- Peer를 생성하고 client에서 handshake를 확인한다.
+- Client routing, DNS, allowed IPs를 의도적으로 설정한다.
+- Backup 대상에 `/etc/wireguard` volume을 포함한다.
+
+## 4. 시스템 번역 (Data Flow)
+
+VPN 연결 흐름은 다음과 같다.
+
+```text
+client WireGuard interface
+  -> UDP endpoint on public IP or domain
+  -> wg-easy container
+  -> WireGuard interface inside container
+  -> Docker and host forwarding
+  -> target network or internet
+```
+
+관리 흐름은 별도다.
+
+```text
+admin browser
+  -> SSH tunnel or HTTPS reverse proxy
+  -> wg-easy web UI
+  -> peer configuration
+  -> downloaded client config
+```
+
+터널 데이터 경로와 관리 UI 경로를 같은 보안 수준으로 취급하면 안 된다.
+
+## 5. 핵심 구성요소 (Building Blocks)
+
+WireGuard UDP port는 실제 VPN packet이 들어오는 endpoint다. 기본 예시는 `51820/udp`를 사용한다.
+
+`wg-easy` Web UI는 peer 생성, QR code, config download를 제공한다. 인터넷에 직접 노출하지 않는 것이 기본이다.
+
+Docker Compose는 container, capability, sysctl, volume, network를 선언한다.
+
+`/etc/wireguard` volume은 peer와 server 설정을 담는 핵심 데이터다. 이 volume을 잃으면 peer 정보를 잃는다.
+
+Proxmox firewall은 host, VM, datacenter level에 규칙이 있을 수 있다. VM 내부 UFW와 Proxmox firewall을 모두 확인해야 한다.
+
+AllowedIPs는 client route 계약이다. `0.0.0.0/0`은 full tunnel이고, 내부 subnet만 넣으면 split tunnel이다.
+
+## 6. 상태 전이 (State Transition)
+
+서버 준비 상태는 다음과 같다.
+
+```text
+VM or LXC created
+  -> Docker installed
+  -> compose file written
+  -> UDP firewall opened
+  -> wg-easy setup completed
+  -> peer created
+  -> client connected
+```
+
+Client 연결 상태는 다음처럼 확인한다.
+
+```text
+config imported
+  -> wg-quick up
+  -> handshake visible
+  -> route installed
+  -> DNS works
+  -> target service reachable
+```
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- Proxmox host 자체에 설치하기보다 전용 VM 또는 LXC를 우선한다.
+- Web UI를 public internet에 평문 HTTP로 열지 않는다.
+- WireGuard UDP port와 Web UI TCP port를 혼동하지 않는다.
+- `wg-easy` image tag와 문서 version을 맞춘다.
+- `/etc/wireguard` volume을 backup 대상에 포함한다.
+- Full tunnel 설정은 client의 기본 route와 DNS를 바꾼다는 점을 확인한다.
+- Proxmox firewall과 guest firewall을 모두 확인한다.
+- Peer config는 secret으로 취급한다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+전용 Ubuntu VM에서 Docker가 동작하는지 확인한다.
+
+```bash
+docker version
+docker compose version
+```
+
+Compose directory를 만든다.
+
+```bash
+sudo mkdir -p /opt/wg-easy
+cd /opt/wg-easy
+```
+
+`docker-compose.yml`을 작성한다. Web UI는 localhost에만 bind한다.
+
+```yaml
+volumes:
+  etc_wireguard:
+
+networks:
+  wg:
+    driver: bridge
+    enable_ipv6: true
+    ipam:
+      driver: default
+      config:
+      - subnet: 10.42.42.0/24
+      - subnet: fdcc:ad94:bacf:61a3::/64
+
 services:
   wg-easy:
-    environment:
-      # 필수: WireGuard 서버의 공인 IP 주소 또는 도메인 주소를 입력하세요.
-      # 클라이언트 설정 파일(.conf)에 이 주소가 자동으로 들어갑니다.
-      - WG_HOST=YOUR_SERVER_PUBLIC_IP
-
-      # 선택: WG-Easy 웹 UI에 접속할 비밀번호를 설정하세요. (설정 권장)
-      - PASSWORD=your_strong_password
-
-      # 선택: 웹 UI 접속 포트 (기본값: 51821/TCP)
-      # - WG_UI_PORT=51821
-
-      # 선택: WireGuard 터널 포트 (기본값: 51820/UDP)
-      # 사용자가 51821을 언급했으므로 51821로 변경해 봅니다.
-      - WG_PORT=51821
-
-      # 선택: 클라이언트가 사용할 DNS 서버 (기본값: 1.1.1.1)
-      # - WG_DEFAULT_DNS=1.1.1.1,1.0.0.1
-
-      # 선택: 클라이언트의 기본 IP 주소 (기본값: 10.2.0.x)
-      # - WG_DEFAULT_ADDRESS=10.8.0.x
-
-    image: ghcr.io/wg-easy/wg-easy
+    image: ghcr.io/wg-easy/wg-easy:15
     container_name: wg-easy
+    networks:
+      wg:
+        ipv4_address: 10.42.42.42
+        ipv6_address: fdcc:ad94:bacf:61a3::2a
     volumes:
-      # 설정 파일 영구 저장을 위한 볼륨 마운트
-      - ./config:/etc/wireguard
+    - etc_wireguard:/etc/wireguard
+    - /lib/modules:/lib/modules:ro
     ports:
-      # {외부 WG 터널 포트}:{내부 WG 터널 포트}/udp
-      - "51821:51821/udp"
-      # {외부 Web UI 포트}:{내부 Web UI 포트}/tcp
-      - "51821:51821/tcp"
+    - "51820:51820/udp"
+    - "127.0.0.1:51821:51821/tcp"
     restart: unless-stopped
     cap_add:
-      - NET_ADMIN
-      - SYS_MODULE
+    - NET_ADMIN
+    - SYS_MODULE
     sysctls:
-      - net.ipv4.ip_forward=1
-      - net.ipv6.conf.all.forwarding=1
+    - net.ipv4.ip_forward=1
+    - net.ipv4.conf.all.src_valid_mark=1
+    - net.ipv6.conf.all.disable_ipv6=0
+    - net.ipv6.conf.all.forwarding=1
+    - net.ipv6.conf.default.forwarding=1
+```
 
-주의: YOUR_SERVER_PUBLIC_IP와 your_strong_password는 반드시 실제 환경에 맞게 수정해야 합니다.WG-Easy 컨테이너 실행docker-compose.yml 파일이 있는 디렉토리(~/wg-easy)에서 아래 명령을 실행합니다.sudo docker compose up -d
+실행한다.
 
-이제 WG-Easy 서버가 백그라운드에서 실행됩니다.3단계: 방화벽 설정 (가장 중요!) (WireGuard 서버)이 단계가 속도 저하 문제를 해결하는 핵심입니다. ufw (Uncomplicated Firewall)를 기준으로 설명합니다.필수 포트 개방SSH 접속 포트 (기본 22/TCP): 원격 접속을 위해 필수입니다.WG-Easy 웹 UI 포트 (51821/TCP): docker-compose.yml에서 설정한 포트입니다.WireGuard 터널 포트 (51821/UDP): docker-compose.yml에서 설정한 포트입니다.# ufw가 비활성화 상태라면 활성화
-sudo ufw enable
+```bash
+sudo docker compose up -d
+sudo docker compose ps
+sudo docker compose logs --tail=100
+```
 
-# 기본 정책 설정 (들어오는 것은 차단, 나가는 것은 허용)
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
+Guest firewall에서는 WireGuard UDP만 연다.
 
-# 포트 개방
-sudo ufw allow 22/tcp
-sudo ufw allow 51821/tcp
-sudo ufw allow 51821/udp
+```bash
+sudo ufw allow 51820/udp
+sudo ufw status verbose
+```
 
-트래픽 전달(Forwarding) 및 NAT 설정클라이언트 트래픽을 서버 밖으로 내보내기 위한 설정입니다.(1) UFW 포워딩 정책 변경/etc/default/ufw 파일을 열어 DEFAULT_FORWARD_POLICY 값을 ACCEPT로 변경합니다.sudo nano /etc/default/ufw
+관리 UI는 SSH tunnel로 접속한다.
 
-파일 내용에서 아래 부분을 찾아 수정합니다.- DEFAULT_FORWARD_POLICY="DROP"
-+ DEFAULT_FORWARD_POLICY="ACCEPT"
+```bash
+ssh -L 51821:127.0.0.1:51821 user@vpn.example.com
+```
 
-(2) UFW에 NAT 규칙 추가/etc/ufw/before.rules 파일의 맨 윗부분(*filter 규칙 이전)에 NAT(Masquerade) 규칙을 추가합니다.sudo nano /etc/ufw/before.rules
+브라우저에서 다음 주소로 접속해 초기 setup을 진행한다.
 
-파일의 가장 처음에 아래 내용을 추가합니다.# NAT table rules
-*nat
-:POSTROUTING ACCEPT [0:0]
+```text
+http://127.0.0.1:51821
+```
 
-# Allow traffic from WireGuard clients to eth0 (or your main network interface)
-# -A POSTROUTING -s 10.2.0.0/24 -o eth0 -j MASQUERADE
--A POSTROUTING -s 10.2.0.0/24 -o $(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1) -j MASQUERADE
+Setup 화면에서는 username, password, server host, server port를 지정한다. Host는 client가 접속할 public IP 또는 domain이고, port는 WireGuard UDP port다.
 
-COMMIT
+Client Linux host에서 peer config를 가져와 연결한다.
 
-설명:-s 10.2.0.0/24: WireGuard 클라이언트들이 사용하는 IP 대역입니다. docker-compose.yml에서 WG_DEFAULT_ADDRESS를 변경했다면 여기도 맞춰서 수정해야 합니다.-o $(...): 트래픽을 내보낼 서버의 기본 네트워크 인터페이스 이름(예: eth0, ens3 등)을 자동으로 찾아줍니다.-j MASQUERADE: WireGuard 클라이언트에서 나가는 모든 트래픽의 출발지 IP 주소를 서버의 공인 IP 주소로 위장(변환)합니다.방화벽 재시작변경된 설정을 적용하기 위해 ufw를 재시작합니다.sudo ufw disable && sudo ufw enable
+```bash
+sudo apt install wireguard-tools
+sudo install -m 600 peer.conf /etc/wireguard/wg0.conf
+sudo wg-quick up wg0
+sudo wg show
+ip route
+```
 
-4단계: 클라이언트(피어) 추가 및 연결WG-Easy 웹 UI 접속웹 브라우저에서 http://<서버_공인_IP>:51821 주소로 접속한 후, docker-compose.yml에서 설정한 비밀번호를 입력하여 로그인합니다.[이미지: WG-Easy 로그인 화면]새 클라이언트 생성웹 UI에서 + New 버튼을 클릭하고 클라이언트의 이름(예: remote-server)을 입력한 후 Create를 누릅니다.[이미지: WG-Easy 클라이언트 생성 화면]클라이언트 설정 파일 다운로드생성된 클라이언트 항목에서 **설정 파일 다운로드 아이콘(📄)**을 클릭하여 <클라이언트_이름>.conf 파일을 PC로 다운로드합니다.원격 서버(클라이언트)에 WireGuard 설치 및 설정이제 **원격 서버(클라이언트 역할)**에서 다음 작업을 수행합니다.wireguard-tools 설치sudo apt update
-sudo apt install -y wireguard-tools
+연결을 끊는다.
 
-설정 파일 복사PC에 다운로드한 .conf 파일을 scp나 다른 방법을 이용해 원격 서버의 /etc/wireguard/ 디렉토리로 복사합니다. 파일 이름은 wg0.conf로 변경하는 것이 일반적입니다.# PC에서 원격 서버로 파일 복사하는 예시
-scp ~/Downloads/remote-server.conf user@<원격_서버_IP>:/tmp/wg0.conf
+```bash
+sudo wg-quick down wg0
+```
 
-# 원격 서버에서 파일 이동
-sudo mv /tmp/wg0.conf /etc/wireguard/wg0.conf
+Volume backup을 확인한다.
 
-VPN 연결 시작원격 서버에서 아래 명령어로 VPN 연결을 시작합니다.sudo wg-quick up wg0
+```bash
+sudo docker volume ls
+sudo docker volume inspect wg-easy_etc_wireguard
+```
 
-이제 원격 서버의 모든 인터넷 트래픽은 WireGuard 서버를 통해 나가게 됩니다.5단계: 연결 확인WG-Easy UI 확인: 웹 UI에서 해당 클라이언트의 마지막 핸드셰이크(Latest Handshake) 시간이 "a few seconds ago"와 같이 표시되고, 상태 아이콘이 녹색으로 바뀌었는지 확인합니다.[이미지: WG-Easy 연결 성공 상태]Ping 테스트 (클라이언트에서): 클라이언트 서버에서 WireGuard 서버의 터널 IP 주소(보통 10.2.0.1)로 ping을 보내봅니다.ping 10.2.0.1
+## 9. 실패 사례 (What could go wrong?)
 
-공인 IP 확인 (클라이언트에서): 클라이언트 서버의 공인 IP가 WireGuard 서버의 공인 IP로 변경되었는지 확인합니다.curl ifconfig.me
-# WireGuard 서버의 공인 IP 주소가 출력되어야 합니다.
+Web UI를 `0.0.0.0:51821`로 열면 인터넷에서 로그인 화면에 접근할 수 있다. SSH tunnel, VPN 내부 접근, 또는 HTTPS reverse proxy를 사용한다.
 
-여기까지 성공했다면 속도 저하 없이 안정적인 VPN 연결이 완료된 것입니다.요약: 열어야 할 포트 및 설정항목포트/설정프로토콜목적비고SSH22 (기본)TCP서버 원격 관리보안을 위해 다른 포트로 변경 가능WG-Easy 웹 UI51821 (기본)TCP웹 기반 관리docker-compose.yml에서 변경 가능WireGuard 터널51821 (사용자 지정)UDP실제 VPN 데이터 통신docker-compose.yml에서 변경 가능포워딩 정책DEFAULT_FORWARD_POLICY="ACCEPT"-클라이언트 트래픽 전달 허용/etc/default/ufw 파일 수정NAT 규칙-j MASQUERADE-클라이언트 트래픽 주소 변환/etc/ufw/before.rules 파일 수정 (속도 저하 해결의 핵심)이 가이드의 3단계 방화벽 설정 부분, 특히 NAT 규칙 추가가 이전에 겪으셨던 문제를 해결하는 가장 중요한 부분이니 꼼꼼하게 진행하시기 바랍니다.
+UDP port가 router, Proxmox firewall, guest firewall 중 하나에서 막히면 peer config가 맞아도 handshake가 생기지 않는다.
+
+`WG_HOST` 같은 오래된 environment 예제를 v15 문서에 그대로 적용하면 setup 방식이 맞지 않을 수 있다. image tag와 문서 version을 맞춘다.
+
+Client AllowedIPs를 `0.0.0.0/0`로 설정하면 모든 traffic이 VPN으로 간다. DNS와 routing이 예상과 다르면 인터넷이 끊긴 것처럼 보일 수 있다.
+
+Docker volume을 삭제하면 peer 정보와 server key를 잃는다. Container 재생성과 volume 삭제는 다르다.
+
+Proxmox host firewall만 열고 VM 내부 UFW를 닫아두면 외부에서 UDP packet이 guest까지 도달하지 않는다.
+
+## 10. 뇌 확장하기 (Evolution & Variants)
+
+관리 UI를 외부에서 써야 한다면 Caddy, Traefik, Nginx 같은 reverse proxy 뒤에 HTTPS와 접근 제한을 둔다. 가능하면 WireGuard로 먼저 접속한 사용자만 UI에 접근하게 만든다.
+
+Site-to-site VPN은 단일 client full tunnel과 다르다. 양쪽 subnet route, NAT 여부, AllowedIPs, firewall policy를 함께 설계해야 한다.
+
+Proxmox cluster에서는 VPN VM을 어느 node에 둘지, node 장애 시 어떻게 복구할지, backup과 restore가 어떤 storage에 있는지 정해야 한다.
+
+공식 wg-easy 문서는 versioned documentation을 제공하므로 image tag와 문서 version을 맞춘다.
+
+- wg-easy documentation: <https://wg-easy.github.io/wg-easy/latest/>
+- wg-easy basic installation: <https://wg-easy.github.io/wg-easy/latest/examples/tutorials/basic-installation/>
+- wg-easy setup guide: <https://wg-easy.github.io/wg-easy/latest/guides/setup/>
+
+## 11. 최종 체크리스트 (Definition of Done)
+
+- [ ] Proxmox host가 아니라 전용 VM 또는 LXC에 배치했다.
+- [ ] `wg-easy` image tag와 문서 version을 확인했다.
+- [ ] UDP 51820 또는 선택한 WireGuard port만 외부에 열었다.
+- [ ] Web UI는 localhost, VPN 내부, 또는 HTTPS reverse proxy 뒤에 있다.
+- [ ] Setup에서 public host와 port를 정확히 입력했다.
+- [ ] Peer config를 secret으로 취급했다.
+- [ ] Client에서 handshake와 route를 확인했다.
+- [ ] Proxmox firewall과 guest firewall을 모두 확인했다.
+- [ ] `/etc/wireguard` volume backup 경로를 확인했다.
+
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
+
+Proxmox에서 WireGuard를 운영할 때 핵심은 터널 UDP endpoint와 관리 UI를 분리하는 것이다. VPN은 전용 guest에 두고, UI는 공개하지 않으며, peer 설정과 `/etc/wireguard` volume을 secret으로 백업한다.

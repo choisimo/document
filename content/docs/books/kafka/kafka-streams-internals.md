@@ -6,7 +6,7 @@
 
 ## 1. The Processor Topology: A DAG of Transforms
 
-Kafka Streams is not a distributed cluster service — it is a **client library** that runs inside your JVM. Its fundamental execution model is a **Directed Acyclic Graph (DAG)** of processor nodes, built at startup time and executed per-record.
+Kafka Streams is not a distributed cluster service — it is a **client library** that runs inside a JVM. Its fundamental execution model is a **Directed Acyclic Graph (DAG)** of processor nodes, built at startup time and executed per-record.
 
 ```mermaid
 flowchart TD
@@ -235,7 +235,7 @@ flowchart LR
 
 ## 7. Processor API: Low-Level Node Building
 
-The DSL (KStream/KTable) compiles down to the Processor API. You can use it directly for full control.
+The DSL (KStream/KTable) compiles down to the Processor API, which provides direct control.
 
 ```mermaid
 flowchart TD

@@ -6,7 +6,7 @@ Website change monitoring with Playwright browser support.
 
 ```bash
 cp .env.example .env
-# Edit .env with your settings
+# Edit .env with environment-specific settings
 mkdir -p datastore
 docker compose up -d
 ```

@@ -278,7 +278,7 @@ flowchart TD
     PAGE --> ROW["Row (Key) Lock\n(S, U, X, RangeS-S, RangeI-N, ...)"]
 ```
 
-**잠금 에스컬레이션**: SQL Server는 잠금 수가 트랜잭션당 ~5000을 초과하는 경우 메모리 오버헤드를 줄이기 위해 행/페이지 잠금을 테이블 잠금으로 에스컬레이션합니다. 차단을 유발할 수 있습니다. `ALTER TABLE ... SET (LOCK_ESCALATION = DISABLE)`로 비활성화하세요.
+**잠금 에스컬레이션**: SQL Server는 잠금 수가 트랜잭션당 ~5000을 초과하는 경우 메모리 오버헤드를 줄이기 위해 행/페이지 잠금을 테이블 잠금으로 에스컬레이션합니다. 차단을 유발할 수 있습니다. `ALTER TABLE ... SET (LOCK_ESCALATION = DISABLE)`로 비활성화할 수 있다.
 
 **NOLOCK 힌트 / READ UNCOMMITTED**: 공유 잠금을 획득하지 않고 페이지를 읽습니다 → 더티 읽기가 가능합니다(커밋되지 않은 데이터, 팬텀 행, 비행 중에 롤백된 데이터도 확인).
 

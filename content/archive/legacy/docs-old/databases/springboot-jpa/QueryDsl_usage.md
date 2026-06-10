@@ -102,7 +102,7 @@ public class QuerydslConfig {
 ```
 
 ##### **중요 포인트**
-- **빈 등록 필수**: `JPAQueryFactory`는 스프링 빈으로 등록해야 의존성 주입 가능.
+- **빈 등록**: `JPAQueryFactory`는 스프링 빈으로 등록해야 의존성 주입 가능.
 - **커스텀 인터페이스 분리**: 비즈니스 로직과 기본 CRUD 작업을 명확히 분리.
 
 ---
@@ -117,7 +117,7 @@ public class QuerydslConfig {
    .offset(pageable.getOffset())
    .limit(pageable.getPageSize())
    ```
-3. **벌크 연산**: `update()`, `delete()` 절에서 `execute()` 호출 시 영속성 컨텍스트 초기화 필수.
+3. **벌크 연산**: `update()`, `delete()` 절에서 `execute()` 호출 시 영속성 컨텍스트 초기화 필요.
    ```java
    queryFactory.update(user).set(user.age, 30).where(...).execute();
    em.flush();

@@ -1,191 +1,132 @@
-# Bottom-Up 파싱 완전 정복: 개념부터 LR 파싱까지
+# Bottom-Up Parsing 학습 및 기록 노트
 
-Bottom-Up 파싱은 입력 문자열을 잎(leaves, 단말 기호)에서부터 시작 심볼(root)으로 환원해 나가는 방식으로, 오른쪽 최단 유도(Rightmost Derivation)를 역추적합니다.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
----
+Bottom-up parsing은 입력 token을 leaf에서 시작해 grammar의 start symbol로 reduce하는 방식이다. Top-down parser가 "무엇을 만들어야 하는가?"를 예측한다면, bottom-up parser는 "지금 stack 위의 token들이 어떤 production의 RHS인가?"를 찾는다. 이 관점은 LR parser, shift-reduce parser, parser table conflict를 이해하는 기반이다.
 
-## 1. Bottom-Up 파싱 개요
-```mermaid
-flowchart LR
-  A[Leaves (단말 기호)] --> B[Reduce: 프로덕션 역적용]
-  B --> C[비단말 기호 환원]
-  C --> D{시작 심볼인가?}
-  D -- 아니면 --> A
-  D -- 예 --> E[Accept]
-  classDef accept fill:#cfc,stroke:#393
-  class E accept
-```
+이 문서는 원문의 bottom-up parsing 설명을 stack, handle, shift/reduce state transition 중심으로 재작성한다.
 
----
+## 2. 현재 나의 상태 (Baseline)
 
-## 2. Shift-Reduce 파싱
-```mermaid
-flowchart LR
-  SHIFT[Shift: 토큰을 스택에 push]
-  REDUCE[Reduce: RHS → LHS 환원]
-  ACCEPT[Accept: 시작 심볼만 남으면 성공]
-  ERROR[Error: 파싱 불가]
+- Parser가 token stream을 grammar 구조로 검증한다는 점은 알고 있다.
+- Bottom-up parsing이 rightmost derivation을 역순으로 추적한다는 의미를 더 명확히 해야 한다.
+- Shift와 reduce가 parser stack에서 어떤 변화를 만드는지 예제로 확인해야 한다.
+- Handle을 잘못 선택하면 conflict나 잘못된 parse가 생긴다는 점을 이해해야 한다.
+- LR parser의 Action/Goto table이 bottom-up parsing을 자동화한다는 연결이 필요하다.
 
-  SHIFT --> REDUCE
-  REDUCE --> SHIFT
-  REDUCE --> ACCEPT
-  SHIFT --> ERROR
-  classDef shift fill:#9f9,stroke:#393
-  classDef reduce fill:#ffeb99,stroke:#c90
-  classDef accept fill:#cfc,stroke:#393
-  classDef error fill:#f99,stroke:#900
-```
+## 3. 도달하고 싶은 목표 (Target State)
 
----
+- Bottom-up parsing을 terminal에서 start symbol로 환원하는 과정으로 설명한다.
+- Shift, reduce, accept, error action을 구분한다.
+- Handle이 production RHS와 일치하는 stack suffix임을 이해한다.
+- `n + n` 같은 작은 입력을 stack 변화로 추적한다.
+- Shift/reduce conflict와 reduce/reduce conflict가 왜 생기는지 설명한다.
 
-## 3. Handle (핸들) 추적
-```mermaid
-flowchart LR
-  subgraph "스택 상태"
-    S0[$]
-    S1[$ n]
-    S2[$ E]
-    S3[$ E +]
-    S4[$ E + n]
-    S5[$ E]
-    S6[$ E']
-  end
-  S0 -->|shift n| S1
-  S1 -->|reduce E→n| S2
-  S2 -->|shift +| S3
-  S3 -->|shift n| S4
-  S4 -->|reduce E→E+n| S5
-  S5 -->|reduce E'→E| S6
-  classDef shiftState fill:#9f9,stroke:#393
-  classDef reduceState fill:#ffeb99,stroke:#c90
-  class S1,S3,S4 shiftState
-  class S2,S5,S6 reduceState
-```
-
----
-
-## 4. 예시: `n + n` Shift-Reduce 파싱
-```mermaid
-sequenceDiagram
-    participant Stack as 스택
-    participant Input as 입력
-    participant Action as 액션
-
-    Stack->>Stack: $
-    Input-->>Stack: n
-    Action-->>Stack: Shift(n)
-
-    Stack->>Stack: $ n
-    Action-->>Stack: Reduce(E→n)
-
-    Stack->>Stack: $ E
-    Input-->>Stack: +
-    Action-->>Stack: Shift(+)
-
-    Stack->>Stack: $ E +
-    Input-->>Stack: n
-    Action-->>Stack: Shift(n)
-
-    Stack->>Stack: $ E + n
-    Action-->>Stack: Reduce(E→E+n)
-
-    Stack->>Stack: $ E
-    Action-->>Stack: Reduce(E'→E)
-
-    Stack->>Stack: $ E'
-```
-
----
-
-## 5. LR 파싱 구조
-```mermaid
-flowchart TB
-  Input["Input 버퍼: a₁ a₂ ... aₙ $"]
-  Parser["LR Parser"]
-  Stack["스택<br/>(상태, 기호)"]
-  Table["Parsing Table"]
-
-  Input --> Parser
-  Parser --> Stack
-  Parser --> Table
-  Table -- "Action/Goto" --> Parser
-
-  classDef parser fill:#def,stroke:#369
-  classDef table fill:#bbf,stroke:#369
-  class Parser parser
-  class Table table
-```
-
----
-
-## 6. 파싱 테이블 생성
-```mermaid
-flowchart LR
-  Items["LR 아이템<br/>(A → α · β)"]
-  DFA["LR DFA 상태 집합"]
-  Table["Action & Goto 테이블"]
-
-  Items --> DFA
-  DFA --> Table
-
-  classDef items fill:#bbf,stroke:#369
-  classDef dfa fill:#fbd,stroke:#963
-  class Items items
-  class DFA dfa
-```
-
----
-
-## 7. 파싱 충돌 (Conflicts)
-```mermaid
-flowchart LR
-  SR[Shift-Reduce 충돌] -->|우선순위 지정| Fix1[Operator Precedence]
-  RR[Reduce-Reduce 충돌] -->|문법 개선| Fix2[Grammar Refactoring]
-  class SR,RR fill:#fdd,stroke:#900
-  class Fix1,Fix2 fill:#dfd,stroke:#090
-```
-
----
-
-## 8. 추가 고려사항
-```mermaid
-flowchart TB
-  Aug[Augmented Grammar] --> Parser
-  Parser --> Recovery[오류 복구]
-  Amb[Inherent Ambiguity] --> Remark[고유 모호성]
-  classDef Aug fill:#ddf,stroke:#339
-  classDef Recovery fill:#ffd,stroke:#996
-  classDef Amb fill:#fdd,stroke:#933
-```
-
-## 9. 좌측/우측 최단 유도 및 파싱 방향 차이
-
-### 9.1 유도(Derivation) 방향
-
-| 구분 | 좌측 최단 유도 (Leftmost Derivation) | 우측 최단 유도 (Rightmost Derivation) |
-|:----:|:-----------------------------------:|:------------------------------------:|
-| 처리 순서 | 가장 왼쪽 비단말 먼저 | 가장 오른쪽 비단말 먼저 |
-| 파스 트리 생성 | 위→아래, 왼쪽 자식 우선 | 위→아래, 오른쪽 자식 우선 |
-| 핵심 질문 | "다음에 무엇을 만들까?" | "이것은 무엇으로 만들어졌을까?" |
-
-### 9.2 파서 스택 방향 (LL vs LR)
+## 4. 시스템 번역 (Data Flow)
 
 ```mermaid
-graph TB
-  subgraph "LL 파서 (Top-Down)"
-    direction LR
-    S0["[S, $]"] --> Predict["Predict: S → aB"]
-    Predict --> Push["Push: a, B"]
-  end
-  subgraph "LR 파서 (Bottom-Up)"
-    direction LR
-    Init["[$] + input 'ab'"] --> ShiftA["Shift: 'a'"]
-    ShiftA --> ShiftB["Shift: 'b'"]
-    ShiftB --> Reduce["Reduce: A → ab"]
-  end
+flowchart TD
+    A[Token stream] --> B[Parser stack]
+    B --> C{Action}
+    C -->|shift| D[Push next token/state]
+    C -->|reduce| E[Pop RHS handle]
+    E --> F[Push LHS nonterminal]
+    C -->|accept| G[Parse success]
+    C -->|error| H[Parse failure]
+    D --> C
+    F --> C
 ```
 
-- LL 파서: 스택 최상단에서 비단말을 예측(Predict) 및 확장(Expand).
-- LR 파서: 스택 최상단에서 핸들(Handle)을 인식(Reduce).
+Bottom-up parser는 입력을 왼쪽에서 오른쪽으로 읽으면서 stack top에 handle이 생기는 순간 production을 역적용한다.
 
----
+## 5. 핵심 구성요소 (Building Blocks)
+
+| 구성요소 | 역할 | 핵심 질문 |
+| --- | --- | --- |
+| Token stream | lexer가 만든 입력 | 다음에 shift할 symbol은 무엇인가? |
+| Parser stack | symbol/state 누적 | stack suffix가 handle인가? |
+| Shift | input token을 stack에 push | 더 읽어야 하는가? |
+| Reduce | RHS를 LHS로 환원 | 어떤 production을 적용하는가? |
+| Handle | reduce 가능한 RHS instance | rightmost derivation의 역순인가? |
+| Action table | shift/reduce/accept/error 결정 | lookahead별 action이 하나인가? |
+| Goto table | nonterminal reduce 후 state 이동 | LHS로 어디로 가는가? |
+| Conflict | action이 하나로 결정되지 않음 | grammar나 precedence가 필요한가? |
+
+## 6. 상태 전이 (State Transition)
+
+```mermaid
+stateDiagram-v2
+    [*] --> StackReady
+    StackReady --> Shift: handle 없음
+    Shift --> StackReady
+    StackReady --> Reduce: handle 발견
+    Reduce --> StackReady
+    StackReady --> Accept: start symbol + end marker
+    StackReady --> Error: action 없음
+    Accept --> [*]
+    Error --> [*]
+```
+
+LR parser는 이 상태 전이를 수동 판단하지 않고, 현재 state와 lookahead token으로 Action/Goto table을 조회해 수행한다.
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- Reduce는 stack top의 suffix가 어떤 production의 RHS일 때만 수행해야 한다.
+- Accept는 start symbol과 input end marker가 올바르게 만났을 때만 가능하다.
+- Shift와 reduce 중 어떤 action을 택할지 table에서 하나로 결정되어야 한다.
+- Reduce/reduce conflict는 같은 stack/lookahead에서 적용 가능한 production이 둘 이상이라는 뜻이다.
+- Shift/reduce conflict는 더 읽을지 지금 reduce할지 문법이 충분히 구분하지 못한다는 뜻이다.
+- Bottom-up parser는 rightmost derivation을 역순으로 복원해야 한다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+문법:
+
+```text
+E' -> E
+E  -> E + n
+E  -> n
+```
+
+입력 `n + n`의 stack 변화:
+
+| 단계 | Stack | Input | Action |
+| --- | --- | --- | --- |
+| 0 | `$` | `n + n $` | shift `n` |
+| 1 | `$ n` | `+ n $` | reduce `E -> n` |
+| 2 | `$ E` | `+ n $` | shift `+` |
+| 3 | `$ E +` | `n $` | shift `n` |
+| 4 | `$ E + n` | `$` | reduce `E -> E + n` |
+| 5 | `$ E` | `$` | reduce `E' -> E` |
+| 6 | `$ E'` | `$` | accept |
+
+이 예제는 terminal을 먼저 쌓고, RHS handle을 찾을 때마다 nonterminal로 환원하는 bottom-up 흐름을 보여준다.
+
+## 9. 실패 사례 (What could go wrong?)
+
+- Handle이 아닌 stack suffix를 reduce해 잘못된 parse tree를 만든다.
+- Lookahead를 보지 않고 greedy하게 reduce해 shift/reduce conflict를 만든다.
+- Ambiguous grammar에서 precedence/associativity 없이 expression을 파싱하려고 한다.
+- Reduce/reduce conflict를 production 순서로 덮고 실제 문법 모호성을 놓친다.
+- Error action을 처리하지 않아 parser가 무한 loop를 돈다.
+- LL parser의 predict/expand 관점과 LR parser의 shift/reduce 관점을 섞어 이해한다.
+
+## 10. 뇌 확장하기 (Evolution & Variants)
+
+- LR parser는 LR(0), SLR(1), LALR(1), canonical LR(1)로 확장된다.
+- Expression parser는 precedence climbing이나 Pratt parser와 비교해 볼 수 있다.
+- Parser generator는 conflict report를 통해 grammar 개선 지점을 알려준다.
+- Error recovery는 panic mode, synchronizing token, error production으로 확장된다.
+- 자세한 LR table 구조는 [LR 파서](lr-parser.md)에서 다룬다.
+
+## 11. 최종 체크리스트 (Definition of Done)
+
+- [x] Bottom-up parsing을 terminal에서 start symbol로 reduce하는 흐름으로 정리했다.
+- [x] Shift, reduce, accept, error action을 구분했다.
+- [x] `n + n` 최소 예제로 stack 변화를 설명했다.
+- [x] Handle, conflict, LR Action/Goto table의 연결을 포함했다.
+- [x] 원문 bottom-up parsing 문서를 12개 섹션 템플릿으로 재작성했다.
+
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
+
+Bottom-up parsing은 stack 위에서 handle을 찾아 production을 거꾸로 적용하며, token을 start symbol까지 환원하는 과정이다.

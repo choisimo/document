@@ -1,10 +1,10 @@
 # VS Code 서버의 WebSocket 오류 해결을 위한 Nginx 설정
 
-현재 Nginx 설정에는 VS Code 서버에 필요한 WebSocket 지원 설정이 누락되어 있습니다. VS Code 서버는 실시간 편집 기능, 터미널, 확장 기능 등을 위해 WebSocket 연결을 필수적으로 사용합니다.
+현재 Nginx 설정에는 VS Code 서버에 필요한 WebSocket 지원 설정이 누락되어 있다. VS Code 서버는 실시간 편집 기능, 터미널, 확장 기능 등에 WebSocket 연결을 사용한다.
 
 ## 수정된 Nginx 설정
 
-아래와 같이 location 블록에 WebSocket 관련 헤더를 추가해야 합니다:
+`location` 블록에 WebSocket 관련 헤더를 추가한다.
 
 ```nginx
 # 도메인 HTTP 접근 HTTPS로 리디렉션
@@ -57,7 +57,7 @@ server {
 
 4. **타임아웃 설정**: `proxy_read_timeout 300s;` - 기본값인 60초보다 긴 시간을 설정하여 WebSocket 연결이 일정 시간 데이터 전송이 없어도 유지되도록 합니다[4].
 
-이러한 변경 사항을 적용한 후 Nginx 설정을 테스트하고 서비스를 재시작하세요:
+변경 사항을 적용한 후 Nginx 설정을 테스트하고 서비스를 재시작한다.
 
 ```bash
 sudo nginx -t

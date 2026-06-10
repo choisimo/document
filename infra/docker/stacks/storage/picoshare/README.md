@@ -6,7 +6,7 @@ Minimal file sharing service with expiration support.
 
 ```bash
 cp .env.example .env
-# Edit .env with your settings
+# Edit .env with environment-specific settings
 mkdir -p data
 docker compose up -d
 ```

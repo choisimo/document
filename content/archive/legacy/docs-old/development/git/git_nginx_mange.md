@@ -1,4 +1,4 @@
-# Git을 이용한 Nginx 서버 다중 관리 가이드
+# Git을 이용한 Nginx 서버 다중 관리 문서
 
 Github 저장소를 사용하여 여러 서버의 Nginx 구성을 자동으로 관리하고 배포하는 전략을 설명합니다.
 
@@ -12,7 +12,7 @@ Git 저장소에 변경사항을 푸시하면 해당 서버에 자동으로 배�
 3.  워크플로우는 변경된 파일을 분석하여 어떤 서버가 영향을 받는지 결정합니다.
 4.  대상 서버에 SSH로 접속하여 변경사항을 적용(Pull)하고 Nginx를 리로드합니다.
 
-### 추천 디렉터리 구조
+### 디렉터리 구조 예시
 ```text
 /
 ├── servers/
@@ -95,7 +95,7 @@ jobs:
 
 ## 3. 서버별 구성 관리 전략 (Pull/Clone)
 
-각 서버에서 전체 저장소를 받는 대신, 필요한 구성만 가져오는 두 가지 효율적인 방법이 있습니다.
+각 서버에서 전체 저장소를 받는 방식이 아니라 필요한 구성만 가져오는 두 가지 방법이 있다.
 
 ### 방법 1: Git Sparse Checkout 사용 (단일 브랜치)
 하나의 `main` 브랜치에서 모든 설정을 관리하되, 서버는 필요한 폴더만 체크아웃합니다.
@@ -105,7 +105,7 @@ jobs:
 mkdir -p /etc/nginx/git-config
 cd /etc/nginx/git-config
 git init
-git remote add origin https://github.com/your-username/nginx-configs.git
+git remote add origin https://github.com/example-user/nginx-configs.git
 
 # 2. Sparse Checkout 활성화
 git config core.sparseCheckout true
@@ -136,7 +136,7 @@ git push origin server1-config
 **서버에서 해당 브랜치만 Clone:**
 ```bash
 # --single-branch 옵션으로 특정 브랜치만 가져옴 (용량 절약)
-git clone -b server1-config --single-branch https://github.com/your-username/nginx-configs.git /etc/nginx/git-config
+git clone -b server1-config --single-branch https://github.com/example-user/nginx-configs.git /etc/nginx/git-config
 ```
 
 ---
@@ -157,7 +157,7 @@ if [ ! -d "$REPO_DIR" ]; then
   mkdir -p $REPO_DIR
   cd $REPO_DIR
   git init
-  git remote add origin https://github.com/your-username/nginx-configs.git
+  git remote add origin https://github.com/example-user/nginx-configs.git
   git config core.sparseCheckout true
   echo "servers/$SERVER_NAME/*" > .git/info/sparse-checkout
   git pull origin main
@@ -178,7 +178,7 @@ nginx -t && systemctl reload nginx
 
 ---
 
-## 5. 실전 가이드: 서버별 브랜치 운영
+## 5. 서버별 브랜치 운영
 
 다른 서버(`server2`) 설정을 위한 구체적인 절차입니다.
 
@@ -213,7 +213,7 @@ sudo git remote set-branches --add origin another-branch
 sudo git fetch origin another-branch:another-branch
 ```
 
-### 주의사항
-1.  **권한**: `/etc/nginx`는 root 권한이 필요하므로 `sudo`를 사용해야 합니다.
-2.  **SSH 키**: 프라이빗 리포지토리를 사용하는 경우, 각 서버의 SSH 퍼블릭 키를 GitHub의 Deploy Keys에 등록해야 합니다.
-3.  **Single Branch**: `--single-branch`로 클론하면 다른 브랜치로 쉽게 전환할 수 없으므로(remote 설정 필요), 용도에 맞게 사용하세요.
+### 유의점
+1.  **권한**: `/etc/nginx`는 root 권한이 필요하므로 `sudo`를 사용한다.
+2.  **SSH 키**: 프라이빗 리포지토리를 사용하는 경우, 각 서버의 SSH 퍼블릭 키를 GitHub의 Deploy Keys에 등록한다.
+3.  **Single Branch**: `--single-branch`로 클론하면 다른 브랜치로 쉽게 전환할 수 없으므로(remote 설정 필요), 용도에 맞게 사용한다.

@@ -18,7 +18,7 @@
 }
 
 # Cloudflare DNS-01 certificate
-(yourdomain_tls) {
+(example_tls) {
     tls {
         dns cloudflare {env.CLOUDFLARE_API_TOKEN}
         resolvers 1.1.1.1
@@ -26,9 +26,9 @@
 }
 
 # service proxy
-service1.yourdomain.com {
-    import yourdomain_tls
-    reverse_proxy https://your-tailnet-host.ts.net:8443 {
+service1.example.com {
+    import example_tls
+    reverse_proxy https://tailnet-host.ts.net:8443 {
         header_up Host {http.request.host}
         transport http {
             tls_insecure_skip_verify
@@ -74,10 +74,10 @@ tailscale funnel status --json | jq
 # 7. Trouble-shooting
 ```bash
 # check CNAME
-dig +short yourdomain.com @1.1.1.1
+dig +short example.com @1.1.1.1
 
 # TLS cert authentication
-openssl s_client -connect yourdomain.com:8443 -servername yourdomain.com
+openssl s_client -connect example.com:8443 -servername example.com
 
 # logging
 journalctl -u caddy -f | grep -E 'tailscale|ERROR'

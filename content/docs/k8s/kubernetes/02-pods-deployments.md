@@ -1,624 +1,268 @@
 # Kubernetes Pod와 Deployment
 
-## 📖 개요
+이 문서는 Pod와 Deployment를 “컨테이너 실행 단위”와 “반복적으로 원하는 개수를 유지하는 controller 계약”으로 이해하기 위한 실습 문서다. 목표는 YAML을 외우는 것이 아니라 selector, template label, rollout, probe가 어떤 상태 전이를 만드는지 설명할 수 있게 되는 것이다.
 
-Pod는 Kubernetes의 최소 배포 단위이며, Deployment는 Pod를 관리하는 상위 리소스입니다. 이 문서에서는 두 개념을 실습을 통해 학습합니다.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-## 🎯 학습 목표
+Kubernetes에서 container image를 실행하는 최소 단위는 Pod지만, 운영자는 Pod를 직접 오래 관리하지 않는다. Pod는 재생성될 수 있고 이름도 바뀐다. 안정적인 배포 단위는 Pod template과 replica 수를 선언하는 Deployment다.
 
-- Pod의 개념과 생명주기 이해
-- Deployment를 통한 Pod 관리
-- 롤링 업데이트와 롤백
-- 레이블과 셀렉터 활용
+Pod와 Deployment의 경계를 모르면 장애가 났을 때 `kubectl delete pod`만 반복하게 된다. 실제로는 Deployment, ReplicaSet, Pod, container 상태를 순서대로 추적해야 한다.
 
-## 🏗️ Pod 개념
+## 2. 현재 나의 상태 (Baseline)
 
-### Pod란?
+기존 문서는 Pod, multi-container Pod, Deployment, rolling update, probe 예제를 다룬다. 보완해야 할 점은 다음과 같다.
 
+- `latest` image 사용 예제가 많아 재현성이 약하다.
+- Deployment selector와 Pod template label의 불변식이 충분히 강조되지 않았다.
+- readiness probe와 liveness probe의 목적이 섞일 수 있다.
+- 다음 단계 링크가 repository에 없는 문서를 가리킨다.
+- rollout 실패 시 어떤 리소스를 봐야 하는지 흐름이 약하다.
+
+## 3. 도달하고 싶은 목표 (Target State)
+
+목표는 다음 작업을 안정적으로 수행하는 것이다.
+
+- Pod가 어떤 공유 경계를 가지는지 설명한다.
+- Deployment가 ReplicaSet을 만들고 Pod 개수를 유지하는 흐름을 확인한다.
+- selector와 template label을 일치시킨다.
+- resource request와 limit을 선언한다.
+- readiness, liveness, startup probe를 구분한다.
+- rolling update와 rollback을 실행하고 상태를 확인한다.
+- 장애 상태를 `describe`, `logs`, `rollout status`로 추적한다.
+
+## 4. 시스템 번역 (Data Flow)
+
+Deployment 적용 흐름은 다음과 같다.
+
+```text
+kubectl apply
+  -> API server stores Deployment
+  -> Deployment controller creates ReplicaSet
+  -> ReplicaSet controller creates Pods
+  -> scheduler assigns Pods to Nodes
+  -> kubelet starts containers
+  -> probes update Pod readiness
+  -> Service routes only to ready endpoints
 ```
-Pod
-├── Container 1 (Main Application)
-├── Container 2 (Sidecar: Logging)
-└── Shared: Network, Storage
+
+사용자는 Deployment를 수정하지만 실제 container는 Pod 안에서 실행된다. Deployment는 직접 container를 실행하지 않고 controller chain을 통해 desired state를 유지한다.
+
+## 5. 핵심 구성요소 (Building Blocks)
+
+Pod는 하나 이상의 container가 network namespace와 volume을 공유하는 단위다. 같은 Pod 안의 container는 `localhost`로 서로 접근할 수 있다.
+
+Deployment는 Pod template과 replica 수를 선언한다. 변경이 생기면 새 ReplicaSet을 만들고 rolling update를 진행한다.
+
+ReplicaSet은 selector에 맞는 Pod 개수를 유지한다. 보통 직접 만들기보다 Deployment가 관리하게 둔다.
+
+Label은 리소스를 선택하기 위한 key-value metadata다. Deployment selector는 template label과 반드시 맞아야 한다.
+
+Readiness probe는 traffic을 받을 준비가 되었는지 판단한다. 실패하면 Pod는 Service endpoint에서 제외된다.
+
+Liveness probe는 process가 복구 불가능하게 멈췄는지 판단한다. 실패하면 kubelet이 container를 재시작한다.
+
+Startup probe는 느리게 시작하는 애플리케이션이 liveness probe에 의해 너무 빨리 죽는 것을 막는다.
+
+Resource requests는 scheduling 기준이고, limits는 runtime 제한이다.
+
+## 6. 상태 전이 (State Transition)
+
+Pod의 일반적인 상태 전이는 다음과 같다.
+
+```text
+Pending
+  -> ContainerCreating
+  -> Running
+  -> Succeeded or Failed
+  -> Terminating
 ```
 
-**특징:**
-- 하나 이상의 컨테이너 그룹
-- 같은 네트워크 네임스페이스 공유 (localhost 통신 가능)
-- 같은 스토리지 볼륨 공유
-- 항상 같은 노드에 배치
-- 배포의 최소 단위
+장애 상태는 다음처럼 분기된다.
 
-### Pod 생명주기
-
-```
-Pending → Running → Succeeded/Failed
-                  ↓
-                Terminating
+```text
+ImagePullBackOff
+CrashLoopBackOff
+CreateContainerConfigError
+OOMKilled
+Pending due to insufficient resources
 ```
 
-**상태:**
-- `Pending`: 스케줄링 대기 또는 이미지 다운로드 중
-- `Running`: 실행 중
-- `Succeeded`: 성공적으로 완료 (Job/CronJob)
-- `Failed`: 실패로 종료
-- `Unknown`: 상태 불명
+Deployment rollout은 다음 상태를 가진다.
 
-## 📝 실습 1: 기본 Pod 생성
+```text
+old ReplicaSet active
+  -> new ReplicaSet created
+  -> new Pods become Ready
+  -> old Pods scaled down
+  -> rollout complete
+```
 
-### 명령형 방식
+Rollback은 새 ReplicaSet으로 가던 흐름을 이전 revision으로 되돌린다.
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- Deployment `.spec.selector`는 template label과 일치해야 한다.
+- 운영 배포에서는 mutable image tag보다 고정 tag 또는 digest를 사용한다.
+- readiness probe는 downstream 장애를 무조건 liveness 재시작으로 바꾸지 않는다.
+- liveness probe는 너무 공격적으로 설정하지 않는다.
+- requests가 없으면 scheduler와 autoscaler 판단이 부정확해진다.
+- limit이 너무 낮으면 `OOMKilled`나 throttling이 발생할 수 있다.
+- Deployment로 관리되는 Pod를 직접 수정하지 않는다. Pod template을 수정한다.
+- rollout 전후에는 `kubectl rollout status`와 `kubectl get pods -o wide`를 확인한다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+실습 namespace를 준비한다.
 
 ```bash
-# Nginx Pod 생성
-kubectl run nginx-pod --image=nginx:latest
-
-# 상태 확인
-kubectl get pods
-
-# 상세 정보
-kubectl describe pod nginx-pod
-
-# 로그 확인
-kubectl logs nginx-pod
-
-# Pod 접속
-kubectl exec -it nginx-pod -- /bin/bash
-
-# Pod 삭제
-kubectl delete pod nginx-pod
+kubectl create namespace workload-lab
+kubectl config set-context --current --namespace=workload-lab
 ```
 
-### 선언적 방식 (YAML)
-
-`pod-nginx.yaml`:
-
-```yaml
-apiVersion: v1
-kind: Pod
-metadata:
-  name: nginx-pod
-  labels:
-    app: nginx
-    env: development
-spec:
-  containers:
-  - name: nginx
-    image: nginx:1.21
-    ports:
-    - containerPort: 80
-      protocol: TCP
-    env:
-    - name: NGINX_HOST
-      value: "example.com"
-    resources:
-      requests:
-        memory: "64Mi"
-        cpu: "250m"
-      limits:
-        memory: "128Mi"
-        cpu: "500m"
-```
-
-```bash
-# Pod 생성
-kubectl apply -f pod-nginx.yaml
-
-# 확인
-kubectl get pod nginx-pod -o wide
-```
-
-## 📝 실습 2: 멀티 컨테이너 Pod
-
-`pod-multi-container.yaml`:
-
-```yaml
-apiVersion: v1
-kind: Pod
-metadata:
-  name: multi-container-pod
-spec:
-  containers:
-  # 메인 애플리케이션
-  - name: app
-    image: nginx:latest
-    ports:
-    - containerPort: 80
-    volumeMounts:
-    - name: shared-logs
-      mountPath: /var/log/nginx
-  
-  # 로그 수집 사이드카
-  - name: log-collector
-    image: busybox
-    command: ['sh', '-c', 'tail -f /logs/access.log']
-    volumeMounts:
-    - name: shared-logs
-      mountPath: /logs
-  
-  volumes:
-  - name: shared-logs
-    emptyDir: {}
-```
-
-```bash
-# Pod 생성
-kubectl apply -f pod-multi-container.yaml
-
-# 각 컨테이너 로그 확인
-kubectl logs multi-container-pod -c app
-kubectl logs multi-container-pod -c log-collector
-
-# 특정 컨테이너 접속
-kubectl exec -it multi-container-pod -c app -- /bin/bash
-```
-
-## 🚀 Deployment 개념
-
-### Deployment란?
-
-```
-Deployment
-   ↓ 관리
-ReplicaSet (revision 2) ← 현재 활성
-   ↓ 유지
-Pod 1, Pod 2, Pod 3
-
-ReplicaSet (revision 1) ← 이전 버전 (롤백용)
-   (Pod 없음)
-```
-
-**특징:**
-- ReplicaSet을 통해 Pod 복제본 관리
-- 선언적 업데이트 (롤링 업데이트)
-- 자동 복구 (Self-healing)
-- 스케일링
-- 롤백 가능
-
-## 📝 실습 3: Deployment 생성
-
-### 명령형 방식
-
-```bash
-# Deployment 생성
-kubectl create deployment nginx-deploy --image=nginx:1.21 --replicas=3
-
-# 확인
-kubectl get deployments
-kubectl get replicasets
-kubectl get pods
-
-# 스케일링
-kubectl scale deployment nginx-deploy --replicas=5
-
-# 이미지 업데이트
-kubectl set image deployment/nginx-deploy nginx=nginx:1.22
-
-# 롤아웃 상태 확인
-kubectl rollout status deployment/nginx-deploy
-
-# 롤아웃 히스토리
-kubectl rollout history deployment/nginx-deploy
-
-# 롤백
-kubectl rollout undo deployment/nginx-deploy
-```
-
-### 선언적 방식 (YAML)
-
-`deployment-nginx.yaml`:
+Deployment manifest를 작성한다.
 
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-deployment
+  name: web
   labels:
-    app: nginx
+    app: web
 spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: nginx
-  template:
-    metadata:
-      labels:
-        app: nginx
-    spec:
-      containers:
-      - name: nginx
-        image: nginx:1.21
-        ports:
-        - containerPort: 80
-        resources:
-          requests:
-            memory: "64Mi"
-            cpu: "250m"
-          limits:
-            memory: "128Mi"
-            cpu: "500m"
-        livenessProbe:
-          httpGet:
-            path: /
-            port: 80
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 80
-          initialDelaySeconds: 5
-          periodSeconds: 5
-```
-
-```bash
-# Deployment 생성
-kubectl apply -f deployment-nginx.yaml
-
-# 상태 확인
-kubectl get deployment nginx-deployment
-kubectl describe deployment nginx-deployment
-```
-
-## 🔄 롤링 업데이트
-
-### 업데이트 전략 설정
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: nginx-deployment
-spec:
-  replicas: 10
+  replicas: 2
+  revisionHistoryLimit: 3
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxSurge: 2        # 동시에 추가 생성 가능한 Pod 수
-      maxUnavailable: 1  # 동시에 사용 불가능한 Pod 수
-  selector:
-    matchLabels:
-      app: nginx
-  template:
-    metadata:
-      labels:
-        app: nginx
-        version: v1
-    spec:
-      containers:
-      - name: nginx
-        image: nginx:1.21
-        ports:
-        - containerPort: 80
-```
-
-### 업데이트 실행
-
-```bash
-# 이미지 업데이트
-kubectl set image deployment/nginx-deployment nginx=nginx:1.22
-
-# 실시간 확인
-kubectl rollout status deployment/nginx-deployment
-
-# 다른 터미널에서 Pod 변화 관찰
-kubectl get pods -l app=nginx -w
-
-# 업데이트 일시 중지
-kubectl rollout pause deployment/nginx-deployment
-
-# 업데이트 재개
-kubectl rollout resume deployment/nginx-deployment
-```
-
-### 롤백
-
-```bash
-# 히스토리 확인
-kubectl rollout history deployment/nginx-deployment
-
-# 특정 revision 상세 정보
-kubectl rollout history deployment/nginx-deployment --revision=2
-
-# 이전 버전으로 롤백
-kubectl rollout undo deployment/nginx-deployment
-
-# 특정 버전으로 롤백
-kubectl rollout undo deployment/nginx-deployment --to-revision=1
-```
-
-## 🏷️ 레이블과 셀렉터
-
-### 레이블 추가
-
-```yaml
-metadata:
-  labels:
-    app: nginx
-    env: production
-    tier: frontend
-    version: v1.0
-```
-
-```bash
-# 명령형으로 레이블 추가
-kubectl label pod nginx-pod env=staging
-
-# 레이블 업데이트
-kubectl label pod nginx-pod env=production --overwrite
-
-# 레이블 삭제
-kubectl label pod nginx-pod env-
-```
-
-### 셀렉터로 검색
-
-```bash
-# 단일 레이블
-kubectl get pods -l app=nginx
-
-# AND 조건
-kubectl get pods -l app=nginx,env=production
-
-# OR 조건 (set-based)
-kubectl get pods -l 'env in (production,staging)'
-
-# NOT
-kubectl get pods -l 'env notin (development)'
-
-# 존재 여부
-kubectl get pods -l app
-kubectl get pods -l '!env'
-```
-
-### Deployment 셀렉터
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: web-app
-spec:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: web
-      tier: frontend
-    matchExpressions:
-    - key: env
-      operator: In
-      values:
-      - production
-      - staging
   template:
     metadata:
       labels:
         app: web
-        tier: frontend
-        env: production
     spec:
       containers:
       - name: nginx
-        image: nginx:latest
-```
-
-## 🔍 헬스 체크
-
-### Liveness Probe (생존 확인)
-
-Pod가 정상 실행 중인지 확인, 실패 시 재시작
-
-```yaml
-spec:
-  containers:
-  - name: app
-    image: myapp:1.0
-    livenessProbe:
-      httpGet:
-        path: /health
-        port: 8080
-      initialDelaySeconds: 30  # 첫 체크까지 대기 시간
-      periodSeconds: 10        # 체크 주기
-      timeoutSeconds: 5        # 타임아웃
-      failureThreshold: 3      # 실패 횟수
-```
-
-### Readiness Probe (준비 상태 확인)
-
-트래픽 받을 준비가 되었는지 확인, 실패 시 Service에서 제외
-
-```yaml
-spec:
-  containers:
-  - name: app
-    image: myapp:1.0
-    readinessProbe:
-      httpGet:
-        path: /ready
-        port: 8080
-      initialDelaySeconds: 5
-      periodSeconds: 5
-```
-
-### Startup Probe (시작 확인)
-
-느리게 시작하는 앱을 위한 초기 체크
-
-```yaml
-spec:
-  containers:
-  - name: app
-    image: slow-app:1.0
-    startupProbe:
-      httpGet:
-        path: /startup
-        port: 8080
-      failureThreshold: 30
-      periodSeconds: 10
-```
-
-### Probe 유형
-
-```yaml
-# HTTP GET
-livenessProbe:
-  httpGet:
-    path: /health
-    port: 8080
-    httpHeaders:
-    - name: Custom-Header
-      value: Awesome
-
-# TCP Socket
-livenessProbe:
-  tcpSocket:
-    port: 8080
-
-# 명령 실행
-livenessProbe:
-  exec:
-    command:
-    - cat
-    - /tmp/healthy
-```
-
-## 💡 실습 과제
-
-### 과제 1: Blue-Green 배포 시뮬레이션
-
-```bash
-# Blue 버전 배포
-kubectl create deployment blue --image=nginx:1.21
-kubectl label deployment blue version=blue
-kubectl scale deployment blue --replicas=3
-
-# Green 버전 배포
-kubectl create deployment green --image=nginx:1.22
-kubectl label deployment green version=green
-kubectl scale deployment green --replicas=3
-
-# Service는 blue를 가리킴 (다음 챕터에서 학습)
-# kubectl expose deployment blue --port=80 --selector=version=blue
-
-# 전환 테스트 완료 후
-kubectl scale deployment blue --replicas=0
-```
-
-### 과제 2: 자동 복구 테스트
-
-```bash
-# Deployment 생성
-kubectl create deployment resilient-app --image=nginx --replicas=3
-
-# Pod 목록 확인
-kubectl get pods -l app=resilient-app
-
-# Pod 하나 강제 삭제
-kubectl delete pod <pod-name>
-
-# 자동으로 새 Pod 생성 확인
-kubectl get pods -l app=resilient-app -w
-```
-
-### 과제 3: 리소스 제한 테스트
-
-`deployment-limited.yaml`:
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: resource-test
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: test
-  template:
-    metadata:
-      labels:
-        app: test
-    spec:
-      containers:
-      - name: stress
-        image: polinux/stress
-        command: ["stress"]
-        args: ["--cpu", "1", "--vm", "1", "--vm-bytes", "50M"]
+        image: nginx:1.27-alpine
+        ports:
+        - containerPort: 80
         resources:
           requests:
-            memory: "64Mi"
-            cpu: "250m"
+            cpu: 100m
+            memory: 64Mi
           limits:
-            memory: "128Mi"
-            cpu: "500m"
+            cpu: 500m
+            memory: 128Mi
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 15
+          periodSeconds: 10
 ```
+
+적용하고 controller 관계를 확인한다.
 
 ```bash
-kubectl apply -f deployment-limited.yaml
-
-# 리소스 사용량 확인
-kubectl top pods -l app=test
+kubectl apply -f deployment-web.yaml
+kubectl rollout status deployment/web
+kubectl get deployment,replicaset,pod -l app=web
+kubectl describe deployment web
 ```
 
-## 🐛 트러블슈팅
-
-### ImagePullBackOff
+Service를 만들고 local port로 확인한다.
 
 ```bash
-# 원인 확인
-kubectl describe pod <pod-name>
-
-# 이미지 이름 확인
-kubectl get pod <pod-name> -o jsonpath='{.spec.containers[*].image}'
-
-# 수정
-kubectl set image deployment/<name> <container>=<correct-image>
+kubectl expose deployment web --port=80 --target-port=80
+kubectl get service web
+kubectl port-forward service/web 8080:80
 ```
 
-### CrashLoopBackOff
+다른 터미널에서 호출한다.
 
 ```bash
-# 로그 확인
-kubectl logs <pod-name> --previous
-
-# 이벤트 확인
-kubectl describe pod <pod-name>
-
-# 디버깅 모드로 실행
-kubectl run debug --image=busybox -it --rm -- sh
+curl http://127.0.0.1:8080
 ```
 
-### Pending 상태
+Scale out을 확인한다.
 
 ```bash
-# 원인 확인
-kubectl describe pod <pod-name>
-
-# 노드 리소스 확인
-kubectl top nodes
-
-# 스케줄링 불가능한 Pod 찾기
-kubectl get pods --field-selector=status.phase=Pending
+kubectl scale deployment web --replicas=4
+kubectl rollout status deployment/web
+kubectl get pods -l app=web -o wide
 ```
 
-## 🧹 정리
+Rolling update를 실행한다.
 
 ```bash
-# Deployment 삭제 (Pod도 함께 삭제됨)
-kubectl delete deployment nginx-deployment
-
-# 레이블로 일괄 삭제
-kubectl delete pods -l app=nginx
-
-# 네임스페이스 전체 삭제
-kubectl delete namespace <namespace-name>
+kubectl set image deployment/web nginx=nginx:1.28-alpine
+kubectl rollout status deployment/web
+kubectl rollout history deployment/web
 ```
 
-## 📚 다음 단계
+문제가 있으면 rollback한다.
 
-- [Service와 네트워킹](03-services-networking.md)
-- [ConfigMap과 Secret](04-configmap-secret.md)
+```bash
+kubectl rollout undo deployment/web
+kubectl rollout status deployment/web
+```
 
-## 🔗 참고 자료
+정리한다.
 
-- [Pod 공식 문서](https://kubernetes.io/docs/concepts/workloads/pods/)
-- [Deployment 공식 문서](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
-- [롤링 업데이트](https://kubernetes.io/docs/tutorials/kubernetes-basics/update/update-intro/)
+```bash
+kubectl delete service web
+kubectl delete deployment web
+kubectl delete namespace workload-lab
+```
+
+## 9. 실패 사례 (What could go wrong?)
+
+`selector does not match template labels`는 Deployment selector와 Pod template label이 다를 때 발생한다. selector는 생성 후 바꾸기 어렵기 때문에 처음부터 명확히 정한다.
+
+`ImagePullBackOff`는 image 이름, tag, registry 인증, 네트워크 문제다. `kubectl describe pod <pod-name>`의 Events를 먼저 본다.
+
+`CrashLoopBackOff`는 container process가 반복 종료되는 상태다. `kubectl logs <pod-name> --previous`로 직전 실행 로그를 확인한다.
+
+`OOMKilled`는 memory limit을 넘었을 때 발생한다. limit만 높이기 전에 실제 메모리 사용량과 request 기준을 함께 조정한다.
+
+Readiness probe가 없으면 시작 중인 Pod도 Service traffic을 받을 수 있다. 반대로 readiness가 너무 엄격하면 rollout이 끝나지 않는다.
+
+Liveness probe가 dependency 장애를 체크하면 외부 DB나 API가 느릴 때 모든 Pod가 재시작될 수 있다. liveness는 process 자체의 회복 불가능 상태에 가깝게 둔다.
+
+## 10. 뇌 확장하기 (Evolution & Variants)
+
+Pod 하나에 여러 container를 넣는 sidecar 패턴은 logging, proxy, certificate refresh처럼 같은 lifecycle과 network namespace가 필요한 경우에 적합하다. 단순히 관련 있는 서비스라는 이유만으로 한 Pod에 묶으면 scale과 장애 격리가 어려워진다.
+
+Deployment는 stateless workload에 적합하다. 고정 identity와 persistent storage가 필요한 workload는 StatefulSet을 검토한다.
+
+운영 배포에서는 Deployment만으로 충분하지 않다. Service, Ingress, ConfigMap, Secret, HPA, PDB, NetworkPolicy, observability가 함께 필요하다.
+
+공식 문서는 Pod, Deployment, rolling update의 세부 동작을 계속 갱신한다.
+
+- Pod 개념: <https://kubernetes.io/docs/concepts/workloads/pods/>
+- Deployment 개념: <https://kubernetes.io/docs/concepts/workloads/controllers/deployment/>
+- Rolling update: <https://kubernetes.io/docs/tasks/run-application/update-deployment-rolling/>
+
+## 11. 최종 체크리스트 (Definition of Done)
+
+- [ ] Pod와 Deployment의 책임 차이를 설명할 수 있다.
+- [ ] Deployment selector와 template label이 일치한다.
+- [ ] image tag가 의도적으로 고정되어 있다.
+- [ ] requests와 limits를 선언했다.
+- [ ] readiness와 liveness probe 목적을 구분했다.
+- [ ] rollout status와 rollout history를 확인했다.
+- [ ] 장애 시 `describe`, `logs --previous`, Events를 확인할 수 있다.
+- [ ] 실습 Service, Deployment, namespace를 정리했다.
+
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
+
+Pod는 container가 실행되는 최소 단위이고 Deployment는 Pod template과 replica 수를 계속 맞추는 controller 계약이다. 안전한 Deployment는 selector, label, probe, resource, rollout 상태가 함께 맞아야 한다.

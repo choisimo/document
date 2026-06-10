@@ -1,6 +1,6 @@
 # Proxmox QDevice 투표 문제 해결 방법
 
-현재 Proxmox 클러스터의 QDevice가 구성되어 있지만 투표가 0으로 표시되어 제대로 작동하지 않고 있습니다. `pvecm status` 출력에서 "Qdevice (votes 0)"로 표시되는 것이 문제입니다. 이 문제를 해결하기 위한 단계별 가이드를 제공합니다.
+현재 Proxmox 클러스터의 QDevice가 구성되어 있지만 투표가 0으로 표시되어 제대로 작동하지 않는 상태다. `pvecm status` 출력에서 "Qdevice (votes 0)"로 표시되는 문제를 해결하기 위한 단계별 절차다.
 
 ## 현재 상황 분석
 
@@ -102,7 +102,7 @@ systemctl restart pve-cluster
 pvecm status
 ```
 
-이제 QDevice가 "votes 1"로 표시되어야 합니다.
+정상 적용 후 QDevice가 "votes 1"로 표시된다.
 
 ## 참고 사항
 
@@ -110,6 +110,6 @@ pvecm status
 
 2. 일반적인 문제: "votes 0" 문제는 일반적으로 설정 파일의 불일치 또는 QDevice와 클러스터 간의 통신 문제 때문에 발생합니다.
 
-3. 네트워크 요구 사항: QDevice와 Proxmox 노드는 안정적인 네트워크 연결이 필요하며, 방화벽이 포트 5403(기본 QDevice 포트)를 허용해야 합니다.
+3. 네트워크 요구 사항: QDevice와 Proxmox 노드는 안정적인 네트워크 연결이 필요하며, 방화벽은 포트 5403(기본 QDevice 포트)를 허용한다.
 
-이 단계들을 따르면 Raspberry Pi를 Proxmox 클러스터의 투표 QDevice로 성공적으로 구성할 수 있을 것입니다.
+이 단계는 Raspberry Pi를 Proxmox 클러스터의 투표 QDevice로 구성하는 절차다.

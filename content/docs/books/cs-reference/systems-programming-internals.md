@@ -1,304 +1,130 @@
-# Systems Programming Internals: Memory Models, Syscalls & Concurrency Primitives
+# Systems Programming Internals 학습 및 기록 노트
 
-> Under the Hood: How the CPU memory model orders stores/loads, how system calls cross the user/kernel boundary, how mutexes and futexes implement blocking in the kernel, how Rust's borrow checker enforces memory safety at compile time, how POSIX threads map to kernel scheduler entities.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
----
+시스템 프로그래밍은 사용자 공간 코드가 CPU, memory model, kernel, scheduler, allocator, file system과 직접 만나는 영역이다. 같은 mutex라도 uncontended fast path는 사용자 공간 CAS로 끝나지만, contended path는 futex syscall로 kernel wait queue에 들어간다. 같은 load/store도 CPU memory model과 fence에 따라 다른 thread에서 보이는 순서가 달라질 수 있다.
 
-## 1. CPU Memory Model: Store/Load Ordering
+이 문서는 원문의 systems programming internals 내용을 memory ordering, syscall, futex, Rust ownership, pthread, allocator, POSIX I/O 중심으로 재작성한다.
 
-Modern CPUs reorder memory operations for performance. The programmer's sequential mental model does not match hardware reality.
+## 2. 현재 나의 상태 (Baseline)
 
-```mermaid
-flowchart TD
-    subgraph "x86-TSO Memory Model"
-        CPU1["CPU 1\nStore buffer: [x=1]\n(not yet visible to CPU2!)"]
-        CPU2["CPU 2\nStore buffer: [y=1]\n(not yet visible to CPU1!)"]
-        L1_1["L1 Cache (CPU1)"]
-        L1_2["L1 Cache (CPU2)"]
-        LLC["L3 Cache (Shared)"]
-        MEM["Main Memory"]
-        CPU1 -->|STORE| L1_1
-        CPU2 -->|STORE| L1_2
-        L1_1 --> LLC --> MEM
-        L1_2 --> LLC --> MEM
-    end
-    subgraph "Classic Reordering Bug (TSO allows)"
-        T1["Thread 1:\n  x = 1\n  r1 = y"]
-        T2["Thread 2:\n  y = 1\n  r2 = x"]
-        RESULT["Possible outcome: r1=0, r2=0\n(both threads read stale value\nbefore other's store drains)\nImpossible on sequential model!"]
-        T1 --> RESULT
-        T2 --> RESULT
-    end
-```
+- Syscall, mutex, thread, malloc, file I/O, Rust ownership의 기본 개념은 알고 있다.
+- Store buffer, memory fence, atomic RMW가 실제 동시성 버그와 어떻게 연결되는지 정리해야 한다.
+- Futex가 왜 빠른 mutex 구현의 핵심인지 fast path/slow path로 구분해야 한다.
+- pthread가 Linux `task_struct`와 CFS scheduler에 어떻게 매핑되는지 더 명확히 해야 한다.
+- Allocator의 bin/cache 구조와 fragmentation, contention 문제를 이해해야 한다.
 
-### Memory Fences and Barriers
+## 3. 도달하고 싶은 목표 (Target State)
 
-```mermaid
-flowchart LR
-    MFENCE["MFENCE (x86):\n  Drain store buffer\n  Wait for all pending stores\n  to be globally visible\n  ← → full barrier"]
-    SFENCE["SFENCE:\n  Store barrier only\n  (stores ordered before fence\n  visible before stores after)"]
-    LFENCE["LFENCE:\n  Load barrier only\n  (serializes loads\n  also prevents speculation)"]
-    LOCK["LOCK prefix:\n  Implicit full barrier\n  (LOCK ADD, XCHG, CMPXCHG)\n  → Read-modify-write atomic"]
-    MFENCE --> SFENCE
-    MFENCE --> LFENCE
-    MFENCE --> LOCK
-```
+- CPU memory model과 fence가 load/store ordering을 어떻게 제한하는지 설명한다.
+- Syscall이 user mode에서 kernel mode로 전환되는 경로를 추적한다.
+- Futex 기반 mutex의 uncontended/contended path를 구분한다.
+- Rust borrow checker가 compile time에 use-after-free와 data race를 막는 방식을 설명한다.
+- Thread scheduling, TLS, allocator, POSIX file I/O를 내부 상태와 연결한다.
 
----
-
-## 2. System Call: User Space → Kernel Crossing
-
-```mermaid
-sequenceDiagram
-    participant APP as User Space Process
-    participant CPU as CPU Hardware
-    participant KERN as Linux Kernel
-
-    APP->>CPU: SYSCALL instruction\n(x86-64: rax=syscall_number\nrdi,rsi,rdx,r10,r8,r9 = args)
-    Note over CPU: Save registers to kernel stack\nSwitch CS to kernel segment (ring 0)\nLoad kernel stack pointer\nJump to LSTAR MSR (syscall entry)
-
-    CPU->>KERN: entry_SYSCALL_64:\n  1. Save user regs to pt_regs\n  2. Check seccomp filters\n  3. sys_call_table[rax](args)\n     → e.g., sys_write(fd,buf,count)
-    Note over KERN: Execute in kernel mode\n(full memory access, all privileges)
-    KERN->>CPU: SYSRET instruction\n  Restore user registers\n  Switch CS back to user segment (ring 3)
-    CPU-->>APP: Return value in rax
-```
-
-### vDSO: Avoiding Syscall Overhead
-
-For frequently called syscalls with no side effects (gettimeofday, clock_gettime), Linux maps kernel code directly into user process address space via **vDSO** (virtual Dynamic Shared Object):
-
-```
-gettimeofday() call in user space:
-  NORMAL: SYSCALL → kernel → read clock → SYSRET (~100ns)
-  vDSO:   Call vDSO function directly (no ring switch!)
-          Reads time from shared memory page (mapped by kernel)
-          ~10ns — 10× faster
-```
-
----
-
-## 3. Mutex Implementation: Futex
-
-A futex (fast userspace mutex) avoids syscalls in the uncontended case:
-
-```mermaid
-sequenceDiagram
-    participant T1 as Thread 1 (holder)
-    participant T2 as Thread 2 (waiter)
-    participant FUTEX as Kernel Futex Table
-
-    Note over T1: Lock (uncontended):
-    T1->>T1: CAS(futex_word, 0, 1)\n[user space — no syscall!]
-    Note over T1: Success → lock acquired
-
-    Note over T2: Lock (contended):
-    T2->>T2: CAS(futex_word, 0, 1)\nFails! (T1 holds lock)
-    T2->>T2: CAS(futex_word, 1, 2)\n(mark contention: value=2)
-    T2->>FUTEX: syscall: futex(FUTEX_WAIT, &futex_word, 2)\n[enter kernel, add to wait queue, sleep]
-
-    Note over T1: Unlock:
-    T1->>T1: XCHG(futex_word, 0)\nReturns 2 (contended)
-    T1->>FUTEX: syscall: futex(FUTEX_WAKE, &futex_word, 1)\n[only needed when contended!]
-    FUTEX->>T2: Wake from wait queue
-    Note over T2: Retry CAS → acquire lock
-```
-
-**Fast path**: Lock/unlock with no waiters = 1 atomic CAS + 0 syscalls.  
-**Slow path**: Only when contended, syscall enters kernel to sleep/wake.
-
-### Spinlock vs Mutex Tradeoff
-
-```mermaid
-flowchart LR
-    SPIN["Spinlock\n  while(!CAS(lock,0,1)) { PAUSE }\n  Pros: No context switch overhead\n  Cons: Burns CPU while waiting\n  Use: Short critical sections (<5μs)\n       Under interrupt handlers (no sleep!)"]
-    MUTEX["Mutex (via futex)\n  CAS fast path → sleep if contended\n  Pros: Yields CPU to other threads\n  Cons: Context switch overhead (~1-5μs)\n  Use: Long critical sections\n       When contention is common"]
-    SPIN --> MUTEX
-```
-
----
-
-## 4. Rust Borrow Checker: Ownership Rules at Compile Time
+## 4. 시스템 번역 (Data Flow)
 
 ```mermaid
 flowchart TD
-    subgraph "Rust Ownership Rules"
-        R1["Rule 1: Each value has exactly one owner\n  let x = String::from('hello');\n  x is owner of heap memory"]
-        R2["Rule 2: Owner drop → memory freed\n  (no GC: RAII destructor at scope end\n  → compiler inserts Drop::drop())"]
-        R3["Rule 3: Only one &mut ref OR\n  multiple & refs (never both)\n  Enforced at compile time!"]
-        R1 --> R2 --> R3
-    end
-    subgraph "Move vs Copy Semantics"
-        MOVE["Move (heap types: String, Vec, Box):\n  let y = x;  // x MOVED to y\n  println!({x}) // ERROR: x moved!\n  → zero-cost, just copy pointer bits"]
-        COPY["Copy (stack types: i32, bool, f64, refs):\n  let y = x;  // x COPIED to y\n  println!({x}) // OK: x still valid\n  → impl Copy trait"]
-        MOVE --> COPY
-    end
+    A[User code] --> B{연산 종류}
+    B -->|atomic/load/store| C[CPU memory model]
+    B -->|syscall| D[User -> Kernel boundary]
+    B -->|lock| E[CAS fast path / futex slow path]
+    B -->|thread| F[pthread -> task_struct -> CFS]
+    B -->|allocation| G[allocator bins/cache]
+    B -->|file I/O| H[VFS/page cache/device]
+    C --> I[결과와 부작용]
+    D --> I
+    E --> I
+    F --> I
+    G --> I
+    H --> I
 ```
 
-### Lifetime Annotations: Borrow Scope Enforcement
+시스템 프로그래밍의 data flow는 언어 런타임을 지나 CPU와 kernel의 실제 상태로 내려간다.
+
+## 5. 핵심 구성요소 (Building Blocks)
+
+| 구성요소 | 내부 상태 | 핵심 질문 |
+| --- | --- | --- |
+| Store buffer | 아직 전역 가시성이 없는 store | 다른 core에서 언제 보이는가? |
+| Memory fence | load/store ordering 제약 | 어떤 재정렬을 막아야 하는가? |
+| Syscall entry | register args, kernel stack | 권한 경계를 안전하게 넘는가? |
+| vDSO | user space에 매핑된 kernel helper | ring switch 없이 처리 가능한가? |
+| Futex | user word + kernel wait queue | 경합이 있을 때만 syscall하는가? |
+| Spinlock/Mutex | busy wait 또는 sleep | critical section 길이에 맞는가? |
+| Borrow checker | ownership/borrow state | lifetime과 aliasing 규칙을 지키는가? |
+| pthread | Linux task와 thread stack | scheduler entity로 독립 실행되는가? |
+| Allocator | fastbin/smallbin/thread cache | fragmentation과 lock contention을 줄이는가? |
+| POSIX I/O | fd, VFS, page cache | buffered/direct/sync 의미를 구분하는가? |
+
+## 6. 상태 전이 (State Transition)
 
 ```mermaid
-sequenceDiagram
-    participant CODE as Source Code
-    participant BC as Borrow Checker
-
-    Note over CODE: fn longest<'a>(x: &'a str, y: &'a str) -> &'a str
-    CODE->>BC: What lifetime does the return value have?
-    Note over BC: 'a = intersection of lifetimes of x and y\nReturn ref valid as long as BOTH x and y valid
-    Note over BC: Verify all call sites:\n  returned ref used only within that intersection
-    BC-->>CODE: OK or Error: "does not live long enough"
+stateDiagram-v2
+    [*] --> UserSpace
+    UserSpace --> AtomicFastPath: CAS 성공
+    UserSpace --> KernelEntry: syscall 또는 futex wait
+    AtomicFastPath --> UserSpace
+    KernelEntry --> KernelWaitQueue: block
+    KernelWaitQueue --> Runnable: wake
+    Runnable --> Scheduled
+    Scheduled --> UserSpace
 ```
 
-**Borrow checker eliminates at compile time**:
-- Use-after-free: owner dropped while borrow exists → compile error
-- Data races: `&mut` reference while any other reference active → compile error
-- Dangling references: reference to value that left scope → compile error
+Mutex는 평소에는 사용자 공간 CAS로 끝나고, 경합이 생겼을 때만 futex syscall로 kernel에 들어간다. 이 fast/slow path 분리가 성능의 핵심이다.
 
----
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-## 5. POSIX Threads: Kernel Mapping and Scheduling
+- Atomic ordering은 공유 데이터의 가시성 요구와 맞아야 한다.
+- Syscall 인자는 kernel이 검증할 수 있는 사용자 공간 주소와 권한을 가져야 한다.
+- Futex wait는 기대한 user word 값이 유지될 때만 sleep해야 lost wakeup을 피할 수 있다.
+- Spinlock은 오래 기다릴 수 있는 critical section에 쓰면 CPU를 낭비한다.
+- Rust에서는 `&mut`와 공유 참조가 동시에 활성화되면 안 된다.
+- pthread stack과 TLS는 thread별로 독립되어야 한다.
+- Allocator는 free된 chunk metadata가 손상되면 임의 코드 실행 취약점으로 이어질 수 있다.
+- File I/O는 page cache, fsync, rename atomicity의 의미를 정확히 구분해야 한다.
 
-```mermaid
-flowchart TD
-    subgraph "Thread Implementation: Linux"
-        PTHREAD["pthread_create()\n→ clone() syscall:\n  CLONE_VM: share address space\n  CLONE_FS: share file system\n  CLONE_FILES: share file descriptors\n  CLONE_SIGHAND: share signal handlers"]
-        TASK["kernel: New task_struct\n(same process, new stack, new TID)\nShares mm_struct (page tables)\nScheduled independently by CFS"]
-        SCHED["CFS (Completely Fair Scheduler):\n  vruntime = actual_runtime × (weight_nice0 / weight_this)\n  Always run task with lowest vruntime\n  Red-black tree ordered by vruntime"]
-        PTHREAD --> TASK --> SCHED
-    end
-    subgraph "Thread-Local Storage (TLS)"
-        TLS["__thread int x; (C/C++)\nor: thread_local int x; (C++11)\n→ each thread gets own x variable\nAccessed via FS register offset (x86-64)\nFS segment base = thread's TCB address\nx at offset [TCB + N]"]
-    end
-```
-
-### Context Switch: What Gets Saved
-
-```mermaid
-flowchart LR
-    subgraph "Registers Saved on Context Switch"
-        CALLEE["Callee-saved (compiler):\nrbx, rbp, r12-r15\n(caller responsible for rax, rcx, rdx, rsi, rdi, r8-r11)"]
-        SPECIAL["Special registers:\nrip (instruction pointer)\nrsp (stack pointer)\nrflags (condition codes)"]
-        FPU["FPU/SIMD (lazy save):\nxmm0-xmm15, ymm0-ymm15\nOnly saved if FPU used since last switch\n(XSAVE instruction — slow, avoid if possible)"]
-        CALLEE --> SPECIAL --> FPU
-    end
-```
-
----
-
-## 6. Memory Allocator Internals: glibc malloc
-
-```mermaid
-flowchart TD
-    subgraph "glibc ptmalloc Heap Layout"
-        FASTBIN["Fastbins (8-160 bytes):\n  LIFO singly-linked list per size class\n  No coalescing — fastest path\n  Stays in CPU cache (recently freed)"]
-        SMALLBIN["Small bins (16-512 bytes):\n  Doubly-linked sorted by size\n  First-fit within size class"]
-        LARGEBIN["Large bins (>512 bytes):\n  Sorted by size + address\n  Best-fit with skip list for O(log N) search"]
-        TOPCHUNK["Top chunk:\n  Remainder at wilderness\n  Extended via sbrk()/mmap()\n  Coalesce freed chunks into top"]
-        FASTBIN --> SMALLBIN --> LARGEBIN --> TOPCHUNK
-    end
-    subgraph "Chunk Header"
-        HEADER["Each allocation has 16-byte header:\n  size | PREV_INUSE | IS_MMAPPED | NON_MAIN_ARENA\n  prev_size (if previous chunk free)\nUser data starts here (returned pointer)\nFooter: size repeated (for backward coalescing)"]
-    end
-```
-
-### TCMalloc: Thread-Caching for Low Contention
-
-```mermaid
-flowchart LR
-    subgraph "TCMalloc Levels"
-        THREAD_CACHE["Thread Cache:\n  Per-thread free lists (0-256KB)\n  No locks needed!\n  256 size classes (8B, 16B, 32B...)"]
-        CENTRAL_CACHE["Central Cache:\n  Spans of pages\n  Lock only when thread cache empty/full\n  Transfer batch of objects at once"]
-        PAGE_HEAP["Page Heap:\n  mmap() from OS\n  256KB+ allocations bypass thread cache\n  Pagemap: addr → span metadata"]
-        THREAD_CACHE --> CENTRAL_CACHE --> PAGE_HEAP
-    end
-```
-
----
-
-## 7. POSIX File I/O: Kernel Paths
-
-```mermaid
-sequenceDiagram
-    participant APP as Application
-    participant VFS as VFS Layer
-    participant FS as ext4 Filesystem
-    participant BCACHE as Block Cache (page cache)
-    participant DISK as NVMe SSD
-
-    APP->>VFS: read(fd, buf, 4096)
-    VFS->>BCACHE: Lookup page cache:\n  (inode, page_offset) → page?
-    BCACHE->>VFS: Cache HIT → copy to user buf
-    VFS-->>APP: Returns 4096 bytes (no I/O!)
-
-    Note over APP: Cache MISS scenario:
-    VFS->>FS: readpage(inode, page_index)
-    FS->>DISK: bio_submit (block number)
-    Note over APP: Process sleeps (IO_WAIT)
-    DISK-->>FS: DMA transfer → page cache page
-    FS->>BCACHE: Page ready
-    BCACHE->>VFS: copy_to_user(buf, page)
-    VFS-->>APP: Returns (woken up)
-```
-
-### O_DIRECT: Bypassing Page Cache
+## 8. 가장 작은 예제 (Minimal Viable Example)
 
 ```c
-// O_DIRECT: bypass page cache entirely
-fd = open("data.bin", O_RDWR | O_DIRECT);
-// Requires aligned buffer (aligned to 512 or 4096 bytes)
-// Transfers directly: user_buf ↔ disk (via DMA)
-// Used by: databases (manage their own cache)
-//          backup tools (avoid evicting hot pages)
+// 개념 모델: uncontended mutex fast path
+if (atomic_compare_exchange_strong(&lock_word, 0, 1)) {
+    // user space에서 lock 획득, syscall 없음
+} else {
+    // contended: futex_wait로 kernel wait queue 진입
+}
 ```
 
----
+이 예제는 시스템 프로그래밍의 핵심 최적화를 보여준다. 대부분의 lock/unlock은 kernel에 들어가지 않고, 진짜 경합이 있을 때만 syscall 비용을 낸다.
 
-## 8. Signal Handling: Delivery and Async-Safety
+## 9. 실패 사례 (What could go wrong?)
 
-```mermaid
-sequenceDiagram
-    participant APP as User Process
-    participant KERN as Kernel
-    participant HANDLER as Signal Handler
+- Memory ordering을 명시하지 않아 한 thread의 write가 다른 thread에 예상 순서로 보이지 않는다.
+- Futex wait 전에 값 확인을 잘못해 wakeup을 놓친다.
+- Spinlock을 긴 I/O critical section에 사용해 CPU를 태운다.
+- Syscall error return을 확인하지 않아 partial write/read를 정상 완료로 처리한다.
+- `fork` 이후 lock을 잡은 thread가 사라져 child process에서 deadlock이 생긴다.
+- Allocator double free나 use-after-free가 heap metadata를 오염시킨다.
+- Rust의 `unsafe` block에서 aliasing/lifetime 규칙을 수동으로 깨뜨린다.
 
-    Note over APP: Running user code
-    KERN->>APP: Deliver SIGINT:\n  1. Save user register state to stack\n  2. Modify stack to call signal handler\n  3. Return to signal handler
-    Note over KERN,APP: Push signal frame on user stack:\n  pt_regs (saved registers)\n  signal info\n  ucontext (FPU state)
-    APP->>HANDLER: Execute SIGINT handler
-    Note over HANDLER: ASYNC-SIGNAL-SAFE functions only!\n  (malloc is NOT safe: re-entrant deadlock)\n  Safe: write(), _exit(), signal(), kill()\nUnsafe: printf(), malloc(), pthread_mutex_lock()
-    HANDLER->>APP: sigreturn() syscall\n  → kernel restores registers from stack
-    Note over APP: Resume from exact instruction\nwhere SIGINT was delivered
-```
+## 10. 뇌 확장하기 (Evolution & Variants)
 
----
+- Memory model은 x86 TSO, ARM relaxed model, C/C++ atomic ordering을 비교한다.
+- Synchronization은 mutex, rwlock, condition variable, semaphore, lock-free queue로 확장한다.
+- I/O는 blocking, non-blocking, epoll, io_uring, direct I/O로 비교한다.
+- Allocator는 glibc ptmalloc, jemalloc, tcmalloc, slab allocator를 구조별로 본다.
+- Rust ownership은 Send/Sync, Pin, unsafe, FFI boundary까지 확장한다.
+- Kernel boundary는 seccomp, eBPF, namespaces, cgroups와 연결된다.
 
-## 9. NUMA Architecture: Memory Locality
+## 11. 최종 체크리스트 (Definition of Done)
 
-```mermaid
-flowchart TD
-    subgraph "NUMA System (2-socket server)"
-        NODE0["NUMA Node 0\nCPU 0-15\nLocal RAM: 64GB\n(Access: ~70ns)"]
-        NODE1["NUMA Node 1\nCPU 16-31\nLocal RAM: 64GB\n(Access: ~70ns)"]
-        INTERCO["QPI/UPI Interconnect\n(Remote access: ~140ns\n= 2× penalty!)"]
-        NODE0 <--> INTERCO <--> NODE1
-    end
-    subgraph "NUMA-Aware Allocation"
-        POLICY["numactl --membind=0 ./process\n  Allocate memory only on node 0\n  (process pinned to node 0 CPUs)\n→ Always local access, no cross-node\nnuma_alloc_local(): first-touch policy"]
-    end
-```
+- [x] Memory model, syscall, futex, Rust ownership, pthread, allocator, file I/O를 내부 상태로 정리했다.
+- [x] Futex fast/slow path를 최소 예제로 설명했다.
+- [x] Lost wakeup, partial I/O, double free, memory ordering 실패 사례를 포함했다.
+- [x] 시스템 프로그래밍의 user/kernel boundary를 data flow로 표현했다.
+- [x] 원문 systems programming internals 문서를 12개 섹션 템플릿으로 재작성했다.
 
----
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-## Summary: Systems Programming Primitives
-
-| Primitive | Implementation | Kernel Involvement |
-|---|---|---|
-| Mutex lock (uncontended) | CAS in user space | None (fast path) |
-| Mutex lock (contended) | futex(FUTEX_WAIT) | Yes — process blocked |
-| Thread create | clone(CLONE_VM\|...) | Yes — new task_struct |
-| Context switch | save regs, load regs | Yes — CFS scheduler |
-| Memory alloc (<256B) | Thread cache LIFO | None (tcmalloc) |
-| Memory alloc (large) | mmap(MAP_ANON) | Yes — page table update |
-| File read (cached) | copy from page cache | Minimal |
-| File read (uncached) | bio submit + sleep | Yes — I/O scheduler |
-| Signal delivery | Modify stack → handler | Yes — return to usermode |
-| System call | SYSCALL instruction | Yes — ring 0 transition |
+시스템 프로그래밍은 추상 API 아래에서 CPU 순서, kernel 진입, wait queue, allocator metadata가 어떻게 움직이는지 이해하는 일이다.

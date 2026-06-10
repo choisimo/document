@@ -1,361 +1,147 @@
-# 개발 문서
+# 개발 환경 구성 학습 및 기록 노트
 
-Docker, Git, IDE 설정, 프로그래밍 언어 환경 구성에 관한 가이드입니다.
+이 문서는 Docker, Git, IDE, 언어 런타임 문서를 하나의 개발 환경 구축 흐름으로 묶는 상위 색인이다. 개별 도구의 명령어를 외우는 것보다 중요한 목표는 새 장비, 원격 서버, 컨테이너 환경에서 같은 프로젝트를 다시 열어도 일관된 결과를 얻는 것이다.
 
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-<div class="compose-hero" markdown>
-<span class="compose-kicker">Development</span>
+개발 환경은 여러 층이 동시에 맞아야 동작한다. Docker가 설치되어도 볼륨 권한이 맞지 않으면 컨테이너 개발이 막히고, Git 브랜치 전략이 있어도 SSH 키와 배포 키가 정리되지 않으면 협업이 끊긴다. IDE 확장이 많아도 포맷터가 프로젝트 규칙과 다르면 불필요한 변경이 생긴다.
 
-## 개발 환경을 빠르게 구성할 수 있는 핵심 가이드 모음
+따라서 개발 문서는 도구별 사용법이 아니라 환경을 재현하는 순서로 읽어야 한다. 운영체제와 패키지, 컨테이너, 버전 관리, 편집기, 언어 런타임을 각각 분리하되, 최종 목표는 하나의 프로젝트를 안정적으로 빌드하고 수정하고 배포할 수 있는 상태다.
 
-컨테이너 기반 개발, Git 워크플로우, IDE 설정, 언어 런타임 구성을 실제 개발 환경 준비 순서에 맞춰 정리했습니다.
+## 2. 현재 나의 상태 (Baseline)
 
-<div class="landing-meta-list" markdown>
-<span>Docker</span>
-<span>Git</span>
-<span>IDE</span>
-<span>Languages</span>
-</div>
+현재 개발 섹션은 다음 문서들로 나뉜다.
 
-<div class="compose-actions" markdown>
-[:octicons-arrow-right-24: Docker 설치](docker/installation.md){ .md-button .md-button--primary }
-[:material-source-branch: 브랜치 관리](git/branch-management.md){ .md-button }
-[:material-microsoft-visual-studio-code: VS Code 플러그인](ide/vscode-plugins.md){ .md-button }
-</div>
-</div>
+- Docker: [설치](docker/installation.md), [명령어](docker/commands.md), [네트워킹](docker/networking.md), [볼륨](docker/volumes.md), [Vaultwarden](docker/vaultwarden.md), [LiteLLM Proxy](docker/litellm_copilot_guide.md)
+- Git: [브랜치 관리](git/branch-management.md), [배포 키](git/deployment.md), [삭제 복구](git/restore-deletion.md)
+- IDE: [code-server](ide/code-server.md), [VS Code 확장](ide/vscode-plugins.md)
+- Languages: [GCC](languages/gcc.md), [Java 설치](languages/java-install.md)
 
-## :material-code-braces: 핵심 개발 영역
+기존 상위 문서는 카드형 랜딩 페이지, 도구 예시, 프로젝트 구조 템플릿, 설정 샘플을 한 문서에 많이 담고 있었다. 그 결과 하위 문서와 내용이 중복되고, 상위 문서가 어떤 순서로 읽어야 하는지 알려 주는 역할이 약했다.
 
-<div class="grid cards" markdown>
+## 3. 도달하고 싶은 목표 (Target State)
 
--   :material-docker:{ .lg .middle } **Docker**
+개발 환경 문서의 목표 상태는 다음과 같다.
 
-    ---
+- 새 장비를 받았을 때 필요한 문서를 순서대로 찾을 수 있다.
+- Docker, Git, IDE, 언어 런타임의 책임 경계를 구분한다.
+- 보안과 복구가 필요한 작업은 별도 문서에서 확인한다.
+- 상위 문서는 하위 문서를 대체하지 않고 탐색 경로를 제공한다.
+- 각 도구의 설치 후 검증 명령이 무엇인지 빠르게 확인할 수 있다.
 
-    컨테이너 기반 개발 및 배포
+## 4. 시스템 번역 (Data Flow)
 
-    - [설치 가이드](docker/installation.md)
-    - [명령어 가이드](docker/commands.md)
-    - [네트워킹](docker/networking.md)
-    - [볼륨 마운트](docker/volumes.md)
-    - [Vaultwarden](docker/vaultwarden.md)
+개발 환경은 다음 흐름으로 해석할 수 있다.
 
--   :material-git:{ .lg .middle } **Git**
-
-    ---
-
-    버전 관리 및 협업
-
-    - [브랜치 관리](git/branch-management.md)
-    - [배포 설정](git/deployment.md)
-    - [삭제 복구](git/restore-deletion.md)
-
--   :material-microsoft-visual-studio-code:{ .lg .middle } **IDE**
-
-    ---
-
-    통합 개발 환경 설정
-
-    - [VS Code 플러그인](ide/vscode-plugins.md)
-    - [Code Server](ide/code-server.md)
-
--   :material-language-java:{ .lg .middle } **프로그래밍 언어**
-
-    ---
-
-    개발 언어 환경 구성
-
-    - [Java 설치](languages/java-install.md)
-    - [GCC 설정](languages/gcc.md)
-
-</div>
-
----
-
-## :material-rocket-launch: 개발 환경 구성 가이드
-
-```mermaid
-flowchart TD
-    A[OS 설치] --> B[필수 패키지]
-    B --> C[Docker 설치]
-    C --> D[개발 도구]
-    
-    subgraph DevTools["개발 도구"]
-        D --> E[Git]
-        D --> F[IDE]
-        D --> G[언어 런타임]
-    end
-    
-    E --> H[Git 설정]
-    F --> I[플러그인 설치]
-    G --> J[SDK 설치]
-    
-    H --> K[프로젝트 시작]
-    I --> K
-    J --> K
+```text
+운영체제와 기본 패키지
+  -> 컨테이너 런타임
+  -> Git 인증과 브랜치 전략
+  -> IDE와 확장
+  -> 언어 런타임과 컴파일러
+  -> 프로젝트 빌드와 테스트
+  -> 배포 또는 운영 환경 연결
 ```
 
-### 설치 순서 체크리스트
+이 흐름에서 앞 단계가 불안정하면 뒤 단계의 오류가 원인을 숨긴다. 예를 들어 Java 빌드 실패처럼 보이는 문제가 실제로는 컨테이너 볼륨 권한이나 Git checkout 상태에서 시작될 수 있다.
 
-1. [ ] 운영체제 설치 및 업데이트
-2. [ ] 기본 패키지 설치 (curl, wget, git)
-3. [ ] Docker & Docker Compose 설치
-4. [ ] 개발 언어 런타임 (JDK, Node.js, Python)
-5. [ ] IDE 설치 및 설정
-6. [ ] Git 설정 (이름, 이메일, SSH 키)
+## 5. 핵심 구성요소 (Building Blocks)
 
----
+| 영역 | 문서 | 책임 |
+| --- | --- | --- |
+| Docker | [설치](docker/installation.md), [명령어](docker/commands.md), [네트워킹](docker/networking.md), [볼륨](docker/volumes.md) | 컨테이너 실행, 이미지, 네트워크, 데이터 유지 |
+| Docker 응용 | [Vaultwarden](docker/vaultwarden.md), [LiteLLM Proxy](docker/litellm_copilot_guide.md) | 특정 서비스를 컨테이너로 배치할 때의 설정 경계 |
+| Git | [브랜치 관리](git/branch-management.md), [배포 키](git/deployment.md), [삭제 복구](git/restore-deletion.md) | 변경 이력, 협업, 배포 권한, 복구 |
+| IDE | [code-server](ide/code-server.md), [VS Code 확장](ide/vscode-plugins.md) | 편집기, 원격 개발, 확장 재현성 |
+| Languages | [GCC](languages/gcc.md), [Java 설치](languages/java-install.md) | 컴파일러와 런타임 설치, 버전 확인 |
 
-## :material-docker: Docker 생태계
+하위 문서는 명령 실행 전제와 실패 사례를 함께 읽어야 한다. 설치 명령만 복사하면 같은 도구라도 운영체제, 권한, 네트워크 상태에 따라 다른 결과가 나온다.
 
-### Docker 아키텍처
+## 6. 상태 전이 (State Transition)
 
-```mermaid
-flowchart TB
-    subgraph Host["호스트 시스템"]
-        A[Docker Client] --> B[Docker Daemon]
-        B --> C[containerd]
-        C --> D[runc]
-    end
-    
-    subgraph Containers["컨테이너"]
-        E[Container 1]
-        F[Container 2]
-        G[Container 3]
-    end
-    
-    subgraph Storage["스토리지"]
-        H[Images]
-        I[Volumes]
-        J[Networks]
-    end
-    
-    D --> Containers
-    B --> Storage
+개발 환경 준비 상태는 다음처럼 이동한다.
+
+```text
+미준비 장비
+  -> 기본 패키지 설치됨
+  -> 컨테이너 실행 가능
+  -> Git 인증 가능
+  -> IDE에서 저장소 열림
+  -> 언어 런타임 검증됨
+  -> 프로젝트 빌드와 테스트 통과
 ```
 
-### Docker Compose 예시
+각 단계는 다음 검증을 통과해야 한다.
 
-```yaml
-version: '3.8'
-services:
-  app:
-    build: .
-    ports:
-      - "3000:3000"
-    volumes:
-      - .:/app
-    depends_on:
-      - db
-      - redis
-  
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_PASSWORD: secret
-    volumes:
-      - db-data:/var/lib/postgresql/data
-  
-  redis:
-    image: redis:7-alpine
-    
-volumes:
-  db-data:
-```
+- 기본 패키지: `git`, `curl`, `ssh`, 셸 환경을 확인한다.
+- 컨테이너: `docker version`, `docker compose version`, 테스트 컨테이너 실행을 확인한다.
+- Git: 원격 fetch, 브랜치 생성, SSH 또는 배포 키 범위를 확인한다.
+- IDE: 프로젝트 권장 확장과 포맷터 충돌 여부를 확인한다.
+- 언어 런타임: `gcc --version`, `java -version`, 빌드 도구 버전을 확인한다.
 
----
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-## :material-source-branch: Git 워크플로우
+- 설치 문서는 실행 전제와 검증 명령을 함께 제공해야 한다.
+- 컨테이너 볼륨은 데이터 보존 범위와 권한을 명확히 해야 한다.
+- Git 복구 문서는 `reset --hard` 같은 파괴적 명령을 기본 경로로 두지 않는다.
+- 원격 IDE는 인증과 네트워크 노출 경계를 먼저 정해야 한다.
+- 언어 런타임은 프로젝트가 요구하는 버전과 실제 설치 버전을 비교해야 한다.
+- 상위 인덱스는 하위 문서의 상세 절차를 중복하지 않는다.
 
-### Git Flow
+## 8. 가장 작은 예제 (Minimal Viable Example)
 
-```mermaid
-gitGraph
-    commit id: "init"
-    branch develop
-    checkout develop
-    commit id: "feature-1"
-    branch feature/login
-    checkout feature/login
-    commit id: "add login"
-    commit id: "add auth"
-    checkout develop
-    merge feature/login
-    branch release/1.0
-    checkout release/1.0
-    commit id: "bump version"
-    checkout main
-    merge release/1.0 tag: "v1.0.0"
-    checkout develop
-    merge release/1.0
-```
-
-### 브랜치 전략
-
-| 브랜치 | 용도 | 생명주기 |
-|--------|------|----------|
-| `main` | 프로덕션 코드 | 영구 |
-| `develop` | 개발 통합 | 영구 |
-| `feature/*` | 기능 개발 | 임시 |
-| `release/*` | 릴리즈 준비 | 임시 |
-| `hotfix/*` | 긴급 수정 | 임시 |
-
-### 자주 쓰는 명령어
+새 개발 장비를 준비할 때의 최소 확인 순서는 다음과 같다.
 
 ```bash
-# 브랜치 생성 및 전환
-git checkout -b feature/new-feature
-
-# 원격 브랜치 가져오기
-git fetch origin
-git checkout -b feature origin/feature
-
-# 리베이스
-git rebase develop
-
-# 대화형 리베이스 (커밋 정리)
-git rebase -i HEAD~3
-
-# 스태시
-git stash
-git stash pop
-
-# 커밋 수정
-git commit --amend
+git --version
+ssh -V
+docker version
+docker compose version
+gcc --version
+java -version
 ```
 
----
+그 다음 문서를 순서대로 읽는다.
 
-## :material-microsoft-visual-studio-code: VS Code 필수 확장
+1. Docker 설치와 명령어를 확인한다.
+2. Git 브랜치 전략과 원격 인증을 확인한다.
+3. IDE 확장과 원격 개발 경계를 정한다.
+4. 프로젝트가 요구하는 언어 런타임을 설치한다.
+5. 실제 저장소에서 빌드와 테스트를 실행한다.
 
-### 범용
+최소 검증의 목적은 모든 도구를 빠짐없이 설정하는 것이 아니라, 실패가 발생했을 때 어느 층에서 멈췄는지 빠르게 좁히는 것이다.
 
-| 확장 | 용도 |
-|------|------|
-| **GitLens** | Git 히스토리 시각화 |
-| **Prettier** | 코드 포맷팅 |
-| **ESLint** | JavaScript 린팅 |
-| **Docker** | Docker 통합 |
-| **Remote - SSH** | 원격 개발 |
+## 9. 실패 사례 (What could go wrong?)
 
-### 언어별
+첫 번째 실패는 설치 순서가 뒤섞이는 것이다. IDE에서 프로젝트를 먼저 열고 확장을 설치해도, Docker 데몬이나 JDK가 없으면 빌드와 테스트는 실패한다.
 
-| 언어 | 확장 |
-|------|------|
-| **Java** | Extension Pack for Java |
-| **Python** | Python, Pylance |
-| **TypeScript** | TypeScript Hero |
-| **Go** | Go |
-| **Rust** | rust-analyzer |
+두 번째 실패는 권한 경계를 놓치는 것이다. Docker 볼륨, SSH 키, 배포 키, code-server 설정 파일은 모두 권한이 잘못되면 동작하지 않거나 민감 정보가 노출된다.
 
-### settings.json 예시
+세 번째 실패는 개인 설정과 프로젝트 설정을 섞는 것이다. 개인 폰트나 테마를 저장소에 강제하면 다른 사람의 개발 환경을 불필요하게 바꾼다.
 
-```json
-{
-  "editor.formatOnSave": true,
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "editor.tabSize": 2,
-  "editor.minimap.enabled": false,
-  "files.autoSave": "onFocusChange",
-  "terminal.integrated.defaultProfile.linux": "zsh",
-  "[java]": {
-    "editor.defaultFormatter": "redhat.java"
-  }
-}
-```
+네 번째 실패는 복구 절차가 없는 것이다. 삭제된 파일이나 잘못된 브랜치 상태를 복구하는 문서가 없으면 작은 실수가 큰 히스토리 손상으로 이어질 수 있다.
 
----
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-## :material-language-python: 개발 언어 환경
+개인 장비 중심이라면 설치 문서와 Settings Sync, SSH 키 관리가 가장 중요하다.
 
-### 버전 관리자
+원격 서버 중심이라면 Docker, code-server, 방화벽, 리버스 프록시, 접속 로그를 함께 설계해야 한다.
 
-| 언어 | 버전 관리자 | 설치 명령 |
-|------|------------|----------|
-| **Node.js** | nvm | `nvm install 20` |
-| **Python** | pyenv | `pyenv install 3.12` |
-| **Java** | SDKMAN! | `sdk install java 21-tem` |
-| **Ruby** | rbenv | `rbenv install 3.3` |
-| **Go** | gvm | `gvm install go1.22` |
+팀 환경이라면 개발 컨테이너, 권장 확장, 버전 관리자, CI와 같은 재현성 계층을 추가한다. 이때 문서는 개인 편의보다 팀 전체의 동일한 빌드 결과를 우선한다.
 
-### SDKMAN! 사용법
+운영 서비스와 연결되는 개발 환경이라면 배포 키, 비밀값 주입, 컨테이너 네트워크, 볼륨 백업 정책을 개발 문서와 운영 문서 사이에서 명확히 나눈다.
 
-```bash
-# 설치
-curl -s "https://get.sdkman.io" | bash
+## 11. 최종 체크리스트 (Definition of Done)
 
-# Java 버전 목록
-sdk list java
+- [ ] Docker, Git, IDE, 언어 런타임 문서의 위치를 찾을 수 있다.
+- [ ] 새 장비에서 기본 도구 버전 확인 명령을 실행할 수 있다.
+- [ ] 컨테이너 실행과 볼륨 보존 범위를 이해했다.
+- [ ] Git 브랜치, 배포 키, 삭제 복구 절차를 구분했다.
+- [ ] IDE 확장을 개인 설정과 프로젝트 권장 설정으로 나눴다.
+- [ ] 프로젝트 요구 버전과 실제 런타임 버전을 비교했다.
+- [ ] 하위 문서를 중복하지 않고 링크 기반으로 탐색한다.
+- [ ] 실패 시 어느 계층에서 문제를 좁힐지 설명할 수 있다.
 
-# 특정 버전 설치
-sdk install java 21-tem
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-# 버전 전환
-sdk use java 17-tem
-
-# 기본 버전 설정
-sdk default java 21-tem
-```
-
----
-
-## :material-folder-cog: 프로젝트 구조 템플릿
-
-### Spring Boot 프로젝트
-
-```
-project/
-├── src/
-│   ├── main/
-│   │   ├── java/com/example/
-│   │   │   ├── controller/
-│   │   │   ├── service/
-│   │   │   ├── repository/
-│   │   │   ├── entity/
-│   │   │   ├── dto/
-│   │   │   └── config/
-│   │   └── resources/
-│   │       ├── application.yml
-│   │       └── static/
-│   └── test/
-├── docker/
-├── docs/
-├── build.gradle
-└── docker-compose.yml
-```
-
-### React/Next.js 프로젝트
-
-```
-project/
-├── src/
-│   ├── app/           # App Router (Next.js 13+)
-│   ├── components/
-│   ├── hooks/
-│   ├── lib/
-│   ├── stores/
-│   └── types/
-├── public/
-├── tests/
-├── .env.local
-├── package.json
-└── docker-compose.yml
-```
-
----
-
-## :material-link-variant: 관련 문서
-
-- [Java 문서](../java/index.md) - JDK 상세 가이드
-- [데이터베이스](../databases/index.md) - DB 연동
-- [Linux 명령어](../linux/commands.md) - 터미널 기초
-- [SSH 설정](../security/ssh/configuration.md) - Git SSH 키
-
----
-
-## :material-book-open-page-variant: 참고 자료
-
-- [Docker Documentation](https://docs.docker.com/)
-- [Git Book](https://git-scm.com/book/ko/v2)
-- [VS Code Documentation](https://code.visualstudio.com/docs)
-- [SDKMAN!](https://sdkman.io/)
+개발 환경 문서는 명령어 모음이 아니라 `__________` 가능한 작업 환경을 만드는 지도다. 먼저 `__________`, 그 다음 `__________`, IDE, 언어 런타임 순서로 확인하고, 실패하면 어느 `__________`에서 멈췄는지 좁힌다.

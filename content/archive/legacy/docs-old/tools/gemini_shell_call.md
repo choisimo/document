@@ -41,7 +41,7 @@ help()
 check_api_key() {
   if [ -z "$GEMINI_API_KEY" ]; then
     echo "Error: GEMINI_API_KEY 환경 변수가 설정되지 않았습니다."
-    echo "다음 명령으로 설정하세요: export GEMINI_API_KEY='your-api-key-here'"
+    echo "설정 예: export GEMINI_API_KEY='GEMINI_API_KEY_VALUE'"
     exit 1
   fi
 }
@@ -93,7 +93,7 @@ done
 
 # 프롬프트 확인
 if [ -z "$PROMPT" ]; then
-  echo "Error: 프롬프트(-p)는 필수입니다."
+  echo "Error: 프롬프트(-p)가 필요합니다."
   help
 fi
 
@@ -203,7 +203,7 @@ fi
    - 더 나은 오류 처리
 
 3. **타입 형식**:
-   - 프롬프트: 텍스트 문자열 (필수)
+   - 프롬프트: 텍스트 문자열 (필요)
    - 온도: 0~1 사이의 부동 소수점 숫자 (선택)
    - 최대 토큰: 양의 정수 (선택)
 
@@ -239,7 +239,7 @@ help()
   echo -e "${BOLD}사용법:${NC} ./script.sh [옵션]"
   echo
   echo -e "${BOLD}옵션:${NC}"
-  echo "  -p '프롬프트'     Gemini API에 전송할 텍스트 프롬프트 (필수)"
+  echo "  -p '프롬프트'     Gemini API에 전송할 텍스트 프롬프트 (필요)"
   echo "  -t '온도'         무작위성에 대한 온도 설정 (0-1) (기본값: 0.7)"
   echo "  -m '최대 토큰'    최대 출력 토큰 수 (기본값: 800)"
   echo "  -f '파일명'       응답을 지정된 파일에 저장"
@@ -269,7 +269,7 @@ check_jq() {
 check_api_key() {
   if [ -z "$GEMINI_API_KEY" ]; then
     echo -e "${RED}오류: GEMINI_API_KEY 환경 변수가 설정되지 않았습니다.${NC}"
-    echo "다음 명령으로 설정하세요: export GEMINI_API_KEY='your-api-key-here'"
+    echo "설정 예: export GEMINI_API_KEY='GEMINI_API_KEY_VALUE'"
     exit 1
   fi
 }
@@ -411,7 +411,7 @@ check_jq
 
 # 프롬프트 확인
 if [ -z "$PROMPT" ]; then
-  echo -e "${RED}오류: 프롬프트(-p)는 필수입니다.${NC}"
+  echo -e "${RED}오류: 프롬프트(-p)가 필요합니다.${NC}"
   help
 fi
 
@@ -485,7 +485,7 @@ help()
   echo -e "${BOLD}사용법:${NC} ./script.sh [옵션]"
   echo
   echo -e "${BOLD}기본 옵션:${NC}"
-  echo "  -p '프롬프트'     Gemini API에 전송할 텍스트 프롬프트 (필수)"
+  echo "  -p '프롬프트'     Gemini API에 전송할 텍스트 프롬프트 (필요)"
   echo "  -t '온도'         무작위성에 대한 온도 설정 (0-1) (기본값: 0.7)"
   echo "  -m '최대 토큰'    최대 출력 토큰 수 (기본값: 800)"
   echo "  -s                실시간 응답을 위한 스트리밍 모드 활성화"
@@ -522,7 +522,7 @@ check_jq() {
 check_api_key() {
   if [ -z "$GEMINI_API_KEY" ]; then
     echo -e "${RED}오류: GEMINI_API_KEY 환경 변수가 설정되지 않았습니다.${NC}"
-    echo "다음 명령으로 설정하세요: export GEMINI_API_KEY='your-api-key-here'"
+    echo "설정 예: export GEMINI_API_KEY='GEMINI_API_KEY_VALUE'"
     exit 1
   fi
 }
@@ -662,7 +662,7 @@ process_request() {
       
       # 실제 구현에서는 여기서 함수 실행을 처리
       echo -e "${YELLOW}참고: 자동 함수 실행은 이 스크립트에 구현되어 있지 않습니다.${NC}"
-      echo -e "${YELLOW}      함수 호출 로직을 직접 구현해야 합니다.${NC}"
+      echo -e "${YELLOW}      함수 호출 로직은 직접 구현합니다.${NC}"
     fi
   fi
   
@@ -740,7 +740,7 @@ check_jq
 
 # 프롬프트 확인
 if [ -z "$PROMPT" ]; then
-  echo -e "${RED}오류: 프롬프트(-p)는 필수입니다.${NC}"
+  echo -e "${RED}오류: 프롬프트(-p)가 필요합니다.${NC}"
   help
 fi
 
@@ -807,7 +807,7 @@ process_request "$PROMPT" "$TEMPERATURE" "$MAX_TOKENS" "$OUTPUT_FILE" "$RAW_MODE
 
 ### 1. 기본 개선 스크립트 (버전 1)
 - **목적성**: 기본적인 사용자 경험 개선 및 오류 처리
-- **장점**: 간단하고 필수 기능만 포함하여 초보자도 이해하기 쉬움
+- **장점**: 간단하고 핵심 기능만 포함하여 초보자도 이해하기 쉬움
 - **단점**: 고급 기능이나 파일 저장 기능 없음
 - **적합한 사용자**: Gemini API를 처음 사용하는 사용자, 단순한 스크립트를 원하는 사용자
 
@@ -1007,7 +1007,7 @@ if [ "$FORMAT" = "json" ]; then
     JSON_DATA=$(echo "$JSON_DATA" | jq '.generationConfig.responseMimeType = "application/json"')
     
     # 프롬프트에 JSON 요청 설명 추가
-    PROMPT="다음 내용은 JSON 형식으로 응답해주세요: $PROMPT"
+    PROMPT="다음 내용은 JSON 형식으로 응답: $PROMPT"
     JSON_DATA=$(echo "$JSON_DATA" | jq --arg prompt "$PROMPT" '.contents.parts.text = $prompt')
   else
     echo "JSON 형식 지정에는 jq가 필요합니다."
@@ -1061,8 +1061,8 @@ JSON_TEMPLATE='{
 
 # 스타일 프리픽스 정의
 STYLE_DEFAULT=""
-STYLE_MARKDOWN="응답은 마크다운 형식으로 작성해주세요. 제목, 소제목, 목록을 적절히 사용하여 가독성을 높여주세요. "
-STYLE_LIST="응답은 번호가 매겨진 목록 형식으로 작성해주세요. 각 요점은 명확하게 구분되어야 합니다. "
+STYLE_MARKDOWN="응답은 마크다운 형식으로 작성. 제목, 소제목, 목록을 적절히 사용하여 가독성 유지. "
+STYLE_LIST="응답은 번호가 매겨진 목록 형식으로 작성. 각 요점은 명확하게 구분. "
 
 # 파라미터 파싱
 while getopts "p:t:m:s:" opt; do
@@ -1183,7 +1183,7 @@ fi
 4. **출력 형식**:
    - 일반 텍스트, 마크다운, 번호 목록 등 다양한 형식
 
-## 결론 및 권장사항
+## 결론 및 선택 기준
 
 1. **기본 사용자**: jq 기반 첫 번째 스크립트 사용
    - 설치 및 사용이 간단하며 즉시 가독성 향상 가능
@@ -1198,4 +1198,3 @@ fi
    - 가장 유연한 출력 형식 제공
 
 이 세 가지 접근 방식을 통해 Gemini API 응답의 가독성을 크게 향상시킬 수 있으며, 각각의 사용 사례에 맞게 선택하여 적용할 수 있습니다.
-

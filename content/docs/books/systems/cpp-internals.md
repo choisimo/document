@@ -1,526 +1,149 @@
-# C++ Programming Language — Under the Hood
-> Source: *The C++ Programming Language*, 3rd Edition — Bjarne Stroustrup (AT&T Labs)
+# C++ Internals 학습 및 기록 노트
 
-## Overview
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-C++ is not simply "C with classes." It is a multi-paradigm language whose runtime behavior emerges from a carefully designed set of memory layouts, virtual dispatch mechanisms, template instantiation engines, and exception propagation protocols. This document maps the internal machinery: how objects occupy memory, how virtual calls route through vtables, how templates generate code at compile time, and how exceptions unwind the call stack.
+C++는 "C with classes"가 아니라 compile-time abstraction과 opt-in runtime mechanism을 결합한 언어다. Object layout, vptr/vtable, template instantiation, exception unwinding, `new`/`delete`, name mangling, standard library container layout을 모르면 성능 비용과 undefined behavior 위험을 설명하기 어렵다.
 
----
+이 문서는 Stroustrup의 *The C++ Programming Language* 기반 원문을 C++ object lifetime과 dispatch data flow 중심으로 재작성한다.
 
-## 1. Object Memory Layout
+## 2. 현재 나의 상태 (Baseline)
 
-### 1.1 Plain Object Layout
+- Class, inheritance, template, exception, STL 사용법은 알고 있다.
+- Virtual call이 실제로 vptr load, vtable slot lookup, indirect call로 실행되는 과정을 더 명확히 해야 한다.
+- Multiple inheritance와 virtual inheritance가 pointer adjustment와 base subobject layout을 바꾸는 이유를 정리해야 한다.
+- Template이 runtime polymorphism이 아니라 compile-time code generation임을 비용 모델로 설명해야 한다.
+- Exception과 RAII destructor가 stack unwinding에서 어떻게 연결되는지 이해해야 한다.
 
-A C++ object's memory is a contiguous block determined at compile time. Member variables are laid out in declaration order, subject to alignment padding.
+## 3. 도달하고 싶은 목표 (Target State)
 
-```
-struct Foo {
-    char  a;    // offset 0, size 1
-    // 3 bytes padding
-    int   b;    // offset 4, size 4
-    double c;   // offset 8, size 8
-};              // total: 16 bytes
-```
+- Plain object와 polymorphic object의 memory layout 차이를 설명한다.
+- Virtual dispatch, RTTI, `dynamic_cast`가 어떤 metadata를 사용하는지 이해한다.
+- Template instantiation과 virtual dispatch의 trade-off를 구분한다.
+- `new`/`delete`, constructor/destructor, exception unwinding의 object lifetime 흐름을 추적한다.
+- `std::vector`, iterator, `std::map` 같은 STL 구조의 비용을 내부 상태로 판단한다.
 
-```mermaid
-block-beta
-  columns 4
-  block:foo["Foo object (16 bytes)"]:4
-    a["a (1B)"] pad["pad (3B)"] b["b (4B)"] c["c (8B)"]
-  end
-  style a fill:#4a9eff,color:#fff
-  style pad fill:#555,color:#aaa
-  style b fill:#4a9eff,color:#fff
-  style c fill:#4a9eff,color:#fff
-```
-
-### 1.2 Class with Virtual Functions — vptr Injection
-
-When a class declares any `virtual` function, the compiler injects a hidden pointer (`vptr`) into every instance, pointing to the class's virtual function table (`vtable`).
-
-```mermaid
-block-beta
-  columns 1
-  block:obj["Object Instance (on stack/heap)"]:1
-    vptr["vptr → vtable of MyClass"]
-    d1["data member 1"]
-    d2["data member 2"]
-  end
-  block:vtbl["vtable (read-only, per-class)"]:1
-    f0["[0] → MyClass::virtualFn1()"]
-    f1["[1] → MyClass::virtualFn2()"]
-    f2["[2] → type_info* (RTTI)"]
-  end
-  vptr --> f0
-```
-
-**Key mechanics:**
-- `vptr` is set by the constructor, pointing to the class's own vtable
-- If a derived class overrides a virtual function, the derived vtable replaces the slot
-- A virtual call `obj->fn()` compiles to: `*(obj->vptr[N])(obj)` — load vptr, index into table, indirect call
-
-### 1.3 Virtual Dispatch — Call Path
-
-```mermaid
-sequenceDiagram
-    participant Caller
-    participant CPU
-    participant vptr
-    participant vtable
-    participant Implementation
-
-    Caller->>CPU: p->virtualFn()
-    CPU->>vptr: load p->vptr (offset 0)
-    vptr->>vtable: index [N]
-    vtable->>Implementation: indirect jump to overriding function
-    Implementation-->>Caller: return value
-```
-
-**Cost**: 1 memory load (vptr) + 1 memory load (vtable slot) + 1 indirect call. This is why `virtual` cannot be inlined by the compiler in the general case.
-
----
-
-## 2. Inheritance and Memory Layout
-
-### 2.1 Single Inheritance
-
-```mermaid
-block-beta
-  columns 1
-  block:derived["Derived Object"]:1
-    vptr_d["vptr → Derived vtable"]
-    base_data["Base::x (inherited)"]
-    base_data2["Base::y (inherited)"]
-    derived_data["Derived::z (own)"]
-  end
-```
-
-The base subobject sits at offset 0. `static_cast<Base*>(derived_ptr)` is a no-op (same address).
-
-### 2.2 Multiple Inheritance — Pointer Adjustment
-
-When a class inherits from multiple bases, the second base subobject starts at a non-zero offset. Casting to the second base requires **pointer adjustment**.
-
-```mermaid
-block-beta
-  columns 1
-  block:obj["Diamond Object layout"]:1
-    vptr_a["vptr₁ → A vtable"]
-    a_data["A data"]
-    vptr_b["vptr₂ → B vtable"]
-    b_data["B data"]
-    c_data["C own data"]
-  end
-  note1["cast to A* = no adjustment (offset 0)"]
-  note2["cast to B* = +sizeof(A subobject) adjustment"]
-```
-
-```mermaid
-flowchart LR
-    p["C* p"] -->|"static_cast&lt;A*&gt;"| A["A* (offset 0, same addr)"]
-    p -->|"static_cast&lt;B*&gt;"| B["B* (offset += sizeof A subobj)"]
-    A -->|"virtual call"| VA["A vtable slot"]
-    B -->|"virtual call"| VB["B vtable slot"]
-```
-
-### 2.3 Virtual Inheritance — Shared Base
-
-Virtual inheritance (`virtual public Base`) introduces an indirection so only one `Base` subobject exists regardless of how many paths lead to it.
-
-```mermaid
-flowchart TB
-    D["class D: virtual public A, virtual public B"]
-    A["A (virtual base)"] --> shared["Shared Base subobject"]
-    B["B (virtual base)"] --> shared
-    D --> A
-    D --> B
-    D -->|"vbptr (virtual base pointer)"| shared
-```
-
-The compiler adds a `vbptr` (virtual base table pointer) to locate the shared base at runtime.
-
----
-
-## 3. Templates — Compile-Time Code Generation
-
-### 3.1 Template Instantiation Pipeline
-
-Templates are not compiled until instantiated. The compiler generates a fresh, fully typed copy of the template body for each unique parameter combination.
-
-```mermaid
-flowchart LR
-    src["template&lt;class T&gt; class String { ... }"]
-    inst1["String&lt;char&gt; cs;"]
-    inst2["String&lt;wchar_t&gt; ws;"]
-    inst3["String&lt;unsigned char&gt; us;"]
-
-    src -->|"instantiate for char"| gen1["class String__char { ... }"]
-    src -->|"instantiate for wchar_t"| gen2["class String__wchar_t { ... }"]
-    src -->|"instantiate for unsigned char"| gen3["class String__uchar { ... }"]
-
-    gen1 --> obj1["compiled object code"]
-    gen2 --> obj2["compiled object code"]
-    gen3 --> obj3["compiled object code"]
-```
-
-**Stroustrup's design intent**: "A class generated from a class template is a perfectly ordinary class. Thus, use of a template does not imply any run-time mechanisms beyond what is used for an equivalent 'hand-written' class."
-
-### 3.2 Function Template Deduction and Specialization
+## 4. 시스템 번역 (Data Flow)
 
 ```mermaid
 flowchart TD
-    call["sort(vec)"]
-    deduct["Compiler deduces T = int from argument type"]
-    check["Specialization for T=int* ? → Check"]
-    gen["Instantiate sort&lt;int&gt; if no specialization"]
-    special["Use sort&lt;int*&gt; specialization if exists"]
-
-    call --> deduct --> check
-    check -->|"no"| gen
-    check -->|"yes"| special
+    A[C++ source] --> B[Preprocessor/Translation unit]
+    B --> C{언어 기능}
+    C -->|class/object| D[Object layout + alignment]
+    C -->|virtual| E[vptr/vtable/RTTI]
+    C -->|template| F[Instantiation per type]
+    C -->|exception| G[EH table + stack unwinding]
+    C -->|new/delete| H[Allocator + constructor/destructor]
+    C -->|STL| I[Container memory layout]
+    D --> J[Object code]
+    E --> J
+    F --> J
+    G --> J
+    H --> J
+    I --> J
 ```
 
-### 3.3 Template vs. Virtual — Polymorphism Choice
+C++ 실행 비용은 source syntax가 object memory, generated template code, indirect dispatch, lifetime cleanup으로 어떻게 낮아지는지에서 결정된다.
 
-| Axis | Templates (compile-time) | Virtual (runtime) |
-|------|--------------------------|-------------------|
-| Type resolution | At compile time | At runtime via vtable |
-| Inlining | Yes (full visibility) | No (indirect call) |
-| Code size | Can bloat (one copy per type) | Shared implementation |
-| Requires inheritance | No | Yes (hierarchy) |
-| Dynamic dispatch | No | Yes |
+## 5. 핵심 구성요소 (Building Blocks)
+
+| 구성요소 | 역할 | 핵심 상태 |
+| --- | --- | --- |
+| Object layout | member 배치와 padding 결정 | offset, alignment, size |
+| vptr | instance에서 vtable을 가리키는 숨은 pointer | constructor에서 설정 |
+| vtable | virtual function slot table | function pointer, RTTI pointer |
+| Base subobject | inheritance layout 단위 | offset, pointer adjustment |
+| Template instantiation | type별 code generation | specialization, code bloat |
+| Exception table | zero-cost exception metadata | PC range, cleanup, handler |
+| `operator new/delete` | raw memory allocation/free | allocation size, deallocation function |
+| Destructor | lifetime cleanup | reverse member destruction, virtual dtor |
+| Name mangling | overload/linkage symbol encoding | namespace, parameter type |
+| STL iterator/container | generic algorithm과 storage 연결 | pointer, node, capacity |
+
+## 6. 상태 전이 (State Transition)
 
 ```mermaid
 stateDiagram-v2
-    [*] --> NeedPolymorphism
-    NeedPolymorphism --> CompileTimeKnown: Types known at compile time?
-    NeedPolymorphism --> RuntimeKnown: Types only known at runtime?
-    CompileTimeKnown --> Templates: Use templates
-    RuntimeKnown --> VirtualFunctions: Use virtual + inheritance
-    Templates --> Inlined: Compiler can inline
-    VirtualFunctions --> VtableDispatch: Runtime vtable lookup
+    [*] --> StorageAllocated
+    StorageAllocated --> Constructing
+    Constructing --> Alive: vptr/member/base 초기화
+    Alive --> VirtualDispatch: virtual call
+    Alive --> TemplateCode: static dispatch
+    Alive --> Throwing: exception 발생
+    Throwing --> Unwinding: destructors 실행
+    Alive --> Destructing: scope exit/delete
+    Unwinding --> HandlerFound
+    Destructing --> StorageReleased
+    HandlerFound --> Alive
+    StorageReleased --> [*]
 ```
 
----
+Object lifetime은 memory allocation과 constructor 실행이 분리되고, destructor와 deallocation도 분리된다. Exception은 stack unwinding 중 자동 객체 destructor를 호출해 RAII cleanup을 보장한다.
 
-## 4. Exception Handling — Stack Unwinding Engine
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-### 4.1 Exception Flow
+- Object member offset과 alignment는 ABI와 compiler가 정한 layout contract를 따라야 한다.
+- Polymorphic object는 constructor/destructor 단계에서 vptr이 현재 class 단계에 맞게 설정된다.
+- Base pointer로 delete할 가능성이 있으면 base destructor는 virtual이어야 한다.
+- Multiple inheritance cast는 필요한 pointer adjustment를 반영해야 한다.
+- Template은 type별로 instantiate되므로 inlining 이점과 code size 증가를 함께 고려해야 한다.
+- Exception unwinding은 이미 생성된 automatic object의 destructor를 역순으로 호출해야 한다.
+- `delete` 이후 pointer는 자동으로 null이 되지 않으며 dangling pointer가 된다.
+- STL iterator는 container mutation 후 invalidation 규칙을 지켜야 한다.
 
-When `throw` executes, the C++ runtime performs **stack unwinding**: it walks up the call stack, calling destructors for all objects with automatic storage duration, until it finds a matching `catch` handler.
+## 8. 가장 작은 예제 (Minimal Viable Example)
 
-```mermaid
-sequenceDiagram
-    participant main
-    participant f1
-    participant f2
-    participant f3
-    participant Runtime
+```cpp
+struct Base {
+    virtual ~Base() = default;
+    virtual void run() = 0;
+};
 
-    main->>f1: call
-    f1->>f2: call
-    f2->>f3: call
-    f3->>Runtime: throw MyException
-    Runtime->>f3: unwind: ~LocalA(), ~LocalB()
-    Runtime->>f2: unwind: ~LocalC()
-    Runtime->>f1: unwind: ~LocalD()
-    Runtime->>main: match catch(MyException&)
-    main-->>main: handler executes
+struct Job : Base {
+    void run() override {}
+};
+
+Base* p = new Job();
+p->run();
+delete p;
 ```
 
-### 4.2 RTTI — type_info and dynamic_cast
-
-Every polymorphic class (one with at least one virtual function) has a `type_info` object stored as part of its vtable layout. `dynamic_cast<T*>(p)` uses this at runtime.
-
-```mermaid
-flowchart LR
-    ptr["Base* p (pointing to Derived)"]
-    dyn["dynamic_cast&lt;Derived*&gt;(p)"]
-    check["Query p->vptr[-1] → type_info"]
-    match{"type_info matches Derived?"}
-    ok["Return adjusted pointer"]
-    fail["Return nullptr (ptr cast) or throw bad_cast (ref cast)"]
-
-    ptr --> dyn --> check --> match
-    match -->|yes| ok
-    match -->|no| fail
+```text
+개념 흐름:
+1. operator new가 Job 크기만큼 raw storage를 할당
+2. Job constructor가 Base/Job subobject와 vptr을 초기화
+3. p->run()은 vptr -> vtable slot -> Job::run indirect call
+4. delete p는 virtual destructor를 통해 Job::~Job 후 Base::~Base를 호출
+5. operator delete가 storage를 반환
 ```
 
-### 4.3 Exception Table (EH Tables)
+이 예제는 C++의 virtual dispatch와 object lifetime cleanup이 vtable contract와 virtual destructor에 의존한다는 점을 보여준다.
 
-Modern C++ compilers (with zero-cost exceptions) generate static exception handler tables alongside the code. No runtime overhead exists on the non-throwing path.
+## 9. 실패 사례 (What could go wrong?)
 
-```mermaid
-block-beta
-  columns 2
-  block:code["Code Section"]:1
-    fn["function body bytecode"]
-    fn2["more code"]
-  end
-  block:eh["EH Table (read-only)"]:1
-    range["PC range [start, end)"]
-    handler["→ catch handler offset"]
-    cleanup["→ cleanup (dtor) list"]
-  end
-  fn --> range
-```
+- Virtual destructor가 없는 base pointer로 derived object를 delete해 derived cleanup이 누락된다.
+- Object slicing으로 derived state가 사라진 base object만 복사된다.
+- Multiple inheritance pointer adjustment를 무시한 unsafe cast로 잘못된 subobject를 가리킨다.
+- Template을 무분별하게 instantiate해 binary size가 커지고 compile time이 늘어난다.
+- Exception 중 destructor가 또 throw해 `std::terminate`로 이어진다.
+- `std::vector` reallocation 후 기존 pointer/iterator/reference를 계속 사용한다.
+- `delete` 이후 dangling pointer를 재사용해 use-after-free가 발생한다.
 
----
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-## 5. Memory Management — new/delete Internals
+- ABI는 Itanium C++ ABI, MSVC ABI처럼 compiler/platform별 vtable과 name mangling 차이를 비교한다.
+- Template은 concepts, SFINAE, constexpr, CRTP, expression template으로 확장해 본다.
+- Runtime polymorphism은 virtual, type erasure, `std::variant`, `std::function`을 비용 기준으로 비교한다.
+- Memory management는 RAII, smart pointer, custom allocator, arena allocator, move semantics와 연결한다.
+- Concurrency는 C++ memory model, atomic ordering, data race undefined behavior까지 확장한다.
 
-### 5.1 `new` Expression Decomposition
+## 11. 최종 체크리스트 (Definition of Done)
 
-`new Foo(args)` is not atomic — the compiler decomposes it:
+- [x] Object layout, vptr/vtable, inheritance, template, exception, `new/delete` 흐름을 정리했다.
+- [x] Virtual dispatch와 virtual destructor를 최소 예제로 설명했다.
+- [x] Compile-time polymorphism과 runtime polymorphism의 비용 차이를 포함했다.
+- [x] Iterator invalidation, dangling pointer, object slicing 같은 실패 사례를 정리했다.
+- [x] 원문 C++ internals 문서를 12개 섹션 템플릿으로 재작성했다.
 
-```mermaid
-flowchart TD
-    expr["new Foo(args)"]
-    alloc["operator new(sizeof(Foo))\n→ calls malloc or custom allocator"]
-    construct["placement new: Foo::Foo(args) called in-place"]
-    ret["return typed pointer to initialized object"]
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-    expr --> alloc --> construct --> ret
-    alloc -->|failure| bad_alloc["throw std::bad_alloc"]
-```
-
-### 5.2 `delete` Decomposition
-
-```mermaid
-flowchart TD
-    del["delete p"]
-    dtor["p->~Foo() called\n(virtual destructor if polymorphic)"]
-    free["operator delete(p)\n→ calls free or custom deallocator"]
-    null["pointer becomes dangling (not auto-nulled)"]
-
-    del --> dtor --> free --> null
-```
-
-**Critical**: The destructor must be `virtual` if you intend to `delete` through a base pointer. Without `virtual ~Base()`, only `Base::~Base()` runs — derived data leaks.
-
-### 5.3 Reference Counting (Srep Pattern)
-
-Stroustrup's `String` uses a shared `Srep` struct with a reference count to implement copy-on-write:
-
-```mermaid
-stateDiagram-v2
-    [*] --> Allocated: new Srep(sz, p)
-    Allocated --> Shared: String s2 = s1 (copy ctor: Srep::n++)
-    Shared --> Shared: Another copy (n++)
-    Shared --> CopyOnWrite: mutation needed (get_own_copy)
-    CopyOnWrite --> Allocated: n>1: n--, allocate new Srep
-    Shared --> Freed: n-- reaches 0 → delete Srep
-    Allocated --> Freed: last String destroyed
-```
-
-```mermaid
-block-beta
-  columns 1
-  block:s1["String s1"]:1
-    rep1["rep → Srep{n=2, sz=5, s=→'hello'}"]
-  end
-  block:s2["String s2 (copy of s1)"]:1
-    rep2["rep → same Srep (n=2)"]
-  end
-  block:srep["Srep on heap"]:1
-    n["n = 2"]
-    sz["sz = 5"]
-    sdata["s = 'hello\0'"]
-  end
-  rep1 --> n
-  rep2 --> n
-```
-
----
-
-## 6. Namespaces and Linkage
-
-### 6.1 Name Mangling
-
-C++ functions are mangled to encode their full signature, enabling overloading. The linker sees mangled names, not source names.
-
-```mermaid
-flowchart LR
-    src1["void f(int)"] --> mangled1["_Z1fi"]
-    src2["void f(double)"] --> mangled2["_Z1fd"]
-    src3["void f(int, int)"] --> mangled3["_Z1fii"]
-    src4["namespace N::void f(int)"] --> mangled4["_ZN1N1fEi"]
-```
-
-### 6.2 Include Guard — Compilation Unit Isolation
-
-```mermaid
-sequenceDiagram
-    participant TU as Translation Unit (.cpp)
-    participant PP as Preprocessor
-    participant H as header.h
-
-    TU->>PP: #include "header.h"
-    PP->>H: open file
-    H-->>PP: #ifndef HEADER_H → not defined → process
-    PP->>TU: inject declarations
-    TU->>PP: #include "header.h" (second time)
-    PP->>H: open file
-    H-->>PP: #ifndef HEADER_H → already defined → skip
-```
-
----
-
-## 7. Standard Library Internals
-
-### 7.1 `std::vector` — Amortized Growth
-
-```mermaid
-flowchart TD
-    push["push_back(x) called"]
-    check{"size == capacity?"}
-    append["place x at data[size++]"]
-    realloc["allocate new buffer: capacity *= 2"]
-    copy["copy/move all elements to new buffer"]
-    free["free old buffer"]
-    newappend["place x at new buffer[size++]"]
-
-    push --> check
-    check -->|no| append
-    check -->|yes| realloc --> copy --> free --> newappend
-```
-
-**Amortized cost**: O(1) per push_back. The doubling strategy ensures total reallocation work ≤ 2N for N insertions.
-
-### 7.2 Iterator Architecture
-
-Iterators form an abstraction layer between algorithms and containers. They're value types (not polymorphic), so the compiler can inline all operations.
-
-```mermaid
-flowchart LR
-    algo["std::sort(v.begin(), v.end())"]
-    begin["vector::iterator begin() = &data[0]"]
-    end["vector::iterator end() = &data[size]"]
-    deref["operator*() → *ptr"]
-    inc["operator++() → ++ptr"]
-    cmp["operator!=() → ptr != other.ptr"]
-
-    algo --> begin
-    algo --> end
-    begin --> deref
-    begin --> inc
-    begin --> cmp
-```
-
-### 7.3 `std::map` — Red-Black Tree Internal Layout
-
-```mermaid
-graph TD
-    root["root node (key=50)"]
-    l1["key=25"]
-    r1["key=75"]
-    l2["key=12"]
-    l3["key=37"]
-    r2["key=62"]
-    r3["key=87"]
-
-    root --> l1
-    root --> r1
-    l1 --> l2
-    l1 --> l3
-    r1 --> r2
-    r1 --> r3
-
-    style root fill:#cc0000,color:#fff
-    style l1 fill:#cc0000,color:#fff
-    style r1 fill:#000,color:#fff
-    style l2 fill:#000,color:#fff
-    style l3 fill:#cc0000,color:#fff
-    style r2 fill:#cc0000,color:#fff
-    style r3 fill:#000,color:#fff
-```
-
-Each `map::find()` traverses O(log N) nodes. Each node heap-allocates `{color, left*, right*, parent*, key, value}`.
-
----
-
-## 8. Operator Overloading — Internal Call Resolution
-
-### 8.1 Smart Pointer `operator->`
-
-The overloaded `->` must return a raw pointer or another object with `->` defined. The compiler chains calls automatically.
-
-```mermaid
-sequenceDiagram
-    participant Code
-    participant SmartPtr
-    participant RawPtr
-    participant Object
-
-    Code->>SmartPtr: p->member
-    SmartPtr->>SmartPtr: operator->() called
-    SmartPtr-->>RawPtr: returns raw T*
-    RawPtr->>Object: .member accessed (compiler applies second ->)
-```
-
-### 8.2 Prefix vs. Postfix `++`
-
-```mermaid
-flowchart LR
-    prefix["++p → operator++()"]
-    postfix["p++ → operator++(int)"]
-
-    prefix --> pp["increment, return *this (reference)"]
-    postfix --> copy["save copy = *this"]
-    postfix --> inc2["increment *this"]
-    postfix --> ret["return copy (by value)"]
-```
-
-The `int` dummy argument in `operator++(int)` distinguishes postfix from prefix at the type system level. The postfix version is inherently more expensive: it must copy the object before incrementing.
-
----
-
-## 9. Compile-Time vs. Runtime Polymorphism — Decision Flow
-
-```mermaid
-flowchart TD
-    start["Need to work with multiple types?"]
-    known["Types fully known at compile time?"]
-    inlining["Performance critical / inlining needed?"]
-    hierarchy["Natural type hierarchy?"]
-
-    start --> known
-    known -->|yes| inlining
-    known -->|no| hierarchy
-    inlining -->|yes| templates["Use templates (compile-time polymorphism)"]
-    inlining -->|no| either["Either works — choose for clarity"]
-    hierarchy -->|yes| virtual["Use virtual functions (runtime polymorphism)"]
-    hierarchy -->|no| templates2["Use templates or function overloading"]
-```
-
----
-
-## 10. Data Flow Summary — Object Lifetime
-
-```mermaid
-stateDiagram-v2
-    [*] --> Uninitialized: memory allocated (stack frame / malloc)
-    Uninitialized --> Constructed: constructor runs\nvptr set, members initialized
-    Constructed --> InUse: object used, methods called
-    InUse --> Copying: copy ctor or copy assignment\n(Srep refcount++ for COW types)
-    Copying --> InUse: copy complete
-    InUse --> Destructing: out of scope / delete called
-    Destructing --> Destroyed: dtor runs\nmembers destroyed in reverse order\nbase dtor called last
-    Destroyed --> [*]: memory returned to allocator
-```
-
----
-
-## Key Invariants
-
-| Mechanism | Where it lives | When resolved |
-|-----------|---------------|---------------|
-| vptr | Object instance (offset 0) | Constructor execution |
-| vtable | Read-only data segment, per-class | Compile/link time |
-| type_info | vtable[-1] slot | Compile/link time |
-| Template code | Instantiated in each TU | Compile time |
-| Exception tables | Read-only section alongside code | Link time |
-| Mangled names | Symbol table | Link time |
-| Reference count | Heap-allocated rep object | Runtime |
-
-C++'s power comes from the combination: zero-overhead abstractions at compile time (templates, inlining, static dispatch) layered with opt-in runtime mechanisms (virtual, RTTI, exceptions) that impose cost only when explicitly invoked.
+C++의 성능과 위험은 source code 아래의 object layout, vtable, generated template code, lifetime cleanup 규칙을 얼마나 정확히 지키는지에서 결정된다.

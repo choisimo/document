@@ -1,4 +1,4 @@
-# FUSE의 개념과 옵션 설정 가이드
+# FUSE의 개념과 옵션 설정 문서
 
 ## FUSE(Filesystem in Userspace)란?
 
@@ -50,7 +50,7 @@ FUSE는 Linux, FreeBSD, OpenBSD, macOS 등 다양한 유닉스 및 유닉스 계
 
 2. **identityfile=/path/to/key**
    - 기능: SSH 연결에 사용할 개인 키 파일의 경로를 지정합니다.
-   - 사용 이유: 비밀번호 대신 키 기반 인증을 사용하기 위해 필요합니다.
+   - 사용 이유: 비밀번호가 아니라 키 기반 인증을 사용할 때 필요합니다.
 
 3. **_netdev**
    - 기능: 네트워크가 활성화된 후에만 마운트를 시도하도록 시스템에 알립니다.
@@ -117,11 +117,11 @@ ssh_with_user() {
 
 # SSHFS 마운트 문제 해결: automount는 되지만 실제 마운트는 실패하는 경우
 
-로그를 분석해보니 automount 유닛은 정상적으로 활성화되어 있고 디렉토리 접근 요청도 감지하고 있지만, 실제 마운트 작업이 성공적으로 완료되지 않고 있습니다. 이제 실제 문제의 원인을 찾아서 해결해 보겠습니다.
+로그 기준으로 automount 유닛은 정상적으로 활성화되어 있고 디렉토리 접근 요청도 감지하지만, 실제 마운트 작업은 성공적으로 완료되지 않은 상태다.
 
 ## 1. 마운트 유닛 상태 확인
 
-먼저 관련 마운트 유닛의 상태를 확인해보세요:
+관련 마운트 유닛의 상태를 확인한다.
 
 ```bash
 sudo systemctl status 'mnt-external-*.mount'
@@ -137,7 +137,7 @@ journalctl -u 'mnt-external-*.mount'
 
 ## 2. 수동 마운트 테스트 (상세 로그 활성화)
 
-디버깅 옵션을 추가하여 수동으로 마운트를 시도해 봅시다:
+디버깅 옵션을 추가하여 수동으로 마운트를 시도한다.
 
 ```bash
 sudo sshfs -o identityfile=/home/nodove/.ssh/rasp_rsa,allow_other,default_permissions,debug,sshfs_debug nodove@rasp:/mnt/drive /mnt/external/rasp/ssh -v
@@ -157,7 +157,7 @@ sudo sshfs -o identityfile=/home/nodove/.ssh/rasp_rsa,allow_other,default_permis
    상세 디버깅 출력(-vvv)으로 SSH 연결 문제를 확인할 수 있습니다.
 
 2. **호스트 이름 해석 문제**:
-   - `/etc/hosts` 파일에 호스트 이름과 IP 주소를 추가해보세요:
+   - `/etc/hosts` 파일에 호스트 이름과 IP 주소를 추가한다.
      ```
      192.168.1.x  rasp
      192.168.1.y  nano_pi
@@ -186,8 +186,8 @@ sudo sshfs -o identityfile=/home/nodove/.ssh/rasp_rsa,allow_other,default_permis
    ```
 
 3. **중첩 디렉토리 문제 해결**:
-   - `/mnt/external/rasp/ssh` 대신 `/mnt/external/rasp`와 같은 단순한 경로 사용을 고려하세요
-   - 현재 구조를 유지하려면 상위 경로인 `/mnt/external/rasp`가 먼저 생성되어 있는지 확인하세요:
+   - `/mnt/external/rasp/ssh`가 아니라 `/mnt/external/rasp`와 같은 단순한 경로 사용을 검토한다
+   - 현재 구조를 유지하려면 상위 경로인 `/mnt/external/rasp`가 먼저 생성되어 있는지 확인한다:
      ```bash
      sudo mkdir -p /mnt/external/rasp
      sudo chown nodove:nodove /mnt/external/rasp
@@ -195,7 +195,7 @@ sudo sshfs -o identityfile=/home/nodove/.ssh/rasp_rsa,allow_other,default_permis
 
 ## 4. systemd 마운트 유닛 직접 생성하기
 
-fstab 대신 직접 systemd 유닛 파일을 생성하여 문제를 해결할 수 있습니다:
+fstab이 아니라 systemd 유닛 파일을 직접 생성하여 문제를 해결할 수 있다:
 
 ```bash
 # 기존 마운트 중지
@@ -293,7 +293,7 @@ sshfs#rasp:/mnt/drive /mnt/external/rasp/ssh fuse.sshfs noauto,x-systemd.automou
 
 ## 결론
 
-위의 단계를 따라 문제의 원인을 파악하고 해결하세요. 가장 효과적인 디버깅 방법은 수동 마운트 테스트를 통해 정확한 오류 메시지를 확인하는 것입니다. 그리고 SSH 연결 자체에 문제가 없는지 확인한 후, systemd 유닛 파일을 직접 생성하는 방식으로 전환하는 것이 도움이 될 수 있습니다.
+위 단계는 문제 원인 파악과 해결에 필요한 확인 흐름이다. 수동 마운트 테스트로 정확한 오류 메시지를 확인하고, SSH 연결 자체에 문제가 없는지 확인한 뒤 systemd 유닛 파일 직접 생성 방식으로 전환할 수 있다.
 
 
 
@@ -319,7 +319,7 @@ sshfs#rasp:/mnt/drive /mnt/external/rasp/ssh fuse.sshfs noauto,x-systemd.automou
 
 ### 1. systemd 마운트 유닛 상태 확인
 
-먼저 실제 마운트 유닛의 상태를 확인해보세요:
+실제 마운트 유닛의 상태를 확인한다.
 
 ```bash
 systemctl status mnt-external-jcloud.mount
@@ -330,7 +330,7 @@ journalctl -u mnt-external-jcloud.mount
 
 ### 2. SSH 연결 수동 테스트
 
-SSH 연결이 제대로 작동하는지 확인해보세요:
+SSH 연결이 제대로 작동하는지 확인한다.
 
 ```bash
 # jcloud 테스트
@@ -342,7 +342,7 @@ ssh -i /home/nodove/.ssh/jcloud_rsa nodove@[JCLOUD_IP] "ls -la /workspace"
 
 ### 3. 명시적 IP 주소 사용
 
-/etc/hosts 파일에 호스트명과 IP 주소 매핑을 추가하세요:
+`/etc/hosts` 파일에 호스트명과 IP 주소 매핑을 추가한다.
 
 ```bash
 sudo nano /etc/hosts
@@ -355,7 +355,7 @@ sudo nano /etc/hosts
 
 ### 4. 수동 마운트 테스트
 
-automount를 무시하고 수동으로 마운트해보세요:
+automount를 거치지 않고 수동으로 마운트한다.
 
 ```bash
 # 기존 automount 중지 (선택 사항)
@@ -375,7 +375,7 @@ sudo sshfs -o IdentityFile=/home/nodove/.ssh/jcloud_rsa,allow_other,reconnect,Se
 
 ### 6. IP 주소로 직접 fstab 수정
 
-호스트명 대신 IP 주소를 직접 사용하도록 fstab 파일을 수정하세요:
+호스트명이 아니라 IP 주소를 직접 사용하도록 fstab 파일을 수정한다.
 
 ```
 # jcloud
@@ -399,7 +399,7 @@ sudo sshfs -o IdentityFile=/home/nodove/.ssh/jcloud_rsa,allow_other,StrictHostKe
 3. automount 기능 비활성화 및 수동 마운트 테스트
 4. 문제가 해결되면 systemd 서비스 다시 구성
 
-이러한 방법으로도 문제가 해결되지 않으면, 원격 서버 쪽에서 SSH 설정이나 방화벽 문제가 있는지 확인해 보세요.
+이러한 방법으로도 문제가 해결되지 않으면 원격 서버의 SSH 설정이나 방화벽 상태를 확인한다.
 
 
 ---
@@ -550,9 +550,9 @@ sudo nano /etc/hosts
 다음과 같이 추가:
 ```
 # SSHFS 호스트
-192.168.x.x  nano_pi  # 실제 IP 주소로 변경하세요
-192.168.x.x  rasp     # 실제 IP 주소로 변경하세요
-192.168.x.x  jcloud   # 실제 IP 주소로 변경하세요
+192.168.x.x  nano_pi  # 실제 IP 주소로 변경
+192.168.x.x  rasp     # 실제 IP 주소로 변경
+192.168.x.x  jcloud   # 실제 IP 주소로 변경
 ```
 
 ## 6. 상태 확인
@@ -575,47 +575,49 @@ ls -la /mnt/external/rasp/ssh
 ---
 
 
-The error you're seeing indicates that your SSHFS mount unit `mnt-external-nano_pi.mount` has failed to mount properly. This is a common issue with SSHFS mounts in systemd, especially during system boot. Let's diagnose and fix this problem.
+# SSHFS systemd 마운트 실패 점검
 
-## Understanding the Error
+`mnt-external-nano_pi.mount`가 정상적으로 마운트되지 않은 상태를 점검하는 절차다. systemd 환경의 SSHFS 마운트에서는 부팅 중 네트워크 준비 시점, 인증 키, FUSE 라이브러리 상태 때문에 실패가 발생할 수 있다.
 
-When a systemd mount unit fails with "result 'exit-code'", it typically means the mount command ran but returned an error[2]. With SSHFS mounts, this can happen for several reasons:
+## 오류 의미
 
-1. Network connectivity issues when trying to establish the SSH connection
-2. SSH authentication problems (incorrect key or permissions)
-3. Missing dependencies or libraries for SSHFS
-4. Timing issues where the mount is attempted before the network is fully available
+systemd 마운트 유닛이 `result 'exit-code'`로 실패하면 마운트 명령은 실행되었지만 오류 코드를 반환했다는 뜻이다[2]. SSHFS 마운트에서는 다음 원인이 흔하다.
 
-## Troubleshooting Steps
+1. SSH 연결을 수립하는 시점의 네트워크 연결 문제
+2. 잘못된 키 또는 권한으로 인한 SSH 인증 문제
+3. SSHFS 의존성 또는 라이브러리 누락
+4. 네트워크 준비 전 마운트가 시도되는 타이밍 문제
 
-### 1. Check the detailed error logs
+## 점검 절차
 
-First, check the complete logs to identify the specific error:
+### 1. 상세 오류 로그 확인
+
+구체적인 오류는 전체 로그에서 확인한다.
 
 ```bash
 journalctl -u mnt-external-nano_pi.mount
 ```
 
-Look for specific errors like "Connection reset by peer", "Permission denied", or missing libraries[2][6].
+`Connection reset by peer`, `Permission denied`, 라이브러리 누락 같은 구체적인 오류를 확인한다[2][6].
 
-### 2. Verify network connectivity
+### 2. 네트워크 연결 확인
 
-Make sure you can reach the nano_pi host:
+`nano_pi` 호스트에 접근 가능한지 확인한다.
 
 ```bash
 ping nano_pi
 ssh -i /home/nodove/.ssh/nano_rsa nodove@nano_pi
 ```
 
-### 3. Check your mount unit configuration
+### 3. 마운트 유닛 구성 확인
 
-Your mount unit might have configuration issues. The most common problems are:
+마운트 유닛의 일반적인 구성 문제는 다음과 같다.
 
-- Incorrect dependencies that don't ensure network is available
-- Missing or incorrect SSH identity file path
-- Wrong mount options
+- 네트워크 사용 가능 상태를 보장하지 못하는 의존성
+- 누락되었거나 잘못된 SSH identity file 경로
+- 잘못된 마운트 옵션
 
-Here's an improved mount unit configuration:
+마운트 유닛 구성 예시는 다음과 같다.
 
 ```ini
 [Unit]
@@ -633,67 +635,67 @@ Options=_netdev,IdentityFile=/home/nodove/.ssh/nano_rsa,allow_other,default_perm
 WantedBy=multi-user.target
 ```
 
-Note that removing unnecessary dependencies is recommended, as the `_netdev` option already implies network dependency[3].
+`_netdev` 옵션은 네트워크 의존성을 이미 암시하므로 불필요한 의존성은 줄일 수 있다[3].
 
-### 4. Verify SSHFS installation
+### 4. SSHFS 설치 확인
 
-Make sure SSHFS is properly installed:
+SSHFS 설치 상태를 확인한다.
 
 ```bash
 sudo apt install sshfs
 ```
 
-Sometimes library issues can cause mount failures, as seen in search result #6 where libfuse3.so.3 was missing.
+`libfuse3.so.3` 누락처럼 라이브러리 문제로 마운트가 실패할 수 있다.
 
-### 5. Check for conflicts with fstab entries
+### 5. fstab 항목 충돌 확인
 
-If you've also configured SSHFS mounts in /etc/fstab, there might be conflicts. Consider commenting out any related entries in fstab if you're using systemd mount units[4].
+`/etc/fstab`에도 SSHFS 마운트가 구성되어 있으면 systemd 마운트 유닛과 충돌할 수 있다. systemd 마운트 유닛을 사용한다면 관련 fstab 항목을 주석 처리하는 방식을 검토한다[4].
 
-### 6. Manual mount test
+### 6. 수동 마운트 테스트
 
-Try mounting manually to identify any issues:
+문제를 분리하기 위해 수동 마운트를 시도한다.
 
 ```bash
 sudo sshfs nodove@nano_pi:/mnt/share/nodove /mnt/external/nano_pi -o IdentityFile=/home/nodove/.ssh/nano_rsa,allow_other,default_permissions
 ```
 
-If this works but the systemd mount doesn't, it's likely a timing or dependency issue with systemd.
+수동 마운트는 성공하지만 systemd 마운트만 실패하면 systemd의 타이밍 또는 의존성 문제일 가능성이 높다.
 
-## Recommended Solution
+## 해결 방향
 
-Based on the common issues found in the search results, I recommend:
+일반적인 해결 방향은 다음과 같다.
 
-1. Modify your mount unit to ensure proper network dependencies
-2. Use the `reconnect` option to handle network disruptions
-3. Consider using automount units instead of regular mount units, which can handle timing issues better[3]
-4. Check SSH key permissions (should be 600)
-5. Add the host entry to /etc/hosts if DNS resolution is causing delays
+1. 마운트 유닛의 네트워크 의존성 정리
+2. 네트워크 단절 대응을 위한 `reconnect` 옵션 사용
+3. 타이밍 문제를 줄이기 위한 automount 유닛 사용 검토[3]
+4. SSH 키 권한 확인, 일반적으로 `600`
+5. DNS 해석 지연이 있으면 `/etc/hosts`에 호스트 항목 추가
 
-By implementing these changes, you should be able to resolve the "failed with result 'exit-code'" error with your SSHFS mount.
+이 항목들은 SSHFS 마운트의 `failed with result 'exit-code'` 오류를 줄이는 데 사용된다.
 
 
 ---
 
 
-# Troubleshooting "Connection Reset by Peer" Error in SSHFS Mount
+# SSHFS 마운트의 `Connection reset by peer` 오류 점검
 
-Based on the system logs, your SSHFS mount for nano_pi is failing with a "Connection reset by peer" error. This is a common issue with several potential causes.
+시스템 로그 기준으로 `nano_pi` SSHFS 마운트가 `Connection reset by peer` 오류와 함께 실패한 상태다.
 
-## Most Likely Causes
+## 주요 원인
 
-1. **SSH Configuration Issues for Root User**
-   - When systemd mounts SSHFS, it does so as root, which uses different SSH configuration than your user account[2][5]
-   - Root's SSH config might have incorrect permissions or be a symlink (which SSHFS doesn't handle well)[5]
+1. **root 사용자 SSH 구성 문제**
+   - systemd가 SSHFS를 마운트할 때 root 권한으로 실행되며, 일반 사용자 계정과 다른 SSH 구성을 사용한다[2][5]
+   - root의 SSH config 권한이 잘못되었거나 SSHFS가 다루기 어려운 symlink일 수 있다[5]
 
-2. **Missing SFTP Subsystem**
-   - SSHFS requires the SFTP subsystem to be enabled on the remote server[6]
-   - This is separate from regular SSH functionality
+2. **SFTP subsystem 누락**
+   - SSHFS는 원격 서버에서 SFTP subsystem이 활성화되어 있어야 한다[6]
+   - 일반 SSH 접속 기능과 별개의 요구 사항이다
 
-3. **User and Permission Issues**
-   - The root user doesn't know which SSH key to use for authentication[4]
-   - FUSE permissions might be incorrectly configured
+3. **사용자와 권한 문제**
+   - root 사용자가 인증에 사용할 SSH 키를 찾지 못할 수 있다[4]
+   - FUSE 권한 설정이 잘못되었을 수 있다
 
-## Recommended Solutions
+## 해결 방법
 
 ### 1. Verify SSH Configuration for Root
 
@@ -714,18 +716,18 @@ sudo chmod 600 /root/.ssh/config
 sftp -i /home/nodove/.ssh/nano_rsa nodove@nano_pi
 ```
 
-If this fails, you need to enable the SFTP subsystem on the nano_pi server[6].
+이 테스트가 실패하면 `nano_pi` 서버에서 SFTP subsystem 활성화 상태를 확인한다[6].
 
 ### 3. Add Debugging Options
 
-Add debugging options to get more detailed information about the error:
+오류 세부 정보를 확보하기 위해 디버깅 옵션을 추가한다.
 
 ```bash
 sudo systemctl stop mnt-external-nano_pi.mount
 sudo systemctl edit mnt-external-nano_pi.mount
 ```
 
-Add these lines to the mount unit:
+마운트 유닛에 다음 줄을 추가한다.
 ```
 [Mount]
 Options=_netdev,IdentityFile=/home/nodove/.ssh/nano_rsa,allow_other,default_permissions,debug,sshfs_debug
@@ -733,13 +735,13 @@ Options=_netdev,IdentityFile=/home/nodove/.ssh/nano_rsa,allow_other,default_perm
 
 ### 4. Specify UID and GID in Mount Options
 
-Add explicit user ID mapping to help root know which user credentials to use:
+root가 사용할 사용자 매핑을 명확히 하도록 UID/GID를 지정한다.
 
 ```bash
 sudo systemctl edit mnt-external-nano_pi.mount
 ```
 
-Add these options:
+다음 옵션을 추가한다.
 ```
 [Mount]
 Options=_netdev,IdentityFile=/home/nodove/.ssh/nano_rsa,allow_other,default_permissions,uid=$(id -u nodove),gid=$(id -g nodove)
@@ -747,7 +749,7 @@ Options=_netdev,IdentityFile=/home/nodove/.ssh/nano_rsa,allow_other,default_perm
 
 ### 5. Check SSH Server Status
 
-If possible, check the SSH server status on nano_pi:
+가능하면 `nano_pi` 서버의 SSH 서버 상태를 확인한다.
 
 ```bash
 # On the nano_pi server
@@ -756,10 +758,10 @@ sudo systemctl status sshd
 sudo systemctl restart sshd
 ```
 
-## Additional Considerations
+## 추가 검토 사항
 
-- Ensure your user is in the fuse group if available: `sudo adduser nodove fuse`[2]
-- Check if /etc/fuse.conf has "user_allow_other" uncommented[4]
-- Consider using direct IP address instead of hostname if there are DNS resolution issues[1]
+- fuse 그룹이 있는 환경에서는 사용자가 해당 그룹에 포함되어 있는지 확인한다: `sudo adduser nodove fuse`[2]
+- `/etc/fuse.conf`에서 `user_allow_other` 주석 해제 여부를 확인한다[4]
+- DNS 해석 문제가 있으면 호스트명이 아니라 직접 IP 주소 사용을 검토한다[1]
 
-By systematically applying these solutions, you should be able to resolve the "Connection reset by peer" error and successfully mount your SSHFS share.
+위 항목은 `Connection reset by peer` 오류 원인을 분리하고 SSHFS 공유를 마운트하기 위한 점검 목록이다.

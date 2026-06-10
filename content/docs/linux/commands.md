@@ -1,289 +1,226 @@
 # Linux 명령어 참조
 
-시스템 관리를 위한 필수 Linux 명령어 가이드입니다.
+이 문서는 Linux 시스템을 확인하고 관리할 때 자주 쓰는 명령어를 작업 흐름 중심으로 정리한다. 목표는 명령어 옵션을 많이 외우는 것이 아니라 파일, 프로세스, 네트워크, 로그, 디스크 상태를 안전한 순서로 확인하는 것이다.
 
-!!! tip "상세 가이드"
-    더 자세한 내용은 [Complete Linux Commands Guide](../tools/terminal/linux-commands.md)를 참조하세요.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
----
+장애 상황에서 명령어를 아무 순서로 실행하면 원인보다 증상을 먼저 바꾸게 된다. 예를 들어 로그를 보기 전에 service를 재시작하거나, mount 상태를 보기 전에 디스크를 format하면 복구 단서가 사라진다.
 
-## 명령어 카테고리
+명령어 참조는 “무엇을 바꿀까”보다 “무엇을 확인할까”를 먼저 제공해야 한다.
 
-```mermaid
-graph TD
-    A[Linux 명령어] --> B[파일 시스템]
-    A --> C[프로세스 관리]
-    A --> D[네트워크]
-    A --> E[시스템 정보]
-    A --> F[텍스트 처리]
-    
-    B --> B1[ls, cd, pwd]
-    B --> B2[cp, mv, rm]
-    B --> B3[find, locate]
-    
-    C --> C1[ps, top, htop]
-    C --> C2[kill, pkill]
-    
-    D --> D1[ip, ss, ping]
-    D --> D2[curl, wget]
-    
-    E --> E1[df, du, free]
-    E --> E2[uname, hostnamectl]
-    
-    F --> F1[grep, sed, awk]
-    F --> F2[cat, head, tail]
-    
-    style A fill:#e8f5e8
+## 2. 현재 나의 상태 (Baseline)
+
+기존 문서는 파일 탐색, 텍스트 처리, 프로세스, 네트워크, 권한, 로그 분석 명령을 나열한다. 보완해야 할 점은 다음과 같다.
+
+- 조회 명령과 destructive 명령이 같은 밀도로 나열되어 있다.
+- `netstat`처럼 구형 도구가 현재 기본 도구와 함께 설명된다.
+- `rm -rf`, `find -delete`, `kill -9`의 위험 조건이 약하다.
+- 실제 운영에서 필요한 검증 순서가 충분히 드러나지 않는다.
+
+## 3. 도달하고 싶은 목표 (Target State)
+
+목표는 다음 작업을 안전하게 수행하는 것이다.
+
+- 현재 위치와 파일 목록을 확인한다.
+- 파일을 검색하고 내용을 샘플링한다.
+- 프로세스와 systemd service 상태를 확인한다.
+- 네트워크 주소, route, port, DNS, HTTP 응답을 확인한다.
+- 디스크 사용량과 block device를 확인한다.
+- 권한, 소유자, symbolic link 경로를 확인한다.
+- 변경 명령은 범위를 좁힌 뒤 실행한다.
+
+## 4. 시스템 번역 (Data Flow)
+
+기본 운영 흐름은 다음과 같다.
+
+```text
+question
+  -> read-only command
+  -> narrowed target
+  -> controlled change
+  -> verification command
+  -> log or note
 ```
 
----
+명령어는 shell이 실행하고, 결과는 kernel, filesystem, process table, network stack, systemd journal에서 온다.
 
-## 파일 시스템 탐색
+## 5. 핵심 구성요소 (Building Blocks)
 
-### 기본 탐색
+파일 탐색은 `pwd`, `ls`, `stat`, `find`, `rg`로 시작한다. 저장소 안의 텍스트 검색은 `grep -R`보다 `rg`가 빠르고 결과가 읽기 쉽다.
 
-| 명령어 | 설명 | 예제 |
-|--------|------|------|
-| `ls` | 디렉토리 내용 표시 | `ls -la` |
-| `cd` | 디렉토리 이동 | `cd /var/log` |
-| `pwd` | 현재 경로 표시 | `pwd` |
-| `tree` | 트리 구조 표시 | `tree -L 2` |
+텍스트 확인은 `less`, `head`, `tail`, `wc`, `sort`, `uniq`, `awk`, `sed`를 조합한다.
 
-### ls 옵션
+프로세스 확인은 `ps`, `pgrep`, `top`, `htop`, `systemctl`, `journalctl`을 사용한다.
+
+네트워크 확인은 `ip`, `ss`, `resolvectl`, `dig`, `curl`, `ping`, `traceroute`를 사용한다.
+
+디스크 확인은 `lsblk`, `blkid`, `df`, `du`, `findmnt`, `mount`를 사용한다.
+
+권한 확인은 `ls -l`, `stat`, `namei -l`, `getfacl`, `id`, `groups`를 사용한다.
+
+## 6. 상태 전이 (State Transition)
+
+파일 문제는 다음 순서로 확인한다.
+
+```text
+path unknown
+  -> locate or find
+  -> stat
+  -> permission check
+  -> content sample
+  -> edit or copy
+  -> verify
+```
+
+서비스 문제는 다음 순서로 확인한다.
+
+```text
+service failing
+  -> systemctl status
+  -> journalctl unit logs
+  -> config test
+  -> restart or reload
+  -> status check
+```
+
+네트워크 문제는 다음 순서로 확인한다.
+
+```text
+no connectivity
+  -> link state
+  -> IP address
+  -> default route
+  -> DNS
+  -> remote port
+  -> application response
+```
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- 조회 명령으로 대상 범위를 좁히기 전 삭제 명령을 실행하지 않는다.
+- `rm -rf`, `find -delete`, `mkfs`, `dd`는 실행 전 대상 경로와 장치를 다시 확인한다.
+- `kill -9`는 정상 종료가 실패한 뒤에만 사용한다.
+- service restart 전 `systemctl status`와 최근 journal을 확인한다.
+- `/etc` 파일 수정 전 원본을 백업한다.
+- root shell에서는 현재 디렉터리와 변수 값을 확인한 뒤 명령을 실행한다.
+- log 분석은 원본 로그를 보존하고 pipe로 필터링한다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+현재 위치와 파일을 확인한다.
 
 ```bash
-ls -l      # 상세 정보
-ls -a      # 숨김 파일 포함
-ls -h      # 사람이 읽기 쉬운 크기
-ls -R      # 재귀적 표시
-ls -ltr    # 시간순 정렬 (오래된 것 먼저)
-ls -lSr    # 크기순 정렬
+pwd
+ls -lah
+stat .
+tree -L 2
 ```
 
----
-
-## 파일 작업
-
-### 기본 작업
-
-| 명령어 | 설명 | 예제 |
-|--------|------|------|
-| `cp` | 파일 복사 | `cp -r src/ dest/` |
-| `mv` | 파일 이동/이름 변경 | `mv old.txt new.txt` |
-| `rm` | 파일 삭제 | `rm -rf dirname/` |
-| `mkdir` | 디렉토리 생성 | `mkdir -p path/to/dir` |
-| `touch` | 빈 파일 생성 | `touch newfile.txt` |
-
-### 파일 찾기
+파일을 찾는다.
 
 ```bash
-# find - 다양한 조건으로 검색
-find /var -name "*.log"              # 이름으로 찾기
-find . -type f -mtime -7             # 7일 이내 수정된 파일
-find . -size +100M                   # 100MB 이상 파일
-find . -name "*.tmp" -delete         # 찾아서 삭제
-
-# locate - 데이터베이스 기반 빠른 검색
-locate nginx.conf
-sudo updatedb                        # DB 업데이트
+find . -type f -name '*.log'
+rg 'ERROR|WARN' .
+rg --files | rg 'nginx|ssh|wireguard'
 ```
 
----
-
-## 텍스트 처리
-
-### 파일 내용 보기
-
-| 명령어 | 설명 | 예제 |
-|--------|------|------|
-| `cat` | 전체 내용 표시 | `cat file.txt` |
-| `head` | 처음 N줄 표시 | `head -20 file.txt` |
-| `tail` | 마지막 N줄 표시 | `tail -f /var/log/syslog` |
-| `less` | 페이지 단위 보기 | `less large_file.txt` |
-
-### 텍스트 검색 및 처리
+파일 내용을 안전하게 확인한다.
 
 ```bash
-# grep - 패턴 검색
-grep "error" logfile.txt             # 기본 검색
-grep -r "pattern" /path              # 재귀 검색
-grep -i "case" file.txt              # 대소문자 무시
-grep -v "exclude" file.txt           # 반전 매칭
-grep -c "count" file.txt             # 일치 횟수
-
-# sed - 스트림 편집기
-sed 's/old/new/g' file.txt           # 문자열 치환
-sed -i 's/old/new/g' file.txt        # 파일 직접 수정
-sed '1,10d' file.txt                 # 1-10줄 삭제
-sed -n '5,10p' file.txt              # 5-10줄만 출력
-
-# awk - 패턴 처리
-awk '{print $1}' file.txt            # 첫 번째 필드
-awk -F: '{print $1, $3}' /etc/passwd # 구분자 지정
-awk '$3 > 100' file.txt              # 조건 필터링
+head -n 40 app.log
+tail -n 100 app.log
+tail -f app.log
+less app.log
+wc -l app.log
 ```
 
----
-
-## 프로세스 관리
-
-### 프로세스 확인
+로그에서 자주 나온 IP를 센다.
 
 ```bash
-# ps - 프로세스 스냅샷
-ps aux                               # 모든 프로세스
-ps aux | grep nginx                  # 특정 프로세스 찾기
-ps -ef --forest                      # 트리 구조로 표시
-
-# top/htop - 실시간 모니터링
-top                                  # 기본 모니터
-htop                                 # 향상된 인터페이스
-
-# pgrep/pkill - 프로세스 검색/종료
-pgrep -f "pattern"                   # PID 찾기
-pkill -f "pattern"                   # 프로세스 종료
+rg -o '[0-9]+[.][0-9]+[.][0-9]+[.][0-9]+' access.log | sort | uniq -c | sort -rn | head
 ```
 
-### 프로세스 제어
-
-| 시그널 | 번호 | 설명 |
-|--------|------|------|
-| `SIGTERM` | 15 | 정상 종료 요청 |
-| `SIGKILL` | 9 | 강제 종료 |
-| `SIGHUP` | 1 | 재시작/설정 리로드 |
-| `SIGSTOP` | 19 | 일시 중지 |
+프로세스와 service를 확인한다.
 
 ```bash
-kill PID                             # SIGTERM 전송
-kill -9 PID                          # 강제 종료
-killall process_name                 # 이름으로 종료
+ps aux
+pgrep -af nginx
+systemctl status nginx
+journalctl -u nginx -n 100 --no-pager
+journalctl -p warning -b
 ```
 
----
-
-## 시스템 정보
-
-### 리소스 모니터링
-
-| 명령어 | 설명 | 예제 |
-|--------|------|------|
-| `df` | 디스크 사용량 | `df -h` |
-| `du` | 디렉토리 크기 | `du -sh *` |
-| `free` | 메모리 상태 | `free -h` |
-| `uptime` | 시스템 가동 시간 | `uptime` |
-
-### 시스템 정보 확인
+네트워크 상태를 확인한다.
 
 ```bash
-# 시스템 정보
-uname -a                             # 커널 정보
-hostnamectl                          # 호스트 정보
-lsb_release -a                       # 배포판 정보
-
-# 하드웨어 정보
-lscpu                                # CPU 정보
-lsmem                                # 메모리 정보
-lsblk                                # 블록 디바이스
-lspci                                # PCI 디바이스
-lsusb                                # USB 디바이스
+ip addr show
+ip route
+ss -tulpen
+resolvectl status
+dig example.com
+curl -I https://example.com
 ```
 
----
-
-## 네트워크
-
-### 네트워크 상태
+디스크와 mount 상태를 확인한다.
 
 ```bash
-# IP 및 인터페이스
-ip addr show                         # IP 주소 확인
-ip route                             # 라우팅 테이블
-ip link show                         # 인터페이스 상태
-
-# 연결 상태
-ss -tuln                             # 열린 포트 확인
-ss -tp                               # TCP 연결 + 프로세스
-netstat -tuln                        # (구형) 포트 확인
-
-# 연결 테스트
-ping -c 4 google.com                 # 연결 테스트
-traceroute google.com                # 경로 추적
-dig google.com                       # DNS 조회
-curl -I https://example.com          # HTTP 헤더
+lsblk -f
+blkid
+df -h
+du -xh --max-depth=1 .
+findmnt
 ```
 
----
-
-## 권한 관리
-
-### 파일 권한
-
-```mermaid
-graph LR
-    A[Permission] --> B[User rwx]
-    A --> C[Group rwx]
-    A --> D[Other rwx]
-    
-    B --> B1[4 read]
-    B --> B2[2 write]
-    B --> B3[1 execute]
-```
+권한 경로를 확인한다.
 
 ```bash
-# chmod - 권한 변경
-chmod 755 script.sh                  # rwxr-xr-x
-chmod +x script.sh                   # 실행 권한 추가
-chmod -R 644 /path                   # 재귀적 적용
-
-# chown - 소유자 변경
-chown user:group file.txt
-chown -R www-data:www-data /var/www
+id
+groups
+ls -l /etc/ssh/sshd_config
+stat /etc/ssh/sshd_config
+namei -l /etc/ssh/sshd_config
 ```
 
-### 권한 숫자 계산
-
-| 권한 | 값 | 의미 |
-|------|-----|------|
-| r | 4 | 읽기 |
-| w | 2 | 쓰기 |
-| x | 1 | 실행 |
-
-예: `755` = `rwxr-xr-x` (7=4+2+1, 5=4+1)
-
----
-
-## 유용한 조합
-
-### 로그 분석
+변경 전 백업을 만든다.
 
 ```bash
-# 실시간 로그 모니터링
-tail -f /var/log/syslog | grep ERROR
-
-# 로그에서 IP 추출 및 카운트
-grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' access.log | sort | uniq -c | sort -rn | head
-
-# 특정 시간대 로그 필터링
-awk '/2024-01-15 14:/ {print}' application.log
+sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak
+sudo sshd -t
+sudo systemctl reload ssh
+systemctl status ssh
 ```
 
-### 디스크 정리
+## 9. 실패 사례 (What could go wrong?)
 
-```bash
-# 큰 파일 찾기
-find / -type f -size +1G 2>/dev/null | head -20
+`rm -rf "$DIR"`에서 `DIR` 변수가 비어 있거나 `/`에 가까운 값이면 큰 사고가 난다. 실행 전 `printf '%s\n' "$DIR"`로 값을 확인한다.
 
-# 오래된 로그 삭제
-find /var/log -name "*.log" -mtime +30 -delete
+`find . -delete`는 현재 디렉터리 기준으로 바로 삭제한다. 먼저 `find . ... -print`로 결과를 확인한다.
 
-# 디렉토리별 사용량 정렬
-du -h --max-depth=1 | sort -hr
-```
+`kill -9`는 cleanup handler를 실행하지 못하게 한다. database, queue, file write process에는 특히 위험하다.
 
----
+`chmod -R 777`은 문제를 해결하는 것이 아니라 권한 모델을 깨뜨린다. 필요한 사용자, 그룹, path만 좁혀서 수정한다.
 
-## 관련 문서
+`sed -i`는 원본을 즉시 바꾼다. 중요한 파일에는 `cp` 백업 또는 version control diff를 먼저 둔다.
 
-- [Tmux 가이드](../tools/terminal/tmux.md)
-- [Vim 가이드](../tools/terminal/vim.md)
-- [쉘 스크립팅](../tools/terminal/linux-commands.md#쉘-환경-및-스크립팅)
+`netstat`이 없는 시스템에서 오류가 나면 `ss`를 사용한다. 현대 Linux에서는 `iproute2` 계열 도구가 기본이다.
+
+## 10. 뇌 확장하기 (Evolution & Variants)
+
+운영 명령은 단독보다 조합이 중요하다. `systemctl status`는 서비스의 현재 상태를 보여주고, `journalctl -u`는 시간축 로그를 보여주며, `ss -tulpen`은 실제 port listen 상태를 보여준다.
+
+파일 검색도 목적에 따라 도구가 다르다. 파일 이름은 `find`나 `rg --files`, 파일 내용은 `rg`, binary metadata는 `file`과 `stat`가 적합하다.
+
+자동화 스크립트로 옮기기 전에는 수동 명령으로 입력, 출력, 실패 조건을 확인해야 한다. 특히 삭제와 권한 변경은 dry-run 또는 출력 확인 단계를 둔다.
+
+## 11. 최종 체크리스트 (Definition of Done)
+
+- [ ] 조회 명령과 변경 명령을 구분할 수 있다.
+- [ ] 파일, 프로세스, 네트워크, 디스크, 권한 상태를 확인할 수 있다.
+- [ ] service 문제에서 `status`, `journal`, `port`를 함께 확인한다.
+- [ ] 삭제 명령 전 대상 목록을 출력해 확인한다.
+- [ ] `/etc` 설정 변경 전 백업과 구문 검증을 수행한다.
+- [ ] 위험 명령의 rollback 가능성을 판단한다.
+
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
+
+Linux 명령어는 먼저 상태를 읽고, 대상을 좁히고, 작은 변경을 적용한 뒤 다시 검증하는 도구다. 빠른 해결보다 안전한 순서가 더 중요하다.

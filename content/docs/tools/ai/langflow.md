@@ -1,117 +1,158 @@
----
-title: "Langflow Docker Compose 설치 및 커스텀 AI API 사용 가이드"
-description: "Langflow를 Docker Compose로 설치하는 방법과 Ollama, LM Studio 등의 커스텀 AI API 주소를 연결하여 사용하는 가이드입니다."
-tags:
-  - Langflow
-  - Docker
-  - AI
-  - LLM
-  - Ollama
----
+# Langflow
 
-# Langflow Docker Compose 설치 및 커스텀 AI API 사용 가이드
+Langflow는 LLM 애플리케이션, RAG, 에이전트 흐름을 시각적으로 구성하고 실행할 수 있는 도구다. Docker로 빠르게 실행할 수 있지만, 운영에 가까운 구성에서는 데이터베이스와 secrets, 네트워크 경계를 분리해야 한다.
 
-## 개요
-[Langflow](https://github.com/langflow-ai/langflow)는 강력한 LLM 애플리케이션(RAG 시스템, 에이전트 파이프라인 등)을 시각적으로 설계하고 배포할 수 있도록 돕는 UI 기반 플랫폼입니다. 본 문서는 Docker Compose를 사용하여 안전하고 효율적으로 Langflow를 구축하는 방법과, OpenAI 뿐만 아니라 Ollama, LM Studio, vLLM 등의 **커스텀 AI API(OpenAI 호환 엔드포인트)**를 연결하는 방법을 구체적으로 설명합니다.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
----
+LLM workflow를 코드로만 작성하면 prompt, model, retriever, tool, output 연결을 눈으로 확인하기 어렵다. Langflow는 이 흐름을 노드 기반 UI로 설계하고 테스트할 수 있게 한다.
 
-## 1. Docker Compose 기반 설치
+하지만 기본 실행만으로 운영 준비가 끝나는 것은 아니다. flow 저장소, 데이터베이스, API key, custom model endpoint, reverse proxy, 인증 정책을 별도로 정해야 한다.
 
-기본적으로 Langflow의 설정 파일과 데이터가 영구 보존되도록 볼륨 마운트와 PostgreSQL 데이터베이스 연동 설정을 권장합니다. 
+## 2. 현재 나의 상태 (Baseline)
 
-### `docker-compose.yaml` 파일 작성
+흔한 출발점은 다음과 같다.
 
-원하는 서버의 디렉터리에 `docker-compose.yaml` 파일을 생성하고 아래 내용을 입력합니다.
+- `langflowai/langflow:latest` 컨테이너만 띄우고 데이터 영속성을 확인하지 않는다.
+- SQLite와 PostgreSQL 사용 차이를 모른다.
+- OpenAI 호환 endpoint를 연결하면서 `localhost`가 컨테이너 내부를 가리킨다는 점을 놓친다.
+- API key를 flow나 compose 파일에 직접 넣는다.
+- Langflow UI를 인증 없이 외부에 노출한다.
+- 모델 서버, vector store, Langflow가 같은 Docker network에 있는지 확인하지 않는다.
+
+## 3. 도달하고 싶은 목표 (Target State)
+
+목표는 Langflow를 실험용과 운영형 구성으로 구분하는 것이다.
+
+- 로컬 실험은 단일 컨테이너로 빠르게 실행한다.
+- 유지해야 할 flow와 설정은 볼륨 또는 외부 DB에 저장한다.
+- 여러 인스턴스나 안정적 운영이 필요하면 PostgreSQL을 사용한다.
+- Ollama, LM Studio, LiteLLM, vLLM 같은 OpenAI 호환 endpoint의 base URL을 정확히 설정한다.
+- API key와 DB password는 환경 변수 또는 secret으로 분리한다.
+- 외부 노출 시 reverse proxy와 인증을 둔다.
+
+## 4. 시스템 번역 (Data Flow)
+
+Langflow 실행 흐름은 다음과 같다.
+
+```text
+browser user opens Langflow UI
+  -> creates flow graph
+  -> flow stores configuration
+  -> model node calls LLM provider or OpenAI-compatible endpoint
+  -> retriever/tool nodes call external services
+  -> output node renders response
+```
+
+Docker에서 custom model endpoint 호출은 다음처럼 해석한다.
+
+```text
+Langflow container
+  -> base URL in model component
+  -> Docker network DNS or host gateway
+  -> Ollama, LM Studio, LiteLLM, vLLM, or remote API
+```
+
+컨테이너 내부의 `localhost`는 Docker host가 아니라 Langflow 컨테이너 자신이다.
+
+## 5. 핵심 구성요소 (Building Blocks)
+
+- Langflow UI: flow를 만들고 실행하는 브라우저 인터페이스.
+- Flow: component node와 edge로 구성된 LLM workflow.
+- Component: model, prompt, input, output, retriever, tool 같은 실행 단위.
+- Database: flow와 설정을 저장하는 저장소. 실험용과 운영형 요구가 다르다.
+- `LANGFLOW_DATABASE_URL`: PostgreSQL 같은 외부 DB 연결을 지정하는 환경 변수.
+- OpenAI-compatible endpoint: `/v1` API 호환 서버를 통해 로컬/프록시 모델을 호출하는 방식.
+- Docker network: Langflow와 model server가 서로 이름으로 통신하게 하는 경계.
+- Reverse proxy: HTTPS, 인증, host routing을 담당하는 외부 진입점.
+
+## 6. 상태 전이 (State Transition)
+
+Langflow flow는 다음 상태로 관리한다.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Draft
+    Draft --> Runnable: required inputs configured
+    Runnable --> Tested: sample prompt succeeds
+    Tested --> Versioned: exported or stored
+    Versioned --> Deployed: API or UI workflow used
+    Deployed --> Broken: provider, key, or schema changed
+    Broken --> Revised
+```
+
+모델 endpoint나 API key가 바뀌면 `Deployed` flow도 다시 테스트해야 한다.
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- API key와 DB password는 flow export나 Git에 남기지 않는다.
+- 컨테이너에서 `localhost`를 쓰기 전 어느 네트워크 namespace를 가리키는지 확인한다.
+- Langflow UI를 인터넷에 직접 노출하지 않는다.
+- production-like 구성에서는 데이터 영속성과 백업을 먼저 확인한다.
+- custom endpoint는 모델명, base URL, authentication 요구사항을 함께 기록한다.
+- flow 변경 후 sample input으로 회귀 테스트를 한다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+로컬 실험용 실행:
+
+```bash
+docker run --rm -p 7860:7860 langflowai/langflow:latest
+```
+
+PostgreSQL 연결을 사용하는 구성에서는 `LANGFLOW_DATABASE_URL`을 명시한다.
 
 ```yaml
-version: '3.8'
-
 services:
   langflow:
     image: langflowai/langflow:latest
-    container_name: langflow
     ports:
       - "7860:7860"
-    restart: always
+    environment:
+      LANGFLOW_DATABASE_URL: postgresql://langflow:${LANGFLOW_DB_PASSWORD}@postgres:5432/langflow
     depends_on:
       - postgres
-    environment:
-      # PostgreSQL DB 연결 설정
-      - LANGFLOW_DATABASE_URL=postgresql://langflow:langflow@postgres:5432/langflow
-      # Langflow 설정 및 데이터가 저장될 내부 경로
-      - LANGFLOW_CONFIG_DIR=/app/langflow
-    volumes:
-      - langflow-data:/app/langflow
 
   postgres:
     image: postgres:16
-    container_name: langflow-postgres
-    restart: always
     environment:
       POSTGRES_USER: langflow
-      POSTGRES_PASSWORD: langflow
+      POSTGRES_PASSWORD: ${LANGFLOW_DB_PASSWORD}
       POSTGRES_DB: langflow
-    ports:
-      - "5432:5432"
     volumes:
       - langflow-db:/var/lib/postgresql/data
 
 volumes:
-  langflow-data:
   langflow-db:
 ```
 
-### 실행 및 접속
+OpenAI 호환 endpoint는 보통 `Base URL`, `API Key`, `Model Name`을 함께 맞춘다.
 
-1. 터미널(또는 SSH)에서 `docker-compose.yaml` 파일이 있는 경로로 이동합니다.
-2. 아래 명령어를 실행하여 컨테이너를 백그라운드 모드로 구동합니다.
-   ```bash
-   docker compose up -d
-   ```
-3. 설치가 완료되면 브라우저를 열고 `http://<서버-IP>:7860` 으로 접속합니다. (로컬 환경의 경우 `http://localhost:7860`)
+## 9. 실패 사례 (What could go wrong?)
 
----
+- 컨테이너 안에서 `http://localhost:11434/v1`를 설정해 Ollama host가 아니라 Langflow 자신으로 요청한다.
+- DB 볼륨 없이 컨테이너를 지워 flow가 사라진다.
+- `latest` 이미지를 무조건 사용해 업그레이드 후 component schema가 바뀐다.
+- API key를 flow JSON에 저장해 export 파일로 유출한다.
+- Langflow UI를 공개망에 열어 임의 사용자가 LLM 비용을 발생시킨다.
+- custom endpoint의 `/v1` 경로, 모델명, 인증 방식이 실제 서버와 맞지 않는다.
 
-## 2. 커스텀 AI API (LLM) 연동 가이드
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-기본적으로 Langflow는 OpenAI의 API를 사용하도록 되어 있으나, **로컬 LLM (Ollama, LM Studio 등)** 또는 **커스텀 프록시 API (LiteLLM, vLLM 등)**를 사용할 때도 OpenAI 호환 컴포넌트를 활용하여 매우 쉽게 연결할 수 있습니다.
+- flow export를 Git에 넣되 secrets는 환경 변수 참조로 분리한다.
+- Langflow API 서버를 reverse proxy 뒤에 두고 SSO 또는 VPN으로 접근을 제한한다.
+- Ollama, LiteLLM, vLLM, OpenAI, Gemini endpoint를 provider별 profile로 분리한다.
+- vector store와 document loader를 붙일 때 데이터 위치와 개인정보 범위를 점검한다.
+- 운영 flow는 input/output contract와 실패 응답을 테스트 케이스로 만든다.
 
-### 연동 방법 (OpenAI 컴포넌트 활용)
+## 11. 최종 체크리스트 (Definition of Done)
 
-1. **새로운 프로젝트 생성**: Langflow 대시보드에서 `New Project` > `Blank Flow`를 선택해 빈 작업 공간을 엽니다.
-2. **컴포넌트 추가**: 좌측 사이드바의 `Models` 메뉴에서 **`OpenAI`** 또는 **`ChatOpenAI`** 컴포넌트를 작업 공간으로 드래그 앤 드롭합니다.
-3. **고급 설정 (Advanced Settings) 열기**: 추가한 컴포넌트 블록의 고급 설정 아이콘(또는 하단 옵션 창)을 열어 파라미터를 수정합니다.
-4. **Base URL 및 옵션 수정**:
-   다음과 같이 커스텀 API 정보를 입력합니다.
-   
-   * **OpenAI API Base (또는 Base URL)**: 커스텀 API 서버의 주소를 입력합니다. (예: `http://192.168.0.100:11434/v1` - Ollama 기준)
-   * **OpenAI API Key**: 실제 OpenAI 키가 아니더라도 빈 칸을 허용하지 않는 경우가 있으므로 `sk-dummy-key` 와 같은 임의의 문자열을 입력합니다. (서버에서 별도 인증을 요구한다면 해당 키를 입력)
-   * **Model Name**: 호출하고자 하는 로컬 모델의 정확한 이름을 입력합니다. (예: `llama3`, `mistral:instruct` 등)
+- [ ] 실행 방식이 실험용인지 운영형인지 구분되어 있다.
+- [ ] flow와 DB 데이터가 영속화된다.
+- [ ] API key와 DB password가 환경 변수/secret으로 분리되어 있다.
+- [ ] custom endpoint의 base URL이 컨테이너 네트워크 기준으로 맞다.
+- [ ] Langflow UI 접근이 인증 또는 사설망으로 제한되어 있다.
+- [ ] sample prompt로 flow 실행을 검증했다.
 
-### 대표적인 커스텀 API 엔드포인트 예시
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-| 환경 | Base URL 예시 | 참고 사항 |
-|---|---|---|
-| **Ollama** | `http://<host-ip>:11434/v1` | Ollama 호스트 실행 시 외부 접속을 위한 `OLLAMA_HOST=0.0.0.0` 환경변수 설정 필수 |
-| **LM Studio** | `http://<host-ip>:1234/v1` | LM Studio의 로컬 서버 설정 탭에서 CORS (Cross-Origin Resource Sharing) 활성화 권장 |
-| **LiteLLM / vLLM** | `http://<host-ip>:4000/v1` | API 포트에 맞춰 `/v1` 접미사를 반드시 포함하여 사용 |
-
-> **🚨 중요 주의사항**: 
-> Langflow가 Docker 컨테이너 내부에서 구동 중이므로, Base URL에 `localhost`나 `127.0.0.1`을 입력하면 호스트 PC가 아닌 **컨테이너 내부 통신망**을 가리키게 됩니다. 
-> 반드시 도커를 구동하는 호스트의 외부 내부망 IP(예: `192.168.0.x`)를 입력하거나, Docker 호스트 전용 DNS인 `http://host.docker.internal:포트번호/v1` 을 사용해야 정상적으로 통신이 가능합니다.
-
----
-
-## 3. 간단한 테스트 파이프라인 구성
-
-설정한 커스텀 API가 잘 동작하는지 확인하려면 다음 과정을 거쳐 간단한 챗봇 파이프라인을 완성해 보세요.
-
-1. `Inputs` 탭에서 **`Prompt`** (또는 Chat Input) 컴포넌트를 작업 공간에 추가합니다.
-2. `Models` 탭에서 설정해둔 **`ChatOpenAI`** 컴포넌트의 입력(Input) 포트와 Prompt의 출력(Output) 포트를 선으로 이어줍니다.
-3. `Outputs` 탭에서 **`Text Output`** (또는 Chat Output) 컴포넌트를 추가하고, 모델의 결과물 포트와 연결합니다.
-4. 화면 우측 하단의 **실행(Play)** 버튼 또는 인터랙티브 챗 아이콘을 눌러 프롬프트 메시지를 전송합니다.
-5. 설정한 커스텀 LLM 서버(Ollama 등) 로그에 요청이 들어오는지 확인하고, Langflow 화면에 성공적으로 응답이 출력되는지 테스트합니다.
-
----
-Langflow와 Docker Compose를 조합하면 빠르고 안정적으로 강력한 AI 에이전트를 시각적으로 구축할 수 있습니다. 위 가이드를 참고하여 나만의 로컬 LLM 환경을 구성해 보시기 바랍니다!
+Langflow는 LLM workflow를 시각화해 주지만, 안정적으로 쓰려면 데이터 영속성, secrets 분리, 컨테이너 네트워크, 접근 제어를 함께 설계해야 한다.

@@ -37,7 +37,7 @@ services:
     security_opt:
       - no-new-privileges:true
     environment:
-      # --- 기본 및 필수 설정 ---
+      # --- 기본 설정 ---
       DOMAIN: ${DOMAIN}
       WEBSOCKET_ENABLED: "true"
 
@@ -87,10 +87,10 @@ networks:
 
 ### 주요 환경 변수 설명
 
-- **DOMAIN**: Vaultwarden에 접속할 전체 URL (예: https://vault.example.com). 반드시 HTTPS 사용 권장.
+- **DOMAIN**: Vaultwarden에 접속할 전체 URL (예: https://vault.example.com). HTTPS 사용 기준.
 - **WEBSOCKET_ENABLED**: `true`로 설정하여 클라이언트의 실시간 동기화 기능 활성화.
 - **SIGNUPS_ALLOWED**: `false`로 설정 시 임의 가입 불가.
-- **DISABLE_ADMIN_TOKEN**: `true`로 설정 시 관리자 페이지 비활성화(초기 설정 후 권장), 필요시 `false`로.
+- **DISABLE_ADMIN_TOKEN**: `true`로 설정 시 관리자 페이지 비활성화, 필요시 `false`로.
 - **ADMIN_TOKEN**: 관리자 페이지 접근을 위한 비밀 토큰(`DISABLE_ADMIN_TOKEN`이 `false`일 때).
 - **INVITATIONS_ALLOWED**: `SIGNUPS_ALLOWED`가 `false`일 때 관리자 초대 기능 허용.
 - **SHOW_PASSWORD_HINT**: 로그인 페이지 비밀번호 힌트 비활성화.
@@ -219,7 +219,7 @@ sudo systemctl restart nginx
       -d vault.example.com \
       -d "*.vault.example.com" \
       --agree-tos \
-      --email your-email@example.com \
+      --email admin@example.com \
       --rsa-key-size 4096
     ```
 4. Nginx에 인증서 적용 (`ssl_certificate`, `ssl_certificate_key` 경로 확인)
@@ -276,7 +276,7 @@ sudo systemctl restart nginx
   docker-compose pull vaultwarden
   docker-compose up -d
   ```
-- **2단계 인증(2FA) 활성화**: 모든 사용자가 2FA 사용 권장
+- **2단계 인증(2FA) 활성화**: 모든 사용자의 2FA 사용 기준 수립
 
 ---
 
@@ -293,7 +293,7 @@ VAULTWARDEN_HTTP_PORT=127.0.0.1:8180
 VW_DATA_PATH=/srv/docker/vaultwarden/data
 
 # ADMIN_TOKEN: 관리자 페이지 접근 토큰 (DISABLE_ADMIN_TOKEN=false 일 때)
-# ADMIN_TOKEN=your_very_strong_and_random_admin_token_here
+# ADMIN_TOKEN=STRONG_RANDOM_ADMIN_TOKEN
 
 # TZ: 컨테이너 시간대
 TZ=Asia/Seoul

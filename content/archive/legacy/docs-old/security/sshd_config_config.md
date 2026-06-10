@@ -3,7 +3,7 @@
 ## 구성 파일 섹션별 의미 설명
 
 ### Subsystem sftp internal-sftp
-이 설정은 SFTP 서브시스템을 정의합니다. `internal-sftp`는 외부 바이너리 대신 SSH 데몬(sshd) 내부에 내장된 SFTP 서버를 사용하도록 지시합니다. 이 방식은 별도의 프로세스를 실행할 필요가 없어 성능상 이점이 있습니다[1][6].
+이 설정은 SFTP 서브시스템을 정의합니다. `internal-sftp`는 외부 바이너리가 아니라 SSH 데몬(sshd) 내부에 내장된 SFTP 서버를 사용하도록 지시합니다. 이 방식은 별도의 프로세스를 실행할 필요가 없어 성능상 이점이 있습니다[1][6].
 
 ### Match LocalPort 22 / ForceCommand none
 이 블록은 포트 22(표준 SSH 포트)로 들어오는 연결에 적용됩니다. `ForceCommand none`은 특정 명령어를 강제하지 않도록 설정하여 일반적인 SSH 셸 접근을 허용합니다. 이는 이전 설정에서 발생했던 문제를 해결하는 중요한 설정입니다[2].
@@ -30,7 +30,7 @@
 |------|------|
 | Port | SSH 데몬이 리스닝할 포트 번호 (기본값: 22) |
 | ListenAddress | SSH 데몬이 리스닝할 IP 주소 |
-| Protocol | 사용할 SSH 프로토콜 버전 (2 권장) |
+| Protocol | 사용할 SSH 프로토콜 버전 (2 사용 가능) |
 | HostKey | 호스트 키 파일 경로 |
 | ServerKeyBits | 서버 키 비트 수 |
 | LoginGraceTime | 로그인 유예 시간(초) |

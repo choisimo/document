@@ -1,8 +1,8 @@
-다른 서버에서 특정 브랜치(server2)만 사용하도록 설정하는 방법을 안내해드리겠습니다.
+# Nginx 서버별 Git 브랜치 운영
 
 ## 현재 서버의 Git 설정 완료하기
 
-먼저 현재 서버에서 remote를 올바르게 추가해야 합니다:
+현재 서버에서 remote를 추가한다.
 
 ```bash
 sudo git remote add origin git@github.com:choisimo/nginx-settings.git
@@ -73,18 +73,18 @@ sudo git fetch origin another-branch:another-branch
 
 이 명령으로 특정 브랜치만 추가로 가져올 수 있습니다[4].
 
-## 주의사항
+## 유의점
 
 1. 단일 브랜치 클론 시 해당 브랜치만 존재하므로 다른 브랜치로 전환하려면 추가 설정이 필요합니다[3]
 2. SSH 키가 각 서버에 올바르게 설정되어 있어야 GitHub 저장소에 접근할 수 있습니다
-3. `/etc/nginx` 디렉토리의 권한 문제를 피하기 위해 모든 Git 명령에 `sudo`를 사용해야 합니다
+3. `/etc/nginx` 디렉토리의 권한 문제가 있으면 Git 명령에 `sudo`를 사용한다
 
 이 방식을 사용하면 각 서버가 자신의 구성 브랜치만 관리하면서도 중앙 저장소를 통해 모든 서버의 구성을 효율적으로 관리할 수 있습니다.
 
 
 ---
 
-Github 저장소를 사용하여 여러 서버의 Nginx 구성을 자동으로 관리하는 방법을 설명해드리겠습니다.
+GitHub 저장소를 사용하여 여러 서버의 Nginx 구성을 자동으로 관리하는 방식이다.
 
 ## Git Push 시 서버별 자동 배포 원리
 
@@ -190,7 +190,7 @@ Sparse checkout을 사용하면 저장소의 특정 부분만 체크아웃할 �
 mkdir -p /etc/nginx/git-config
 cd /etc/nginx/git-config
 git init
-git remote add origin https://github.com/your-username/nginx-configs.git
+git remote add origin https://github.com/example-user/nginx-configs.git
 
 # Sparse checkout 설정
 git config core.sparseCheckout true
@@ -216,7 +216,7 @@ git checkout -b server1-config
 git push origin server1-config
 
 # 서버에서는 해당 브랜치만 클론
-git clone -b server1-config --single-branch https://github.com/your-username/nginx-configs.git /etc/nginx/git-config
+git clone -b server1-config --single-branch https://github.com/example-user/nginx-configs.git /etc/nginx/git-config
 ```
 
 ## 자동 Pull 스크립트 구성
@@ -235,7 +235,7 @@ if [ ! -d "$REPO_DIR" ]; then
   mkdir -p $REPO_DIR
   cd $REPO_DIR
   git init
-  git remote add origin https://github.com/your-username/nginx-configs.git
+  git remote add origin https://github.com/example-user/nginx-configs.git
   git config core.sparseCheckout true
   echo "servers/$SERVER_NAME/*" > .git/info/sparse-checkout
   echo "common/*" >> .git/info/sparse-checkout
@@ -277,9 +277,9 @@ nginx -t && systemctl reload nginx
 ---
 
 
-# Nginx 서버별 GitHub 통합 관리 방법
+# Nginx 서버별 GitHub 통합 관리
 
-GitHub을 사용하여 여러 서버의 Nginx 구성을 모듈화하여 관리하는 방법을 알려드리겠습니다. 이 접근법은 구성 파일의 일관성을 유지하고 변경 사항을 효율적으로 관리할 수 있게 해줍니다.
+GitHub을 사용하여 여러 서버의 Nginx 구성을 모듈화하여 관리하는 방식이다. 이 접근법은 구성 파일의 일관성을 유지하고 변경 사항을 효율적으로 관리할 수 있게 해준다.
 
 ## 효과적인 디렉토리 구조 설계
 
@@ -417,7 +417,7 @@ jobs:
 # 각 서버에서 실행
 cd /etc/nginx
 git init
-git remote add origin https://github.com/your-username/nginx-configs.git
+git remote add origin https://github.com/example-user/nginx-configs.git
 git fetch origin
 git checkout -b server1 origin/servers/server1
 ```
@@ -437,7 +437,7 @@ NGINX_DIR="/etc/nginx"
 if [ -d "$REPO_DIR" ]; then
   cd $REPO_DIR && git pull
 else
-  git clone https://github.com/your-username/nginx-configs.git $REPO_DIR
+  git clone https://github.com/example-user/nginx-configs.git $REPO_DIR
 fi
 
 # 서버별 구성 파일 복사

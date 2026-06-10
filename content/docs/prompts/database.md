@@ -1,282 +1,166 @@
-# 데이터베이스 교육 프롬프트
+# Database Education Prompt
 
-SQL 터미널과 데이터베이스 교육자 역할을 동시에 수행하는 AI 프롬프트입니다.
+이 문서는 AI를 SQL 터미널처럼 사용하면서 동시에 데이터베이스 개념을 설명하게 만드는 학습용 프롬프트 템플릿이다.
 
----
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-## 🎯 프롬프트 목적
+SQL을 배울 때 쿼리 결과만 보면 왜 그런 결과가 나왔는지 놓치기 쉽고, 개념 설명만 보면 실제 쿼리를 어떻게 쓰는지 감이 약해진다.
 
-이 프롬프트는 AI가 다음 역할을 수행하도록 설계되었습니다:
+이 프롬프트의 목적은 쿼리 실행 흉내, 결과 해석, 관계 모델 설명, 최적화 힌트를 한 번에 묶는 것이다. 단, AI는 실제 DB에 연결된 터미널이 아니므로 결과 데이터는 예제 스키마에 기반한 시뮬레이션임을 명확히 해야 한다.
 
-1. **SQL 실행 환경** - 쿼리 실행 및 결과 표시
-2. **교육자** - SQL 문법과 개념 설명
-3. **시각화** - 데이터 흐름 다이어그램 제공
+## 2. 현재 나의 상태 (Baseline)
 
----
+흔한 출발점은 다음과 같다.
 
-## 📝 프롬프트
+- `SELECT`, `WHERE`, `JOIN`, `GROUP BY` 문법을 따로 외운다.
+- SQL Server의 `TOP`, PostgreSQL/MySQL의 `LIMIT` 차이를 놓친다.
+- JOIN 결과가 왜 행을 늘리거나 줄이는지 설명하지 못한다.
+- 제약조건과 정규화를 실제 테이블 설계와 연결하지 못한다.
+- 인덱스 추천을 무조건 추가하면 좋은 것으로 이해한다.
 
-```markdown
-I want you to act as both a SQL terminal and a database educator. 
-Use an example database with tables named 'Products', 'Users', 'Orders', and 'Suppliers'. 
+## 3. 도달하고 싶은 목표 (Target State)
 
-For each SQL query I provide:
+목표는 쿼리를 실행 결과, 관계, 성능 관점으로 동시에 읽는 것이다.
 
-1. Execute the query and show the results in a code block
-2. Explain the SQL mechanics and syntax used in the query
-3. Identify the entities and relationships involved
-4. Define any relevant database terminology or concepts
-5. Provide a diagram or description of how the data flows
+- SQL 문법을 DBMS 방언과 함께 구분한다.
+- 쿼리 결과가 어떤 테이블과 관계에서 나온 것인지 설명한다.
+- primary key, foreign key, unique, not null, check constraint를 구분한다.
+- INNER JOIN, LEFT JOIN, CROSS JOIN의 결과 차이를 예측한다.
+- 집계와 그룹화가 행 단위를 어떻게 바꾸는지 설명한다.
+- 인덱스가 읽기 성능과 쓰기 비용에 동시에 영향을 준다는 점을 이해한다.
 
-For the cases where you cannot use a diagram, use ASCII-based diagrams.
+## 4. 시스템 번역 (Data Flow)
 
-When explaining concepts, please use formal database terminology and highlight key terms. 
-Include information about normalization, constraints, join types, and query optimization where relevant.
+프롬프트 사용 흐름은 다음과 같다.
 
-My first query is: SELECT TOP 10 * FROM Products ORDER BY Id DESC
+```text
+learner provides SQL query
+  -> AI identifies SQL dialect
+  -> AI simulates result from sample schema
+  -> AI explains clauses in execution order
+  -> AI maps tables and relationships
+  -> AI explains concepts and constraints
+  -> AI suggests optimization when relevant
 ```
 
----
+결과가 실제 데이터베이스에서 나온 것이 아니라면, AI는 "예제 데이터 기준 시뮬레이션"이라고 표시해야 한다.
 
-## 🗄️ 예제 데이터베이스 스키마
+## 5. 핵심 구성요소 (Building Blocks)
 
-프롬프트에서 사용하는 테이블 구조:
+예제 스키마는 다음 관계를 사용한다.
+
+```text
+Users 1 -> N Orders
+Products 1 -> N Orders
+Suppliers 1 -> N Products
+```
+
+테이블 역할은 다음과 같다.
+
+- `Users`: 고객 계정과 이메일.
+- `Products`: 상품명, 가격, 재고, 공급자.
+- `Orders`: 사용자가 어떤 상품을 몇 개 주문했는지 나타내는 연결 테이블.
+- `Suppliers`: 상품 공급자 정보.
+
+다루는 개념은 다음과 같다.
+
+- DDL과 DML.
+- 기본키와 외래키.
+- 정규화와 중복 제거.
+- JOIN과 cardinality.
+- 집계, 그룹화, 필터링.
+- 실행 계획, 인덱스, 선택도.
+
+## 6. 상태 전이 (State Transition)
+
+학습 세션은 다음 상태로 진행한다.
 
 ```mermaid
-erDiagram
-    Users ||--o{ Orders : places
-    Products ||--o{ Orders : contains
-    Suppliers ||--o{ Products : supplies
-    
-    Users {
-        int Id PK
-        string Name
-        string Email
-        datetime CreatedAt
-    }
-    
-    Products {
-        int Id PK
-        string Name
-        decimal Price
-        int SupplierId FK
-        int Stock
-    }
-    
-    Orders {
-        int Id PK
-        int UserId FK
-        int ProductId FK
-        int Quantity
-        datetime OrderDate
-    }
-    
-    Suppliers {
-        int Id PK
-        string Name
-        string Country
-        string Contact
-    }
+stateDiagram-v2
+    [*] --> QueryReceived
+    QueryReceived --> DialectChecked
+    DialectChecked --> ResultSimulated
+    ResultSimulated --> MechanicsExplained
+    MechanicsExplained --> RelationshipsMapped
+    RelationshipsMapped --> OptimizationDiscussed
+    OptimizationDiscussed --> NextExercise
 ```
 
----
+초급자 모드에서는 `OptimizationDiscussed`보다 `MechanicsExplained`에 더 많은 시간을 쓴다.
 
-## 💡 사용 예시
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-### 기본 조회 쿼리
+- 실제 DB 연결이 없으면 실행 결과를 실제 결과처럼 단정하면 안 된다.
+- SQL 방언을 명시해야 한다. `TOP 10`은 SQL Server 계열이고, PostgreSQL/MySQL에서는 보통 `LIMIT 10`을 쓴다.
+- 예제 데이터와 스키마를 바꾸면 결과도 달라질 수 있음을 밝혀야 한다.
+- JOIN 설명은 어떤 컬럼이 어떤 키를 참조하는지 포함해야 한다.
+- 인덱스 추천은 조회 패턴, 선택도, 쓰기 비용을 함께 고려해야 한다.
+- 학습자 수준에 맞춰 용어를 정의해야 한다.
 
-**입력:**
-```sql
-SELECT TOP 10 * FROM Products ORDER BY Id DESC
-```
+## 8. 가장 작은 예제 (Minimal Viable Example)
 
-**예상 AI 응답:**
-
-```
-┌────┬──────────────┬─────────┬────────────┬───────┐
-│ Id │ Name         │ Price   │ SupplierId │ Stock │
-├────┼──────────────┼─────────┼────────────┼───────┤
-│ 10 │ Keyboard     │ 75.00   │ 2          │ 150   │
-│ 9  │ Mouse        │ 25.00   │ 2          │ 300   │
-│ 8  │ Monitor      │ 350.00  │ 1          │ 45    │
-│ ...│ ...          │ ...     │ ...        │ ...   │
-└────┴──────────────┴─────────┴────────────┴───────┘
-```
-
-**SQL 설명:**
-- `SELECT *`: 모든 컬럼 선택
-- `TOP 10`: 결과 행 수 제한 (SQL Server 문법)
-- `ORDER BY Id DESC`: Id 기준 내림차순 정렬
-
----
-
-### JOIN 쿼리 예시
-
-**입력:**
-```sql
-SELECT u.Name, p.Name AS ProductName, o.Quantity, o.OrderDate
-FROM Orders o
-JOIN Users u ON o.UserId = u.Id
-JOIN Products p ON o.ProductId = p.Id
-WHERE o.OrderDate >= '2024-01-01'
-ORDER BY o.OrderDate DESC
-```
-
-**데이터 흐름 다이어그램:**
-
-```
-┌─────────┐     ┌─────────┐     ┌──────────┐
-│  Users  │────▶│ Orders  │◀────│ Products │
-└─────────┘     └─────────┘     └──────────┘
-     │               │                │
-     ▼               ▼                ▼
-  u.Name       o.Quantity        p.Name
-               o.OrderDate
-                    │
-                    ▼
-            ┌──────────────┐
-            │  결과 집합   │
-            └──────────────┘
-```
-
----
-
-## 📚 다루는 데이터베이스 개념
-
-### 정규화 (Normalization)
-
-| 정규형 | 설명 | 예시 |
-|--------|------|------|
-| **1NF** | 원자값만 포함 | 하나의 셀에 하나의 값 |
-| **2NF** | 부분 함수 종속 제거 | 복합키의 일부에만 종속되는 속성 분리 |
-| **3NF** | 이행 함수 종속 제거 | A→B, B→C일 때 C를 별도 테이블로 분리 |
-| **BCNF** | 모든 결정자가 후보키 | 더 엄격한 3NF |
-
-### 제약조건 (Constraints)
-
-```sql
--- Primary Key: 고유 식별자
-Id INT PRIMARY KEY
-
--- Foreign Key: 참조 무결성
-FOREIGN KEY (SupplierId) REFERENCES Suppliers(Id)
-
--- Not Null: 필수값
-Name VARCHAR(100) NOT NULL
-
--- Unique: 중복 불가
-Email VARCHAR(255) UNIQUE
-
--- Check: 값 검증
-Price DECIMAL(10,2) CHECK (Price > 0)
-```
-
-### JOIN 유형
-
-```mermaid
-graph LR
-    subgraph "JOIN Types"
-        A[INNER JOIN] --> |교집합| R1[공통 행만]
-        B[LEFT JOIN] --> |왼쪽 전체| R2[왼쪽 + 매칭]
-        C[RIGHT JOIN] --> |오른쪽 전체| R3[오른쪽 + 매칭]
-        D[FULL JOIN] --> |합집합| R4[모든 행]
-        E[CROSS JOIN] --> |곱집합| R5[모든 조합]
-    end
-```
-
----
-
-## 🔧 프롬프트 변형
-
-### 특정 DBMS용
-
-**PostgreSQL 버전:**
-```markdown
-Use PostgreSQL syntax. For limiting results, use LIMIT instead of TOP.
-Include PostgreSQL-specific features like CTEs, window functions, and JSONB operations.
-```
-
-**MySQL 버전:**
-```markdown
-Use MySQL syntax. Include MySQL-specific features like 
-IFNULL, GROUP_CONCAT, and storage engine considerations.
-```
-
-### 성능 최적화 집중
+기본 프롬프트는 다음과 같다.
 
 ```markdown
-For each query, also provide:
-- Execution plan analysis (EXPLAIN output)
-- Index recommendations
-- Query optimization suggestions
-- Time complexity analysis
+Act as both a SQL terminal simulator and a database educator.
+
+Use this sample database:
+- Users(Id, Name, Email, CreatedAt)
+- Products(Id, Name, Price, SupplierId, Stock)
+- Orders(Id, UserId, ProductId, Quantity, OrderDate)
+- Suppliers(Id, Name, Country, Contact)
+
+Relationships:
+- Users.Id -> Orders.UserId
+- Products.Id -> Orders.ProductId
+- Suppliers.Id -> Products.SupplierId
+
+For each provided query:
+1. Identify the SQL dialect.
+2. If no real database is connected, mark the result as simulated.
+3. Show a small result table.
+4. Explain each SQL clause.
+5. Explain involved entities and relationships.
+6. Define relevant database terms.
+7. Mention constraints, normalization, join type, and optimization when relevant.
+
+My first query is:
+SELECT TOP 10 * FROM Products ORDER BY Id DESC;
 ```
 
-### 초급자용
+DBMS별 변형은 다음처럼 붙인다.
 
 ```markdown
-Explain concepts as if teaching a beginner.
-Use simple analogies and avoid jargon.
-Break down each step of the query execution.
+Use PostgreSQL syntax. Replace SQL Server TOP with LIMIT.
+Include CTEs, window functions, EXPLAIN, and JSONB only when relevant.
 ```
 
----
+## 9. 실패 사례 (What could go wrong?)
 
-## 📊 학습 시나리오
+- AI가 없는 데이터를 임의로 만들어 실제 실행 결과처럼 보일 수 있다.
+- SQL Server 문법을 MySQL이나 PostgreSQL에 그대로 적용할 수 있다.
+- `SELECT *`를 학습 편의로 쓰다가 실제 API 쿼리에서도 습관화할 수 있다.
+- JOIN 조건을 빠뜨려 CROSS JOIN처럼 행이 폭증할 수 있다.
+- GROUP BY에서 집계하지 않은 컬럼을 섞어 DBMS별 동작 차이에 걸릴 수 있다.
+- 인덱스를 과하게 추가해 쓰기 성능과 저장 비용을 악화시킬 수 있다.
 
-### 시나리오 1: E-commerce 분석
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-```sql
--- 월별 매출 집계
-SELECT 
-    DATE_FORMAT(o.OrderDate, '%Y-%m') AS Month,
-    COUNT(*) AS OrderCount,
-    SUM(p.Price * o.Quantity) AS TotalRevenue
-FROM Orders o
-JOIN Products p ON o.ProductId = p.Id
-GROUP BY DATE_FORMAT(o.OrderDate, '%Y-%m')
-ORDER BY Month;
-```
+- 초급자 모드: 실행 순서와 결과 행 생성 과정을 천천히 설명한다.
+- 성능 모드: `EXPLAIN`, 인덱스 후보, full scan, cardinality를 분석한다.
+- 설계 모드: 정규화, 제약조건, 삭제 정책, cascade를 중심으로 설명한다.
+- ORM 모드: SQL 쿼리를 JPA, QueryDSL, SQLAlchemy 같은 ORM 표현과 연결한다.
+- 실전 모드: 실제 스키마 DDL과 샘플 데이터를 입력으로 주고 결과를 검증하게 한다.
 
-### 시나리오 2: 재고 관리
+## 11. 최종 체크리스트 (Definition of Done)
 
-```sql
--- 재고 부족 상품 조회
-SELECT 
-    p.Name,
-    p.Stock,
-    s.Name AS Supplier,
-    s.Contact
-FROM Products p
-JOIN Suppliers s ON p.SupplierId = s.Id
-WHERE p.Stock < 50
-ORDER BY p.Stock ASC;
-```
+- [ ] 프롬프트에 예제 스키마와 관계가 들어 있다.
+- [ ] 실제 DB 연결 여부와 시뮬레이션 여부가 구분된다.
+- [ ] SQL 방언이 명시된다.
+- [ ] 결과 표, 문법 설명, 관계 설명이 함께 나온다.
+- [ ] 제약조건과 정규화 설명이 필요한 곳에 포함된다.
+- [ ] 최적화 조언이 쓰기 비용과 선택도까지 고려한다.
 
-### 시나리오 3: 고객 분석
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-```sql
--- VIP 고객 식별 (주문 5회 이상)
-SELECT 
-    u.Name,
-    u.Email,
-    COUNT(o.Id) AS OrderCount,
-    SUM(p.Price * o.Quantity) AS TotalSpent
-FROM Users u
-JOIN Orders o ON u.Id = o.UserId
-JOIN Products p ON o.ProductId = p.Id
-GROUP BY u.Id, u.Name, u.Email
-HAVING COUNT(o.Id) >= 5
-ORDER BY TotalSpent DESC;
-```
-
----
-
-## 🔗 관련 문서
-
-- [JPA 관계 매핑](../databases/jpa/relationships.md) - ORM에서의 관계 설정
-- [데이터베이스 개요](../databases/index.md) - 데이터베이스 문서 홈
-
----
-
-*이 프롬프트는 SQL 학습 및 데이터베이스 개념 교육에 활용됩니다.*
+데이터베이스 학습 프롬프트는 쿼리 결과만 보여주는 것이 아니라, SQL 방언, 관계 모델, 제약조건, 실행 비용을 함께 설명하게 만들어야 한다.

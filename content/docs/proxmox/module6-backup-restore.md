@@ -176,7 +176,7 @@
 | 일반 프로덕션 VM | `snapshot` | 최소 다운타임, Guest Agent로 일관성 |
 | Guest Agent 없는 VM | `suspend` | 짧은 일시정지로 일관성 확보 |
 | 데이터베이스 서버 | `snapshot` + App dump | DB 일관성 별도 확보 필요 |
-| 크리티컬 시스템 | `stop` (점검 시간) | 완벽한 일관성 |
+| 크리티컬 시스템 | `stop` (점검 시간) | 강한 일관성 |
 | 스냅샷 지원 스토리지의 CT | `snapshot` | 빠르고 효율적 |
 | NFS 타겟 + 로컬 CT | `suspend` | 성능 최적화 |
 

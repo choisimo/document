@@ -200,7 +200,7 @@ flowchart LR
   CMP -- "count == 3" --> IDLE["no action — desired state met"]
 ```
 
-This label-based ownership means: if you **manually label** an unrelated pod with `app: nginx, version: v2`, the ReplicaSet will **adopt it** and potentially delete one of your intentional pods to maintain count=3.
+This label-based ownership means: if an unrelated pod is **manually labeled** with `app: nginx, version: v2`, the ReplicaSet will **adopt it** and potentially delete one intended pod to maintain count=3.
 
 ---
 

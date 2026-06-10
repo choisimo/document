@@ -1,4 +1,6 @@
-# mariadb 시간 변경
+# MariaDB 시간대 설정
 
-    vim /etc/mysql/mariadb.cnf
-    default-time-zone = '+9:00'
+```ini
+vim /etc/mysql/mariadb.cnf
+default-time-zone = '+9:00'
+```

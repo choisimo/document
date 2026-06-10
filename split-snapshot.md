@@ -28,7 +28,7 @@
                 - img
               - button "지우기":
                 - img
-          - generic [ref=e25]: 검색어를 입력하세요
+          - generic [ref=e25]: 검색어 입력
   - generic [ref=e26]:
     - main [ref=e27]:
       - generic [ref=e28]:
@@ -374,9 +374,9 @@
                       - generic [ref=e378] [cursor=pointer]: Terminal
                       - list [ref=e380]:
                         - listitem [ref=e381]:
-                          - link "모던 터미널 에뮬레이터 & CLI 도구 완벽 가이드" [ref=e382] [cursor=pointer]:
+                          - link "모던 터미널 에뮬레이터 & CLI 도구 안내" [ref=e382] [cursor=pointer]:
                             - /url: http://127.0.0.1:9007/tools/terminal/modern-cli-tools/
-                            - generic [ref=e383]: 모던 터미널 에뮬레이터 & CLI 도구 완벽 가이드
+                            - generic [ref=e383]: 모던 터미널 에뮬레이터 & CLI 도구 안내
                         - listitem [ref=e384]:
                           - link "tmux 세션 관리와 사라지는 세션 문제 해결하기" [ref=e385] [cursor=pointer]:
                             - /url: http://127.0.0.1:9007/tools/terminal/tmux/
@@ -723,9 +723,9 @@
                             - /url: http://127.0.0.1:9007/compiler/parsing/lr-parser/
                             - generic [ref=e714]: Lr parser
                         - listitem [ref=e715]:
-                          - 'link "Bottom-Up 파싱 완전 정복: 개념부터 LR 파싱까지" [ref=e716] [cursor=pointer]':
+                          - 'link "Bottom-Up 파싱: 개념부터 LR 파싱까지" [ref=e716] [cursor=pointer]':
                             - /url: http://127.0.0.1:9007/compiler/parsing/bottom-up/
-                            - generic [ref=e717]: "Bottom-Up 파싱 완전 정복: 개념부터 LR 파싱까지"
+                            - generic [ref=e717]: "Bottom-Up 파싱: 개념부터 LR 파싱까지"
             - listitem [ref=e718]:
               - generic [ref=e720]: Java
               - navigation "Java" [ref=e722]:

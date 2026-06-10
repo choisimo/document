@@ -1,155 +1,143 @@
-### QueryDSL과 JPA 연동: 커스텀 리포지토리 구현 심층 분석
+# QueryDSL과 JPA 연동 학습 및 기록 노트
 
-#### 1. **기본 개념 및 용어 정의**
-- **QueryDSL**: 타입 안전한 SQL 쿼리를 생성하는 프레임워크. 컴파일 시점에 오류 검출 가능.
-- **JPA (Java Persistence API)**: 자바 객체와 관계형 데이터베이스 매핑을 위한 표준 인터페이스.
-- **Spring Data JPA**: JPA를 추상화하여 CRUD 작업을 간소화하는 프레임워크.
-- **커스텀 리포지토리**: Spring Data JPA의 기본 메서드로 처리할 수 없는 복잡한 쿼리를 구현하기 위한 확장 패턴.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
----
+Spring Data JPA의 derived query method만으로는 복잡한 검색 조건, 동적 where clause, fetch join, pagination, bulk update/delete를 표현하기 어렵다. QueryDSL은 generated Q-type을 이용해 type-safe JPQL을 만들 수 있게 해주지만, `EntityManager`, `JPAQueryFactory`, custom repository 분리, persistence context 정리 규칙을 제대로 잡지 않으면 유지보수성과 정합성이 깨진다.
 
-#### 2. **잘못된 코드 예시 및 문제점**
-```java
-// ❌ 문제점 1: QuerydslRepositorySupport의 과도한 의존
-public class UserRepositoryImpl extends QuerydslRepositorySupport implements UserRepositoryCustom {
-    
-    public UserRepositoryImpl() {
-        super(User.class);  // EntityManager 주입 누락
-    }
-    
-    @Override
-    public List findUsersWithComplexCriteria(String firstName, Integer minAge) {
-        QUser user = QUser.user;
-        JPQLQuery query = from(user);  // ❌ 비효율적 쿼리 생성
-        
-        if (firstName != null) {
-            query.where(user.firstName.eq(firstName));  // ❌ 동적 조건 처리 미흡
-        }
-        
-        if (minAge != null) {
-            query.where(user.age.gt(minAge));
-        }
-        
-        return query.fetch();
-    }
-}
+이 문서는 원문의 QueryDSL custom repository 구현 내용을 `JPAQueryFactory`, 동적 predicate, Spring Data JPA 통합 중심으로 재작성한다.
+
+## 2. 현재 나의 상태 (Baseline)
+
+- Spring Data JPA repository와 QueryDSL이라는 도구 이름은 알고 있다.
+- `QuerydslRepositorySupport`보다 `JPAQueryFactory` 기반 구성이 더 명확한 경우를 이해해야 한다.
+- BooleanBuilder와 null-skipping where clause의 차이를 구분해야 한다.
+- Custom repository interface와 implementation을 어떻게 붙이는지 정리해야 한다.
+- Bulk update/delete 후 persistence context를 정리해야 하는 이유를 알아야 한다.
+
+## 3. 도달하고 싶은 목표 (Target State)
+
+- Q-type을 기반으로 compile-time checked query를 작성한다.
+- `EntityManager`를 통해 `JPAQueryFactory`를 주입하거나 Bean으로 등록한다.
+- Optional search parameter를 안전하게 predicate로 조합한다.
+- Spring Data repository와 custom repository를 역할별로 분리한다.
+- Fetch method와 bulk operation의 side effect를 구분한다.
+
+## 4. 시스템 번역 (Data Flow)
+
+```mermaid
+flowchart TD
+    A[Search request DTO] --> B[Predicate builder]
+    B --> C[Q-type paths]
+    C --> D[JPAQueryFactory]
+    D --> E[JPQL generation]
+    E --> F[EntityManager]
+    F --> G[(Database)]
+    G --> H[Result rows]
+    H --> I[Entity/DTO projection]
 ```
 
-##### **주요 문제점**
-1. **EntityManager 주입 누락**: `QuerydslRepositorySupport`는 내부적으로 `EntityManager`를 사용하지만, 명시적 주입이 없어 NPE 발생 가능.
-2. **동적 쿼리 처리 미흡**: `if` 문을 통한 조건 추가는 가독성을 해치고 유지보수 어려움.
-3. **JPQLQuery 직접 사용**: `JPAQueryFactory`를 사용하지 않아 타입 안전성과 유연성 저하.
+QueryDSL data flow는 문자열 JPQL을 직접 조립하는 대신, Q-type path와 predicate object를 조합해 JPQL을 생성하는 방식이다.
 
----
+## 5. 핵심 구성요소 (Building Blocks)
 
-#### 3. **올바른 구현 방식 및 최적화 전략**
+| 구성요소 | 역할 | 주의점 |
+| --- | --- | --- |
+| Q-type | entity field의 type-safe path | annotation processing으로 생성 필요 |
+| `JPAQueryFactory` | QueryDSL query 생성 진입점 | `EntityManager` 필요 |
+| `BooleanBuilder` | 조건을 누적하는 mutable predicate | 조건이 많을 때 명시적 |
+| null-skipping where | null predicate를 무시하는 패턴 | 간단한 동적 조건에 적합 |
+| Custom repository | 복잡한 query 구현 분리 | interface와 impl naming 일치 |
+| Fetch join | association 함께 조회 | pagination과 조합 주의 |
+| Projection | entity 대신 DTO 조회 | constructor/fields/bean 방식 |
+| Bulk operation | DB 직접 update/delete | persistence context clear 필요 |
 
-##### 3.1 **JPAQueryFactory 사용**
+## 6. 상태 전이 (State Transition)
+
+```mermaid
+stateDiagram-v2
+    [*] --> RequestReceived
+    RequestReceived --> BuildPredicates
+    BuildPredicates --> BuildQuery
+    BuildQuery --> ExecuteFetch
+    ExecuteFetch --> MapResult
+    MapResult --> ReturnResponse
+    BuildQuery --> ExecuteBulk
+    ExecuteBulk --> FlushAndClear
+    FlushAndClear --> ReturnResponse
+    ReturnResponse --> [*]
+```
+
+조회 query는 결과 mapping으로 끝나지만, bulk update/delete는 persistence context에 남아 있는 managed entity와 DB 상태가 어긋날 수 있어 flush/clear 전략이 필요하다.
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- QueryDSL Q-type은 entity field 변경과 함께 재생성되어야 한다.
+- `JPAQueryFactory`는 유효한 `EntityManager`를 통해 생성되어야 한다.
+- Optional parameter가 null일 때 전체 조건이 의도치 않게 풀리지 않도록 predicate 조합을 명확히 해야 한다.
+- `fetchOne()`은 결과가 0개 또는 2개 이상인 경우의 처리를 고려해야 한다.
+- Bulk update/delete는 persistence context를 우회하므로 이후 managed entity 상태를 정리해야 한다.
+- Fetch join은 N+1을 줄일 수 있지만 collection fetch join과 pagination 조합은 주의해야 한다.
+- Repository custom implementation은 Spring Data가 찾을 수 있는 naming과 package 구조를 지켜야 한다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
 ```java
 @Repository
 public class UserRepositoryImpl implements UserRepositoryCustom {
-
     private final JPAQueryFactory queryFactory;
 
-    public UserRepositoryImpl(EntityManager em) {
-        this.queryFactory = new JPAQueryFactory(em);  // ✅ EntityManager 주입
+    public UserRepositoryImpl(EntityManager entityManager) {
+        this.queryFactory = new JPAQueryFactory(entityManager);
     }
 
     @Override
-    public List findUsersWithComplexCriteria(String firstName, Integer minAge) {
+    public List<User> findUsers(String firstName, Integer minAge) {
         QUser user = QUser.user;
-        
-        // ✅ BooleanBuilder로 동적 쿼리 구성
-        BooleanBuilder builder = new BooleanBuilder();
-        if (firstName != null) {
-            builder.and(user.firstName.eq(firstName));
-        }
-        if (minAge != null) {
-            builder.and(user.age.gt(minAge));
-        }
-        
+
         return queryFactory
             .selectFrom(user)
-            .where(builder)
+            .where(
+                firstName == null ? null : user.firstName.eq(firstName),
+                minAge == null ? null : user.age.gt(minAge)
+            )
             .fetch();
     }
 }
 ```
 
-##### **개선된 점**
-- **의존성 주입**: `EntityManager`를 통해 `JPAQueryFactory` 생성.
-- **BooleanBuilder 활용**: 동적 쿼리 구성이 명확해지고 확장성 증가.
-- **타입 안전성 강화**: `selectFrom()`을 사용한 컴파일 시점 검증.
-
----
-
-##### 3. **Spring Data JPA 통합**
 ```java
-// ✅ 기본 리포지토리 확장
-public interface UserRepository 
-    extends JpaRepository, UserRepositoryCustom {
-}
-
-// ✅ 설정 클래스에 JPAQueryFactory 빈 등록
-@Configuration
-public class QuerydslConfig {
-    
-    @Bean
-    public JPAQueryFactory jpaQueryFactory(EntityManager em) {
-        return new JPAQueryFactory(em);
-    }
+public interface UserRepository
+        extends JpaRepository<User, Long>, UserRepositoryCustom {
 }
 ```
 
-##### **중요 포인트**
-- **빈 등록 필수**: `JPAQueryFactory`는 스프링 빈으로 등록해야 의존성 주입 가능.
-- **커스텀 인터페이스 분리**: 비즈니스 로직과 기본 CRUD 작업을 명확히 분리.
+이 예제는 null predicate를 QueryDSL `where` 절에서 생략되게 하여 optional search parameter를 간결하게 처리하는 방식이다.
 
----
+## 9. 실패 사례 (What could go wrong?)
 
-#### 4. **성능 최적화 팁**
-1. **컴파일된 쿼리 사용**: `QClass`가 `static final`로 선언되었는지 확인.
-   ```java
-   private static final QUser user = QUser.user;
-   ```
-2. **페이징 처리**: `offset()`, `limit()`을 활용한 페이지네이션.
-   ```java
-   .offset(pageable.getOffset())
-   .limit(pageable.getPageSize())
-   ```
-3. **벌크 연산**: `update()`, `delete()` 절에서 `execute()` 호출 시 영속성 컨텍스트 초기화 필수.
-   ```java
-   queryFactory.update(user).set(user.age, 30).where(...).execute();
-   em.flush();
-   em.clear();
-   ```
+- `EntityManager` 주입 없이 `QuerydslRepositorySupport`를 상속해 NPE나 초기화 문제를 만든다.
+- 문자열 기반 field name을 섞어 Q-type의 type-safety 이점을 잃는다.
+- Optional parameter가 모두 null일 때 의도치 않은 full scan query가 실행된다.
+- `fetchOne()`을 list 결과가 가능한 query에 사용해 non-unique result 예외가 난다.
+- Bulk update 후 persistence context를 clear하지 않아 응답에는 이전 entity 값이 남는다.
+- Fetch join으로 collection을 가져오면서 pagination을 적용해 메모리 처리나 결과 왜곡이 생긴다.
 
----
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-#### 5. **자주 묻는 질문 (FAQ)**
-**Q.** `QuerydslRepositorySupport` vs `JPAQueryFactory` 어떤 것을 사용해야 하나요?  
-**A.** `JPAQueryFactory`가 더 현대적인 접근 방식이며, 코드 가독성과 유지보수성이 우수합니다.
+- Predicate helper method를 만들어 `BooleanExpression`을 조합하면 테스트와 재사용이 쉬워진다.
+- DTO projection은 `Projections.constructor`, `fields`, `bean`, `@QueryProjection` 방식의 trade-off를 비교한다.
+- Subquery, group by, having, aggregation은 reporting query에서 필요하다.
+- Window function이나 vendor-specific SQL은 QueryDSL JPA만으로 한계가 있을 수 있어 native query나 SQL module을 검토한다.
+- Repository layer는 domain query, read model query, reporting query를 분리해 복잡도를 낮출 수 있다.
 
-**Q.** 동적 쿼리를 구현할 때 `BooleanBuilder` 외 다른 방법은?  
-**A.** `WhereClause`와 람다를 결합한 **메서드 체이닝** 방식도 가능합니다.
-```java
-return queryFactory
-    .selectFrom(user)
-    .where(
-        firstName == null ? null : user.firstName.eq(firstName),
-        minAge == null ? null : user.age.gt(minAge)
-    )
-    .fetch();
-```
+## 11. 최종 체크리스트 (Definition of Done)
 
-**Q.** `fetch()` vs `fetchOne()` vs `fetchFirst()` 차이는?  
-**A.** 
-- `fetch()`: 전체 결과 리스트 반환
-- `fetchOne()`: 단일 결과 반환 (결과 없거나 둘 이상이면 예외)
-- `fetchFirst()`: 첫 번째 결과 반환 (결과 없으면 `null`)
+- [x] QueryDSL과 JPA custom repository의 역할을 정리했다.
+- [x] `JPAQueryFactory` 기반 동적 query 예제를 포함했다.
+- [x] BooleanBuilder/null predicate, fetch method, bulk operation 주의점을 정리했다.
+- [x] Spring Data JPA repository와 custom repository 연결 방식을 설명했다.
+- [x] 원문 QueryDSL 문서를 12개 섹션 템플릿으로 재작성했다.
 
----
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-### 📌 **심화 학습 제안**
-**"QueryDSL에서 서브쿼리와 윈도우 함수를 효율적으로 사용하는 방법은 무엇인가요?"**  
-복잡한 분석 쿼리 작성 시 서브쿼리와 윈도우 함수(`ROW_NUMBER()`, `RANK()`)를 활용하면 성능을 크게 향상시킬 수 있습니다. PostgreSQL의 `FILTER (WHERE ...)` 절이나 MySQL의 `OVER()` 구문과의 통합 사례를 연구해 보세요.
+QueryDSL의 가치는 문자열 쿼리를 줄이는 데서 끝나지 않고, 검색 조건을 type-safe한 predicate 조합으로 관리하는 데 있다.

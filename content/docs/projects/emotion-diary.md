@@ -1,324 +1,151 @@
-# Emotion Diary 프로젝트
+# Emotion Diary
 
-감정 기록 및 분석 애플리케이션 프로젝트 문서입니다.
+Emotion Diary는 사용자가 일상의 감정을 기록하고, 감정 분석과 시각화를 통해 자기 패턴을 돌아볼 수 있게 하는 감정 일기 애플리케이션이다.
 
----
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-## 📋 프로젝트 개요
+감정 기록 앱은 "일기를 저장한다"에서 끝나지 않는다. 사용자는 날짜별 기록, 감정 추세, 반복되는 단어, AI 피드백, 데이터 내보내기 같은 흐름을 기대한다.
 
-**Emotion Diary**는 사용자가 일상의 감정을 기록하고 AI를 활용하여 감정 패턴을 분석하는 웹 애플리케이션입니다.
+프로젝트 문서의 목적은 기능 아이디어를 구현 가능한 경계로 나누는 것이다. 프론트엔드 상태, 서버 상태, AI 분석 상태, 통계 집계를 분리해야 기능이 늘어나도 구조가 흔들리지 않는다.
 
-| 항목 | 내용 |
-|------|------|
-| **프로젝트명** | Emotion Diary (감정 일기) |
-| **목적** | 일상 감정 기록 및 패턴 분석 |
-| **대상 사용자** | 자기 성찰 및 정서 관리에 관심있는 사용자 |
-| **개발 기간** | 진행중 |
+## 2. 현재 나의 상태 (Baseline)
 
----
+기존 문서 기준 프로젝트 구상은 다음과 같다.
 
-## 🛠️ 기술 스택
+- Frontend: React, TypeScript, Tailwind CSS, Vite.
+- Client state: Zustand.
+- Server state: React Query.
+- Backend: Spring Boot, Spring Security, Spring Data JPA.
+- Database: MySQL.
+- AI/ML: sentiment analysis API, GPT 기반 피드백, TensorFlow.js 가능성.
+- 주요 기능: 일기 작성, 감정 선택, 이미지 첨부, 태그, 대시보드, 주간 리포트.
 
-### Frontend
+## 3. 도달하고 싶은 목표 (Target State)
+
+목표는 감정 기록의 핵심 루프를 안정적으로 만드는 것이다.
+
+- 사용자는 날짜별로 일기를 작성하고 수정할 수 있다.
+- 일기에는 감정, 태그, 이미지, 본문이 연결된다.
+- 분석 결과는 일기와 분리된 상태로 저장되어 실패와 재시도를 표현한다.
+- 대시보드는 주간/월간 감정 추세를 보여준다.
+- AI 피드백은 원문과 분석 근거를 추적할 수 있어야 한다.
+- 인증과 권한 검증은 모든 개인 데이터 접근에 적용된다.
+
+## 4. 시스템 번역 (Data Flow)
+
+기본 시스템 흐름은 다음과 같다.
+
+```text
+React client
+  -> API client
+  -> Spring Boot controller
+  -> service layer
+  -> JPA repository
+  -> MySQL
+```
+
+감정 분석이 포함된 흐름은 다음과 같다.
+
+```text
+user writes diary
+  -> client sends diary request
+  -> server stores diary
+  -> server requests sentiment analysis
+  -> analysis result is stored
+  -> dashboard reads diary and aggregated emotion data
+```
+
+## 5. 핵심 구성요소 (Building Blocks)
+
+- User: 이메일, 비밀번호, 닉네임, 생성일을 가진 사용자.
+- Diary: 사용자, 날짜, 본문, 이미지 URL, 생성일을 가진 감정 기록.
+- Emotion: 일기별 감정 유형과 점수.
+- Tag: 일기를 검색하고 묶기 위한 사용자 정의 라벨.
+- EmotionStat: 일별, 주별, 월별 집계 결과.
+- Dashboard: 캘린더, 트렌드, 분포, 워드 클라우드를 보여주는 화면.
+- AI feedback: 감정 분석과 사용자에게 보여줄 해석 문구.
+- Export: 사용자가 자기 데이터를 PDF나 CSV로 가져갈 수 있는 기능.
+
+## 6. 상태 전이 (State Transition)
+
+일기와 분석의 상태 전이는 분리해서 본다.
 
 ```mermaid
-graph LR
-    A[React] --> B[TypeScript]
-    B --> C[Tailwind CSS]
-    C --> D[Vite]
+stateDiagram-v2
+    [*] --> Draft
+    Draft --> Saved: create
+    Saved --> AnalysisPending: enqueue or request analysis
+    AnalysisPending --> AnalysisReady: result stored
+    AnalysisPending --> AnalysisFailed: error
+    Saved --> Edited: update content
+    Edited --> AnalysisStale: old analysis no longer matches
+    Saved --> Deleted: delete
+    AnalysisReady --> Deleted: delete with diary
 ```
 
-| 기술 | 버전 | 용도 |
-|------|------|------|
-| React | 18.x | UI 컴포넌트 |
-| TypeScript | 5.x | 타입 안정성 |
-| Tailwind CSS | 3.x | 스타일링 |
-| Vite | 5.x | 빌드 도구 |
-| React Query | 5.x | 서버 상태 관리 |
-| Zustand | 4.x | 클라이언트 상태 관리 |
+대시보드는 `Saved` 데이터만으로도 동작해야 하며, `AnalysisReady`가 되면 분석 기반 위젯을 갱신한다.
 
-### Backend
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-```mermaid
-graph LR
-    A[Spring Boot] --> B[Spring Security]
-    B --> C[Spring Data JPA]
-    C --> D[MySQL]
+- 사용자는 자기 일기와 통계만 조회할 수 있어야 한다.
+- 일기 본문과 분석 결과는 같은 diary id로 추적 가능해야 한다.
+- 분석 실패가 일기 저장 실패로 둔갑하면 안 된다.
+- 감정 점수의 범위와 감정 유형 목록은 서버와 클라이언트가 같은 기준을 써야 한다.
+- 이미지 첨부는 소유자, 크기, MIME type, 저장 위치 정책을 가져야 한다.
+- 통계 집계는 원본 일기 삭제나 수정 후 stale 상태로 남으면 안 된다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+MVP는 다음 API만으로도 성립한다.
+
+```text
+POST /api/auth/register
+POST /api/auth/login
+POST /api/diary
+GET /api/diary?date=YYYY-MM-DD
+GET /api/diary/{id}
+PUT /api/diary/{id}
+DELETE /api/diary/{id}
+GET /api/stats/weekly
 ```
 
-| 기술 | 버전 | 용도 |
-|------|------|------|
-| Spring Boot | 3.x | 애플리케이션 프레임워크 |
-| Spring Security | 6.x | 인증/인가 |
-| Spring Data JPA | 3.x | 데이터 액세스 |
-| MySQL | 8.x | 데이터 저장소 |
+최소 데이터 모델은 다음과 같다.
 
-### AI/ML
-
-| 기술 | 용도 |
-|------|------|
-| Sentiment Analysis API | 감정 분석 |
-| OpenAI GPT | 일기 피드백 생성 |
-| TensorFlow.js | 클라이언트 사이드 분석 |
-
----
-
-## 🏗️ 시스템 아키텍처
-
-```mermaid
-flowchart TB
-    subgraph Client["클라이언트"]
-        A[React App] --> B[API Client]
-    end
-    
-    subgraph Server["백엔드 서버"]
-        C[Spring Boot] --> D[Service Layer]
-        D --> E[Repository Layer]
-    end
-    
-    subgraph AI["AI 서비스"]
-        F[Sentiment Analyzer]
-        G[GPT Integration]
-    end
-    
-    subgraph Storage["저장소"]
-        H[(MySQL)]
-        I[(Redis Cache)]
-    end
-    
-    B -->|REST API| C
-    D --> F
-    D --> G
-    E --> H
-    C --> I
+```text
+User 1 -> N Diary
+Diary 1 -> N Emotion
+Diary 1 -> N Tag
+User 1 -> N EmotionStat
 ```
 
----
+이 단계에서는 화려한 AI 피드백보다 인증, CRUD, 날짜별 조회, 기본 감정 집계가 먼저 안정되어야 한다.
 
-## ✨ 주요 기능
+## 9. 실패 사례 (What could go wrong?)
 
-### 1. 감정 기록 (Emotion Logging)
+- 감정 분석 API가 느리면 일기 저장 화면이 멈춘 것처럼 보일 수 있다.
+- 분석 결과를 즉시 필수값으로 만들면 외부 AI 장애가 핵심 기록 기능을 막는다.
+- 클라이언트와 서버의 감정 유형 목록이 다르면 통계가 깨진다.
+- 이미지 업로드 정책이 없으면 저장 비용과 개인정보 위험이 커진다.
+- 월간 통계를 매번 원본 전체에서 계산하면 데이터가 늘수록 응답이 느려진다.
+- AI 피드백을 단정적인 조언처럼 표시하면 사용자에게 부적절한 해석을 줄 수 있다.
 
-```mermaid
-sequenceDiagram
-    participant U as 사용자
-    participant A as App
-    participant S as Server
-    participant AI as AI Service
-    
-    U->>A: 일기 작성
-    A->>S: POST /api/diary
-    S->>AI: 감정 분석 요청
-    AI-->>S: 감정 점수 반환
-    S-->>A: 저장 완료 + 분석 결과
-    A-->>U: 결과 표시
-```
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-**기능 상세:**
-- 📝 일기 작성 (마크다운 지원)
-- 🎨 감정 선택 (8가지 기본 감정)
-- 📷 이미지 첨부
-- 🏷️ 태그 추가
+- 분석 결과를 즉시 생성하지 않고 background job으로 처리한다.
+- `EmotionStat`을 materialized aggregate로 둘지, 요청 시 계산할지 결정한다.
+- 태그 추천, 감정 알림, 데이터 내보내기, PWA, 모바일 앱을 단계별 확장으로 둔다.
+- AI 피드백에는 의료적 진단이 아니라 자기 성찰 보조라는 제품 경계를 명확히 둔다.
+- 소셜 로그인, 계정 삭제, 데이터 다운로드 같은 개인정보 권리를 별도 요구사항으로 관리한다.
 
-### 2. 감정 분석 (Sentiment Analysis)
+## 11. 최종 체크리스트 (Definition of Done)
 
-```
-입력: "오늘 정말 힘든 하루였지만, 친구를 만나서 기분이 좋아졌다."
+- [ ] 인증된 사용자만 개인 일기와 통계에 접근할 수 있다.
+- [ ] 일기 CRUD와 날짜별 조회가 안정적으로 동작한다.
+- [ ] 분석 상태가 pending, ready, failed, stale 중 하나로 표현된다.
+- [ ] 대시보드는 분석 결과가 없어도 기본 기록을 보여줄 수 있다.
+- [ ] 감정 유형과 점수 범위가 서버/클라이언트에서 일치한다.
+- [ ] 데이터 내보내기와 삭제 정책의 방향이 정해져 있다.
 
-분석 결과:
-┌─────────────────────────────────────────────┐
-│  전반적 감정: 긍정적 (0.65)                 │
-├─────────────────────────────────────────────┤
-│  감정 분포:                                 │
-│  ██████████████████░░ 행복 (72%)           │
-│  ████████░░░░░░░░░░░░ 피로 (40%)           │
-│  ██████░░░░░░░░░░░░░░ 안도 (32%)           │
-└─────────────────────────────────────────────┘
-```
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-### 3. 시각화 대시보드
-
-| 차트 유형 | 설명 |
-|-----------|------|
-| 감정 캘린더 | 월별 감정 히트맵 |
-| 감정 트렌드 | 주간/월간 감정 변화 그래프 |
-| 감정 분포 | 파이 차트로 감정 비율 표시 |
-| 워드 클라우드 | 자주 사용하는 단어 시각화 |
-
-### 4. AI 피드백
-
-```
-📊 주간 리포트
-
-이번 주 감정 요약:
-- 월~화: 스트레스 지수 높음 (업무 관련)
-- 수~목: 점진적 회복
-- 금~일: 긍정적 감정 우세
-
-💡 AI 제안:
-"이번 주 수요일부터 감정이 회복되기 시작했네요. 
-수요일에 어떤 일이 있었는지 돌아보면 
-스트레스 해소 방법을 찾는 데 도움이 될 수 있습니다."
-```
-
----
-
-## 📊 데이터 모델
-
-```mermaid
-erDiagram
-    User ||--o{ Diary : writes
-    Diary ||--o{ Emotion : has
-    Diary ||--o{ Tag : tagged
-    User ||--o{ EmotionStat : generates
-    
-    User {
-        Long id PK
-        String email
-        String password
-        String nickname
-        DateTime createdAt
-    }
-    
-    Diary {
-        Long id PK
-        Long userId FK
-        String content
-        String imageUrl
-        DateTime date
-        DateTime createdAt
-    }
-    
-    Emotion {
-        Long id PK
-        Long diaryId FK
-        String type
-        Float score
-    }
-    
-    Tag {
-        Long id PK
-        Long diaryId FK
-        String name
-    }
-    
-    EmotionStat {
-        Long id PK
-        Long userId FK
-        Date date
-        Json dailySummary
-    }
-```
-
----
-
-## 🔌 API 엔드포인트
-
-### 인증 API
-
-| Method | Endpoint | 설명 |
-|--------|----------|------|
-| POST | `/api/auth/register` | 회원가입 |
-| POST | `/api/auth/login` | 로그인 |
-| POST | `/api/auth/refresh` | 토큰 갱신 |
-
-### 일기 API
-
-| Method | Endpoint | 설명 |
-|--------|----------|------|
-| GET | `/api/diary` | 일기 목록 조회 |
-| GET | `/api/diary/{id}` | 일기 상세 조회 |
-| POST | `/api/diary` | 일기 작성 |
-| PUT | `/api/diary/{id}` | 일기 수정 |
-| DELETE | `/api/diary/{id}` | 일기 삭제 |
-
-### 분석 API
-
-| Method | Endpoint | 설명 |
-|--------|----------|------|
-| GET | `/api/stats/weekly` | 주간 통계 |
-| GET | `/api/stats/monthly` | 월간 통계 |
-| GET | `/api/stats/emotions` | 감정 분포 |
-
----
-
-## 📁 프로젝트 구조
-
-### Frontend
-
-```
-frontend/
-├── src/
-│   ├── components/
-│   │   ├── diary/           # 일기 관련 컴포넌트
-│   │   ├── emotion/         # 감정 선택/표시
-│   │   ├── chart/           # 차트 컴포넌트
-│   │   └── common/          # 공통 컴포넌트
-│   ├── pages/
-│   │   ├── Home.tsx
-│   │   ├── DiaryWrite.tsx
-│   │   ├── DiaryDetail.tsx
-│   │   └── Dashboard.tsx
-│   ├── hooks/               # 커스텀 훅
-│   ├── stores/              # Zustand 스토어
-│   ├── services/            # API 서비스
-│   └── utils/               # 유틸리티 함수
-└── package.json
-```
-
-### Backend
-
-```
-backend/
-├── src/main/java/com/emotion/diary/
-│   ├── controller/          # REST 컨트롤러
-│   ├── service/             # 비즈니스 로직
-│   ├── repository/          # JPA 레포지토리
-│   ├── entity/              # JPA 엔티티
-│   ├── dto/                 # 데이터 전송 객체
-│   ├── config/              # 설정 클래스
-│   └── security/            # 보안 설정
-└── pom.xml
-```
-
----
-
-## 🚀 로드맵
-
-```mermaid
-gantt
-    title Emotion Diary 개발 로드맵
-    dateFormat YYYY-MM
-    section Phase 1
-        기본 CRUD 기능     :done, 2026-01, 2026-02
-        인증 시스템        :done, 2026-02, 2026-03
-    section Phase 2
-        감정 분석 통합     :active, 2026-03, 2026-04
-        대시보드 구현      :2026-04, 2026-05
-    section Phase 3
-        AI 피드백 기능     :2026-05, 2026-06
-        모바일 반응형      :2026-06, 2026-07
-    section Phase 4
-        PWA 지원          :2026-07, 2026-08
-        소셜 기능         :2026-08, 2026-09
-```
-
-### 향후 계획
-
-- [ ] 소셜 로그인 (Google, Kakao)
-- [ ] 감정 알림 기능
-- [ ] 데이터 내보내기 (PDF, CSV)
-- [ ] 다국어 지원
-- [ ] 모바일 앱 (React Native)
-
----
-
-## 🔗 관련 문서
-
-- [JPA 관계 매핑](../databases/jpa/relationships.md)
-- [Spring Boot Redis 통합](../databases/redis/springboot-integration.md)
-- [Docker 설치 가이드](../development/docker/installation.md)
-
----
-
-*프로젝트 관련 문의는 이슈 트래커를 이용해주세요.*
+Emotion Diary의 핵심은 감정 기록을 먼저 안전하게 저장하고, AI 분석과 통계는 실패와 지연을 견딜 수 있는 별도 상태로 연결하는 것이다.

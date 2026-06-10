@@ -1,4 +1,4 @@
-# Ansible 완벽 가이드
+# Ansible 운영 가이드
 
 > Ansible을 활용한 인프라 자동화 구성 및 운영 가이드
 
@@ -714,7 +714,7 @@ ansible-playbook site.yml 실행
 
 ### 6.3 멱등성 (Idempotency)
 
-Ansible의 핵심 원칙 중 하나입니다. **같은 Playbook을 여러 번 실행해도 결과는 동일**해야 합니다.
+Ansible의 핵심 원칙 중 하나입니다. **같은 Playbook을 여러 번 실행해도 결과는 동일**한 상태를 유지한다.
 
 ```yaml
 # 멱등성 예시
@@ -842,4 +842,4 @@ Free Strategy:
 - [Ansible 공식 문서](https://docs.ansible.com/)
 - [Ansible Galaxy](https://galaxy.ansible.com/) - 커뮤니티 Role 저장소
 - [uv 공식 문서](https://docs.astral.sh/uv/)
-- [Ansible Best Practices](https://docs.ansible.com/ansible/latest/tips_tricks/ansible_tips_tricks.html)
+- [Ansible Practices](https://docs.ansible.com/ansible/latest/tips_tricks/ansible_tips_tricks.html)

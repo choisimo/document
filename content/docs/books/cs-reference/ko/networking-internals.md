@@ -359,7 +359,7 @@ sequenceDiagram
     Note over Client,Server: Application traffic keys derived\nAPP_SECRET = HKDF-Expand(master_secret, "traffic")\nKey = HKDF-Expand(APP_SECRET, "key", keylen)\nIV  = HKDF-Expand(APP_SECRET, "iv", 12)
 ```
 
-**0-RTT 재개**: 클라이언트는 이전 세션의 PSK 및 ticket_age_add를 저장합니다. 다시 연결하면 서버가 응답하기 전에 resumption_master_secret으로 암호화된 early_data를 보냅니다. 서버는 수락하거나 거부해야 합니다. 재생 방지 캐시로 완화된 재생 취약성입니다.
+**0-RTT 재개**: 클라이언트는 이전 세션의 PSK 및 ticket_age_add를 저장합니다. 다시 연결하면 서버가 응답하기 전에 resumption_master_secret으로 암호화된 early_data를 보냅니다. 서버는 이를 수락하거나 거부한다. 재생 방지 캐시로 완화된 재생 취약성입니다.
 
 ---
 

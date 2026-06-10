@@ -1,178 +1,144 @@
-# PostgreSQL 필수 명령어 및 활용 가이드
+# PostgreSQL 필수 명령어 학습 및 기록 노트
 
-PostgreSQL 사용 시 자주 사용하는 `psql` 메타 커맨드와 SQL 문법을 정리한 가이드입니다. 실무에서 유용한 고급 예제들을 포함하고 있습니다.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
----
+PostgreSQL을 사용할 때는 SQL 문법만큼 `psql` 메타 커맨드, schema/table 탐색, transaction, index, JSONB, view, 실행 시간 확인이 중요하다. 장애나 개발 중 데이터 문제를 볼 때 현재 접속 DB, table 구조, role, query plan, transaction 상태를 빠르게 확인하지 못하면 원인 분석이 늦어진다.
 
-## 1. psql 터미널 필수 명령어 (메타 커맨드)
+이 문서는 원문의 PostgreSQL 필수 명령어와 활용 예제를 `psql` 탐색, DML, DDL, transaction, 운영 확인 흐름으로 재작성한다.
 
-`psql` 클라이언트 접속 상태에서 사용하는 명령어입니다. (세미콜론 `;` 불필요)
+## 2. 현재 나의 상태 (Baseline)
 
-| 명령어 | 설명 | 비고 |
-| :--- | :--- | :--- |
-| `\l` | 전체 데이터베이스 목록 조회 | List databases |
-| `\c [DB명]` | 특정 데이터베이스로 접속(이동) | Connect to DB |
-| `\dt` | 현재 DB의 테이블 목록 조회 | List tables (가장 많이 사용) |
-| `\dt+` | 테이블 목록과 **크기(Size)** 조회 | 상세 정보 포함 |
-| `\d [테이블명]` | 테이블 구조(컬럼, 인덱스) 상세 확인 | Describe table |
-| `\du` | 사용자(Role) 목록 및 권한 조회 | List users |
-| `\dn` | 스키마(Schema) 목록 조회 | List schemas |
-| `\conninfo` | 현재 접속 정보 확인 | 포트, IP, 소켓 정보 |
-| `\x` | 쿼리 결과 세로 보기 토글 | Expanded display (긴 컬럼 볼 때 유용) |
-| `\q` | psql 종료 | Quit |
-| `\! [명령어]` | 쉘 명령어 실행 | 예: `\! clear`, `\! ls` |
+- `SELECT`, `INSERT`, `UPDATE`, `DELETE` 기본 SQL은 알고 있다.
+- `psql`에서 database/table/schema/role을 확인하는 메타 커맨드를 빠르게 써야 한다.
+- JOIN, GROUP BY, HAVING, subquery, JSONB, view 예제를 실무 흐름으로 연결해야 한다.
+- Transaction과 rollback을 데이터 무결성 보호 수단으로 써야 한다.
+- Index 생성과 query 실행 시간 확인을 성능 점검과 연결해야 한다.
 
----
+## 3. 도달하고 싶은 목표 (Target State)
 
-## 2. 데이터 조회 및 조작 (DML)
+- `psql` 접속 후 현재 DB, table, schema, role, connection 정보를 확인한다.
+- 조회/변경 SQL을 transaction과 함께 안전하게 실행한다.
+- Table 생성, column 변경, index 생성 같은 DDL 작업의 위험을 구분한다.
+- JSONB와 view를 재사용 가능한 query abstraction으로 활용한다.
+- Query 실행 시간과 table 구조를 확인하며 성능 병목을 좁힌다.
 
-### 기본 조회 (SELECT)
-```sql
--- 모든 컬럼 조회
-SELECT * FROM users;
+## 4. 시스템 번역 (Data Flow)
 
--- 조건부 조회 + 정렬 + 제한
-SELECT id, name, email 
-FROM users 
-WHERE age >= 20 AND is_active = true
-ORDER BY created_at DESC 
-LIMIT 10;
-
--- NULL 체크
-SELECT * FROM users WHERE phone IS NULL;
-
--- 패턴 매칭 (LIKE, ILIKE)
-SELECT * FROM users WHERE name LIKE '김%';      -- '김'으로 시작 (대소문자 구분)
-SELECT * FROM users WHERE email ILIKE '%@gmail.com'; -- 대소문자 무시 검색
+```mermaid
+flowchart TD
+    A[psql 접속] --> B[현재 접속/DB 확인]
+    B --> C[Schema/Table 탐색]
+    C --> D{작업 종류}
+    D -->|조회| E[SELECT/JOIN/GROUP BY]
+    D -->|변경| F[BEGIN + DML + COMMIT]
+    D -->|구조 변경| G[DDL/Index/View]
+    E --> H[결과 확인]
+    F --> H
+    G --> H
+    H --> I[Timing/Explain/구조 재확인]
 ```
 
-### 고급 조회 (JOIN, 집계)
-```sql
--- INNER JOIN (교집합)
-SELECT u.name, o.order_date, o.amount
-FROM users u
-JOIN orders o ON u.id = o.user_id
-WHERE o.amount > 10000;
+PostgreSQL 작업은 접속 상태를 확인하고, 대상 구조를 확인한 뒤, query 실행과 검증을 반복하는 흐름이다.
 
--- GROUP BY & HAVING (그룹핑 및 조건)
-SELECT department, COUNT(*) as emp_count, AVG(salary) as avg_salary
-FROM employees
-GROUP BY department
-HAVING AVG(salary) >= 50000;
+## 5. 핵심 구성요소 (Building Blocks)
 
--- Subquery (서브쿼리)
-SELECT * FROM products 
-WHERE price > (SELECT AVG(price) FROM products);
+| 구성요소 | 대표 명령 | 역할 |
+| --- | --- | --- |
+| Database 목록 | `\l` | 전체 database 확인 |
+| Database 이동 | `\c dbname` | 특정 DB로 접속 전환 |
+| Table 목록 | `\dt`, `\dt+` | table과 크기 확인 |
+| Table 구조 | `\d table_name` | column, index, constraint 확인 |
+| Role 목록 | `\du` | user/role 권한 확인 |
+| Schema 목록 | `\dn` | namespace 확인 |
+| 접속 정보 | `\conninfo` | host, port, database, user 확인 |
+| Expanded display | `\x` | 긴 row를 세로로 보기 |
+| 실행 시간 | `\timing` | query latency 확인 |
+| Shell 실행 | `\! command` | psql 안에서 shell command 실행 |
+
+## 6. 상태 전이 (State Transition)
+
+```mermaid
+stateDiagram-v2
+    [*] --> Connected
+    Connected --> Inspecting
+    Inspecting --> Querying
+    Querying --> TransactionOpen: BEGIN
+    TransactionOpen --> Committed: COMMIT
+    TransactionOpen --> RolledBack: ROLLBACK
+    Querying --> StructureChanged: DDL
+    Committed --> Inspecting
+    RolledBack --> Inspecting
+    StructureChanged --> Inspecting
+    Inspecting --> [*]
 ```
 
-### 데이터 변경 (INSERT, UPDATE, DELETE)
-```sql
--- 데이터 삽입 (RETURNING으로 삽입된 ID 반환)
-INSERT INTO users (name, email, age) 
-VALUES ('홍길동', 'hong@test.com', 25)
-RETURNING id;
+변경 작업은 transaction 안에서 실행하고, 적용 전후 상태를 다시 inspect하는 습관이 중요하다.
 
--- 대량 삽입 (Bulk Insert)
-INSERT INTO users (name, email) VALUES 
-('김철수', 'kim@test.com'),
-('이영희', 'lee@test.com');
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
--- 데이터 수정
-UPDATE users 
-SET status = 'inactive', updated_at = NOW() 
-WHERE last_login < '2023-01-01';
+- 변경 쿼리를 실행하기 전 현재 접속 database와 schema를 확인해야 한다.
+- 대량 `UPDATE`/`DELETE`는 `WHERE` 조건과 영향 row 수를 먼저 검증해야 한다.
+- Migration 없이 운영 DB에서 임의 DDL을 실행하면 안 된다.
+- Index는 read 성능만 보지 말고 write cost와 disk 사용량도 고려해야 한다.
+- Transaction은 성공 시 `COMMIT`, 문제 시 `ROLLBACK`으로 명확히 종료해야 한다.
+- JSONB query는 필요한 경우 GIN index 등 access path를 함께 검토해야 한다.
+- `DROP ... CASCADE`는 연관 object까지 삭제하므로 영향 범위를 먼저 확인해야 한다.
 
--- 데이터 삭제
-DELETE FROM users WHERE id = 10;
-```
+## 8. 가장 작은 예제 (Minimal Viable Example)
 
----
-
-## 3. 테이블 및 구조 관리 (DDL)
-
-### 테이블 생성 및 인덱스
-```sql
--- 테이블 생성
-CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(50) NOT NULL,
-    email VARCHAR(100) UNIQUE,
-    age INT CHECK (age >= 0),  -- 제약조건 추가
-    meta_data JSONB,           -- JSON 타입 활용
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 인덱스 생성 (성능 최적화)
-CREATE INDEX idx_users_name ON users(name);
-
--- 복합 인덱스
-CREATE INDEX idx_users_email_age ON users(email, age);
-```
-
-### 테이블 수정 (ALTER)
-```sql
--- 컬럼 추가
-ALTER TABLE users ADD COLUMN phone VARCHAR(20);
-
--- 컬럼 타입 변경
-ALTER TABLE users ALTER COLUMN name TYPE VARCHAR(100);
-
--- 기본값 설정
-ALTER TABLE users ALTER COLUMN is_active SET DEFAULT true;
-
--- 테이블 삭제
-DROP TABLE IF EXISTS users CASCADE; -- CASCADE: 연관된 뷰/제약조건도 삭제
-```
-
----
-
-## 4. PostgreSQL 고급 기능
-
-### 트랜잭션 (Transaction)
-데이터의 무결성을 보장하기 위해 여러 쿼리를 하나로 묶습니다.
 ```sql
 BEGIN;
 
-UPDATE accounts SET balance = balance - 1000 WHERE id = 1;
-UPDATE accounts SET balance = balance + 1000 WHERE id = 2;
+UPDATE accounts
+SET balance = balance - 1000
+WHERE id = 1;
 
--- 문제 없으면 저장
+UPDATE accounts
+SET balance = balance + 1000
+WHERE id = 2;
+
 COMMIT;
--- 문제 발생 시 되돌리기
--- ROLLBACK;
 ```
 
-### JSONB 활용
-PostgreSQL은 강력한 NoSQL 기능(JSON)을 지원합니다.
-```sql
--- JSON 데이터 삽입
-INSERT INTO books (info) VALUES ('{"title": "Postgres Guide", "tags": ["db", "sql"]}');
+점검 흐름:
 
--- JSON 필드 조회 (->> : 텍스트로 반환)
-SELECT info->>'title' FROM books;
-
--- JSON 내 배열 검색 (특정 태그 포함 여부)
-SELECT * FROM books WHERE info->'tags' ? 'db';
+```text
+1. \conninfo 로 접속 DB 확인
+2. \d accounts 로 table 구조 확인
+3. BEGIN 으로 transaction 시작
+4. UPDATE 실행
+5. 영향 row 수 확인
+6. COMMIT 또는 ROLLBACK
 ```
 
-### 뷰 (View)
-복잡한 쿼리를 가상 테이블로 저장하여 재사용합니다.
-```sql
-CREATE VIEW active_users_orders AS
-SELECT u.name, o.amount, o.created_at
-FROM users u
-JOIN orders o ON u.id = o.user_id
-WHERE u.status = 'active';
+이 예제는 PostgreSQL 변경 작업이 SQL 실행뿐 아니라 접속 확인, 구조 확인, transaction 종료까지 포함한다는 점을 보여준다.
 
--- 뷰 조회
-SELECT * FROM active_users_orders;
-```
+## 9. 실패 사례 (What could go wrong?)
 
----
+- 잘못된 database에 접속한 상태에서 DDL/DML을 실행한다.
+- `DELETE FROM table`에 `WHERE`를 빼고 실행한다.
+- `DROP TABLE ... CASCADE`로 예상보다 많은 view/constraint를 삭제한다.
+- Index 없이 `ORDER BY`, `WHERE`, pagination query를 운영 데이터에서 반복 실행한다.
+- Transaction을 열어 둔 채 종료하지 않아 lock이 오래 유지된다.
+- JSONB 필드에 대한 검색이 full scan으로 동작하는데 index 전략을 확인하지 않는다.
+- `SELECT *`를 대량 table에 습관적으로 사용해 network와 memory 비용이 커진다.
 
-## 5. 유용한 팁
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-*   **히스토리 조회:** 터미널에서 `↑` 화살표를 누르면 이전 명령어가 나옵니다.
-*   **화면 지우기:** `Ctrl + L` 또는 `\! clear`
-*   **쿼리 실행 시간 확인:** `\timing` 명령어를 입력하면 쿼리 실행 시간이 표시됩니다.
-*   **설정 파일 위치 확인:** `SHOW config_file;`
+- Query 성능은 `EXPLAIN`과 `EXPLAIN ANALYZE`로 execution plan을 확인한다.
+- Schema 관리는 migration tool과 code review를 통해 변경 이력을 남긴다.
+- JSONB는 document flexibility와 relational constraint 사이의 trade-off를 판단한다.
+- View는 query 재사용에 유용하지만 성능과 permission boundary를 함께 본다.
+- 운영은 backup/restore, replication, vacuum, connection pool, lock monitoring으로 확장된다.
+
+## 11. 최종 체크리스트 (Definition of Done)
+
+- [x] `psql` 메타 커맨드를 운영 탐색 기준으로 정리했다.
+- [x] DML, DDL, transaction, JSONB, view 사용 흐름을 포함했다.
+- [x] 변경 작업 전 접속/구조/transaction 확인 불변식을 정리했다.
+- [x] 안전한 transaction 최소 예제를 제시했다.
+- [x] 원문 PostgreSQL guide 문서를 12개 섹션 템플릿으로 재작성했다.
+
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
+
+PostgreSQL 작업은 query를 치는 일이 아니라 현재 접속, 대상 구조, transaction, 실행 결과를 계속 확인하는 운영 루프다.

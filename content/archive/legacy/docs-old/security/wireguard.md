@@ -4,8 +4,8 @@ version: "3.3"
 services:
   wg-easy:
     environment:
-      # ⚠️ Required:
-      # Change this to your host's public address
+      # Required:
+      # Host public address
       - WG_HOST=gcp.nodove.com
 
       #Optional:
