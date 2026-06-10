@@ -1,762 +1,186 @@
-# 통합 실습: 전체 DevOps 파이프라인
+# DevOps 파이프라인 통합 기준
 
-## 📖 개요
+이 문서는 Terraform, Ansible, Kubernetes, Kafka를 하나의 파이프라인으로 연결할 때의 책임 경계와 검증 순서를 정리한다. 목표는 모든 예제 코드를 한 파일에 넣는 것이 아니라 각 단계의 입력, 출력, 실패 조건을 명확히 하는 것이다.
 
-Terraform, Ansible, Kubernetes, Kafka를 통합하여 완전한 DevOps 파이프라인을 구축하는 실습입니다.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-## 🎯 학습 목표
+DevOps 파이프라인은 여러 도구가 이어진 체인이다. Terraform state가 잘못되면 Ansible inventory가 틀리고, Ansible 설정이 불완전하면 Kubernetes node가 준비되지 않으며, Kubernetes 배포가 불안정하면 Kafka consumer lag와 서비스 장애가 뒤따른다.
 
-- 4가지 도구의 연계 방법 이해
-- 이벤트 기반 마이크로서비스 구축
-- 전체 인프라스트럭처 자동화
-- 프로덕션 레벨 아키텍처 설계
+도구를 한 번에 묶으면 자동화된 것처럼 보이지만, 각 단계의 완료 조건이 없으면 실패 지점을 찾기 어렵다.
 
-## 🏗️ 전체 아키텍처
+## 2. 현재 나의 상태 (Baseline)
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│ 1단계: Terraform (인프라 프로비저닝)                         │
-│   - AWS VPC, Subnets                                         │
-│   - EC2 Instances for K8s Nodes                              │
-│   - Security Groups                                          │
-└─────────────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────────┐
-│ 2단계: Ansible (시스템 설정)                                 │
-│   - Docker 설치                                              │
-│   - Kubernetes 구성                                          │
-│   - 모니터링 도구 설치                                       │
-└─────────────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────────┐
-│ 3단계: Kubernetes (애플리케이션 배포)                        │
-│   ┌───────────────────────────────────────────────────────┐ │
-│   │ Kafka Cluster (StatefulSet)                           │ │
-│   │   - 3 Brokers                                         │ │
-│   │   - ZooKeeper Ensemble                                │ │
-│   └───────────────────────────────────────────────────────┘ │
-│   ┌───────────────────────────────────────────────────────┐ │
-│   │ Microservices                                         │ │
-│   │   - Order Service → [orders 토픽]                     │ │
-│   │   - Payment Service ← [orders 토픽]                   │ │
-│   │   - Notification Service ← [payments 토픽]            │ │
-│   └───────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
-```
+기존 문서는 AWS VPC/EC2, Ansible kubeadm 설정, Kubernetes Kafka StatefulSet, 마이크로서비스 배포, CI/CD까지 하나의 긴 실습으로 작성되어 있다.
 
-## 📁 프로젝트 구조
+보완해야 할 점은 다음과 같다.
 
-```
-devops-pipeline/
-├── terraform/
-│   ├── main.tf
-│   ├── variables.tf
-│   ├── outputs.tf
-│   └── modules/
-│       ├── vpc/
-│       ├── ec2/
-│       └── security/
-├── ansible/
-│   ├── inventory/
-│   │   └── hosts.yml
-│   ├── playbooks/
-│   │   ├── docker-install.yml
-│   │   ├── k8s-setup.yml
-│   │   └── monitoring.yml
-│   └── roles/
-│       ├── docker/
-│       ├── kubernetes/
-│       └── monitoring/
-├── kubernetes/
-│   ├── kafka/
-│   │   ├── namespace.yaml
-│   │   ├── zookeeper-statefulset.yaml
-│   │   ├── kafka-statefulset.yaml
-│   │   └── kafka-service.yaml
-│   ├── microservices/
-│   │   ├── order-service.yaml
-│   │   ├── payment-service.yaml
-│   │   └── notification-service.yaml
-│   └── monitoring/
-│       ├── prometheus.yaml
-│       └── grafana.yaml
-└── apps/
-    ├── order-service/
-    │   ├── Dockerfile
-    │   └── app.py
-    ├── payment-service/
-    │   ├── Dockerfile
-    │   └── app.py
-    └── notification-service/
-        ├── Dockerfile
-        └── app.py
+- Terraform, Ansible, Kubernetes가 소유하는 상태가 명확하지 않다.
+- Ansible로 kubeadm cluster를 만드는 예제가 join token, CNI, container runtime, cgroup driver 검증을 생략한다.
+- Kafka 예제가 ZooKeeper 기반이다. Apache Kafka는 KRaft 모드에서 ZooKeeper 의존성을 제거했으며, 신규 Kafka 4.x 계열에서는 ZooKeeper 모드를 전제로 설계하면 안 된다.
+- cleanup과 비용 중단 조건이 뒤쪽에 묻혀 있다.
+
+## 3. 도달하고 싶은 목표 (Target State)
+
+목표는 단계별로 검증 가능한 통합 파이프라인이다.
+
+- Terraform은 network, compute, IAM/security group 같은 cloud resource를 만든다.
+- Terraform output은 Ansible inventory 또는 cluster bootstrap 입력으로 전달된다.
+- Ansible은 OS package, container runtime, kubeadm prerequisite 같은 host 상태를 맞춘다.
+- Kubernetes는 workload, service, config, secret, storage desired state를 관리한다.
+- Kafka는 KRaft 기반 또는 operator 기반으로 배포하고, topic/consumer lag를 관측한다.
+- 각 단계에는 verify와 rollback/cleanup이 있다.
+
+## 4. 시스템 번역 (Data Flow)
+
+통합 흐름은 다음과 같다.
+
+```text
+Git commit
+  -> Terraform plan and apply
+  -> infrastructure outputs
+  -> Ansible inventory
+  -> host bootstrap
+  -> Kubernetes API
+  -> application manifests
+  -> Kafka topics and consumers
+  -> monitoring and rollback signal
 ```
 
-## 🚀 실습 시나리오: E-Commerce 주문 처리 시스템
+중요한 것은 output contract다. Terraform output이 바뀌면 Ansible inventory가 바뀌고, Kubernetes endpoint가 바뀌면 애플리케이션 배포 변수가 바뀐다.
 
-### 시나리오 설명
+## 5. 핵심 구성요소 (Building Blocks)
 
-1. **Order Service**: 고객 주문 접수 → Kafka `orders` 토픽에 발행
-2. **Payment Service**: `orders` 토픽 구독 → 결제 처리 → `payments` 토픽에 발행
-3. **Notification Service**: `payments` 토픽 구독 → 고객에게 알림 전송
+Terraform plan은 cloud 변경 전 검토 지점이다. `apply` 전에 resource 생성, 변경, 삭제를 확인한다.
 
-## 단계 1: Terraform으로 인프라 구성
+Terraform state는 인프라의 source of truth다. remote backend, lock, secret 노출 정책을 정해야 한다.
 
-### terraform/main.tf
+Ansible inventory는 host 접속 정보와 group 역할을 표현한다. Terraform output에서 생성할 수 있지만, 생성 후 검증은 별도다.
 
-```hcl
-terraform {
-  required_version = ">= 1.0"
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-}
+Kubernetes API server는 workload desired state를 받는다. `kubectl apply` 성공은 readiness 성공과 다르다.
 
-provider "aws" {
-  region = var.aws_region
-}
+Kafka는 event log다. 신규 구성에서는 ZooKeeper 기반 예제보다 KRaft 또는 검증된 Kubernetes operator를 우선 검토한다.
 
-# VPC
-module "vpc" {
-  source = "./modules/vpc"
-  
-  vpc_cidr     = "10.0.0.0/16"
-  cluster_name = var.cluster_name
-}
+CI/CD runner는 credential, network access, artifact, deployment 권한을 가진다. 가장 강한 권한 경계 중 하나다.
 
-# K8s 노드용 EC2
-module "k8s_nodes" {
-  source = "./modules/ec2"
-  
-  vpc_id          = module.vpc.vpc_id
-  subnet_ids      = module.vpc.private_subnet_ids
-  instance_count  = 3
-  instance_type   = "t3.medium"
-  cluster_name    = var.cluster_name
-}
+## 6. 상태 전이 (State Transition)
 
-# Bastion Host
-resource "aws_instance" "bastion" {
-  ami           = data.aws_ami.ubuntu.id
-  instance_type = "t2.micro"
-  subnet_id     = module.vpc.public_subnet_ids[0]
-  
-  key_name               = var.key_name
-  vpc_security_group_ids = [module.vpc.bastion_sg_id]
-  
-  tags = {
-    Name = "${var.cluster_name}-bastion"
-  }
-}
+파이프라인은 다음 상태로 진행한다.
 
-# 출력
-output "bastion_public_ip" {
-  value = aws_instance.bastion.public_ip
-}
-
-output "k8s_node_private_ips" {
-  value = module.k8s_nodes.private_ips
-}
+```text
+code reviewed
+  -> terraform plan approved
+  -> infrastructure applied
+  -> host inventory generated
+  -> ansible ping passed
+  -> bootstrap playbook converged
+  -> kubernetes nodes ready
+  -> workloads ready
+  -> kafka health verified
+  -> smoke test passed
 ```
 
-### terraform/variables.tf
+각 상태는 다음 단계의 입력 조건이다. 예를 들어 `nodes ready` 전에는 workload 배포를 진행하지 않는다.
 
-```hcl
-variable "aws_region" {
-  description = "AWS 리전"
-  type        = string
-  default     = "ap-northeast-2"
-}
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-variable "cluster_name" {
-  description = "클러스터 이름"
-  type        = string
-  default     = "devops-demo"
-}
+- Terraform state와 cloud console 수동 변경을 동시에 source of truth로 두지 않는다.
+- Ansible playbook은 반복 실행해도 불필요한 변경을 만들지 않는다.
+- Kubernetes manifest에는 secret을 평문으로 넣지 않는다.
+- `kubectl apply` 성공만으로 배포 성공으로 판단하지 않는다.
+- Kafka는 topic replication, retention, partition, consumer group lag를 함께 본다.
+- cloud 실습은 cleanup 조건과 비용 중단 절차를 포함한다.
+- CI/CD credential은 최소 권한과 rotation 기준을 가져야 한다.
 
-variable "key_name" {
-  description = "SSH 키 페어 이름"
-  type        = string
-}
-```
+## 8. 가장 작은 예제 (Minimal Viable Example)
 
-### 실행
+Terraform 단계는 plan부터 시작한다.
 
 ```bash
-cd terraform
-
-# 초기화
 terraform init
-
-# 계획 확인
-terraform plan -var="key_name=my-key"
-
-# 적용
-terraform apply -var="key_name=my-key" -auto-approve
-
-# 출력 확인
+terraform plan -out tfplan
+terraform apply tfplan
 terraform output
 ```
 
-## 단계 2: Ansible로 시스템 설정
-
-### ansible/inventory/hosts.yml
-
-```yaml
-all:
-  vars:
-    ansible_user: ubuntu
-    ansible_ssh_private_key_file: ~/.ssh/my-key.pem
-    
-  children:
-    k8s_masters:
-      hosts:
-        master01:
-          ansible_host: 10.0.1.10
-    
-    k8s_workers:
-      hosts:
-        worker01:
-          ansible_host: 10.0.1.11
-        worker02:
-          ansible_host: 10.0.1.12
-    
-    bastion:
-      hosts:
-        bastion01:
-          ansible_host: <BASTION_PUBLIC_IP>
-```
-
-### ansible/playbooks/full-setup.yml
-
-```yaml
----
-- name: 전체 시스템 설정
-  hosts: all
-  become: yes
-  
-  tasks:
-    - name: 시스템 업데이트
-      apt:
-        update_cache: yes
-        upgrade: dist
-    
-    - name: 필수 패키지 설치
-      apt:
-        name:
-          - curl
-          - wget
-          - vim
-          - git
-        state: present
-
-- name: Docker 설치
-  hosts: all
-  become: yes
-  roles:
-    - docker
-
-- name: Kubernetes 설치
-  hosts: k8s_masters:k8s_workers
-  become: yes
-  roles:
-    - kubernetes
-
-- name: Kubernetes 클러스터 초기화
-  hosts: k8s_masters
-  become: yes
-  tasks:
-    - name: kubeadm init
-      shell: |
-        kubeadm init --pod-network-cidr=10.244.0.0/16
-      args:
-        creates: /etc/kubernetes/admin.conf
-    
-    - name: kubeconfig 복사
-      fetch:
-        src: /etc/kubernetes/admin.conf
-        dest: ~/.kube/config
-        flat: yes
-
-- name: Worker 노드 Join
-  hosts: k8s_workers
-  become: yes
-  tasks:
-    - name: Join 명령 실행
-      shell: |
-        {{ hostvars['master01']['join_command'] }}
-```
-
-### ansible/roles/docker/tasks/main.yml
-
-```yaml
----
-- name: Docker GPG 키 추가
-  apt_key:
-    url: https://download.docker.com/linux/ubuntu/gpg
-    state: present
-
-- name: Docker 저장소 추가
-  apt_repository:
-    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
-    state: present
-
-- name: Docker 설치
-  apt:
-    name:
-      - docker-ce
-      - docker-ce-cli
-      - containerd.io
-    state: present
-    update_cache: yes
-
-- name: 사용자를 docker 그룹에 추가
-  user:
-    name: "{{ ansible_user }}"
-    groups: docker
-    append: yes
-
-- name: Docker 서비스 시작
-  systemd:
-    name: docker
-    state: started
-    enabled: yes
-```
-
-### 실행
+Terraform output에서 inventory를 만든 뒤 Ansible 연결을 검증한다.
 
 ```bash
-cd ansible
-
-# 연결 테스트
-ansible all -i inventory/hosts.yml -m ping
-
-# Playbook 실행
-ansible-playbook -i inventory/hosts.yml playbooks/full-setup.yml
+ansible all -i inventory/hosts.ini -m ping
+ansible all -i inventory/hosts.ini -m ansible.builtin.command -a "uname -a"
 ```
 
-## 단계 3: Kubernetes에 Kafka 배포
-
-### kubernetes/kafka/namespace.yaml
-
-```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: kafka
-```
-
-### kubernetes/kafka/zookeeper-statefulset.yaml
-
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: zookeeper
-  namespace: kafka
-spec:
-  ports:
-  - port: 2181
-    name: client
-  - port: 2888
-    name: peer
-  - port: 3888
-    name: leader-election
-  clusterIP: None
-  selector:
-    app: zookeeper
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: zookeeper
-  namespace: kafka
-spec:
-  serviceName: zookeeper
-  replicas: 3
-  selector:
-    matchLabels:
-      app: zookeeper
-  template:
-    metadata:
-      labels:
-        app: zookeeper
-    spec:
-      containers:
-      - name: zookeeper
-        image: confluentinc/cp-zookeeper:7.5.0
-        ports:
-        - containerPort: 2181
-          name: client
-        - containerPort: 2888
-          name: peer
-        - containerPort: 3888
-          name: leader-election
-        env:
-        - name: ZOOKEEPER_SERVER_ID
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: ZOOKEEPER_CLIENT_PORT
-          value: "2181"
-        - name: ZOOKEEPER_TICK_TIME
-          value: "2000"
-        - name: ZOOKEEPER_SERVERS
-          value: "zookeeper-0.zookeeper:2888:3888;zookeeper-1.zookeeper:2888:3888;zookeeper-2.zookeeper:2888:3888"
-        volumeMounts:
-        - name: datadir
-          mountPath: /var/lib/zookeeper/data
-  volumeClaimTemplates:
-  - metadata:
-      name: datadir
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 10Gi
-```
-
-### kubernetes/kafka/kafka-statefulset.yaml
-
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: kafka
-  namespace: kafka
-spec:
-  ports:
-  - port: 9092
-    name: client
-  clusterIP: None
-  selector:
-    app: kafka
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: kafka
-  namespace: kafka
-spec:
-  serviceName: kafka
-  replicas: 3
-  selector:
-    matchLabels:
-      app: kafka
-  template:
-    metadata:
-      labels:
-        app: kafka
-    spec:
-      containers:
-      - name: kafka
-        image: confluentinc/cp-kafka:7.5.0
-        ports:
-        - containerPort: 9092
-          name: client
-        env:
-        - name: KAFKA_BROKER_ID
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: KAFKA_ZOOKEEPER_CONNECT
-          value: "zookeeper-0.zookeeper:2181,zookeeper-1.zookeeper:2181,zookeeper-2.zookeeper:2181"
-        - name: KAFKA_ADVERTISED_LISTENERS
-          value: "PLAINTEXT://$(POD_NAME).kafka:9092"
-        - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
-          value: "3"
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        volumeMounts:
-        - name: datadir
-          mountPath: /var/lib/kafka/data
-  volumeClaimTemplates:
-  - metadata:
-      name: datadir
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 20Gi
-```
-
-### 배포
+host bootstrap은 check mode와 실제 실행을 분리한다.
 
 ```bash
-# Namespace 생성
-kubectl apply -f kubernetes/kafka/namespace.yaml
-
-# ZooKeeper 배포
-kubectl apply -f kubernetes/kafka/zookeeper-statefulset.yaml
-
-# 준비 확인 (3개 모두 Running)
-kubectl get pods -n kafka -l app=zookeeper
-
-# Kafka 배포
-kubectl apply -f kubernetes/kafka/kafka-statefulset.yaml
-
-# 준비 확인
-kubectl get pods -n kafka -l app=kafka
-
-# Topic 생성
-kubectl exec -it kafka-0 -n kafka -- kafka-topics \
-  --create \
-  --bootstrap-server kafka-0.kafka:9092 \
-  --topic orders \
-  --partitions 3 \
-  --replication-factor 3
-
-kubectl exec -it kafka-0 -n kafka -- kafka-topics \
-  --create \
-  --bootstrap-server kafka-0.kafka:9092 \
-  --topic payments \
-  --partitions 3 \
-  --replication-factor 3
+ansible-playbook -i inventory/hosts.ini playbooks/bootstrap.yml --check --diff
+ansible-playbook -i inventory/hosts.ini playbooks/bootstrap.yml
 ```
 
-## 단계 4: 마이크로서비스 배포
-
-### apps/order-service/app.py
-
-```python
-from flask import Flask, request, jsonify
-from kafka import KafkaProducer
-import json
-import logging
-
-app = Flask(__name__)
-logging.basicConfig(level=logging.INFO)
-
-producer = KafkaProducer(
-    bootstrap_servers=['kafka-0.kafka.kafka.svc.cluster.local:9092'],
-    value_serializer=lambda v: json.dumps(v).encode('utf-8')
-)
-
-@app.route('/orders', methods=['POST'])
-def create_order():
-    order = request.json
-    order_id = order.get('id')
-    
-    logging.info(f"Creating order: {order_id}")
-    
-    # Kafka에 발행
-    producer.send('orders', value=order)
-    producer.flush()
-    
-    return jsonify({"status": "success", "order_id": order_id}), 201
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
-```
-
-### apps/payment-service/app.py
-
-```python
-from kafka import KafkaConsumer, KafkaProducer
-import json
-import logging
-
-logging.basicConfig(level=logging.INFO)
-
-consumer = KafkaConsumer(
-    'orders',
-    bootstrap_servers=['kafka-0.kafka.kafka.svc.cluster.local:9092'],
-    value_deserializer=lambda m: json.loads(m.decode('utf-8')),
-    group_id='payment-service'
-)
-
-producer = KafkaProducer(
-    bootstrap_servers=['kafka-0.kafka.kafka.svc.cluster.local:9092'],
-    value_serializer=lambda v: json.dumps(v).encode('utf-8')
-)
-
-logging.info("Payment Service started")
-
-for message in consumer:
-    order = message.value
-    logging.info(f"Processing payment for order: {order['id']}")
-    
-    # 결제 처리 로직
-    payment = {
-        "order_id": order['id'],
-        "amount": order['amount'],
-        "status": "completed"
-    }
-    
-    # Kafka에 결과 발행
-    producer.send('payments', value=payment)
-    producer.flush()
-    
-    logging.info(f"Payment completed: {payment}")
-```
-
-### kubernetes/microservices/order-service.yaml
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: order-service
-  namespace: kafka
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: order-service
-  template:
-    metadata:
-      labels:
-        app: order-service
-    spec:
-      containers:
-      - name: order-service
-        image: myregistry/order-service:v1
-        ports:
-        - containerPort: 8080
-        env:
-        - name: KAFKA_BOOTSTRAP_SERVERS
-          value: "kafka-0.kafka:9092"
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: order-service
-  namespace: kafka
-spec:
-  type: LoadBalancer
-  ports:
-  - port: 80
-    targetPort: 8080
-  selector:
-    app: order-service
-```
-
-### 배포
+Kubernetes 상태를 확인한다.
 
 ```bash
-# 이미지 빌드 및 푸시 (Docker registry 필요)
-docker build -t myregistry/order-service:v1 apps/order-service/
-docker push myregistry/order-service:v1
-
-docker build -t myregistry/payment-service:v1 apps/payment-service/
-docker push myregistry/payment-service:v1
-
-# 배포
-kubectl apply -f kubernetes/microservices/
+kubectl get nodes
+kubectl get pods --all-namespaces
+kubectl get events --sort-by=.lastTimestamp
 ```
 
-## 🧪 시스템 테스트
+workload 배포 후 rollout을 기다린다.
 
 ```bash
-# Order Service 엔드포인트 확인
-ORDER_SERVICE_URL=$(kubectl get svc order-service -n kafka -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-
-# 주문 생성
-curl -X POST http://$ORDER_SERVICE_URL/orders \
-  -H "Content-Type: application/json" \
-  -d '{
-    "id": "order-001",
-    "customer": "John Doe",
-    "amount": 99.99,
-    "items": ["laptop", "mouse"]
-  }'
-
-# Payment Service 로그 확인
-kubectl logs -f deployment/payment-service -n kafka
-
-# Notification Service 로그 확인
-kubectl logs -f deployment/notification-service -n kafka
-
-# Kafka 토픽 메시지 확인
-kubectl exec -it kafka-0 -n kafka -- kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
-  --topic orders \
-  --from-beginning
-
-kubectl exec -it kafka-0 -n kafka -- kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
-  --topic payments \
-  --from-beginning
+kubectl apply -f kubernetes/
+kubectl rollout status deployment/order-service
+kubectl rollout status deployment/payment-service
 ```
 
-## 📊 모니터링
+Kafka는 배포 방식에 맞는 health check를 둔다.
 
-### Prometheus 배포
-
-```yaml
-# kubernetes/monitoring/prometheus.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: prometheus-config
-  namespace: kafka
-data:
-  prometheus.yml: |
-    global:
-      scrape_interval: 15s
-    scrape_configs:
-    - job_name: 'kubernetes-pods'
-      kubernetes_sd_configs:
-      - role: pod
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: prometheus
-  namespace: kafka
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: prometheus
-  template:
-    metadata:
-      labels:
-        app: prometheus
-    spec:
-      containers:
-      - name: prometheus
-        image: prom/prometheus:latest
-        ports:
-        - containerPort: 9090
-        volumeMounts:
-        - name: config
-          mountPath: /etc/prometheus
-      volumes:
-      - name: config
-        configMap:
-          name: prometheus-config
+```text
+broker ready
+  -> controller quorum ready
+  -> topic exists
+  -> producer smoke test
+  -> consumer group lag checked
 ```
 
-## 🧹 전체 정리
+cleanup은 별도 단계로 명시한다.
 
 ```bash
-# Kubernetes 리소스 삭제
-kubectl delete namespace kafka
-
-# Ansible로 시스템 정리 (선택사항)
-ansible all -i inventory/hosts.yml -m shell -a "kubeadm reset -f" --become
-
-# Terraform으로 인프라 삭제
-cd terraform
-terraform destroy -var="key_name=my-key" -auto-approve
+kubectl delete -f kubernetes/
+terraform destroy
 ```
 
-## 📚 다음 단계
+## 9. 실패 사례 (What could go wrong?)
 
-- CI/CD 파이프라인 구축 (Jenkins, ArgoCD)
-- 로그 수집 (ELK Stack)
-- 보안 강화 (네트워크 정책, RBAC)
-- 고가용성 구성
+Terraform apply 후 output을 수동으로 복사해 inventory를 만들면 IP 변경이나 resource 재생성 때 drift가 발생한다. output 생성 자동화와 검증을 분리한다.
 
-## 🔗 참고 자료
+Ansible이 Docker를 설치했지만 Kubernetes가 쓰는 container runtime endpoint가 맞지 않으면 kubelet이 올라오지 않는다. Kubernetes 공식 문서는 kubeadm cluster에서 container runtime과 kubelet cgroup driver 일치가 중요하다고 설명한다.
 
-- [Terraform AWS 모듈](https://registry.terraform.io/modules/terraform-aws-modules/vpc/aws/latest)
-- [Ansible Kubernetes 모듈](https://docs.ansible.com/ansible/latest/collections/kubernetes/core/index.html)
-- [Kafka on Kubernetes](https://strimzi.io/)
-- [Kubernetes 패턴](https://kubernetes.io/docs/concepts/cluster-administration/manage-deployment/)
+Kubernetes pod가 `Running`이어도 readiness probe가 실패하면 service traffic을 받으면 안 된다. rollout status와 readiness를 같이 본다.
+
+Kafka를 ZooKeeper 기반으로 새로 설계하면 Kafka 4.x 이후 운영 경로와 충돌한다. 신규 학습은 KRaft 또는 operator 문서를 기준으로 잡는다.
+
+Cloud 실습에서 `terraform destroy`를 빼먹으면 EC2, NAT Gateway, EBS, load balancer 비용이 계속 발생할 수 있다.
+
+## 10. 뇌 확장하기 (Evolution & Variants)
+
+Managed Kubernetes(EKS/GKE/AKS)를 쓰면 Ansible이 kubeadm을 직접 구성하는 영역이 줄어든다. 대신 IAM, node group, add-on, CNI, ingress controller가 Terraform 또는 platform 설정으로 이동한다.
+
+Kafka on Kubernetes는 직접 StatefulSet보다 Strimzi 같은 operator를 쓰는 편이 운영 계약을 더 명확히 만들 수 있다. broker identity, storage, rolling update, TLS, user/topic 관리를 operator가 reconcile한다.
+
+GitOps를 도입하면 `kubectl apply` 단계는 Argo CD나 Flux가 맡는다. CI는 image build와 manifest update까지 하고, cluster 배포는 GitOps controller가 담당한다.
+
+## 11. 최종 체크리스트 (Definition of Done)
+
+- [ ] Terraform plan이 리뷰되었다.
+- [ ] Terraform state backend와 lock 정책이 있다.
+- [ ] Terraform output에서 inventory 입력을 생성하거나 검증한다.
+- [ ] Ansible ping과 bootstrap playbook이 성공한다.
+- [ ] Kubernetes node와 system pod가 ready다.
+- [ ] workload rollout과 readiness가 성공한다.
+- [ ] Kafka topic, broker, consumer lag를 확인했다.
+- [ ] cleanup/destroy 절차를 실행하거나 예약했다.
+- [ ] CI/CD credential 범위와 secret 저장소를 확인했다.
+
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
+
+DevOps 파이프라인은 도구를 길게 이어 붙이는 것이 아니라 단계별 상태 계약을 넘기는 시스템이다. Terraform output, Ansible convergence, Kubernetes readiness, Kafka lag가 각각 다음 단계의 문이다.

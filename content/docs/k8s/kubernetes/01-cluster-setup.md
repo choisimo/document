@@ -1,579 +1,225 @@
-# Kubernetes 클러스터 설정
+# Kubernetes 로컬 클러스터 설정
 
-## 📖 개요
+이 문서는 `kubectl`, kubeconfig, namespace, local cluster driver를 기준으로 Kubernetes 실습 환경을 안전하게 만드는 절차를 정리한다. 목표는 명령어를 많이 외우는 것이 아니라 “내가 지금 어느 cluster와 namespace에 명령을 보내는가”를 항상 확인하는 것이다.
 
-로컬 환경에서 Kubernetes 클러스터를 설정하고 기본 명령어를 학습합니다. minikube, kind, Docker Desktop 세 가지 방법을 다룹니다.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-## 🎯 학습 목표
+Kubernetes 실습은 `kubectl apply` 한 줄로 시작하기 쉽지만, cluster context와 namespace를 잘못 잡으면 의도하지 않은 환경에 리소스를 만들 수 있다. 로컬 실습이라도 kubeconfig가 여러 cluster를 가리키면 같은 명령이 전혀 다른 결과를 만든다.
 
-- Kubernetes 로컬 클러스터 설치
-- kubectl 명령어 기초
-- 네임스페이스와 컨텍스트 관리
-- 클러스터 상태 확인
+클러스터 설정 문서는 설치 명령보다 상태 확인 순서가 중요하다. `kubectl` client, cluster API server, current-context, namespace, node 상태가 맞아야 Pod와 Deployment 실습이 재현된다.
 
-## 📦 kubectl 설치
+## 2. 현재 나의 상태 (Baseline)
 
-### Linux
+기존 문서는 `kubectl`, minikube, kind, Docker Desktop, 기본 명령어를 넓게 다룬다. 보완해야 할 점은 다음과 같다.
+
+- 일부 설치 예제가 특정 과거 버전을 고정한다.
+- `kubectl` client와 cluster version 호환성 검증이 약하다.
+- context와 namespace를 확인하는 절차가 실습 앞에 충분히 배치되지 않았다.
+- 존재하지 않는 다음 문서 링크가 포함되어 있다.
+- local cluster와 production cluster의 위험 경계가 분리되어 있지 않다.
+
+## 3. 도달하고 싶은 목표 (Target State)
+
+목표는 다음 상태를 직접 확인할 수 있는 로컬 Kubernetes 환경이다.
+
+- `kubectl` client가 설치되어 있다.
+- 로컬 cluster가 실행 중이다.
+- kubeconfig current-context가 실습 cluster를 가리킨다.
+- 실습 namespace가 분리되어 있다.
+- node, system Pod, sample Deployment 상태를 조회할 수 있다.
+- 실습 후 service, deployment, cluster를 정리할 수 있다.
+
+## 4. 시스템 번역 (Data Flow)
+
+명령 흐름은 다음과 같다.
+
+```text
+kubectl command
+  -> kubeconfig current-context
+  -> Kubernetes API server
+  -> etcd and controllers
+  -> scheduler assigns Pods
+  -> kubelet starts containers
+  -> kubectl reads status back
+```
+
+`kubectl`은 container를 직접 실행하지 않는다. API server에 desired state를 보내고, controller와 kubelet이 실제 상태를 맞춘다.
+
+## 5. 핵심 구성요소 (Building Blocks)
+
+`kubectl`은 Kubernetes API server와 통신하는 CLI다. 공식 문서는 client version이 cluster control plane과 한 minor version 이내여야 한다고 안내한다.
+
+`kubeconfig`는 cluster, user, context 정보를 담는다. `current-context`가 어디인지 확인하지 않고 apply하는 것은 위험하다.
+
+`context`는 cluster와 user, 기본 namespace 조합이다. 여러 cluster를 다룰수록 context 이름을 명확히 관리해야 한다.
+
+`namespace`는 리소스를 논리적으로 나누는 범위다. 실습은 `default` 대신 별도 namespace에서 진행하는 편이 정리하기 쉽다.
+
+minikube는 로컬 개발과 학습에 적합한 단일 또는 다중 node cluster를 제공한다.
+
+kind는 Docker container 안에 Kubernetes node를 띄우므로 빠르고 CI 실습에 적합하다.
+
+Docker Desktop Kubernetes는 Windows와 macOS에서 GUI로 쉽게 켤 수 있지만, kubeconfig context가 자동으로 바뀔 수 있으므로 확인이 필요하다.
+
+## 6. 상태 전이 (State Transition)
+
+로컬 클러스터 준비 상태는 다음과 같이 진행한다.
+
+```text
+container runtime available
+  -> kubectl installed
+  -> local cluster created
+  -> kubeconfig context selected
+  -> namespace selected
+  -> sample workload deployed
+  -> workload verified
+  -> workload and cluster cleaned up
+```
+
+문제가 생기면 바로 다음 단계로 넘어가지 말고 현재 상태를 먼저 조회한다.
+
+```text
+command failed
+  -> current-context check
+  -> namespace check
+  -> event check
+  -> pod or node describe
+  -> fix or recreate local cluster
+```
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- `kubectl config current-context`를 확인하지 않은 상태에서 apply하지 않는다.
+- 실습 namespace를 만들고 그 namespace 안에서 리소스를 생성한다.
+- `kubectl` client는 cluster control plane과 호환되는 minor version을 사용한다.
+- local cluster는 production HA 검증 환경이 아니다.
+- `--force --grace-period=0` 삭제는 최후 수단으로만 사용한다.
+- `kube-system` 리소스는 원인을 이해하기 전 임의로 삭제하지 않는다.
+- 실습 후 service와 deployment를 지우고, 필요 없어진 local cluster를 중지하거나 삭제한다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+Linux에서 `kubectl` binary를 직접 설치할 때는 공식 release와 checksum을 함께 확인한다.
+
 ```bash
-# 최신 버전 다운로드
 curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-
-# 실행 권한 부여
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl.sha256"
+echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
 chmod +x kubectl
-
-# 시스템 경로로 이동
-sudo mv kubectl /usr/local/bin/
-
-# 설치 확인
-kubectl version --client
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+kubectl version --client=true
 ```
 
-### macOS
-```bash
-# Homebrew 사용
-brew install kubectl
-
-# 또는 직접 다운로드
-curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/darwin/amd64/kubectl"
-chmod +x kubectl
-sudo mv kubectl /usr/local/bin/
-```
-
-### Windows (PowerShell)
-```powershell
-# Chocolatey
-choco install kubernetes-cli
-
-# 또는 직접 다운로드
-curl -LO "https://dl.k8s.io/release/v1.28.0/bin/windows/amd64/kubectl.exe"
-```
-
-## 🔧 로컬 클러스터 옵션
-
-### 옵션 1: minikube (권장)
-
-**장점**: 가장 많이 사용되며 문서가 풍부
+minikube로 로컬 cluster를 만든다.
 
 ```bash
-# Linux 설치
-curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-sudo install minikube-linux-amd64 /usr/local/bin/minikube
-
-# macOS 설치
-brew install minikube
-
-# 클러스터 시작 (Docker 드라이버)
-minikube start --driver=docker
-
-# 멀티노드 클러스터
-minikube start --nodes 3 --driver=docker
-
-# 리소스 지정
-minikube start --cpus=4 --memory=8192 --disk-size=20g
-
-# 상태 확인
-minikube status
-
-# 대시보드 실행
-minikube dashboard
-
-# 클러스터 중지
-minikube stop
-
-# 클러스터 삭제
-minikube delete
+minikube start --driver=docker --cpus=4 --memory=8192
+kubectl config current-context
+kubectl cluster-info
+kubectl get nodes -o wide
+kubectl get pods -n kube-system
 ```
 
-### 옵션 2: kind (Kubernetes in Docker)
-
-**장점**: 가볍고 빠름, CI/CD에 적합
+kind를 사용할 때는 cluster 이름이 context 이름에 반영된다.
 
 ```bash
-# Linux 설치
-curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
-chmod +x ./kind
-sudo mv ./kind /usr/local/bin/kind
+kind create cluster --name lab
+kubectl config use-context kind-lab
+kubectl get nodes -o wide
+```
 
-# macOS 설치
-brew install kind
+다중 node kind cluster가 필요하면 별도 config로 만든다.
 
-# 단일 노드 클러스터
-kind create cluster --name my-cluster
-
-# 멀티노드 클러스터 (config 파일 사용)
-cat <<EOF > kind-config.yaml
+```yaml
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
 - role: control-plane
 - role: worker
 - role: worker
-- role: worker
-EOF
-
-kind create cluster --config kind-config.yaml --name multi-node
-
-# 클러스터 목록
-kind get clusters
-
-# 클러스터 삭제
-kind delete cluster --name my-cluster
 ```
 
-### 옵션 3: Docker Desktop
-
-**장점**: 설치 가장 간단, Windows/macOS에서 GUI 제공
-
-1. Docker Desktop 설치
-2. Settings → Kubernetes → Enable Kubernetes 체크
-3. Apply & Restart
-
-## 🎮 kubectl 기본 명령어
-
-### 클러스터 정보
-
 ```bash
-# 클러스터 정보
-kubectl cluster-info
-
-# 노드 목록
-kubectl get nodes
-
-# 노드 상세 정보
-kubectl describe node <node-name>
-
-# API 리소스 목록
-kubectl api-resources
-
-# API 버전 확인
-kubectl api-versions
+kind create cluster --name multi-node --config kind-config.yaml
+kubectl config use-context kind-multi-node
+kubectl get nodes -o wide
 ```
 
-### 컨텍스트 및 구성
+실습 namespace를 만들고 기본 namespace로 지정한다.
 
 ```bash
-# 현재 컨텍스트 확인
-kubectl config current-context
-
-# 컨텍스트 목록
-kubectl config get-contexts
-
-# 컨텍스트 전환
-kubectl config use-context minikube
-
-# 구성 파일 위치
-cat ~/.kube/config
-
-# 여러 클러스터 관리 예시
-kubectl config set-context prod --cluster=prod-cluster --user=admin
-kubectl config set-context dev --cluster=dev-cluster --user=developer
+kubectl create namespace lab
+kubectl config set-context --current --namespace=lab
+kubectl config view --minify
 ```
 
-### 네임스페이스
+가장 작은 Deployment와 Service를 만든다.
 
 ```bash
-# 네임스페이스 목록
-kubectl get namespaces
-kubectl get ns
-
-# 네임스페이스 생성
-kubectl create namespace dev
-kubectl create namespace staging
-kubectl create namespace production
-
-# 기본 네임스페이스 설정
-kubectl config set-context --current --namespace=dev
-
-# 특정 네임스페이스의 리소스 조회
-kubectl get pods -n kube-system
-
-# 모든 네임스페이스의 리소스 조회
-kubectl get pods --all-namespaces
-kubectl get pods -A
-```
-
-### 리소스 조회
-
-```bash
-# 기본 형식
-kubectl get <resource-type>
-
-# 예시
-kubectl get pods
-kubectl get services
-kubectl get deployments
-kubectl get nodes
-
-# 상세 출력
-kubectl get pods -o wide
-
-# YAML 형식
-kubectl get pod my-pod -o yaml
-
-# JSON 형식
-kubectl get pod my-pod -o json
-
-# 특정 필드만 출력 (JSONPath)
-kubectl get pods -o jsonpath='{.items[*].metadata.name}'
-
-# 레이블로 필터링
-kubectl get pods -l app=nginx
-kubectl get pods --selector=env=production
-```
-
-### 리소스 설명
-
-```bash
-# 상세 정보 확인
-kubectl describe pod <pod-name>
-kubectl describe node <node-name>
-kubectl describe service <service-name>
-
-# 이벤트 확인
-kubectl get events
-kubectl get events --sort-by=.metadata.creationTimestamp
-```
-
-### 로그 확인
-
-```bash
-# Pod 로그 조회
-kubectl logs <pod-name>
-
-# 실시간 로그 (tail -f)
-kubectl logs -f <pod-name>
-
-# 특정 컨테이너 로그 (Pod에 여러 컨테이너가 있을 때)
-kubectl logs <pod-name> -c <container-name>
-
-# 이전 컨테이너 로그 (재시작된 경우)
-kubectl logs <pod-name> --previous
-
-# 마지막 N줄만 조회
-kubectl logs <pod-name> --tail=100
-```
-
-### 리소스 생성
-
-```bash
-# 명령형 방식
-kubectl create deployment nginx --image=nginx
-kubectl create service clusterip my-service --tcp=80:80
-
-# 선언적 방식 (YAML 파일)
-kubectl apply -f deployment.yaml
-kubectl apply -f https://example.com/manifest.yaml
-
-# 여러 파일 적용
-kubectl apply -f ./configs/
-kubectl apply -f deployment.yaml -f service.yaml
-
-# Dry-run (실제 생성 안함)
-kubectl create deployment nginx --image=nginx --dry-run=client -o yaml
-```
-
-### 리소스 수정
-
-```bash
-# 직접 편집
-kubectl edit deployment nginx
-
-# 이미지 업데이트
-kubectl set image deployment/nginx nginx=nginx:1.19
-
-# 스케일 조정
-kubectl scale deployment nginx --replicas=5
-
-# 리소스 업데이트
-kubectl apply -f deployment.yaml
-
-# Patch (부분 수정)
-kubectl patch deployment nginx -p '{"spec":{"replicas":3}}'
-```
-
-### 리소스 삭제
-
-```bash
-# 단일 리소스 삭제
-kubectl delete pod <pod-name>
-kubectl delete deployment <deployment-name>
-
-# 파일 기반 삭제
-kubectl delete -f deployment.yaml
-
-# 레이블 기반 삭제
-kubectl delete pods -l app=nginx
-
-# 네임스페이스 전체 삭제 (주의!)
-kubectl delete namespace dev
-
-# 강제 삭제
-kubectl delete pod <pod-name> --force --grace-period=0
-```
-
-## 🔍 클러스터 탐색
-
-### 시스템 Pod 확인
-
-```bash
-# kube-system 네임스페이스의 Pod
-kubectl get pods -n kube-system
-
-# 주요 시스템 컴포넌트:
-# - kube-apiserver: API 서버
-# - kube-scheduler: 스케줄러
-# - kube-controller-manager: 컨트롤러 매니저
-# - etcd: 클러스터 데이터 저장소
-# - coredns: DNS 서버
-# - kube-proxy: 네트워크 프록시
-```
-
-### 리소스 사용량 확인
-
-```bash
-# Metrics Server 설치 (minikube)
-minikube addons enable metrics-server
-
-# 노드 리소스 사용량
-kubectl top nodes
-
-# Pod 리소스 사용량
-kubectl top pods
-
-# 특정 네임스페이스
-kubectl top pods -n kube-system
-```
-
-## 📝 첫 번째 실습: Nginx 배포
-
-### Step 1: Deployment 생성
-
-```bash
-# 명령형
-kubectl create deployment nginx --image=nginx:latest
-
-# 확인
-kubectl get deployments
-kubectl get pods
-```
-
-### Step 2: Deployment YAML 확인
-
-```bash
-# YAML 출력
-kubectl get deployment nginx -o yaml > nginx-deployment.yaml
-
-# 편집
-kubectl edit deployment nginx
-```
-
-### Step 3: Service 생성
-
-```bash
-# ClusterIP 서비스
+kubectl create deployment nginx --image=nginx:1.27-alpine --replicas=2
 kubectl expose deployment nginx --port=80 --target-port=80
-
-# NodePort 서비스로 외부 접근
-kubectl expose deployment nginx --type=NodePort --port=80
-
-# 서비스 확인
-kubectl get services
+kubectl get deployment,replicaset,pod,service
+kubectl port-forward service/nginx 8080:80
 ```
 
-### Step 4: 애플리케이션 접근
+다른 터미널에서 응답을 확인한다.
 
 ```bash
-# minikube 환경
-minikube service nginx --url
-
-# 브라우저 자동 열기
-minikube service nginx
-
-# Port-forward 사용
-kubectl port-forward deployment/nginx 8080:80
-
-# 브라우저에서 http://localhost:8080 접속
+curl http://127.0.0.1:8080
 ```
 
-### Step 5: 스케일링
-
-```bash
-# 5개로 증가
-kubectl scale deployment nginx --replicas=5
-
-# 확인
-kubectl get pods -w  # watch 모드
-```
-
-### Step 6: 정리
+실습 리소스를 정리한다.
 
 ```bash
 kubectl delete service nginx
 kubectl delete deployment nginx
+kubectl delete namespace lab
 ```
 
-## 💡 유용한 명령어 조합
-
-### 별칭 설정
+클러스터 자체를 정리한다.
 
 ```bash
-# ~/.bashrc 또는 ~/.zshrc에 추가
-alias k='kubectl'
-alias kg='kubectl get'
-alias kd='kubectl describe'
-alias kdel='kubectl delete'
-alias kl='kubectl logs'
-alias kex='kubectl exec -it'
-
-# 적용
-source ~/.bashrc
-```
-
-### kubectl 자동완성
-
-```bash
-# Bash
-echo 'source <(kubectl completion bash)' >> ~/.bashrc
-echo 'alias k=kubectl' >> ~/.bashrc
-echo 'complete -o default -F __start_kubectl k' >> ~/.bashrc
-
-# Zsh
-echo 'source <(kubectl completion zsh)' >> ~/.zshrc
-echo 'alias k=kubectl' >> ~/.zshrc
-echo 'compdef __start_kubectl k' >> ~/.zshrc
-```
-
-### 자주 사용하는 One-liner
-
-```bash
-# 모든 Pod의 이름만 출력
-kubectl get pods -o name
-
-# 실행 중이 아닌 Pod 찾기
-kubectl get pods --field-selector=status.phase!=Running
-
-# 최근 생성된 Pod 5개
-kubectl get pods --sort-by=.metadata.creationTimestamp | tail -5
-
-# 특정 노드의 모든 Pod
-kubectl get pods --all-namespaces -o wide --field-selector spec.nodeName=node1
-
-# 이미지별 Pod 개수
-kubectl get pods -o jsonpath='{range .items[*]}{.spec.containers[*].image}{"\n"}{end}' | sort | uniq -c
-
-# 모든 네임스페이스의 리소스 사용량
-kubectl top pods --all-namespaces --sort-by=memory
-```
-
-## 🛠️ 실습 과제
-
-### 과제 1: 멀티노드 클러스터 구성
-
-```bash
-# 3개 노드 클러스터 생성
-minikube start --nodes 3 --driver=docker
-
-# 노드 확인
-kubectl get nodes
-
-# 각 노드에 Pod 배포 확인
-kubectl create deployment test --image=nginx --replicas=3
-kubectl get pods -o wide
-```
-
-### 과제 2: 네임스페이스별 환경 구성
-
-```bash
-# 네임스페이스 생성
-kubectl create namespace development
-kubectl create namespace staging
-kubectl create namespace production
-
-# 각 환경에 애플리케이션 배포
-kubectl create deployment app --image=nginx -n development
-kubectl create deployment app --image=nginx -n staging
-kubectl create deployment app --image=nginx -n production
-
-# 전체 확인
-kubectl get deployments --all-namespaces
-```
-
-### 과제 3: 리소스 모니터링
-
-```bash
-# Metrics Server 활성화
-minikube addons enable metrics-server
-
-# 5분 대기 후 확인
-kubectl top nodes
-kubectl top pods --all-namespaces
-
-# 리소스 많이 사용하는 Pod Top 10
-kubectl top pods -A --sort-by=memory | head -10
-```
-
-## 🐛 트러블슈팅
-
-### 문제 1: "connection refused"
-**원인**: 클러스터가 실행되지 않음
-**해결:**
-```bash
-minikube status
-minikube start
-```
-
-### 문제 2: "Unable to connect to the server"
-**원인**: kubeconfig 설정 오류
-**해결:**
-```bash
-kubectl config view
-kubectl config use-context minikube
-```
-
-### 문제 3: Pod이 Pending 상태
-**원인**: 리소스 부족
-**해결:**
-```bash
-kubectl describe pod <pod-name>
-# "Insufficient cpu" 또는 "Insufficient memory" 메시지 확인
-
-# minikube 재시작 (리소스 증가)
-minikube delete
-minikube start --cpus=4 --memory=8192
-```
-
-### 문제 4: ImagePullBackOff
-**원인**: 이미지 다운로드 실패
-**해결:**
-```bash
-kubectl describe pod <pod-name>
-# "Failed to pull image" 메시지 확인
-
-# 이미지 이름 확인
-kubectl get pod <pod-name> -o jsonpath='{.spec.containers[*].image}'
-```
-
-## 🧹 환경 정리
-
-```bash
-# minikube
 minikube stop
-minikube delete --all
-
-# kind
-kind delete cluster --name my-cluster
-
-# Docker Desktop: Settings → Kubernetes → Reset Kubernetes Cluster
+minikube delete
+kind delete cluster --name lab
+kind delete cluster --name multi-node
 ```
 
-## 📚 다음 단계
+## 9. 실패 사례 (What could go wrong?)
 
-- [Pod와 Deployment](02-pods-deployments.md)
-- [Service와 네트워킹](03-services-networking.md)
+`Unable to connect to the server`는 cluster가 꺼졌거나 kubeconfig context가 깨졌을 때 자주 발생한다. `kubectl config current-context`, `kubectl cluster-info`, local cluster status를 순서대로 확인한다.
 
-## 🔗 참고 자료
+Pod가 `Pending`이면 scheduler가 node를 찾지 못한 것이다. `kubectl describe pod <pod-name>`에서 CPU, memory, taint, volume 이벤트를 확인한다.
 
-- [Kubernetes 공식 문서](https://kubernetes.io/docs/home/)
-- [kubectl 치트 시트](https://kubernetes.io/docs/reference/kubectl/cheatsheet/)
-- [minikube 문서](https://minikube.sigs.k8s.io/docs/)
-- [kind 문서](https://kind.sigs.k8s.io/)
+`ImagePullBackOff`는 image 이름, tag, registry 인증, 네트워크 문제를 의심한다. `kubectl describe pod <pod-name>`의 Events가 가장 빠른 단서다.
+
+`CrashLoopBackOff`는 container process가 반복 종료되는 상태다. `kubectl logs <pod-name> --previous`로 직전 종료 로그를 먼저 본다.
+
+`kubectl top`이 동작하지 않으면 metrics-server가 없거나 아직 ready가 아니다. local cluster addon 상태와 `kube-system` Pod 상태를 확인한다.
+
+## 10. 뇌 확장하기 (Evolution & Variants)
+
+minikube는 addon, dashboard, local image loading 등 학습 편의 기능이 많다. kind는 빠른 cluster 생성과 삭제가 장점이어서 테스트 자동화에 자주 사용된다.
+
+실제 운영 cluster는 local cluster와 다르다. API server 인증, RBAC, audit log, CNI, CSI, ingress, load balancer, upgrade, backup 정책이 별도로 필요하다.
+
+공식 문서는 설치 명령이 바뀔 수 있으므로 실습 전 확인한다. 특히 `kubectl` 설치, minikube driver, kind release는 현재 환경에 맞게 선택해야 한다.
+
+- Kubernetes kubectl 설치: <https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/>
+- minikube 시작: <https://minikube.sigs.k8s.io/docs/start/>
+- kind Quick Start: <https://kind.sigs.k8s.io/docs/user/quick-start/>
+
+## 11. 최종 체크리스트 (Definition of Done)
+
+- [ ] `kubectl version --client=true`가 성공한다.
+- [ ] local cluster가 실행 중이다.
+- [ ] `kubectl config current-context`가 실습 cluster를 가리킨다.
+- [ ] 실습 namespace를 만들고 현재 context에 지정했다.
+- [ ] `kubectl get nodes`와 `kubectl get pods -n kube-system`이 성공한다.
+- [ ] sample Deployment와 Service를 만들고 응답을 확인했다.
+- [ ] `describe`, `logs`, `events`로 장애 단서를 확인할 수 있다.
+- [ ] 실습 리소스와 local cluster 정리 절차를 수행했다.
+
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
+
+Kubernetes 클러스터 설정의 핵심은 설치가 아니라 현재 context와 namespace를 검증하는 것이다. `kubectl`은 API server에 desired state를 보내고, controller와 kubelet이 실제 container 상태를 맞춘다.

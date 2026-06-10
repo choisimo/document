@@ -414,7 +414,7 @@ sequenceDiagram
 
 ## 9. Processor API: Custom Scheduling with Punctuator
 
-The high-level DSL (KStream/KTable) buffers records and relies on commit/cache flush for downstream emission. The **Processor API** gives you direct control over when records are forwarded.
+The high-level DSL (KStream/KTable) buffers records and relies on commit/cache flush for downstream emission. The **Processor API** gives direct control over when records are forwarded.
 
 ### Punctuator scheduling: STREAM_TIME vs WALL_CLOCK_TIME
 
@@ -695,7 +695,7 @@ stateDiagram-v2
 
 ## 16. Topology Inspection and Describe
 
-Before running, you can inspect the topology graph programmatically:
+Before running, the topology graph can be inspected programmatically:
 
 ```
 KafkaStreams app = new KafkaStreams(topology, config);

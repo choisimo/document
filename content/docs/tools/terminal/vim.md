@@ -1,212 +1,230 @@
-# Vim Guide
+# Vim
 
-> Essential Vim commands and workflows
+Vim은 모드 기반 텍스트 편집기다. 일반 편집기처럼 계속 입력하는 방식이 아니라, 이동과 편집 명령을 조합해 텍스트를 바꾼다. 핵심은 키를 많이 외우는 것이 아니라 `operator + motion + object` 문법을 익히는 것이다.
 
----
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-## Mode Overview
+서버나 컨테이너 안에서는 GUI 편집기를 쓸 수 없는 경우가 많다. 설정 파일을 빠르게 고치고, 로그 일부를 복사하고, 원격 환경에서 작은 변경을 적용하려면 터미널 편집기가 필요하다.
 
-```mermaid
-stateDiagram-v2
-    [*] --> Normal: vim file
-    Normal --> Insert: i, a, o
-    Insert --> Normal: Esc
-    Normal --> Visual: v, V, Ctrl+v
-    Visual --> Normal: Esc
-    Normal --> Command: :
-    Command --> Normal: Enter/Esc
+Vim의 목적은 키보드에서 손을 떼지 않고 파일을 탐색하고 수정하는 것이다. 처음에는 낯설지만, 모드와 조합 규칙을 이해하면 반복 편집 작업을 매우 짧은 명령으로 처리할 수 있다.
+
+## 2. 현재 나의 상태 (Baseline)
+
+다음 상태라면 Vim 기본기를 다시 잡아야 한다.
+
+- 입력 모드와 일반 모드의 차이를 헷갈린다.
+- 파일을 저장하고 나가는 명령만 겨우 기억한다.
+- 방향키로만 이동하고 단어, 문장, 문단 단위 이동을 쓰지 않는다.
+- `dd`, `yy`, `p`는 알지만 `ciw`, `di"`, `:%s` 같은 조합을 쓰지 못한다.
+- 검색 후 다음 결과 이동이나 치환 확인을 제대로 하지 못한다.
+- split 창을 열어도 이동과 닫기를 기억하지 못한다.
+
+## 3. 도달하고 싶은 목표 (Target State)
+
+Vim 기본기를 갖추면 다음 상태가 된다.
+
+- 일반 모드, 입력 모드, 비주얼 모드, 명령 모드를 구분한다.
+- 이동 명령과 편집 명령을 조합한다.
+- 단어, 줄, 따옴표 안, 괄호 안, 문단 같은 텍스트 객체를 다룬다.
+- 검색과 치환을 안전하게 사용한다.
+- split 창을 열고 이동하고 닫을 수 있다.
+- 최소한의 `.vimrc`로 줄 번호, 검색, 들여쓰기 설정을 고정한다.
+
+## 4. 시스템 번역 (Data Flow)
+
+Vim 편집 흐름은 다음과 같다.
+
+```text
+파일 열기
+  -> Normal mode
+  -> 이동
+  -> Operator 선택
+  -> Motion 또는 Text Object 선택
+  -> 변경
+  -> 저장
 ```
 
-| Mode | Purpose | Enter | Exit |
-|------|---------|-------|------|
-| **Normal** | Navigation, commands | `Esc` | - |
-| **Insert** | Text editing | `i`, `a`, `o` | `Esc` |
-| **Visual** | Selection | `v`, `V`, `Ctrl+v` | `Esc` |
-| **Command** | Ex commands | `:` | `Enter` |
+모드 전이는 다음처럼 생각한다.
 
----
+```text
+Normal
+  -> Insert
+  -> Normal
+  -> Command
+  -> Normal
+```
 
-## Window Management
+일반 모드는 명령을 내리는 상태다. 입력 모드는 실제 텍스트를 입력하는 상태다. 길을 잃었을 때는 `Esc`를 눌러 일반 모드로 돌아온다.
 
-### Split Windows
+## 5. 핵심 구성요소 (Building Blocks)
 
-| Command | Action |
-|---------|--------|
-| `:split` or `:sp` | Horizontal split |
-| `:vsplit` or `:vs` | Vertical split |
-| `:sp filename` | Open file in horizontal split |
-| `:vs filename` | Open file in vertical split |
+- Normal mode: 이동, 삭제, 복사, 붙여넣기, 명령 조합을 수행한다.
+- Insert mode: 텍스트를 입력한다.
+- Visual mode: 범위를 선택한 뒤 명령을 적용한다.
+- Command mode: `:w`, `:q`, `:%s` 같은 Ex 명령을 실행한다.
+- Operator: `d`, `c`, `y`처럼 무엇을 할지 정한다.
+- Motion: `w`, `b`, `$`, `gg`, `G`처럼 어디까지 할지 정한다.
+- Text object: `iw`, `i"`, `a(`, `ip`처럼 구조적 범위를 고른다.
+- Register: 삭제, 복사한 텍스트가 들어가는 저장소다.
+- Buffer: 열린 파일 내용이다.
+- Window: buffer를 보여주는 화면 영역이다.
 
-### Navigate Between Windows
+## 6. 상태 전이 (State Transition)
 
-| Key | Action |
-|-----|--------|
-| `Ctrl+w w` | Next window |
-| `Ctrl+w W` | Previous window |
-| `Ctrl+w h` | Move to left window |
-| `Ctrl+w j` | Move to window below |
-| `Ctrl+w k` | Move to window above |
-| `Ctrl+w l` | Move to right window |
-| `Ctrl+w <number>` | Move to window by number |
+기본 모드 전이는 다음과 같다.
 
-### Resize Windows
+```text
+Normal
+  -> Insert: i, a, o
+  -> Visual: v, V, Ctrl+v
+  -> Command: :
 
-| Key | Action |
-|-----|--------|
-| `Ctrl+w =` | Equal size all windows |
-| `Ctrl+w +` | Increase height |
-| `Ctrl+w -` | Decrease height |
-| `Ctrl+w >` | Increase width |
-| `Ctrl+w <` | Decrease width |
-| `Ctrl+w _` | Maximize height |
-| `Ctrl+w \|` | Maximize width |
+Insert
+  -> Normal: Esc
 
-### Close Windows
+Visual
+  -> Normal: Esc
 
-| Command | Action |
-|---------|--------|
-| `:q` | Close current window |
-| `:qa` | Close all windows |
-| `Ctrl+w c` | Close current window |
-| `Ctrl+w o` | Close all except current |
+Command
+  -> Normal: Enter 또는 Esc
+```
 
----
+파일 저장 상태도 구분해야 한다.
 
-## Essential Commands
+```text
+clean
+  -> modified
+  -> written
+  -> quit
+```
 
-### Navigation
+수정한 파일에서 `:q`가 실패하는 것은 정상이다. 저장하지 않은 변경을 버리려면 `:q!`를 명시해야 한다.
 
-| Key | Action |
-|-----|--------|
-| `h j k l` | Left, Down, Up, Right |
-| `w` / `b` | Next/previous word |
-| `0` / `$` | Start/end of line |
-| `gg` / `G` | Start/end of file |
-| `Ctrl+d/u` | Page down/up |
-| `:<n>` | Go to line n |
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-### Editing
+- 모드를 잃어버리면 먼저 `Esc`를 누른다.
+- 변경 전 검색 범위와 치환 범위를 확인한다.
+- 전체 치환은 먼저 `c` 플래그로 확인하며 실행한다.
+- 운영 서버 설정 파일은 편집 전 백업하거나 버전 관리 상태를 확인한다.
+- `:q!`는 저장하지 않은 변경을 버린다는 뜻임을 알고 사용한다.
+- 붙여넣기 전 현재 커서 위치와 모드를 확인한다.
+- root 권한으로 연 파일은 필요한 범위만 수정한다.
+- 복잡한 반복 편집은 한 줄에서 검증한 뒤 전체 범위에 적용한다.
 
-| Key | Action |
-|-----|--------|
-| `i` | Insert before cursor |
-| `a` | Insert after cursor |
-| `o` | New line below |
-| `O` | New line above |
-| `x` | Delete character |
-| `dd` | Delete line |
-| `yy` | Yank (copy) line |
-| `p` | Paste after cursor |
-| `u` | Undo |
-| `Ctrl+r` | Redo |
+## 8. 가장 작은 예제 (Minimal Viable Example)
 
-### Search & Replace
+파일을 열고 저장하고 종료한다.
 
-| Command | Action |
-|---------|--------|
-| `/pattern` | Search forward |
-| `?pattern` | Search backward |
-| `n` / `N` | Next/previous match |
-| `:%s/old/new/g` | Replace all |
-| `:%s/old/new/gc` | Replace with confirmation |
+```bash
+vim app.conf
+```
 
-## Command + Object Combinations
-Vim's power comes from combining **Operators** (Verbs) with **Motions/Text Objects** (Nouns).
-
-**Structure:** `[Number] + [Operator] + [Text Object]`
-
-### 1. Operators (Verbs)
-| Key | Action |
-|-----|--------|
-| `d` | Delete (Cut) |
-| `c` | Change (Delete & Enter Insert Mode) |
-| `y` | Yank (Copy) |
-| `v` | Visual Selection |
-
-### 2. Text Objects (Nouns)
-| Key | Context | Description |
-|-----|---------|-------------|
-| **w** | Word | From cursor to start of next word |
-| **b** | Back | From cursor to start of previous word |
-| **e** | End | From cursor to end of current word |
-| **$** | Line End | From cursor to end of line |
-| **0** | Line Start | From cursor to start of line |
-| **G** | File End | From cursor to end of file |
-| **gg** | File Start | From cursor to start of file |
-
-### 3. "Inside" and "Around" Objects
-Use these for structured text like code or paragraphs.
-*   **i** (Inner): The object itself (excluding whitespace/surroundings)
-*   **a** (Around): The object + surrounding whitespace/brackets
-
-| Key | Object | Example Action (`d` + key) |
-|-----|--------|----------------------------|
-| `iw` | Inner Word | `diw` (Delete word under cursor) |
-| `aw` | Around Word | `daw` (Delete word + space) |
-| `ip` | Inner Paragraph | `dip` (Delete current paragraph) |
-| `i"` | Inside Quotes | `di"` (Delete text inside "") |
-| `a"` | Around Quotes | `da"` (Delete "" and text inside) |
-| `i(` | Inside Parentheses | `di(` (Delete text inside ()) |
-| `a(` | Around Parentheses | `da(` (Delete () and text inside) |
-| `i{` | Inside Braces | `di{` (Delete text inside {}) |
-| `it` | Inside Tag | `dit` (Delete text inside HTML tag) |
-
-### 4. Common Examples
-| Combination | Description |
-|-------------|-------------|
-| `ciw` | Change inner word (most common for editing variable names) |
-| `ci"` | Change text inside quotes |
-| `dt"` | Delete until next quote (T for 'Till') |
-| `ct.` | Change until next dot |
-| `d$` | Delete to end of line |
-| `yyp` | Duplicate line (Yank, Yank, Paste) |
-| `yap` | Yank paragraph |
-| `ggVG` | Select entire file |
-
-
-### File Operations
-
-| Command | Action |
-|---------|--------|
-| `:w` | Save |
-| `:q` | Quit |
-| `:wq` or `:x` | Save and quit |
-| `:q!` | Quit without saving |
-| `:e filename` | Open file |
-| `:r filename` | Insert file content |
-
----
-
-## Useful Settings
-
-Add to `~/.vimrc`:
+Vim 안에서 다음을 사용한다.
 
 ```vim
-" Basic settings
-set number          " Show line numbers
-set relativenumber  " Relative line numbers
-set tabstop=4       " Tab width
-set shiftwidth=4    " Indent width
-set expandtab       " Spaces instead of tabs
-set autoindent      " Auto indentation
-set smartindent     " Smart indentation
-
-" Search
-set hlsearch        " Highlight search
-set incsearch       " Incremental search
-set ignorecase      " Case insensitive
-set smartcase       " Case sensitive if uppercase
-
-" UI
-set cursorline      " Highlight current line
-set showmatch       " Show matching brackets
-set wildmenu        " Command completion menu
-syntax on           " Syntax highlighting
+:w
+:q
+:wq
+:q!
 ```
 
----
+기본 이동과 편집은 다음부터 익힌다.
 
-## Related Documentation
+| 키 | 의미 |
+| --- | --- |
+| `h`, `j`, `k`, `l` | 좌, 하, 상, 우 |
+| `w`, `b`, `e` | 다음 단어, 이전 단어, 단어 끝 |
+| `0`, `$` | 줄 시작, 줄 끝 |
+| `gg`, `G` | 파일 처음, 파일 끝 |
+| `i`, `a`, `o` | 입력 시작 |
+| `x`, `dd`, `yy`, `p` | 문자 삭제, 줄 삭제, 줄 복사, 붙여넣기 |
+| `u`, `Ctrl+r` | undo, redo |
 
-- [Tmux Guide](tmux.md)
-- [Linux Commands](linux-commands.md)
+Vim 문법의 핵심 조합은 다음과 같다.
+
+| 조합 | 의미 |
+| --- | --- |
+| `dw` | 단어 끝까지 삭제 |
+| `ciw` | 현재 단어 변경 |
+| `di"` | 따옴표 안 내용 삭제 |
+| `ci(` | 괄호 안 내용 변경 |
+| `d$` | 줄 끝까지 삭제 |
+| `yyp` | 현재 줄 복제 |
+| `ggVG` | 전체 파일 선택 |
+
+검색과 치환은 다음부터 시작한다.
+
+```vim
+/pattern
+n
+N
+:%s/old/new/gc
+```
+
+split은 다음처럼 쓴다.
+
+```vim
+:split
+:vsplit
+Ctrl+w w
+Ctrl+w h
+Ctrl+w j
+Ctrl+w k
+Ctrl+w l
+Ctrl+w q
+```
+
+최소 `.vimrc` 예시는 다음과 같다.
+
+```vim
+set number
+set relativenumber
+set tabstop=4
+set shiftwidth=4
+set expandtab
+set autoindent
+set hlsearch
+set incsearch
+set ignorecase
+set smartcase
+syntax on
+```
+
+## 9. 실패 사례 (What could go wrong?)
+
+- 입력 모드에서 명령을 치고 있는데 왜 동작하지 않는지 모른다.
+- 일반 모드에서 텍스트를 입력한다고 생각해 기존 내용이 삭제된다.
+- `:%s/old/new/g`를 확인 없이 실행해 파일 전체가 잘못 바뀐다.
+- `:q!`로 저장하지 않은 변경을 버린다.
+- root 권한으로 설정 파일을 열고 잘못 저장해 서비스가 기동하지 않는다.
+- split 창과 buffer를 혼동해 창만 닫았는데 파일이 닫힌 줄 안다.
+- 붙여넣기 위치를 확인하지 않아 설정 블록 안에 잘못 들어간다.
+
+## 10. 뇌 확장하기 (Evolution & Variants)
+
+처음에는 모드, 저장, 이동, 삭제, 복사만 익힌다. 이후 다음 순서로 확장한다.
+
+- operator와 motion 조합을 연습한다.
+- `i`와 `a` 텍스트 객체를 익힌다.
+- 검색 후 `cgn` 같은 반복 편집을 배운다.
+- macro로 반복 작업을 녹화한다.
+- quickfix, buffer, tab, split의 차이를 익힌다.
+- 플러그인은 기본 편집 문법이 익숙해진 뒤 추가한다.
+- 원격 서버에서는 최소 설정으로도 편집할 수 있게 유지한다.
+
+Vim을 IDE처럼 만들 수는 있지만, 가장 오래 남는 생산성은 기본 문법에서 나온다.
+
+## 11. 최종 체크리스트 (Definition of Done)
+
+- [ ] `Esc`로 일반 모드에 돌아갈 수 있다.
+- [ ] `:w`, `:q`, `:wq`, `:q!`의 차이를 안다.
+- [ ] `w`, `b`, `0`, `$`, `gg`, `G`로 이동할 수 있다.
+- [ ] `d`, `c`, `y`를 motion과 조합할 수 있다.
+- [ ] `ciw`, `di"`, `ci(` 같은 텍스트 객체를 사용할 수 있다.
+- [ ] 검색 후 `n`, `N`으로 이동할 수 있다.
+- [ ] 전체 치환에는 `gc` 확인 플래그를 붙인다.
+- [ ] split을 열고 `Ctrl+w` 조합으로 이동할 수 있다.
+
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
+
+Vim은 입력창이 아니라 모드 기반 편집기이며, 강력한 편집은 `____` 모드에서 `____`와 `____`를 조합할 때 나온다.

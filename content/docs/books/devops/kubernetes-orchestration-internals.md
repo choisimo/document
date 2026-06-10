@@ -6,7 +6,7 @@
 
 ## 1. The Control Plane: etcd as the Ground Truth
 
-Every decision Kubernetes makes flows through a single source of truth: **etcd**, a distributed key-value store implementing the **Raft consensus algorithm**. When you `kubectl apply` a manifest, the journey begins not at the scheduler or kubelet — it begins at etcd.
+Every decision Kubernetes makes flows through a single source of truth: **etcd**, a distributed key-value store implementing the **Raft consensus algorithm**. After `kubectl apply` submits a manifest, the journey begins not at the scheduler or kubelet — it begins at etcd.
 
 ```mermaid
 flowchart TD
@@ -83,7 +83,7 @@ flowchart LR
 
 ### Resource Bin-Packing vs. Spreading
 
-`LeastAllocated` scores nodes higher when they have *more* free resources — this spreads pods. `MostAllocated` scores nodes with *less* free resources — this bins-packs. The scheduler plugin framework lets you swap these.
+`LeastAllocated` scores nodes higher when they have *more* free resources — this spreads pods. `MostAllocated` scores nodes with *less* free resources — this bins-packs. The scheduler plugin framework makes these strategies swappable.
 
 ```mermaid
 stateDiagram-v2
@@ -272,7 +272,7 @@ flowchart TD
 
 ### Deployment Controller Deep Dive
 
-When you update a Deployment's image, the Deployment Controller orchestrates a **rolling update** by managing ReplicaSets:
+When a Deployment image is updated, the Deployment Controller orchestrates a **rolling update** by managing ReplicaSets:
 
 ```mermaid
 sequenceDiagram

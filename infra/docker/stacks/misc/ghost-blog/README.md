@@ -6,7 +6,7 @@ Self-hosted blogging platform with Caddy reverse proxy and automated backups.
 
 ```bash
 cp .env.example .env
-# Edit .env with your settings
+# Edit .env with environment-specific settings
 
 # Create required directories
 mkdir -p caddy/{conf,site,data,config}

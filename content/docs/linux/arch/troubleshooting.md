@@ -1,394 +1,245 @@
-# 🛠️ Arch Linux 문제 해결 가이드
+# Arch Linux 문제 해결
 
-> 📚 **목차**
-> - [🚀 부팅 문제](#-부팅-문제)
-> - [🔧 설치 문제](#-설치-문제)
-> - [🌐 네트워크 문제](#-네트워크-문제)
-> - [📦 패키지 관리 문제](#-패키지-관리-문제)
-> - [🎨 그래픽 문제](#-그래픽-문제)
-> - [🔊 오디오 문제](#-오디오-문제)
-> - [⌨️ 입력 문제](#️-입력-문제)
-> - [🛡️ 보안 문제](#️-보안-문제)
+이 문서는 Arch Linux에서 부팅, 네트워크, 패키지, 그래픽, 오디오, 입력 문제를 진단하는 순서를 정리한다. 목표는 임의 명령을 복사해 실행하는 것이 아니라 로그와 상태를 보고 문제 범위를 좁히는 것이다.
 
----
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-## 🚀 부팅 문제
+Arch는 rolling release 배포판이라 package update, kernel, driver, bootloader, desktop stack 변화가 빠르다. 문제가 생겼을 때 “어제 되던 설정”만 믿으면 원인을 놓치기 쉽다.
 
-### ⚠️ UEFI 부팅 실패: GRUB 설치 경로 오류
+문제 해결 문서는 해결책 목록보다 관측 순서가 중요하다. 어떤 로그를 보고, 어떤 상태를 확인하고, 어떤 변경을 되돌릴지 정해야 한다.
 
-```mermaid
-graph TD
-    A[💻 시스템 부팅] --> B{UEFI 펌웨어}
-    B --> C[ESP 파티션 검색]
-    C --> D{.efi 파일 발견?}
-    D -->|❌ 없음| E[❌ 부팅 실패]
-    D -->|✅ 발견| F[GRUB 로더 실행]
-    F --> G[커널 로드]
-    G --> H[✅ 부팅 성공]
-    
-    style E fill:#ffcccc
-    style H fill:#ccffcc
+## 2. 현재 나의 상태 (Baseline)
+
+기존 문서는 GRUB, network, pacman key, mirror, graphics, audio, Korean input, firewall, auto update를 한 번에 다룬다. 보완해야 할 점은 다음과 같다.
+
+- 일부 명령이 현재 기본 stack과 다를 수 있다.
+- PulseAudio 중심 설명이 PipeWire 기반 환경과 섞일 수 있다.
+- 자동 업데이트 예제가 rolling release 운영에는 위험할 수 있다.
+- 문제 해결 전 로그와 최근 변경 확인 절차가 약하다.
+- 복구용 live ISO와 chroot 흐름이 충분히 분리되지 않았다.
+
+## 3. 도달하고 싶은 목표 (Target State)
+
+목표는 다음 작업을 수행할 수 있는 상태다.
+
+- 최근 boot journal과 failed unit을 확인한다.
+- UEFI, ESP, GRUB, fstab 문제를 분리한다.
+- NetworkManager와 DNS 상태를 분리해 확인한다.
+- pacman database, mirror, keyring 문제를 구분한다.
+- graphics driver와 display manager 문제를 분리한다.
+- PipeWire, ALSA, Bluetooth audio 문제를 단계별로 확인한다.
+- 문제 변경 전후를 기록하고 rollback한다.
+
+## 4. 시스템 번역 (Data Flow)
+
+문제 해결 흐름은 다음과 같다.
+
+```text
+symptom observed
+  -> recent change identified
+  -> logs collected
+  -> failing component isolated
+  -> one fix applied
+  -> reboot or service restart
+  -> verification
 ```
 
-#### 🔍 **문제 원인**
+Arch 문제는 package update, configuration drift, kernel module, firmware, user service 상태가 함께 영향을 줄 수 있다.
 
-UEFI 환경에서 GRUB 부트로더를 `/boot/efi`가 아닌 `/boot`에 설치하면 시스템이 부팅되지 않습니다.
+## 5. 핵심 구성요소 (Building Blocks)
 
-> ⚡ **핵심 원리**: UEFI 펌웨어는 오직 **EFI 시스템 파티션(ESP)**에서만 부팅 파일을 찾도록 설계됨
+`journalctl`은 systemd journal을 조회한다. 부팅 실패, service 실패, driver error의 첫 단서다.
 
-#### 📋 **부팅 과정 분석**
+`systemctl --failed`는 실패한 system unit을 보여준다.
 
-| 단계 | 담당자 | 역할 | 지원 파일시스템 |
-|------|--------|------|----------------|
-| **1단계** | 🔧 UEFI 펌웨어 | 하드웨어 초기화, .efi 파일 검색 | FAT32만 지원 |
-| **2단계** | 📂 GRUB 부트로더 | 커널/initrd 로드, OS 실행 | ext4, Btrfs, XFS 등 |
+`pacman.log`는 package install, remove, upgrade 기록을 남긴다.
 
-#### 🚨 **잘못된 설치의 문제점**
+`lsblk`, `blkid`, `findmnt`, `cat /etc/fstab`은 boot와 mount 문제를 확인한다.
 
-```bash
-# ❌ 잘못된 설치 (부팅 불가)
-grub-install --target=x86_64-efi --bootloader-id=GRUB /boot
+`ip`, `nmcli`, `resolvectl`은 network와 DNS 문제를 확인한다.
 
-# ✅ 올바른 설치
-grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB
+`lspci -k`, `lsmod`, `modinfo`는 driver와 kernel module 상태를 확인한다.
+
+`pactl`, `wpctl`, `aplay`는 audio stack 상태를 확인한다.
+
+## 6. 상태 전이 (State Transition)
+
+부팅 문제는 다음 순서로 좁힌다.
+
+```text
+firmware loads boot entry
+  -> bootloader loads kernel and initramfs
+  -> kernel mounts root
+  -> systemd starts units
+  -> graphical target starts
 ```
 
-#### 📁 **디렉토리 역할 구분**
+네트워크 문제는 다음 순서로 좁힌다.
 
-| 항목 | `/boot/efi` (ESP 마운트) | `/boot` (리눅스 디렉토리) |
-|------|-------------------------|--------------------------|
-| **역할** | 🔧 펌웨어용 부트로더 저장소 | 📂 GRUB용 커널/설정 저장소 |
-| **내용물** | `grubx64.efi`, `bootx64.efi` | `vmlinuz`, `initrd.img`, `grub.cfg` |
-| **파일시스템** | FAT32 (필수) | ext4, Btrfs, XFS 등 |
-| **접근자** | UEFI 펌웨어 | GRUB 부트로더 |
-
-#### 🔧 **해결 방법**
-
-1. **ESP 파티션 확인**
-```bash
-lsblk -f | grep -i fat
+```text
+link up
+  -> IP assigned
+  -> default route exists
+  -> DNS resolves
+  -> remote service reachable
 ```
 
-2. **올바른 GRUB 재설치**
+패키지 문제는 다음 순서로 좁힌다.
+
+```text
+mirror reachable
+  -> database synced
+  -> keyring valid
+  -> package transaction complete
+  -> service or reboot if needed
+```
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- 원인을 확인하기 전 여러 fix를 한 번에 적용하지 않는다.
+- `pacman -Syu` 중단 후에는 임의로 재실행하기 전 lock과 partial upgrade 상태를 확인한다.
+- Arch에서는 partial upgrade 상태를 만들지 않는다.
+- Bootloader와 fstab 작업 전 live ISO 복구 경로를 준비한다.
+- `/etc/pacman.d/mirrorlist`, `/etc/fstab`, bootloader config는 수정 전 백업한다.
+- Display manager 문제와 kernel graphics driver 문제를 분리한다.
+- 자동 `pacman -Syu --noconfirm`은 운영 기본값으로 두지 않는다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+최근 부팅 로그와 실패 unit을 확인한다.
+
 ```bash
-# ESP 파티션 마운트
-mount /dev/sda1 /boot/efi
+systemctl --failed
+journalctl -p warning -b --no-pager
+journalctl -b -1 -p warning --no-pager
+tail -n 100 /var/log/pacman.log
+```
 
-# GRUB 올바르게 설치
-grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB
+부팅과 mount 상태를 확인한다.
 
-# 설정 파일 생성
+```bash
+bootctl status
+efibootmgr -v
+lsblk -f
+findmnt
+cat /etc/fstab
+```
+
+GRUB UEFI를 복구해야 하면 live ISO로 부팅한 뒤 root와 ESP를 mount하고 chroot한다.
+
+```bash
+mount /dev/nvme0n1p3 /mnt
+mount /dev/nvme0n1p1 /mnt/boot/efi
+arch-chroot /mnt
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=ARCH
 grub-mkconfig -o /boot/grub/grub.cfg
 ```
 
-### 🆘 기타 부팅 문제
-
-#### 🌑 **검은 화면 / 커서만 깜빡임**
-
-**원인**: 그래픽 드라이버 문제
+NetworkManager 상태를 확인한다.
 
 ```bash
-# 복구 모드로 부팅 후
-sudo pacman -S xf86-video-vesa  # 범용 드라이버
-sudo pacman -S nvidia           # NVIDIA 카드
-sudo pacman -S xf86-video-amdgpu # AMD 카드
+systemctl status NetworkManager
+nmcli device status
+nmcli connection show
+ip addr show
+ip route
+resolvectl status
+ping -c 3 archlinux.org
 ```
 
-#### 🔄 **무한 부팅 루프**
-
-**해결책**:
-```bash
-# systemd 서비스 상태 확인
-systemctl --failed
-
-# 문제 서비스 비활성화
-systemctl disable [서비스명]
-```
-
----
-
-## 🔧 설치 문제
-
-### 📡 **인터넷 연결 실패**
-
-#### 🌐 **유선 연결**
-```bash
-# 네트워크 인터페이스 확인
-ip link
-
-# DHCP로 IP 획득
-dhcpcd [인터페이스명]
-
-# 연결 테스트
-ping archlinux.org
-```
-
-#### 📶 **무선 연결 (iwctl)**
-```bash
-# iwctl 실행
-iwctl
-
-# 장치 확인
-[iwd]# device list
-
-# 네트워크 스캔
-[iwd]# station wlan0 scan
-
-# 네트워크 목록 보기
-[iwd]# station wlan0 get-networks
-
-# 연결
-[iwd]# station wlan0 connect "WiFi_이름"
-```
-
-### 💾 **디스크 파티션 문제**
-
-#### 🎯 **UEFI 시스템 파티션 생성**
+무선 네트워크를 다시 연결한다.
 
 ```bash
-# 파티션 도구 실행
-fdisk /dev/sda
-
-# 파티션 생성 순서
-# 1. ESP: 512MB, type=EFI System (1)
-# 2. SWAP: 4GB, type=Linux swap (19)
-# 3. ROOT: 나머지, type=Linux filesystem (20)
-
-# 포맷
-mkfs.fat -F32 /dev/sda1    # ESP
-mkswap /dev/sda2           # SWAP
-mkfs.ext4 /dev/sda3        # ROOT
-```
-
----
-
-## 🌐 네트워크 문제
-
-### 🔌 **NetworkManager 설정**
-
-```bash
-# NetworkManager 설치 및 활성화
-sudo pacman -S networkmanager
-sudo systemctl enable NetworkManager
-sudo systemctl start NetworkManager
-
-# 무선 연결 관리
 nmcli device wifi list
-nmcli device wifi connect "WiFi_이름" password "비밀번호"
+nmcli device wifi connect SSID_NAME password WIFI_PASSWORD
 ```
 
-### 🌍 **DNS 문제**
+Pacman 문제를 확인한다.
 
 ```bash
-# DNS 서버 설정
-echo 'nameserver 8.8.8.8' | sudo tee /etc/resolv.conf
-echo 'nameserver 1.1.1.1' | sudo tee -a /etc/resolv.conf
-
-# systemd-resolved 사용시
-sudo systemctl enable systemd-resolved
-```
-
----
-
-## 📦 패키지 관리 문제
-
-### 🔐 **PGP 키 오류**
-
-```bash
-# 키링 초기화
+sudo pacman -Syu
+sudo pacman -Qkk pacman
 sudo pacman-key --init
-
-# 키 업데이트
 sudo pacman-key --populate archlinux
-
-# 키 새로고침
-sudo pacman-key --refresh-keys
 ```
 
-### 🔄 **미러 최적화**
+Mirror를 재정렬하려면 먼저 기존 파일을 백업한다.
 
 ```bash
-# Reflector 설치
+sudo cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
 sudo pacman -S reflector
-
-# 빠른 미러 자동 설정
-sudo reflector --country 'South Korea' --age 12 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
-
-# 패키지 데이터베이스 업데이트
-sudo pacman -Syy
+sudo reflector --country 'South Korea' --country 'Japan' --age 12 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
+sudo pacman -Syyu
 ```
 
----
-
-## 🎨 그래픽 문제
-
-### 🖥️ **X11 시작 실패**
+그래픽 driver 상태를 확인한다.
 
 ```bash
-# X11 로그 확인
-cat /var/log/Xorg.0.log | grep EE
-
-# 기본 드라이버 설치
-sudo pacman -S xorg-server xorg-xinit
+lspci -k | rg -A3 -i 'vga|3d|display'
+lsmod | rg 'nvidia|amdgpu|i915|nouveau'
+journalctl -b | rg -i 'drm|nvidia|amdgpu|i915|kwin|sddm|gdm'
+systemctl status sddm
 ```
 
-### 🎮 **게임/3D 성능 문제**
+Audio 상태를 확인한다.
 
 ```bash
-# Vulkan 지원 (NVIDIA)
-sudo pacman -S vulkan-icd-loader nvidia-utils
-
-# Vulkan 지원 (AMD)
-sudo pacman -S vulkan-icd-loader vulkan-radeon
-
-# 32비트 지원 (Steam 등)
-sudo pacman -S lib32-nvidia-utils  # NVIDIA
-sudo pacman -S lib32-vulkan-radeon # AMD
-```
-
----
-
-## 🔊 오디오 문제
-
-### 🎵 **PulseAudio 설정**
-
-```bash
-# PulseAudio 설치
-sudo pacman -S pulseaudio pulseaudio-alsa pavucontrol
-
-# 사용자 서비스 시작
-systemctl --user enable pulseaudio
-systemctl --user start pulseaudio
-
-# 오디오 장치 확인
-pactl list sinks short
-```
-
-### 🎧 **ALSA 문제**
-
-```bash
-# ALSA 유틸리티 설치
-sudo pacman -S alsa-utils
-
-# 음소거 해제
-amixer sset Master unmute
-amixer sset Master 70%
-
-# 사운드 카드 확인
+systemctl --user status pipewire
+systemctl --user status wireplumber
+wpctl status
+pactl info
 aplay -l
 ```
 
----
-
-## ⌨️ 입력 문제
-
-### 🇰🇷 **한글 입력기 문제**
-
-#### **IBus 설정**
-```bash
-# IBus 설치
-sudo pacman -S ibus ibus-hangul
-
-# 환경 변수 설정 (~/.bashrc)
-export GTK_IM_MODULE=ibus
-export QT_IM_MODULE=ibus
-export XMODIFIERS=@im=ibus
-
-# IBus 시작
-ibus-daemon -drx
-```
-
-#### **Fcitx5 설정**
-```bash
-# Fcitx5 설치
-sudo pacman -S fcitx5 fcitx5-hangul fcitx5-configtool
-
-# 환경 변수 설정
-export GTK_IM_MODULE=fcitx
-export QT_IM_MODULE=fcitx
-export XMODIFIERS=@im=fcitx
-
-# 자동 시작 설정
-echo "fcitx5 &" >> ~/.xprofile
-```
-
----
-
-## 🛡️ 보안 문제
-
-### 🔒 **방화벽 설정**
+한글 입력기는 Fcitx5 기준으로 확인한다.
 
 ```bash
-# UFW 설치 및 설정
-sudo pacman -S ufw
-sudo ufw enable
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
-
-# 특정 포트 허용
-sudo ufw allow ssh
-sudo ufw allow 80/tcp
+pacman -Qs fcitx5
+echo "$GTK_IM_MODULE"
+echo "$QT_IM_MODULE"
+echo "$XMODIFIERS"
 ```
 
-### 🛡️ **업데이트 자동화**
+## 9. 실패 사례 (What could go wrong?)
 
-```bash
-# 자동 업데이트 스크립트 생성
-sudo tee /etc/systemd/system/arch-update.service << EOF
-[Unit]
-Description=Arch Linux Update
+부팅 실패 후 root partition만 mount하고 ESP를 mount하지 않은 채 GRUB을 설치하면 잘못된 위치에 파일이 생길 수 있다.
 
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/pacman -Syu --noconfirm
-EOF
+`pacman -Sy package`만 실행하면 partial upgrade 위험이 있다. Arch에서는 system 전체 upgrade와 package 설치의 관계를 조심해야 한다.
 
-# 타이머 설정
-sudo tee /etc/systemd/system/arch-update.timer << EOF
-[Unit]
-Description=Run Arch Update Weekly
+Mirror가 느리다고 무작정 `pacman -Syy`를 반복하면 문제 원인을 놓칠 수 있다. DNS, TLS, mirror status, keyring을 함께 본다.
 
-[Timer]
-OnCalendar=weekly
-Persistent=true
+NVIDIA driver는 kernel version과 module package가 맞아야 한다. 커널 업데이트 후 재부팅하지 않으면 module mismatch가 발생할 수 있다.
 
-[Install]
-WantedBy=timers.target
-EOF
+Display manager가 실패해도 그래픽 driver 문제가 아닐 수 있다. `startplasma-wayland`, SDDM, KWin, user config 문제를 분리한다.
 
-sudo systemctl enable arch-update.timer
-```
+Audio가 안 나올 때 PulseAudio 명령만 실행하면 PipeWire 기반 환경에서 엉뚱한 결론을 낼 수 있다. `wpctl status`와 user service를 먼저 본다.
 
----
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-## 📞 추가 도움 받기
+문제가 package update 직후 발생했다면 `/var/log/pacman.log`에서 변경된 package를 먼저 확인한다. 원인 후보를 좁힌 뒤 Arch News와 package bug tracker를 확인한다.
 
-### 🌍 **커뮤니티 리소스**
+복구가 어려우면 Arch ISO로 부팅해 `arch-chroot`로 들어가는 방식이 가장 강력하다. 이때 root, ESP, encrypted volume, Btrfs subvolume mount 순서를 정확히 맞춰야 한다.
 
-| 리소스 | 설명 | 링크 |
-|--------|------|------|
-| 📖 **Arch Wiki** | 공식 문서 | https://wiki.archlinux.org |
-| 💬 **포럼** | 커뮤니티 지원 | https://bbs.archlinux.org |
-| 🐛 **버그 트래커** | 버그 신고 | https://bugs.archlinux.org |
-| 💬 **Reddit** | r/archlinux | https://reddit.com/r/archlinux |
+그래픽과 desktop 문제는 Wayland와 X11에서 증상이 다를 수 있다. Plasma, GNOME, SDDM, GDM은 각각 log 위치와 user config가 다르다.
 
-### 🔍 **로그 확인 명령어**
+최신 절차는 공식 문서를 기준으로 확인한다.
 
-```bash
-# 시스템 로그
-journalctl -xe
+- Arch installation guide: <https://wiki.archlinux.org/title/Installation_guide>
+- GRUB: <https://wiki.archlinux.org/title/GRUB>
+- NetworkManager: <https://wiki.archlinux.org/title/NetworkManager>
+- KDE: <https://wiki.archlinux.org/title/KDE>
 
-# 부팅 로그
-dmesg | tail -20
+## 11. 최종 체크리스트 (Definition of Done)
 
-# 패키지 로그
-tail -f /var/log/pacman.log
+- [ ] 최근 변경과 pacman log를 확인했다.
+- [ ] `systemctl --failed`와 journal warning을 확인했다.
+- [ ] 부팅 문제에서 ESP, fstab, bootloader를 분리했다.
+- [ ] 네트워크 문제에서 link, IP, route, DNS를 분리했다.
+- [ ] pacman 문제에서 mirror, keyring, partial upgrade를 확인했다.
+- [ ] graphics 문제에서 driver와 display manager를 분리했다.
+- [ ] audio 문제에서 PipeWire, WirePlumber, ALSA 장치를 확인했다.
+- [ ] 한 번에 하나의 fix만 적용하고 검증했다.
 
-# X11 로그
-cat ~/.local/share/xorg/Xorg.0.log
-```
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
----
-
-> ⚡ **팁**: 문제 해결 시 항상 로그를 먼저 확인하고, 공식 Arch Wiki를 참조하세요!
-> 🚨 **주의**: 중요한 변경사항은 반드시 백업 후 진행하세요!
+Arch 문제 해결은 빠른 명령 복사가 아니라 최근 변경, journal, pacman log, component state를 순서대로 좁히는 작업이다. 하나씩 바꾸고 하나씩 검증해야 원인을 잃지 않는다.

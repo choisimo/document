@@ -1,400 +1,144 @@
-# Redis 설정 가이드
+# Redis 개요 학습 및 기록 노트
 
-Redis를 Docker로 설치하고 Spring Boot와 연동하는 방법을 설명합니다.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-## 개요
+Redis는 빠른 in-memory data structure store로 cache, session store, ranking, queue, pub/sub에 자주 쓰인다. 하지만 Redis를 단순 key-value cache로만 이해하면 TTL, eviction, persistence, memory limit, security, hot key, cache invalidation 문제를 놓치게 된다. Redis는 빠른 만큼 운영 정책을 명확히 잡아야 한다.
 
-Redis는 오픈소스 인메모리 데이터 구조 저장소로, 데이터베이스, 캐시, 메시지 브로커로 사용됩니다.
+이 문서는 원문의 Redis 설정 가이드를 Redis 역할, data type, Docker 실행, persistence, eviction, CLI, monitoring, security 중심으로 재작성한다.
+
+## 2. 현재 나의 상태 (Baseline)
+
+- Redis가 in-memory cache로 쓰인다는 점은 알고 있다.
+- String, Hash, List, Set, Sorted Set, Stream/PubSub의 사용 기준을 더 명확히 해야 한다.
+- `maxmemory`와 eviction policy가 데이터 손실과 오류 동작을 바꾼다는 점을 이해해야 한다.
+- RDB와 AOF persistence가 cache와 source-of-truth 시나리오에서 다르게 의미를 갖는다는 점을 정리해야 한다.
+- 운영 환경에서 외부 노출, password, protected mode, dangerous command 관리가 필요하다.
+
+## 3. 도달하고 싶은 목표 (Target State)
+
+- Redis를 cache, session, queue, ranking, pub/sub 용도별로 선택한다.
+- Docker 또는 host에서 Redis를 실행할 때 volume, config, password, port를 함께 설정한다.
+- TTL과 eviction policy를 데이터 특성에 맞게 고른다.
+- `redis-cli`, `INFO`, `CLIENT LIST`, memory metrics로 상태를 확인한다.
+- 운영 노출 시 bind, firewall, auth, TLS, command rename 같은 보안 기준을 적용한다.
+
+## 4. 시스템 번역 (Data Flow)
 
 ```mermaid
-graph LR
-    subgraph "Application Layer"
-        A[Spring Boot App]
-    end
-    
-    subgraph "Cache Layer"
-        B[(Redis)]
-    end
-    
-    subgraph "Database Layer"
-        C[(PostgreSQL)]
-    end
-    
-    A -->|캐시 조회| B
-    B -->|캐시 미스| A
-    A -->|DB 조회| C
-    A -->|캐시 저장| B
-    
-    style B fill:#dc382d,color:#fff
+flowchart TD
+    A[Application request] --> B{Redis 사용 목적}
+    B -->|cache| C[GET key]
+    C -->|hit| D[Return cached value]
+    C -->|miss| E[Load from DB]
+    E --> F[SET key with TTL]
+    B -->|session| G[Hash/String with TTL]
+    B -->|ranking| H[Sorted Set]
+    B -->|queue| I[List or Stream]
+    F --> J[Memory policy/eviction]
+    G --> J
+    H --> J
+    I --> J
 ```
 
-### Redis 사용 사례
+Redis data flow는 application이 어떤 consistency와 lifetime을 기대하는지에 따라 key design, TTL, persistence, eviction 동작이 달라진다.
 
-| 사용 사례 | 설명 | 데이터 구조 |
-|-----------|------|-------------|
-| 세션 스토어 | 사용자 세션 관리 | Hash |
-| 캐싱 | API 응답, DB 쿼리 결과 | String |
-| 실시간 순위표 | 게임 리더보드 | Sorted Set |
-| 메시지 큐 | 비동기 작업 처리 | List, Stream |
-| Pub/Sub | 실시간 알림 | Pub/Sub |
+## 5. 핵심 구성요소 (Building Blocks)
 
-## Docker로 Redis 설치
+| 구성요소 | 대표 명령 | 사용 사례 |
+| --- | --- | --- |
+| String | `SET`, `GET`, `EXPIRE` | API response cache, simple value |
+| Hash | `HSET`, `HGETALL` | session/profile field 저장 |
+| List | `LPUSH`, `RPOP` | 단순 queue |
+| Set | `SADD`, `SMEMBERS` | tag, membership |
+| Sorted Set | `ZADD`, `ZRANGE` | ranking, leaderboard |
+| Pub/Sub | `PUBLISH`, `SUBSCRIBE` | 실시간 알림 |
+| Stream | `XADD`, `XREADGROUP` | consumer group 기반 event stream |
+| RDB | snapshot persistence | 빠른 재시작, snapshot 손실 가능 |
+| AOF | append-only persistence | 더 강한 durability, write overhead |
+| Eviction policy | `allkeys-lru` 등 | memory limit 도달 시 동작 |
 
-### 기본 설치
+## 6. 상태 전이 (State Transition)
 
-```bash
-# Redis 이미지 다운로드
-docker pull redis:7.2
-
-# 기본 실행
-docker run -d \
-  --name redis \
-  -p 6379:6379 \
-  redis:7.2
+```mermaid
+stateDiagram-v2
+    [*] --> KeyMissing
+    KeyMissing --> LoadedFromSource: cache miss
+    LoadedFromSource --> Cached: SET with TTL
+    Cached --> Hit: GET
+    Cached --> Expired: TTL elapsed
+    Cached --> Evicted: maxmemory policy
+    Hit --> Cached
+    Expired --> KeyMissing
+    Evicted --> KeyMissing
 ```
 
-### 프로덕션 환경 설정
+Cache key는 영구 상태가 아니다. TTL 만료, eviction, explicit delete가 모두 정상 상태 전이에 포함된다.
 
-```bash
-docker run -d \
-  --name redis \
-  --restart=always \
-  -p 6379:6379 \
-  -e TZ=Asia/Seoul \
-  -v /srv/redis/data:/data \
-  -v /srv/redis/redis.conf:/usr/local/etc/redis/redis.conf \
-  redis:7.2 redis-server /usr/local/etc/redis/redis.conf
-```
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-### Docker Compose 구성
+- Redis가 source of truth인지 cache layer인지 먼저 정해야 한다.
+- Cache key에는 TTL과 invalidation 전략이 있어야 한다.
+- 운영 환경에서 Redis를 인증 없이 외부에 노출하면 안 된다.
+- `maxmemory`와 eviction policy는 workload 특성에 맞아야 한다.
+- `KEYS pattern`은 큰 keyspace에서 blocking 위험이 있으므로 운영에서는 `SCAN` 계열을 우선한다.
+- AOF/RDB 설정은 성능과 복구 지점 목표를 함께 고려해야 한다.
+- `FLUSHDB`, `FLUSHALL`, `CONFIG`, `DEBUG` 같은 위험 명령은 운영 접근 제어가 필요하다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+Docker Compose 개념 예시:
 
 ```yaml
-# docker-compose.yml
-version: '3.8'
-
 services:
   redis:
     image: redis:7.2
-    container_name: redis
-    restart: always
     ports:
       - "6379:6379"
-    environment:
-      - TZ=Asia/Seoul
     volumes:
       - redis_data:/data
-      - ./redis.conf:/usr/local/etc/redis/redis.conf
-    command: redis-server /usr/local/etc/redis/redis.conf
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+    command: redis-server --appendonly yes --requirepass change-me
 
 volumes:
   redis_data:
 ```
 
-## Redis 설정 파일
-
-### 기본 redis.conf
-
-```conf
-# /srv/redis/redis.conf
-
-# 네트워크
-bind 0.0.0.0
-port 6379
-protected-mode yes
-
-# 보안
-requirepass your_secure_password
-
-# 메모리 관리
-maxmemory 256mb
-maxmemory-policy allkeys-lru
-
-# 지속성 (RDB)
-save 900 1
-save 300 10
-save 60 10000
-dbfilename dump.rdb
-dir /data
-
-# AOF (Append Only File)
-appendonly yes
-appendfilename "appendonly.aof"
-appendfsync everysec
-
-# 로깅
-loglevel notice
-logfile ""
-
-# 기타
-daemonize no
-```
-
-### 메모리 정책 옵션
-
-```mermaid
-graph TD
-    A[maxmemory 도달] --> B{제거 정책}
-    B --> C[noeviction<br/>오류 반환]
-    B --> D[allkeys-lru<br/>모든 키 LRU]
-    B --> E[volatile-lru<br/>TTL 있는 키 LRU]
-    B --> F[allkeys-random<br/>무작위 제거]
-    B --> G[volatile-ttl<br/>TTL 짧은 키 우선]
-    
-    style D fill:#e8f5e8
-```
-
-| 정책 | 설명 | 권장 사용 |
-|------|------|-----------|
-| `noeviction` | 메모리 부족 시 오류 반환 | 데이터 손실 불가 |
-| `allkeys-lru` | 모든 키 중 LRU 제거 | 일반 캐시 |
-| `volatile-lru` | TTL 설정된 키 중 LRU | 세션 스토어 |
-| `allkeys-random` | 무작위 제거 | 균등 접근 |
-| `volatile-ttl` | TTL 짧은 키 우선 제거 | TTL 기반 캐시 |
-
-## Spring Boot 연동
-
-### 의존성 추가
-
-```gradle
-// build.gradle
-dependencies {
-    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-}
-```
-
-```xml
-<!-- pom.xml -->
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-data-redis</artifactId>
-</dependency>
-```
-
-### 설정 파일
-
-```yaml
-# application.yml
-spring:
-  redis:
-    host: localhost
-    port: 6379
-    password: your_secure_password
-    timeout: 3000ms
-    lettuce:
-      pool:
-        max-active: 8
-        max-idle: 8
-        min-idle: 2
-        max-wait: -1ms
-```
-
-### Redis Configuration
-
-```java
-@Configuration
-@EnableCaching
-public class RedisConfig {
-
-    @Value("${spring.redis.host}")
-    private String host;
-
-    @Value("${spring.redis.port}")
-    private int port;
-
-    @Value("${spring.redis.password}")
-    private String password;
-
-    @Bean
-    public RedisConnectionFactory redisConnectionFactory() {
-        RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
-        config.setHostName(host);
-        config.setPort(port);
-        config.setPassword(password);
-        return new LettuceConnectionFactory(config);
-    }
-
-    @Bean
-    public RedisTemplate<String, Object> redisTemplate() {
-        RedisTemplate<String, Object> template = new RedisTemplate<>();
-        template.setConnectionFactory(redisConnectionFactory());
-        
-        // 직렬화 설정
-        template.setKeySerializer(new StringRedisSerializer());
-        template.setValueSerializer(new GenericJackson2JsonRedisSerializer());
-        template.setHashKeySerializer(new StringRedisSerializer());
-        template.setHashValueSerializer(new GenericJackson2JsonRedisSerializer());
-        
-        return template;
-    }
-
-    @Bean
-    public CacheManager cacheManager(RedisConnectionFactory factory) {
-        RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
-            .entryTtl(Duration.ofMinutes(30))
-            .serializeKeysWith(
-                RedisSerializationContext.SerializationPair.fromSerializer(
-                    new StringRedisSerializer()))
-            .serializeValuesWith(
-                RedisSerializationContext.SerializationPair.fromSerializer(
-                    new GenericJackson2JsonRedisSerializer()));
-        
-        return RedisCacheManager.builder(factory)
-            .cacheDefaults(config)
-            .build();
-    }
-}
-```
-
-### 사용 예제
-
-#### 캐싱 어노테이션 사용
-
-```java
-@Service
-public class UserService {
-
-    @Cacheable(value = "users", key = "#id")
-    public User findById(Long id) {
-        // DB 조회 (캐시 미스 시에만 실행)
-        return userRepository.findById(id).orElse(null);
-    }
-
-    @CacheEvict(value = "users", key = "#user.id")
-    public User update(User user) {
-        return userRepository.save(user);
-    }
-
-    @CacheEvict(value = "users", allEntries = true)
-    public void clearCache() {
-        // 모든 캐시 삭제
-    }
-}
-```
-
-#### RedisTemplate 직접 사용
-
-```java
-@Service
-@RequiredArgsConstructor
-public class SessionService {
-
-    private final RedisTemplate<String, Object> redisTemplate;
-
-    public void saveSession(String sessionId, UserSession session) {
-        redisTemplate.opsForValue().set(
-            "session:" + sessionId,
-            session,
-            Duration.ofHours(1)
-        );
-    }
-
-    public UserSession getSession(String sessionId) {
-        return (UserSession) redisTemplate.opsForValue()
-            .get("session:" + sessionId);
-    }
-
-    public void deleteSession(String sessionId) {
-        redisTemplate.delete("session:" + sessionId);
-    }
-}
-```
-
-## Redis CLI 사용법
+검증:
 
 ```bash
-# Redis 컨테이너 접속
 docker exec -it redis redis-cli
-
-# 인증
-AUTH your_secure_password
-
-# 기본 명령어
-SET key "value"
-GET key
-DEL key
-KEYS pattern*
-TTL key
-EXPIRE key 3600
-
-# 데이터 구조별 명령어
-# Hash
-HSET user:1 name "John" age 30
-HGET user:1 name
-HGETALL user:1
-
-# List
-LPUSH queue "item1"
-RPOP queue
-
-# Set
-SADD tags "redis" "cache"
-SMEMBERS tags
-
-# Sorted Set
-ZADD leaderboard 100 "player1"
-ZRANGE leaderboard 0 -1 WITHSCORES
-
-# 모니터링
-INFO
+AUTH change-me
+PING
 INFO memory
-MONITOR
 ```
 
-## 모니터링
+이 예제는 Redis 실행의 최소 단위가 image 실행뿐 아니라 data volume, password, persistence, health check까지 포함한다는 점을 보여준다.
 
-### Redis 상태 확인
+## 9. 실패 사례 (What could go wrong?)
 
-```bash
-# 메모리 사용량
-redis-cli INFO memory
+- `maxmemory` 없이 Redis를 운영해 host memory pressure가 발생한다.
+- `noeviction` 정책에서 write가 실패하는데 애플리케이션이 cache write 실패를 처리하지 않는다.
+- Cache TTL이 없어 stale data가 오래 남거나 memory가 계속 증가한다.
+- `allkeys-lru`를 source-of-truth 데이터에 적용해 필요한 key가 제거된다.
+- 운영에서 `MONITOR`를 장시간 실행해 성능에 영향을 준다.
+- `KEYS *`를 대량 keyspace에서 실행해 Redis event loop를 막는다.
+- Redis를 password/firewall 없이 외부에 노출한다.
 
-# 연결된 클라이언트
-redis-cli CLIENT LIST
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-# 명령어 통계
-redis-cli INFO commandstats
+- Spring Boot 연동은 [Spring Boot 연동](springboot-integration.md)에서 cache annotation과 `RedisTemplate` 기준으로 다룬다.
+- High availability는 Sentinel, Cluster, managed Redis로 확장한다.
+- Cache pattern은 cache-aside, write-through, write-behind, refresh-ahead를 비교한다.
+- Serialization은 JSON, String, binary, Java serialization의 호환성과 크기를 비교한다.
+- Observability는 hit ratio, used memory, evicted keys, blocked clients, latency monitor를 함께 본다.
 
-# 실시간 명령어 모니터링
-redis-cli MONITOR
-```
+## 11. 최종 체크리스트 (Definition of Done)
 
-### 주요 메트릭
+- [x] Redis의 주요 data type과 사용 사례를 정리했다.
+- [x] Persistence, eviction, TTL, security 불변식을 포함했다.
+- [x] Docker Compose 기반 최소 실행 예제를 제시했다.
+- [x] CLI와 monitoring에서 확인할 핵심 지표를 설명했다.
+- [x] 원문 Redis overview 문서를 12개 섹션 템플릿으로 재작성했다.
 
-| 메트릭 | 설명 | 경고 임계값 |
-|--------|------|-------------|
-| `used_memory` | 사용 중인 메모리 | maxmemory의 80% |
-| `connected_clients` | 연결된 클라이언트 수 | 1000+ |
-| `blocked_clients` | 블록된 클라이언트 | 0 초과 |
-| `evicted_keys` | 제거된 키 수 | 증가 추세 |
-| `keyspace_hits/misses` | 캐시 히트율 | 80% 미만 |
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-## 보안 설정
-
-!!! danger "필수 보안 설정"
-    - 강력한 비밀번호 설정 (`requirepass`)
-    - 외부 접근 제한 (`bind` 설정)
-    - `protected-mode yes` 활성화
-    - 방화벽으로 6379 포트 제한
-
-```conf
-# 보안 강화 설정
-bind 127.0.0.1 192.168.1.0/24
-requirepass "복잡한_비밀번호_32자_이상"
-protected-mode yes
-
-# 위험한 명령어 비활성화
-rename-command FLUSHDB ""
-rename-command FLUSHALL ""
-rename-command CONFIG ""
-rename-command DEBUG ""
-```
-
-## 관련 문서
-
-- [JPA 개요](../jpa/overview.md)
-- [Docker 설치](../../development/docker/installation.md)
+Redis는 빠른 저장소이지만, key lifetime과 memory policy를 정하지 않으면 가장 빠르게 장애를 퍼뜨리는 계층이 된다.

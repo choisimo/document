@@ -50,7 +50,7 @@ sudo apt install nginx
    ```nginx
    server {
        listen 80;
-       server_name your-domain.com;
+       server_name example.com;
 
        location / {
            proxy_pass http://localhost:8080;
@@ -101,13 +101,13 @@ sudo apt install nginx
 
 1. 웹 브라우저에서 Guacamole 접속:
    ```
-   http://your-domain.com
+   http://example.com
    ```
 2. 기본 로그인 정보:
    - 사용자 이름: `guacadmin`
    - 비밀번호: `guacadmin`
 
-3. 로그인 후 데이터베이스 설정 변경이 필요할 경우 [Guacamole 관리 가이드](https://guacamole.apache.org/doc/gug/)를 참조하세요.
+3. 로그인 후 데이터베이스 설정 변경이 필요할 경우 [Guacamole 관리 문서](https://guacamole.apache.org/doc/gug/)를 확인한다.
 
 ---
 

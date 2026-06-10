@@ -1,215 +1,194 @@
-# Proxmox 이메일 알림 설정 가이드
+# Proxmox 이메일 알림 설정 기준
 
-Proxmox VE에서는 백업 완료/실패, 디스크 상태, 시스템 이벤트 등에 대한 알림을 이메일로 받을 수 있어 시스템 관리에 매우 유용합니다. 이 가이드에서는 Proxmox에서 이메일 알림을 설정하는 방법을 단계별로 자세히 살펴보겠습니다.
+Proxmox VE 알림은 백업 실패, ZFS/SMART 경고, 시스템 메일, HA 이벤트를 운영자에게 전달하는 경로다. 이 문서는 Proxmox의 알림 시스템에서 SMTP target과 Sendmail/Postfix target을 어떻게 선택하고 검증할지 정리한다.
 
-## 개요 및 중요성
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-Proxmox의 이메일 알림 기능은 백업 상태, 디스크 상태, 시스템 이벤트 등을 실시간으로 모니터링할 수 있게 해주는 중요한 기능입니다. 이 기능을 활성화하면 시스템 문제를 즉시 파악하고 대응할 수 있어 Proxmox를 사용하는 경우 필수적으로 설정하는 것이 좋습니다.
+Proxmox 장애는 조용히 누적될 수 있다. 백업 실패, 디스크 오류, storage full, HA 상태 변화가 UI에만 남으면 운영자는 늦게 발견한다.
 
-## Gmail을 이용한 이메일 알림 설정
+이메일 알림을 설정하면 Proxmox 내부 이벤트를 외부 메일함으로 보낼 수 있다. 다만 Proxmox 8 계열의 알림 시스템은 target, matcher, user email, secret config가 분리되어 있으므로 단순 Postfix 설정만으로 전체 알림이 완성되지 않는다.
 
-가장 일반적으로 사용되는 Gmail을 기준으로 설정 방법을 설명하겠습니다. 다른 이메일 서비스도 유사한 방법으로 설정 가능합니다.
+## 2. 현재 나의 상태 (Baseline)
 
-### 1. Gmail 앱 비밀번호 생성
+기존 문서는 Gmail 앱 비밀번호와 Postfix relay 설정을 중심으로 한다. 또한 Discord webhook을 `/root/.forward`로 연결하는 우회 방식과 Proxmox 8.1 이상 알림 시스템이 함께 섞여 있다.
 
-Gmail에서 2단계 인증을 사용 중인 경우, 앱 비밀번호를 생성해야 합니다.
+보완해야 할 점은 다음과 같다.
 
-1. Google 계정 관리로 이동합니다
-2. 보안 → 2단계 인증 메뉴로 이동합니다
-3. 2단계 인증이 사용 설정되어 있지 않다면 사용 설정으로 변경합니다
-4. 페이지 하단의 "앱 비밀번호" 설정으로 이동합니다
-   - 앱 비밀번호가 보이지 않는 경우 다음 URL로 직접 이동할 수 있습니다: https://accounts.google.com/v3/signin/challenge/pwd?continue=https://myaccount.google.com/apppasswords&service=accountsettings
-5. 앱 이름을 입력하고(예: "Proxmox") "만들기"를 클릭합니다
-6. 생성된 앱 비밀번호를 기록해둡니다(예: "htlumtimtpuoxhil")
+- Proxmox notification target과 legacy sendmail/Postfix 경계가 불명확하다.
+- SMTP target은 시스템 MTA를 거치지 않는다는 점이 빠져 있다.
+- SMTP target secret은 `/etc/pve/priv/notifications.cfg`에 저장된다는 운영 경계가 약하다.
+- Gmail의 “보안 수준이 낮은 앱” 같은 오래된 안내가 남아 있다.
 
-### 2. Postfix 설치 및 설정
+## 3. 도달하고 싶은 목표 (Target State)
 
-이메일 발송에는 Postfix를 사용합니다. SSH나 Proxmox 웹 콘솔을 통해 쉘에 접속한 후 다음 단계를 진행합니다.
+목표는 Proxmox 이벤트가 의도한 recipient에게 안정적으로 도착하는 것이다.
 
-#### 2.1 필요한 패키지 설치
+- Datacenter의 사용자 이메일 주소를 먼저 채운다.
+- Datacenter Notifications에서 target과 matcher를 구성한다.
+- 직접 SMTP relay를 사용할지, Sendmail/Postfix를 사용할지 선택한다.
+- 비밀번호와 token은 root만 읽을 수 있는 Proxmox private config 또는 Postfix secret 파일에 둔다.
+- 테스트 알림과 실제 백업 실패 알림 경로를 모두 확인한다.
+
+## 4. 시스템 번역 (Data Flow)
+
+Proxmox 알림 흐름은 다음처럼 나뉜다.
+
+```text
+Proxmox event
+  -> notification matcher
+  -> notification target
+  -> SMTP relay or sendmail/Postfix
+  -> recipient mailbox
+  -> operator action
+```
+
+SMTP target은 Proxmox가 SMTP relay에 직접 접속한다. Sendmail target은 시스템의 `sendmail` 인터페이스를 호출하고, 표준 Proxmox 설치에서는 보통 Postfix가 이 역할을 제공한다.
+
+## 5. 핵심 구성요소 (Building Blocks)
+
+Notification event는 백업, 시스템 메일, HA, storage 같은 Proxmox 내부 이벤트다.
+
+Notification matcher는 event metadata를 기준으로 어떤 target에 보낼지 결정한다.
+
+Notification target은 실제 목적지다. Proxmox 공식 문서는 mail 기반 target으로 Sendmail과 SMTP를 설명하고, Gotify 같은 다른 target도 제공한다.
+
+SMTP target은 Proxmox가 외부 SMTP relay에 직접 접속한다. 공식 문서는 SMTP target이 시스템 MTA를 사용하지 않으며, delivery 실패 시 queue/retry 메커니즘이 없다고 설명한다.
+
+Sendmail target은 시스템 `sendmail` binary를 사용한다. 표준 Proxmox 설치에서는 Postfix가 sendmail binary를 제공하며, 외부 relay가 필요하면 Postfix smart host 설정이 필요하다.
+
+## 6. 상태 전이 (State Transition)
+
+이메일 알림 설정은 다음 상태로 진행한다.
+
+```text
+recipient 결정
+  -> Proxmox user email 설정
+  -> target 방식 선택
+  -> secret 저장
+  -> matcher 연결
+  -> test notification
+  -> 실제 작업 알림 확인
+  -> 로그 기반 운영
+```
+
+SMTP target을 쓰면 Proxmox 알림 설정 안에서 완료된다. Sendmail target을 쓰면 Proxmox target 설정과 Postfix relay 설정을 모두 검증해야 한다.
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- SMTP 비밀번호, 앱 비밀번호, API token을 문서나 Git에 쓰지 않는다.
+- Proxmox user를 recipient로 쓰려면 해당 user의 email field가 채워져 있어야 한다.
+- SMTP relay의 `from-address`는 relay가 허용하는 주소여야 한다.
+- SMTP target의 실패는 queue/retry 없이 끝날 수 있음을 감안한다.
+- Postfix relay를 쓰면 `/var/log/mail.log` 또는 journal에서 delivery 결과를 확인한다.
+- 백업 알림은 성공 알림만 보지 말고 실패 알림 경로를 반드시 테스트한다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+먼저 Proxmox UI에서 user email을 설정한다.
+
+```text
+Datacenter
+  -> Permissions
+  -> Users
+  -> root@pam 또는 운영자 계정
+  -> E-Mail 입력
+```
+
+Proxmox 알림 시스템을 쓰는 경우 UI에서 SMTP target을 만든다.
+
+```text
+Datacenter
+  -> Notifications
+  -> Notification Targets
+  -> Add
+  -> SMTP
+```
+
+SMTP target에는 relay host, port, encryption mode, username, password, from-address, recipient를 넣는다. 외부 relay가 STARTTLS를 요구하면 mode를 `starttls`로 둔다.
+
+matcher를 추가해 target에 연결한다.
+
+```text
+Datacenter
+  -> Notifications
+  -> Notification Matchers
+  -> Add
+  -> target 선택
+  -> severity 또는 event type 조건 선택
+```
+
+Sendmail target을 쓰고 Postfix를 외부 relay로 보낼 때의 최소 설정은 다음과 같다.
 
 ```bash
-apt-get update
-apt-get install postfix mailutils libsasl2-modules -y
+apt update
+apt install -y postfix mailutils libsasl2-modules ca-certificates
 ```
 
-일부 시스템에서는 `libsasl2-modules` 패키지를 찾을 수 없다는 오류가 발생할 수 있습니다. 이 경우 다음 명령어를 시도해보세요:
+relay credential 파일을 만든다.
+
+```text
+[smtp.example.com]:587 alert@example.com:provider-app-password
+```
+
+Postfix map과 권한을 적용한다.
 
 ```bash
-apt install postfix mailutils libsasl2-2 ca-certificates libsasl2-modules
+postmap /etc/postfix/sasl_passwd
+chmod 600 /etc/postfix/sasl_passwd /etc/postfix/sasl_passwd.db
 ```
 
-#### 2.2 발신 이메일 정보 등록
+Postfix relay 설정을 넣는다.
 
 ```bash
-vim /etc/postfix/sasl_passwd
-```
-또는 nano를 사용하는 경우:
-```bash
-nano /etc/postfix/sasl_passwd
-```
-
-파일에 다음 내용을 입력합니다:
-
-```
-smtp.gmail.com [이메일주소]@gmail.com:[앱비밀번호]
-```
-
-예: `smtp.gmail.com example@gmail.com:htlumtimtpuoxhil`
-
-파일을 저장한 후 다음 명령어를 실행하여 계정 정보를 해시 처리하고 권한을 변경합니다:
-
-```bash
-postmap hash:/etc/postfix/sasl_passwd
-chmod 600 /etc/postfix/sasl_passwd
-```
-
-#### 2.3 Postfix 설정 변경
-
-이제 Postfix 설정 파일을 수정합니다:
-
-```bash
-vim /etc/postfix/main.cf
-```
-또는:
-```bash
-nano /etc/postfix/main.cf
-```
-
-기존의 `relayhost=` 라인을 찾아 주석 처리(앞에 #을 추가)한 후, 파일 하단에 다음 내용을 추가합니다:
-
-```
-inet_protocols = all
-relayhost = smtp.gmail.com:587
-smtp_use_tls = yes
-smtp_sasl_auth_enable = yes
-smtp_sasl_security_options =
-smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd
-smtp_tls_CAfile = /etc/ssl/certs/Entrust_Root_Certification_Authority.pem
-smtp_tls_session_cache_database = btree:/var/lib/postfix/smtp_tls_session_cache
-smtp_tls_session_cache_timeout = 3600s
-```
-
-일부 시스템에서는 Entrust_Root_Certification_Authority.pem 파일이 없을 수 있습니다. 이 경우 다음과 같이 대체할 수 있습니다:
-
-```
-smtp_tls_CAfile = /etc/ssl/certs/ca-certificates.crt
-```
-
-변경사항을 저장한 후 Postfix를 재시작합니다:
-
-```bash
+postconf -e 'relayhost = [smtp.example.com]:587'
+postconf -e 'smtp_sasl_auth_enable = yes'
+postconf -e 'smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd'
+postconf -e 'smtp_sasl_security_options = noanonymous'
+postconf -e 'smtp_tls_security_level = encrypt'
+postconf -e 'smtp_tls_CAfile = /etc/ssl/certs/ca-certificates.crt'
 systemctl reload postfix
 ```
-또는:
-```bash
-postfix reload
-```
 
-### 3. 이메일 발송 테스트
-
-설정이 제대로 되었는지 테스트하기 위해 다음 명령어를 실행합니다:
+테스트 메일을 보낸다.
 
 ```bash
-echo "테스트 이메일" | mail -s "테스트 메일 제목" 수신자이메일주소@example.com
+printf 'proxmox mail test\n' | mail -s 'proxmox mail test' admin@example.com
+journalctl -u postfix -n 100
 ```
 
-이메일이 정상적으로 전송되지 않는 경우, 로그 파일을 확인하여 문제를 해결할 수 있습니다:
+Gmail을 relay로 쓰는 경우 Google 계정 정책을 확인한다. Google 공식 도움말은 앱 비밀번호가 2단계 인증이 켜진 계정에서 사용하는 16자리 코드라고 설명하며, 일부 조직 계정이나 보호 설정에서는 앱 비밀번호 메뉴가 보이지 않을 수 있다.
 
-```bash
-cat /var/log/mail.log
-```
+## 9. 실패 사례 (What could go wrong?)
 
-### 4. 보낸 사람 이름 변경 (선택사항)
+메일이 오지 않는데 Proxmox UI만 확인하면 원인을 놓친다. SMTP target은 Proxmox task/syslog를 보고, Sendmail target은 Postfix 로그까지 확인한다.
 
-기본적으로 이메일은 'root'라는 이름으로 전송됩니다. 보낸 사람 이름을 변경하려면 다음 단계를 따릅니다:
+SMTP target을 사용하면서 delivery retry를 기대하면 안 된다. 공식 문서 기준으로 SMTP target은 시스템 MTA queue/retry를 사용하지 않는다. 재시도와 큐가 중요하면 Postfix relay를 둔다.
 
-```bash
-nano /etc/postfix/header_check
-```
+recipient를 `root@pam`으로 지정했는데 root user email이 비어 있으면 메일이 전송되지 않는다. 사용자 email field를 먼저 확인한다.
 
-파일에 다음 내용을 입력합니다:
+Gmail 또는 회사 SMTP가 `from-address`를 거절하면 인증은 성공해도 메일이 거부될 수 있다. relay 계정이 허용하는 발신 주소를 사용한다.
 
-```
-/From:.*/ REPLACE From: [보낸사람 이름] 
-```
+`.forward`로 Discord나 webhook을 우회 연결하면 root 메일 파이프라인 전체가 외부 스크립트에 의존한다. Proxmox notification target이나 Gotify 같은 공식 target을 우선 검토한다.
 
-예: `/From:.*/ REPLACE From: Proxmox Alert `
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-저장한 후 `/etc/postfix/main.cf` 파일에 다음 라인을 추가합니다:
+중요 알림은 이메일 하나에만 의존하지 않는다. Gotify, Slack/Discord webhook proxy, Grafana Alerting 같은 별도 채널을 병행하면 스팸 필터나 SMTP 장애의 영향을 줄일 수 있다.
 
-```
-smtp_header_checks = regexp:/etc/postfix/header_check
-```
+백업 job은 notification mode가 legacy sendmail인지 notification system인지 확인한다. mode에 따라 `mailto` 설정과 Notification matcher 중 어느 경로가 사용되는지가 달라질 수 있다.
 
-변경사항을 적용하기 위해 Postfix를 재시작합니다:
+ZFS나 SMART 같은 로컬 시스템 메일은 Proxmox notification system으로 변환되거나 sendmail target으로 전달될 수 있다. 디스크 장애 알림은 실제 테스트가 어렵기 때문에 주기적인 test notification과 로그 점검을 운영 절차로 둔다.
 
-```bash
-postfix reload
-```
+## 11. 최종 체크리스트 (Definition of Done)
 
-## Proxmox 웹 UI에서 이메일 설정
+- [ ] 운영자 user의 email field를 채웠다.
+- [ ] SMTP target 또는 Sendmail target 중 하나를 명확히 선택했다.
+- [ ] SMTP 비밀번호와 token을 문서나 Git에 남기지 않았다.
+- [ ] matcher가 실제 target에 연결되어 있다.
+- [ ] Proxmox test notification이 수신함에 도착했다.
+- [ ] 백업 job의 notification mode를 확인했다.
+- [ ] 실패 시 확인할 Proxmox 로그와 Postfix 로그 위치를 알고 있다.
+- [ ] Gmail 또는 외부 relay의 앱 비밀번호/발신 주소 정책을 확인했다.
 
-Proxmox 웹 UI를 통해서도 일부 이메일 설정을 할 수 있습니다:
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-1. Proxmox 웹 UI에 로그인합니다
-2. 데이터센터 > 옵션으로 이동합니다
-3. 'Email from address' 필드를 더블클릭합니다
-4. Proxmox가 발신할 이메일 주소를 입력하고 OK를 클릭합니다
-5. 사용자별 이메일 주소 설정: 데이터센터 > 권한 > 사용자로 이동한 후 사용자를 더블클릭하여 이메일 필드를 채웁니다
-
-## 디스코드를 통한 알림 설정 (대안)
-
-이메일 대신 디스코드로 알림을 받고 싶다면, 다음과 같이 설정할 수 있습니다:
-
-1. 디스코드에서 알림을 받을 채널에 웹훅을 생성하고 URL을 복사합니다
-2. Proxmox 서버에 필요한 패키지를 설치합니다:
-   ```bash
-   apt-get update && apt-get install jq -y
-   ```
-3. 디스코드 연동 스크립트를 생성합니다:
-   ```bash
-   vi /usr/bin/discord.sh
-   ```
-4. 스크립트에 다음 내용을 입력합니다:
-   ```bash
-   #!/bin/sh
-   WEBHOOK_URL="웹훅URL"
-   SERVERNAME="Proxmox"
-   BODY="$(cat)"
-   JSON=$(jq -n --arg body_oneline "$BODY" '{ "content": null, "embeds": [ { "title": "Proxmox", "description": $body_oneline } ] }')
-   curl -d "$JSON" -H "Content-Type: application/json" "$WEBHOOK_URL"
-   ```
-5. 스크립트에 실행 권한을 부여합니다:
-   ```bash
-   chmod +x /usr/bin/discord.sh
-   ```
-6. `/root/.forward` 파일을 수정하여 디스코드로 포워딩합니다:
-   ```bash
-   vi /root/.forward
-   ```
-   파일에 다음 내용을 추가합니다:
-   ```
-   |/usr/bin/discord.sh
-   ```
-7. 테스트를 수행합니다:
-   ```bash
-   echo "디스코드 알람 테스트" | mail -s "디스코드 알람" example@gmail.com
-   ```
-
-## Proxmox 8.1 이상에서의 알림 시스템
-
-Proxmox VE 8.1부터는 새로운 알림 시스템이 도입되었습니다:
-
-1. 알림 타겟은 Sendmail, SMTP, Gotify 등 여러 유형이 있습니다
-2. 데이터센터 > 알림 메뉴에서 설정할 수 있습니다
-3. 백업 작업에는 알림 모드가 있어, 새 알림 시스템과 레거시 모드 중 선택할 수 있습니다
-4. 설정은 `/etc/pve/notifications.cfg` 및 `/etc/pve/priv/notifications.cfg`에 저장됩니다
-
-## 문제 해결 팁
-
-1. 이메일이 전송되지 않는 경우 `/var/log/mail.log`를 확인하여 오류를 분석합니다
-2. 앱 비밀번호가 올바르게 입력되었는지 확인합니다
-3. Gmail 보안 설정에서 '보안 수준이 낮은 앱'에 대한 액세스가 허용되어 있는지 확인합니다(일부 계정에서 필요할 수 있음)
-4. Postfix 설정 파일에서 오타나 잘못된 경로가 없는지 확인합니다
-5. 필요한 패키지가 모두 설치되어 있는지 확인합니다
+Proxmox 이메일 알림은 `event -> matcher -> target -> SMTP 또는 sendmail -> mailbox` 흐름이다. SMTP target은 간단하지만 queue/retry가 없고, Sendmail target은 Postfix 운영까지 포함하므로 선택한 경로에 맞게 로그와 테스트를 검증해야 한다.

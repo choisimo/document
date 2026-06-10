@@ -83,6 +83,7 @@ block-byzantine
 ```
 
 **Put operation mechanics:**
+
 ```
 hash = key.hashCode() ^ (hash >>> 16)   // spread high bits
 index = hash & (table.length - 1)        // modulo via bitmask (power-of-2 tables)
@@ -291,6 +292,7 @@ flowchart TD
 ### 6.1 Fibonacci — Exponential vs Linear Memory
 
 **Naive recursion** (call tree):
+
 ```mermaid
 flowchart TD
     F5["fib(5)"] --> F4["fib(4)"]
@@ -306,6 +308,7 @@ flowchart TD
 Time: O(2^N), Space: O(N) call stack — but 2^N redundant computations.
 
 **Top-down memoization** (HashMap cache):
+
 ```mermaid
 sequenceDiagram
     participant Call as fib(5)
@@ -319,6 +322,7 @@ sequenceDiagram
 ```
 
 **Bottom-up tabulation** (array):
+
 ```
 dp[0] = 0, dp[1] = 1
 for i = 2..N: dp[i] = dp[i-1] + dp[i-2]
@@ -429,6 +433,7 @@ sequenceDiagram
 ### 8.2 Binary Search — Integer Overflow Bug
 
 Classic binary search has a famous integer overflow bug:
+
 ```java
 // BUG: mid = (lo + hi) / 2 — overflows if lo+hi > Integer.MAX_VALUE
 // FIX: mid = lo + (hi - lo) / 2
@@ -463,7 +468,7 @@ sequenceDiagram
     Note over A: Copy remaining B elements to front of A
 ```
 
-Writing **from back to front** means we never overwrite unread elements — O(1) extra space.
+Writing **from back to front** avoids overwriting unread elements — O(1) extra space.
 
 ---
 

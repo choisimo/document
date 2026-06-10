@@ -1,4 +1,5 @@
 # Competitive Programming Internals — Under the Hood
+
 ## Antti Laaksonen's Competitive Programmer's Handbook · Internal Mechanics
 
 > **Not a tutorial.** This document maps how data flows through memory structures, how optimization transitions between complexity classes, how DP tables fill in memory, how bit operations manipulate register state — for every major technique in competitive programming.
@@ -286,7 +287,7 @@ stateDiagram-v2
     note right of TRANSITION
         dp[x] = min coins to make sum x
         Reachability: if dp[x-c] ≠ ∞
-        then we can reach x via coin c
+        then x is reachable via coin c
     end note
 ```
 
@@ -385,7 +386,7 @@ sequenceDiagram
         loop j from W down to w
             DP->>DP: dp[j] = max(dp[j], dp[j-w] + v)
             Note over DP: Reading dp[j-w] from "previous item's row"
-            Note over DP: because we fill right-to-left
+            Note over DP: because fill order is right-to-left
         end
     end
     
@@ -395,7 +396,7 @@ sequenceDiagram
         loop j from w up to W
             DP->>DP: dp[j] = max(dp[j], dp[j-w] + v)
             Note over DP: Reading dp[j-w] from "current item's row"
-            Note over DP: because we fill left-to-right
+            Note over DP: because fill order is left-to-right
         end
     end
     

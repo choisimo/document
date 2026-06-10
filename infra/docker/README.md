@@ -79,12 +79,12 @@ docker compose up -d
 ```bash
 # Node.js 개발 환경
 cd images/dev-environments/node
-WORKSPACE_PATH=/path/to/your/project docker compose up -d
+WORKSPACE_PATH=/path/to/project docker compose up -d
 docker exec -it dev-node bash
 
 # Python 개발 환경
 cd images/dev-environments/python
-WORKSPACE_PATH=/path/to/your/project docker compose up -d
+WORKSPACE_PATH=/path/to/project docker compose up -d
 ```
 
 ### 새 스택 생성

@@ -613,7 +613,7 @@ The key insight: the service ticket `{...}_{K_server}` is **opaque to the client
 
 ---
 
-## 13. CAP Theorem: Why You Can't Have Everything
+## 13. CAP Theorem: Why All Guarantees Cannot Coexist
 
 ```mermaid
 flowchart TD
@@ -630,7 +630,7 @@ flowchart TD
   end
 ```
 
-**Why P is not optional**: In any real network, partitions WILL happen. You must choose between C and A during a partition. After the partition heals, you can repair consistency.
+**Why P is not optional**: In any real network, partitions WILL happen. A system must choose between C and A during a partition. After the partition heals, consistency can be repaired.
 
 **PACELC refinement**: Even when no partition (else = E), there's a latency vs. consistency tradeoff. Cassandra: PA/EL (sacrifice consistency for availability + low latency). Spanner: PC/EC (consistency always, higher latency via TrueTime).
 

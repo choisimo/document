@@ -1,6 +1,6 @@
-# BASE SETTINGS
+# 서버 기본 설정 메모
 
-## node 서버 구축
+## Node.js 서버 도구
 ```shell
 sudo apt-get install wget
 sudo apt-get remove --purge nodejs npm
@@ -14,12 +14,14 @@ export PATH=$PATH:/usr/local/node-v21.6.1/bin
 echo 'export PATH=$PATH:/usr/local/node-v21.6.1/bin' >> ~/.bashrc
 source ~/.bashrc
 ```
-## frontend server
+
+## 프론트엔드 정적 서버
 ```
 cd /path/to/deploy/build
 serve -s . -l 3000
 ```
-## backend server
+
+## 백엔드 Java 런타임
 ```
 sudo apt-get update
 sudo apt-get install openjdk-17-jdk
@@ -33,7 +35,7 @@ source /etc/environment
 ```
 
 
-## docker install
+## Docker 설치
 ```shell
 ### for ubuntu
   
@@ -52,11 +54,11 @@ source /etc/environment
     sudo systemctl start docker
     sudo systemctl enable docker
   
-  ##### ${your linux username} docker permisson add
+  ##### Linux 사용자 Docker 권한 추가
     sudo usermod -aG docker username
 ```
 
-## docker - redis
+## Docker Redis 컨테이너
 ```shell
 mkdir -p /server/redis
 vim /server/redis/redis.conf
@@ -73,7 +75,7 @@ mkdir -p /server/redis/redis_data
     redis:7.0.2 redis-server /etc/redis/redis.conf
 ```
 
-## docker - mariadb
+## Docker MariaDB 컨테이너
 ```shell
     docker run --name mariadb1 -e MYSQL_ROOT_PASSWORD=password -p 3306:3306 -d mariadb
 
@@ -94,14 +96,14 @@ GRANT ALL PRIVILEGES ON <table>.* TO 'user'@'%';
 FLUSH PRIVILEGES;
 ```
 
-## docker - mongodb
+## Docker MongoDB 컨테이너
 ```shell
 sudo systemctl status docker
 sudo docker pull mongo
 sudo docker run -d -p 27017:27017 --name mongodb1 mongo
 sudo docker ps
 sudo docker exec -it mongodb1 mongo
-🔧 AVX support 문제 발생시 밑 실행
+# AVX 지원 문제가 발생하면 다음 구성을 사용한다.
 sudo docker stop mongodb1
 sudo docker rm mongodb1
 sudo docker pull mongo:4.4
@@ -113,12 +115,12 @@ sudo docker ps
 sudo docker exec -it mongodb1 mongo
 
 vim /etc/mongod.conf
-🔨 security:
-🔨     authorization: "enabled"
+security:
+    authorization: "enabled"
 ```
 
 
-## alias
+## Alias 예시
 ```shell
 alias backstart='cd /workspace/shellscript && ./8080Kill.sh && ./8080start.sh'
 alias frontstart='cd /workspace/shellscript && ./3000Kill.sh && ./3000start.sh'
@@ -127,7 +129,8 @@ alias frontlog='cd /workspace/shellscript && ./3000log.sh'
 alias backkill='cd /workspace/shellscript && ./8080Kill.sh'
 alias frontkill='cd /workspace/shellscript && ./3000Kill.sh'
 ```
-## drive add
+
+## 드라이브 추가와 바인드 마운트
 ```shell
 lsblk |awk 'NR==1{print $0" DEVICE-ID(S)"}NR>1{dev=$1;printf $0" ";system("find /dev/disk/by-id -lname \"*"dev"\" -printf \" %p\"");print "";}'|grep -v -E 'part|lvm'
 sudo lsblk
@@ -144,9 +147,12 @@ df -h
 /dev/sdb3    /mnt/sdb3    ext4    defaults    0    2
 /mnt/sdb3    /server/project/web  none    bind    0    0
 ```
-## sql backup
-서버장 ㅗㅗㅗㅗㅗㅗㅗㅗㅗ
-## ubuntu server default CLI setting
+
+## SQL 백업
+
+데이터베이스 백업 절차는 별도 덤프 명령이나 백업 스크립트로 관리한다.
+
+## Ubuntu Server 기본 CLI 모드
 ```shell
 sudo systemctl set-default multi-user.target
 sudo systemctl isolate multi-user.target
@@ -159,7 +165,7 @@ sudo systemctl set-default graphical.target
 sudo reboot
 ```
 
-## backup VirtualMachine
+## Proxmox VM 백업과 복원
 ```shell
 vzdump 101 --storage local --mode snapshot --compress lzo --remove 0
 vzdump VMID --storage local --mode snapshot --compress lzo --remove 0
@@ -168,7 +174,7 @@ qmrestore BACKUP_FILE NEW_VMID
 qmrestore /var/lib/vz/dump/vzdump-qemu-101-2024_01_01-12_00_00.vma.lzo 102
 ```
 
-## rasa learning machine server 
+## Rasa 학습 서버
 ```shell
 sudo apt-get update
 
@@ -197,7 +203,8 @@ python -m rasa init
 
 rasa init --no-prompt
 ```
-## nginx LXC on proxmox
+
+## Proxmox Nginx LXC
 ```
 https://tteck.github.io/Proxmox/
 ```
@@ -207,7 +214,7 @@ https://tteck.github.io/Proxmox/
 sudo usermod -aG sudo ${username}
 ```
 
-## WebDav 서버 연동
+## WebDAV 서버 연동
 ```shell
 sudo apt-get update
 sudo apt-get install davfs2
@@ -215,13 +222,13 @@ sudo mkdir -p ${mount_dir}
 sudo mount -t davfs https://${webdav_server}:${port}/${destincation_dir} ${mount_dir}
 ```
 
-## network
+## 네트워크 설정 파일 위치
 ```shell
 [ubuntu] : /etc/netplan/00-installer-config.yaml
 [debian] : /etc/network/interfaces 
 ```
 
-## lxc drive
+## LXC 드라이브 마운트
 ```shell
 lsblk
 
@@ -243,4 +250,3 @@ pct start <container_id>
 pct enter <container_id>
 df -h
 ```
-

@@ -306,8 +306,8 @@ pveum realm modify company-ad --case-sensitive 0
 # Google OpenID Connect
 pveum realm add google-oidc --type openid \
   --issuer-url "https://accounts.google.com" \
-  --client-id "your-client-id.apps.googleusercontent.com" \
-  --client-key "your-client-secret" \
+  --client-id "GOOGLE_CLIENT_ID.apps.googleusercontent.com" \
+  --client-key "GOOGLE_CLIENT_SECRET" \
   --username-claim email \
   --autocreate 1
 
@@ -1158,7 +1158,7 @@ pveum user tfa unlock <userid>
 
 ```
 +-------------------------------------------------------------------------+
-|                      Security Best Practices                             |
+|                      Security Practices                                  |
 +-------------------------------------------------------------------------+
 |                                                                         |
 |   1. root@pam 사용 최소화                                                |

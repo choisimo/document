@@ -49,7 +49,7 @@ sequenceDiagram
 
 ---
 
-## 2. CAP Theorem: What You Must Sacrifice
+## 2. CAP Theorem: Required Trade-Off
 
 Brewer's CAP theorem (proven formally by Gilbert & Lynch): a distributed system cannot simultaneously guarantee all three of:
 - **C** — Consistency: every read sees the most recent write
@@ -69,7 +69,7 @@ graph TD
     end
 ```
 
-**Why P is non-negotiable in practice**: Network partitions happen. You must tolerate them. The real choice is **CP vs AP** when a partition occurs:
+**Why P is non-negotiable in practice**: Network partitions happen, so practical systems must tolerate them. The real choice is **CP vs AP** when a partition occurs:
 
 - **CP**: Refuse writes (return error) until partition heals → consistent but unavailable
 - **AP**: Accept writes on both sides of partition → available but divergent state

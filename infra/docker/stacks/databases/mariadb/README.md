@@ -6,7 +6,7 @@ MariaDB 데이터베이스와 백업 서비스, Adminer 관리 도구를 포함�
 
 ```bash
 cp .env.example .env
-# Edit .env with your settings
+# Edit .env with environment-specific settings
 mkdir -p data/mysql backups
 docker compose up -d
 ```

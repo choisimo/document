@@ -67,7 +67,7 @@ stateDiagram-v2
   EXIT_ZOMBIE --> [*] : parent calls wait() / wait4()
 ```
 
-The `TASK_UNINTERRUPTIBLE` state is why you see processes in state `D` in `ps` that cannot be `SIGKILL`ed — they hold a semaphore waiting for a kernel event (typically I/O), and waking them prematurely would corrupt kernel state.
+The `TASK_UNINTERRUPTIBLE` state explains why `ps` can show processes in state `D` that cannot be `SIGKILL`ed — they hold a semaphore waiting for a kernel event (typically I/O), and waking them prematurely would corrupt kernel state.
 
 ### fork() / clone() Internal Data Flow
 

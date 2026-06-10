@@ -1,266 +1,176 @@
-# 우분투 24.04 LTS에서 원격 디렉토리 마운팅 설정하기
+# SSHFS 원격 디렉터리 마운트 기준
 
-원격 서버의 디렉토리를 로컬 시스템의 특정 폴더에 마운트하여 작업할 수 있는 방법은 크게 SSHFS와 NFS 두 가지가 있습니다. 두 방법 모두 우분투 24.04 LTS에서 사용 가능하며, SSH 연결을 기반으로 하는 SSHFS가 설정이 더 간단합니다.
+SSHFS는 SSH 연결을 이용해 원격 디렉터리를 로컬 파일시스템처럼 mount하는 FUSE 기반 도구다. 이 문서는 SSHFS를 수동으로 테스트하고, 필요할 때 `/etc/fstab` 또는 systemd automount로 안정적으로 연결하는 기준을 정리한다.
 
-## SSHFS를 이용한 원격 디렉토리 마운팅
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-SSHFS(SSH Filesystem)는 SSH를 통해 원격 디렉토리를 로컬 시스템에 마운트할 수 있게 해주는 파일시스템 클라이언트입니다. 기존 SSH 연결을 활용하므로 추가 서버 구성 없이 사용할 수 있습니다.
+원격 서버의 작업 디렉터리, 백업 경로, 홈랩 장비의 공유 폴더를 로컬 경로처럼 쓰고 싶을 때가 있다. NFS나 Samba 서버를 새로 구성하지 않고 SSH 계정만으로 접근하려면 SSHFS가 간단하다.
 
-### 설치 및 기본 설정
+하지만 SSHFS는 네트워크와 SSH 세션에 의존한다. fstab 문법을 잘못 쓰거나, 키 권한이 맞지 않거나, `allow_other`를 잘못 켜면 부팅 지연, mount 실패, 권한 노출 문제가 생긴다.
 
-1. **SSHFS 패키지 설치**:
-   ```
-   sudo apt install sshfs
-   ```
+## 2. 현재 나의 상태 (Baseline)
 
-2. **마운트 포인트 생성**:
-   ```
-   sudo mkdir -p /mnt/external/rasp
-   ```
+기존 문서는 Ubuntu 24.04에서 SSHFS와 NFS를 모두 설명하고, 뒤쪽에 fstab 오류 해결 내용을 따로 붙여 둔다.
 
-3. **기본 마운팅 명령**:
-   ```
-   sshfs 사용자명@원격서버주소:/원격/디렉토리/경로 /mnt/external/rasp
-   ```
+문제의 핵심은 다음과 같다.
 
-### 부팅 시 자동 마운팅 설정
+- fstab은 쉘 스크립트처럼 백슬래시 줄바꿈을 지원하지 않는다.
+- SSHFS fstab 항목은 한 줄에 완성되어야 한다.
+- `allow_other`는 `/etc/fuse.conf`의 `user_allow_other`와 권한 정책을 함께 봐야 한다.
+- NFS와 SSHFS는 운영 성격이 다르므로 같은 절차로 취급하면 안 된다.
 
-#### 방법 1: /etc/fstab 사용
+## 3. 도달하고 싶은 목표 (Target State)
 
-1. fstab 파일 편집:
-   ```
-   sudo nano /etc/fstab
-   ```
+목표는 SSH 키 기반으로 원격 디렉터리를 안정적으로 mount하고, 네트워크가 없을 때도 부팅을 막지 않는 것이다.
 
-2. 다음 내용 추가:
-   ```
-   사용자명@원격서버주소:/원격/디렉토리 /mnt/external/rasp fuse.sshfs noauto,x-systemd.automount,_netdev,reconnect,identityfile=/home/사용자/.ssh/id_rsa,allow_other,default_permissions 0 0
-   ```
-   
-이 설정은 부팅 시 자동으로 네트워크가 연결된 후에 원격 디렉토리를 마운트합니다[2].
+- SSH 키 인증이 먼저 동작한다.
+- 수동 `sshfs` mount로 원격 경로와 권한을 확인한다.
+- fstab 항목은 한 줄로 작성한다.
+- 부팅 시 즉시 mount보다 `noauto,x-systemd.automount,_netdev`를 기본으로 검토한다.
+- `allow_other`는 필요한 경우에만 켠다.
+- 장애 시 unmount와 로그 확인 방법을 알고 있다.
 
-#### 방법 2: AutoFS 사용
+## 4. 시스템 번역 (Data Flow)
 
-1. AutoFS 설치:
-   ```
-   sudo apt install autofs
-   ```
+SSHFS mount 흐름은 다음과 같다.
 
-2. `/etc/auto.master` 파일 편집:
-   ```
-   sudo nano /etc/auto.master
-   ```
-   
-   다음 줄 추가:
-   ```
-   /- /etc/auto.sshfs --timeout=30
-   ```
-
-3. `/etc/auto.sshfs` 파일 생성 및 편집:
-   ```
-   sudo nano /etc/auto.sshfs
-   ```
-   
-   다음 내용 추가:
-   ```
-   /mnt/external/rasp -fstype=fuse,allow_other,IdentityFile=/home/사용자/.ssh/id_rsa :sshfs\#사용자명@원격서버주소\:/원격/디렉토리
-   ```
-
-4. AutoFS 서비스 시작:
-   ```
-   sudo service autofs restart
-   ```
-
-AutoFS는 디렉토리에 접근할 때만 마운트를 활성화하므로 시스템 리소스를 절약할 수 있습니다[4].
-
-### SSH 키 인증 설정 (비밀번호 없이 연결)
-
-1. SSH 키 생성:
-   ```
-   ssh-keygen -t rsa
-   ```
-
-2. 공개 키를 원격 서버에 복사:
-   ```
-   ssh-copy-id -i ~/.ssh/id_rsa.pub 사용자명@원격서버주소
-   ```
-
-이 설정을 통해 비밀번호 없이 원격 서버에 연결할 수 있습니다[4].
-
-## NFS를 이용한 원격 디렉토리 마운팅
-
-NFS(Network File System)는 네트워크를 통해 디렉토리를 공유하는 프로토콜입니다. SSHFS보다 설정이 복잡하지만 성능이 더 좋을 수 있습니다.
-
-### 원격 서버(NFS 서버) 설정
-
-1. NFS 서버 패키지 설치:
-   ```
-   sudo apt install nfs-kernel-server -y
-   ```
-
-2. 공유 디렉토리 생성 및 권한 설정:
-   ```
-   sudo mkdir -p /mnt/nfs_share
-   sudo chown nobody:nogroup /mnt/nfs_share
-   sudo chmod 777 /mnt/nfs_share
-   ```
-
-3. `/etc/exports` 파일 편집:
-   ```
-   sudo nano /etc/exports
-   ```
-   
-   다음 내용 추가:
-   ```
-   /mnt/nfs_share 클라이언트IP(rw,sync,no_subtree_check)
-   ```
-
-4. 공유 디렉토리 내보내기 및 서버 재시작:
-   ```
-   sudo exportfs -a
-   sudo systemctl restart nfs-kernel-server
-   ```
-
-5. 방화벽 설정:
-   ```
-   sudo ufw allow from [클라이언트IP] to any port nfs
-   ```
-
-### 클라이언트(우분투 24.04) 설정
-
-1. NFS 클라이언트 패키지 설치:
-   ```
-   sudo apt install nfs-common
-   ```
-
-2. 마운트 포인트 생성:
-   ```
-   sudo mkdir -p /mnt/external/rasp
-   ```
-
-3. 임시 마운트:
-   ```
-   sudo mount 서버IP:/mnt/nfs_share /mnt/external/rasp
-   ```
-
-4. 부팅 시 자동 마운트 설정 (/etc/fstab 편집):
-   ```
-   sudo nano /etc/fstab
-   ```
-   
-   다음 내용 추가:
-   ```
-   서버IP:/mnt/nfs_share /mnt/external/rasp nfs defaults 0 0
-   ```
-
-NFS는 특히 로컬 네트워크에서 SSHFS보다 속도가 빠를 수 있지만, 추가 보안 구성이 필요합니다[6][7][9].
-
-## 마운트 확인
-
-마운트가 성공적으로 이루어졌는지 확인하려면 다음 명령을 사용하세요:
-```
-df -h
+```text
+local process
+  -> local mount point
+  -> FUSE sshfs process
+  -> SSH transport
+  -> remote user permission
+  -> remote directory
 ```
 
-이 명령은 마운트된 모든 파일시스템을 보여주며, 원격 디렉토리가 목록에 표시되어야 합니다[3][5].
+로컬 root 권한이 있어도 원격 파일 접근 권한은 원격 SSH 사용자 권한으로 결정된다. 따라서 원격 경로 소유권과 로컬 mount 권한을 함께 확인해야 한다.
 
-적절한 설정을 통해 원격 서버의 디렉토리를 로컬 시스템의 `/mnt/external/rasp`와 같은 경로에 마운트하여 로컬 디렉토리처럼 사용할 수 있습니다.
+## 5. 핵심 구성요소 (Building Blocks)
 
+`sshfs` 패키지는 FUSE mount helper와 SSHFS 클라이언트를 제공한다.
 
----
+SSH key는 비밀번호 없는 자동 mount의 전제 조건이다. 개인키 권한은 보통 `600`, `.ssh` 디렉터리는 `700`이어야 한다.
 
-### trouble-shooting
+`/etc/fstab` 항목은 한 줄이어야 한다. source, mount point, type, options, dump, pass 필드를 공백으로 구분한다.
 
----
+`_netdev`는 네트워크 파일시스템임을 systemd에 알려준다.
 
-# fstab에서 SSHFS 마운트 오류 해결하기
+`x-systemd.automount`는 첫 접근 시 mount하도록 하여 부팅 시 네트워크 타이밍 문제를 줄인다.
 
-## 문제 분석
+`allow_other`는 mount한 사용자 외의 로컬 사용자도 접근하게 한다. 이 옵션은 보안 영향이 있으므로 `default_permissions`와 함께 쓰고, `/etc/fuse.conf` 설정을 확인한다.
 
-오류 메시지 "fuse -o \ ~~ 알 수 없는 옵션입니다"는 `/etc/fstab` 파일의 구문에 문제가 있음을 나타냅니다. 주된 문제점은 다음과 같습니다:
+## 6. 상태 전이 (State Transition)
 
-1. **백슬래시(`\`) 사용**: fstab은 각 마운트 항목이 한 줄에 완전히 작성되어야 합니다. 백슬래시를 사용한 줄바꿈은 쉘 스크립트에서는 작동하지만 fstab에서는 지원되지 않습니다.
+SSHFS 구성은 다음 상태로 진행한다.
 
-2. **주석 위치**: 각 항목 사이에 `#`로 시작하는 주석은 별도의 줄에 있어야 합니다.
-
-## 해결 방법
-
-### 1. fstab 파일 형식 수정
-
-다음과 같이 fstab 파일을 수정하세요:
-
-```
-# nano_pi
-sshfs#nodove@nano_pi:/mnt/share/nodove /mnt/external/nano_pi fuse.sshfs noauto,x-systemd.automount,_netdev,reconnect,identityfile=/home/nodove/.ssh/nano_rsa,allow_other,default_permissions 0 0
-
-# rasp
-sshfs#nodove@rasp:/mnt/drive /mnt/external/rasp/ssh fuse.sshfs noauto,x-systemd.automount,_netdev,reconnect,identityfile=/home/nodove/.ssh/rasp_rsa,allow_other,default_permissions 0 0
-
-# jcloud
-sshfs#nodove@jcloud:/workspace /mnt/external/jcloud fuse.sshfs noauto,x-systemd.automount,_netdev,reconnect,identityfile=/home/nodove/.ssh/jcloud_rsa,allow_other,default_permissions 0 0
+```text
+SSH login works
+  -> mount point exists
+  -> manual sshfs mount works
+  -> permission model verified
+  -> fstab backed up
+  -> fstab one-line entry added
+  -> systemd daemon reloaded
+  -> automount tested
 ```
 
-주요 변경사항:
-- 백슬래시(`\`)와 줄바꿈 제거
-- `fuse` → `fuse.sshfs`로 타입 변경 (더 명확한 인식을 위해)
+수동 mount가 실패하는 상태에서 fstab부터 수정하지 않는다. fstab은 자동화 단계일 뿐 원격 인증 문제를 해결하지 않는다.
 
-### 2. 필수 사항 확인
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-수정 후에도 문제가 지속된다면 다음 사항을 확인하세요:
+- SSH로 직접 접속되지 않으면 SSHFS도 안정적으로 동작하지 않는다.
+- fstab 항목은 백슬래시로 줄바꿈하지 않는다.
+- 개인키는 문서나 Git에 넣지 않는다.
+- `allow_other`는 필요한 경우에만 켜고 `/etc/fuse.conf`의 `user_allow_other`를 확인한다.
+- 네트워크 mount는 `nofail`, `noauto`, automount, timeout을 검토한다.
+- 원격 디렉터리 권한은 원격 사용자 기준으로 검증한다.
 
-1. **필요한 디렉토리 생성**:
-   ```
-   sudo mkdir -p /mnt/external/nano_pi
-   sudo mkdir -p /mnt/external/rasp/ssh
-   sudo mkdir -p /mnt/external/jcloud
-   ```
+## 8. 가장 작은 예제 (Minimal Viable Example)
 
-2. **SSHFS 패키지 설치 확인**:
-   ```
-   sudo apt install sshfs
-   ```
+패키지를 설치한다.
 
-3. **SSH 키 파일 권한 설정**:
-   ```
-   chmod 600 ~/.ssh/nano_rsa
-   chmod 600 ~/.ssh/rasp_rsa
-   chmod 600 ~/.ssh/jcloud_rsa
-   ```
-
-### 3. 개별 마운트 테스트
-
-각 연결을 개별적으로 테스트하여 정확한 오류 지점을 파악할 수 있습니다:
-
-```
-sudo sshfs -o identityfile=/home/nodove/.ssh/nano_rsa,allow_other,default_permissions nodove@nano_pi:/mnt/share/nodove /mnt/external/nano_pi
+```bash
+sudo apt update
+sudo apt install -y sshfs
 ```
 
-이 방법으로 테스트하면 어떤 연결에 문제가 있는지 확인할 수 있습니다.
+SSH 키 접속을 먼저 확인한다.
 
-### 4. systemd 마운트 유닛 사용 (대안)
+```bash
+ssh -i /home/alice/.ssh/id_ed25519 alice@nas.example.com
+```
 
-fstab 대신 systemd 마운트 유닛을 사용하는 방법도 있습니다:
+mount point를 만든다.
 
-1. `/etc/systemd/system/mnt-external-nano_pi.mount` 파일 생성:
-   ```
-   [Unit]
-   Description=Mount SSHFS nano_pi
-   After=network-online.target
-   Wants=network-online.target
+```bash
+sudo mkdir -p /mnt/nas
+sudo chown alice:alice /mnt/nas
+```
 
-   [Mount]
-   What=nodove@nano_pi:/mnt/share/nodove
-   Where=/mnt/external/nano_pi
-   Type=fuse.sshfs
-   Options=_netdev,reconnect,identityfile=/home/nodove/.ssh/nano_rsa,allow_other,default_permissions
-   
-   [Install]
-   WantedBy=multi-user.target
-   ```
+수동 mount를 테스트한다.
 
-2. 각 서버마다 비슷한 파일을 생성하고 활성화:
-   ```
-   sudo systemctl enable --now mnt-external-nano_pi.mount
-   ```
+```bash
+sshfs -o IdentityFile=/home/alice/.ssh/id_ed25519,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3 alice@nas.example.com:/srv/share /mnt/nas
+findmnt /mnt/nas
+touch /mnt/nas/write-test
+rm /mnt/nas/write-test
+fusermount3 -u /mnt/nas
+```
 
-이 방법은 네트워크 의존성을 더 효과적으로 처리하고 문제 진단에 유리합니다.
+`allow_other`가 필요하면 먼저 FUSE 설정을 확인한다.
+
+```bash
+grep -n "user_allow_other" /etc/fuse.conf
+```
+
+필요한 경우 `/etc/fuse.conf`에서 `user_allow_other`를 활성화한다.
+
+`/etc/fstab`에는 한 줄로 작성한다.
+
+```text
+sshfs#alice@nas.example.com:/srv/share /mnt/nas fuse.sshfs noauto,x-systemd.automount,_netdev,reconnect,IdentityFile=/home/alice/.ssh/id_ed25519,allow_other,default_permissions,ServerAliveInterval=15,ServerAliveCountMax=3 0 0
+```
+
+fstab을 검증하고 automount를 테스트한다.
+
+```bash
+sudo findmnt --verify
+sudo systemctl daemon-reload
+ls /mnt/nas
+findmnt /mnt/nas
+```
+
+## 9. 실패 사례 (What could go wrong?)
+
+`fuse -o \ 알 수 없는 옵션` 같은 오류는 fstab 항목을 여러 줄로 나눴을 때 자주 발생한다. fstab은 한 mount를 한 줄에 작성해야 한다.
+
+`Permission denied`가 나오면 SSH 키 권한, 원격 계정 권한, 원격 디렉터리 권한을 분리해서 확인한다.
+
+`allow_other`를 켰는데 다른 사용자가 접근하지 못하면 `/etc/fuse.conf`의 `user_allow_other`가 비활성화되어 있을 수 있다.
+
+네트워크가 늦게 올라오면 부팅 시 mount가 실패할 수 있다. SSHFS는 local disk가 아니므로 `x-systemd.automount`, `_netdev`, timeout 옵션을 사용한다.
+
+SSHFS를 데이터베이스나 latency 민감한 workload의 primary storage로 쓰면 성능과 일관성 문제가 생길 수 있다. 그런 경우 NFS, SMB, iSCSI, block storage를 검토한다.
+
+## 10. 뇌 확장하기 (Evolution & Variants)
+
+AutoFS는 접근 시점에 mount하고 idle timeout 후 해제하는 방식이 필요할 때 유용하다. 다만 설정 파일이 하나 더 늘어나므로 단순한 개인 서버는 systemd automount가 더 관리하기 쉽다.
+
+NFS는 LAN 내부에서 성능과 다중 클라이언트 운영이 더 적합한 경우가 많다. 대신 서버 export, 방화벽, UID/GID 매핑, 보안 정책을 별도로 설계해야 한다.
+
+운영 서버에서는 SSHFS를 backup source나 임시 관리 경로로 쓰고, 핵심 애플리케이션 데이터 경로에는 더 명시적인 storage backend를 사용하는 편이 안전하다.
+
+## 11. 최종 체크리스트 (Definition of Done)
+
+- [ ] SSH key 기반 로그인에 성공했다.
+- [ ] 원격 디렉터리 경로와 권한을 확인했다.
+- [ ] 수동 `sshfs` mount와 쓰기 테스트를 통과했다.
+- [ ] `/etc/fstab` 항목을 한 줄로 작성했다.
+- [ ] `allow_other` 필요성과 `/etc/fuse.conf` 설정을 확인했다.
+- [ ] `findmnt --verify`가 통과했다.
+- [ ] systemd daemon reload 후 automount를 테스트했다.
+- [ ] 네트워크 장애 시 부팅이 막히지 않는다.
+
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
+
+SSHFS는 `SSH 접속 성공 -> 수동 mount 성공 -> fstab 한 줄 등록 -> automount 검증` 순서로 설정한다. fstab은 쉘이 아니므로 줄바꿈과 백슬래시를 쓰지 않는다.

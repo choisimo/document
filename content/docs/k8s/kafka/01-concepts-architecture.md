@@ -1,396 +1,180 @@
-# Kafka 개념 및 아키텍처
+# Kafka 개념과 아키텍처
 
-## 📖 개요
+Apache Kafka는 메시지를 즉시 소비하고 삭제하는 단순 queue라기보다, partitioned log에 event를 append하고 consumer group이 offset으로 읽기 위치를 관리하는 분산 이벤트 스트리밍 플랫폼이다.
 
-Apache Kafka는 LinkedIn에서 개발한 분산 이벤트 스트리밍 플랫폼으로, 실시간 데이터 파이프라인과 스트리밍 애플리케이션을 구축하는 데 사용됩니다.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-## 🎯 학습 목표
+마이크로서비스가 늘어나면 동기 HTTP 호출만으로는 주문, 결제, 알림, 분석, 로그 수집 같은 흐름을 느슨하게 연결하기 어렵다. 한 서비스 장애가 다른 서비스의 요청 지연으로 번지고, 같은 이벤트를 여러 시스템에서 재사용하기도 힘들다.
 
-- Kafka의 핵심 개념 이해
-- 아키텍처 구성 요소 파악
-- 메시지 흐름 및 저장 메커니즘 학습
-- 사용 사례 및 패턴 이해
+Kafka는 event를 topic에 저장하고 여러 consumer group이 독립적으로 읽게 해준다. 이 덕분에 생산자와 소비자를 분리하고, 재처리와 fan-out을 설계할 수 있다.
 
-## 🏗️ Kafka 아키텍처
+## 2. 현재 나의 상태 (Baseline)
 
-### 전체 구조
+기존 문서는 topic, partition, broker, replication, producer, consumer, consumer group을 소개한다.
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Kafka Cluster                         │
-│                                                           │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
-│  │  Broker 1   │  │  Broker 2   │  │  Broker 3   │     │
-│  │             │  │             │  │             │     │
-│  │ Topic-A-P0  │  │ Topic-A-P1  │  │ Topic-A-P2  │     │
-│  │ Topic-B-P0  │  │ Topic-B-P1  │  │ Topic-B-P2  │     │
-│  └─────────────┘  └─────────────┘  └─────────────┘     │
-│         ↑                ↑                ↑             │
-└─────────┼────────────────┼────────────────┼─────────────┘
-          │                │                │
-          │                │                │
-    ┌─────┴────────────────┴────────────────┴─────┐
-    │                                               │
-┌───↓─────┐                               ┌────────↓────┐
-│Producer │                               │ Consumer    │
-│         │                               │ Group       │
-└─────────┘                               └─────────────┘
-```
+보완해야 할 점은 다음과 같다.
 
-## 🔑 핵심 개념
+- Kafka를 전통적 message queue와 비교하면서 RabbitMQ/ActiveMQ를 휘발성 메모리 중심처럼 단정한다.
+- Broker 조정 방식에서 ZooKeeper와 KRaft를 나란히 두지만, 신규 Kafka 계열에서는 KRaft 기준으로 이해해야 한다.
+- offset commit과 처리 보장 사이의 관계가 더 명확해야 한다.
+- partition key 설계가 ordering과 hot partition을 동시에 만든다는 trade-off가 부족하다.
 
-### 1. Topic (토픽)
+## 3. 도달하고 싶은 목표 (Target State)
 
-메시지가 저장되는 논리적 카테고리입니다.
+목표는 Kafka 설계에서 다음 질문에 답하는 것이다.
 
-```
-Topic: user-events
-├── Event 1: {"userId": 123, "action": "login"}
-├── Event 2: {"userId": 456, "action": "purchase"}
-└── Event 3: {"userId": 789, "action": "logout"}
+- 어떤 이벤트를 어떤 topic에 저장할 것인가?
+- event key는 어떤 ordering boundary를 만들 것인가?
+- partition 수와 consumer group 크기는 어떤 병렬성을 제공하는가?
+- replication factor와 `min.insync.replicas`는 어떤 내구성 계약을 만드는가?
+- offset commit은 처리 완료 시점과 어떻게 연결되는가?
+- KRaft controller quorum과 broker 역할을 어떻게 구분할 것인가?
+
+## 4. 시스템 번역 (Data Flow)
+
+Kafka의 기본 데이터 흐름은 다음과 같다.
+
+```text
+producer
+  -> topic
+  -> partition leader
+  -> replicated log
+  -> consumer group assignment
+  -> consumer poll
+  -> process event
+  -> commit offset
 ```
 
-**특징:**
-- 이름으로 식별 (예: `orders`, `logs`, `user-activity`)
-- 여러 Producer와 Consumer가 동일한 Topic에 접근 가능
-- 메시지는 시간 순서대로 추가 (append-only)
-- 설정된 보관 기간(retention) 동안 메시지 유지
+Kafka는 event를 consumer에게 “밀어주는” 시스템이 아니라 consumer가 partition에서 offset 기준으로 읽어 가는 시스템이다. 이 차이가 재처리, lag, 중복 처리 설계의 핵심이다.
 
-### 2. Partition (파티션)
+## 5. 핵심 구성요소 (Building Blocks)
 
-Topic을 나누는 물리적 단위로 병렬 처리를 가능하게 합니다.
+Topic은 event가 저장되는 논리 이름이다. 예를 들어 `orders`, `payments`, `user-events` 같은 이름을 가진다.
 
-```
-Topic: orders (3개 파티션)
+Partition은 topic의 물리적 log shard다. 순서는 partition 안에서만 보장된다.
 
-Partition 0: [msg0] [msg3] [msg6] [msg9]
-Partition 1: [msg1] [msg4] [msg7] [msg10]
-Partition 2: [msg2] [msg5] [msg8] [msg11]
-```
+Offset은 partition 내부의 증가하는 위치 값이다. Consumer group은 어디까지 처리했는지 offset을 commit한다.
 
-**특징:**
-- 각 Partition은 순서를 보장 (Partition 내에서만)
-- Partition 번호는 0부터 시작
-- Key 기반 라우팅으로 같은 Key는 항상 같은 Partition으로
-- Partition 수는 병렬 처리의 최대 단위
+Broker는 partition log를 저장하고 producer/consumer 요청을 처리하는 Kafka server다.
 
-**Partition 선택 알고리즘:**
-```
-Key가 있으면:
-  partition = hash(key) % num_partitions
-  
-Key가 없으면:
-  Round-robin 또는 Sticky partitioning
-```
+Replication은 partition의 leader/follower replica를 여러 broker에 둬 장애 시 data availability를 높인다.
 
-### 3. Broker (브로커)
+Producer는 key와 value를 serialize해 topic에 전송한다. Key가 있으면 보통 같은 key가 같은 partition으로 라우팅되어 key 단위 순서를 유지한다.
 
-Kafka 서버 인스턴스입니다.
+Consumer group은 여러 consumer가 partition을 나눠 읽는 단위다. 같은 group 안에서는 하나의 partition이 동시에 여러 consumer에게 할당되지 않는다.
 
-```
-Cluster
-├── Broker 1 (Leader for P0, Follower for P1, P2)
-├── Broker 2 (Leader for P1, Follower for P0, P2)
-└── Broker 3 (Leader for P2, Follower for P0, P1)
+KRaft는 Kafka metadata quorum이다. Apache Kafka 공식 문서는 KRaft 모드에서 Kafka가 ZooKeeper 의존성을 제거하고 control plane 기능을 Kafka 자체에 통합한다고 설명한다.
+
+## 6. 상태 전이 (State Transition)
+
+Event는 다음 상태를 거친다.
+
+```text
+created by producer
+  -> serialized
+  -> appended to partition
+  -> replicated to ISR
+  -> visible to consumers
+  -> processed
+  -> offset committed
+  -> retained until retention policy removes it
 ```
 
-**역할:**
-- 메시지 저장 및 전달
-- Producer와 Consumer 간 중개
-- Partition의 Leader 또는 Follower 역할
-- ZooKeeper 또는 KRaft를 통한 클러스터 조정
+Consumer group은 다음 상태를 반복한다.
 
-### 4. Replication (복제)
-
-데이터의 고가용성을 위한 복제 메커니즘입니다.
-
-```
-Topic: orders (3 Partitions, Replication Factor: 3)
-
-Partition 0:
-  Leader:    Broker 1 ← 읽기/쓰기
-  Follower:  Broker 2 ← 복제
-  Follower:  Broker 3 ← 복제
-
-Partition 1:
-  Leader:    Broker 2
-  Follower:  Broker 1
-  Follower:  Broker 3
+```text
+members join
+  -> partitions assigned
+  -> records polled
+  -> records processed
+  -> offsets committed
+  -> rebalance on membership or partition change
 ```
 
-**ISR (In-Sync Replica):**
-- Leader와 동기화 상태를 유지하는 Replica
-- Leader 장애 시 ISR 중에서 새로운 Leader 선출
-- `min.insync.replicas` 설정으로 최소 ISR 개수 보장
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-### 5. Producer (프로듀서)
+- Kafka ordering은 topic 전체가 아니라 partition 단위다.
+- 같은 key에 대한 순서가 중요하면 key 설계를 먼저 정한다.
+- `acks=all`은 `min.insync.replicas`와 함께 봐야 내구성 의미가 생긴다.
+- Consumer는 중복 처리를 견딜 수 있게 idempotent하게 설계한다.
+- Offset commit은 처리 완료 이후에 해야 at-least-once 의미를 지킨다.
+- Partition 수 증가는 key-to-partition mapping을 바꿀 수 있다.
+- Kafka 4.x 신규 설계는 ZooKeeper가 아니라 KRaft 기준으로 잡는다.
 
-메시지를 Topic에 발행하는 클라이언트입니다.
+## 8. 가장 작은 예제 (Minimal Viable Example)
 
-```java
-// Producer 예시
-Properties props = new Properties();
-props.put("bootstrap.servers", "localhost:9092");
-props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+주문 이벤트 topic을 설계한다.
 
-Producer<String, String> producer = new KafkaProducer<>(props);
-
-ProducerRecord<String, String> record = 
-    new ProducerRecord<>("orders", "user123", "{\"item\":\"laptop\"}");
-    
-producer.send(record);
+```text
+topic: orders
+key: orderId
+value: OrderCreated event
+partitions: 6
+replication.factor: 3
+min.insync.replicas: 2
+retention: 7 days
 ```
 
-**전송 보장 수준 (acks):**
-- `acks=0`: 전송만 하고 확인 안함 (빠르지만 손실 가능)
-- `acks=1`: Leader가 저장하면 확인 (기본값)
-- `acks=all`: 모든 ISR이 저장하면 확인 (가장 안전)
-
-### 6. Consumer (컨슈머)
-
-Topic에서 메시지를 읽는 클라이언트입니다.
-
-```java
-// Consumer 예시
-Properties props = new Properties();
-props.put("bootstrap.servers", "localhost:9092");
-props.put("group.id", "order-processing-group");
-props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
-props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
-
-KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
-consumer.subscribe(Arrays.asList("orders"));
-
-while (true) {
-    ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
-    for (ConsumerRecord<String, String> record : records) {
-        System.out.printf("offset=%d, key=%s, value=%s%n", 
-            record.offset(), record.key(), record.value());
-    }
-}
-```
-
-### 7. Consumer Group (컨슈머 그룹)
-
-여러 Consumer가 협력하여 메시지를 처리하는 단위입니다.
-
-```
-Topic: orders (4 Partitions)
-
-Consumer Group: order-processors
-├── Consumer 1 → Partition 0, 1
-└── Consumer 2 → Partition 2, 3
-
-Consumer Group: analytics
-├── Consumer 1 → Partition 0, 1, 2
-└── Consumer 2 → Partition 3
-```
-
-**특징:**
-- 같은 Group 내에서 각 Partition은 하나의 Consumer에만 할당
-- 다른 Group은 독립적으로 메시지 소비
-- Consumer 추가/제거 시 자동 리밸런싱
-
-**Rebalancing (리밸런싱):**
-```
-초기 상태 (Consumer 2개, Partition 4개):
-  Consumer 1: P0, P1
-  Consumer 2: P2, P3
-
-Consumer 3 추가 후:
-  Consumer 1: P0, P1
-  Consumer 2: P2
-  Consumer 3: P3
-```
-
-## 📊 메시지 구조
-
-### Message (Record)
-
-```
-┌─────────────────────────────────────────────┐
-│ Offset: 12345                               │
-│ Timestamp: 2024-01-15T10:30:00Z            │
-│ Key: "user-123"                             │
-│ Value: {"action": "purchase", "amount": 99} │
-│ Headers: [{"traceId": "abc-123"}]          │
-└─────────────────────────────────────────────┘
-```
-
-**구성 요소:**
-- **Offset**: Partition 내 메시지의 고유 순번 (0부터 증가)
-- **Timestamp**: 메시지 생성 또는 저장 시간
-- **Key**: 선택적, Partition 라우팅에 사용
-- **Value**: 실제 메시지 내용 (바이트 배열)
-- **Headers**: 메타데이터 (Key-Value 쌍)
-
-### Offset 관리
-
-```
-Topic: user-events, Partition 0
-
-Offset:  0    1    2    3    4    5    6    7
-Data:   [A]  [B]  [C]  [D]  [E]  [F]  [G]  [H]
-        ───────────────────────► 
-        (Consumer가 읽은 위치: offset 5)
-
-Consumer는 마지막 읽은 offset을 __consumer_offsets 토픽에 커밋
-```
-
-**Offset 커밋 전략:**
-- **Auto Commit**: 자동으로 주기적 커밋 (간단하지만 중복/손실 가능)
-- **Manual Commit Sync**: 처리 완료 후 동기 커밋 (안전하지만 느림)
-- **Manual Commit Async**: 비동기 커밋 (빠르지만 순서 보장 안됨)
-
-## 🔄 데이터 흐름
-
-### Write Path (Producer → Broker)
-
-```
-1. Producer
-   ↓ (key를 기반으로 Partition 선택)
-2. Partition Leader (Broker 1)
-   ↓ (Replication Factor만큼 복제)
-3. Followers (Broker 2, 3)
-   ↓ (acks 설정에 따라 응답)
-4. Producer에게 성공 응답
-```
-
-### Read Path (Broker → Consumer)
-
-```
-1. Consumer가 Partition에서 Fetch 요청
-   ↓
-2. Broker가 현재 offset부터 메시지 배치 반환
-   ↓
-3. Consumer가 메시지 처리
-   ↓
-4. Offset 커밋 (자동 또는 수동)
-```
-
-## 🎯 사용 사례
-
-### 1. 메시징 시스템
-```
-주문 서비스 → [orders 토픽] → 결제 서비스
-                            → 배송 서비스
-                            → 알림 서비스
-```
-
-### 2. 로그 수집
-```
-App Server 1 ┐
-App Server 2 ├→ [logs 토픽] → ElasticSearch
-App Server 3 ┘                → S3 Archive
-```
-
-### 3. 이벤트 소싱
-```
-사용자 액션 → [user-events 토픽] → 실시간 분석
-                                 → ML 모델 학습
-                                 → 데이터 웨어하우스
-```
-
-### 4. 스트림 처리
-```
-원본 데이터 → [raw 토픽] → Kafka Streams → [processed 토픽]
-                                          ↓
-                                      실시간 대시보드
-```
-
-## ⚙️ 주요 설정
-
-### Topic 설정
-
-| 설정 | 설명 | 기본값 | 권장값 |
-|------|------|--------|--------|
-| `num.partitions` | Partition 개수 | 1 | Consumer 수 고려 |
-| `replication.factor` | 복제 계수 | 1 | 3 (프로덕션) |
-| `retention.ms` | 메시지 보관 시간 | 7일 | 용도에 따라 |
-| `retention.bytes` | 최대 저장 용량 | -1 (무제한) | 디스크 용량 고려 |
-| `compression.type` | 압축 방식 | producer | snappy, lz4 |
-
-### Producer 설정
+Producer의 핵심 설정은 다음 계약을 만든다.
 
 ```properties
-# 성능
-batch.size=16384              # 배치 크기
-linger.ms=10                  # 배치 대기 시간
-buffer.memory=33554432        # 버퍼 메모리
-
-# 신뢰성
-acks=all                      # 모든 ISR 확인
-retries=2147483647           # 재시도 횟수
-max.in.flight.requests.per.connection=5
-
-# 압축
-compression.type=snappy       # 압축 알고리즘
+acks=all
+enable.idempotence=true
+compression.type=lz4
+linger.ms=10
 ```
 
-### Consumer 설정
+Consumer는 처리 후 offset을 commit한다.
 
-```properties
-# 성능
-fetch.min.bytes=1            # 최소 Fetch 크기
-fetch.max.wait.ms=500        # 최대 대기 시간
-max.partition.fetch.bytes=1048576
-
-# Offset 관리
-enable.auto.commit=true      # 자동 커밋
-auto.commit.interval.ms=5000 # 커밋 주기
-auto.offset.reset=latest     # earliest, latest, none
+```text
+poll records
+  -> validate event
+  -> write side effect
+  -> commit offset
 ```
 
-## 🔍 Kafka vs. 전통적 메시지 큐
+Consumer group별 의미는 독립적이다.
 
-| 특징 | Kafka | RabbitMQ/ActiveMQ |
-|------|-------|-------------------|
-| **메시지 저장** | 디스크 (영구 저장) | 메모리 (휘발성) |
-| **처리량** | 매우 높음 (수백만 msg/s) | 중간 |
-| **메시지 순서** | Partition 내 보장 | 제한적 |
-| **재처리** | 가능 (Offset 조정) | 어려움 |
-| **확장성** | 수평 확장 우수 | 제한적 |
-| **사용 사례** | 이벤트 스트리밍, 로그 | 태스크 큐, RPC |
-
-## 💡 설계 원칙
-
-### 1. Partition 수 결정
-
-```
-Partition 수 = max(예상 처리량 / Consumer 처리량, 최대 Consumer 수)
-
-예시:
-- 초당 10,000 메시지 입력
-- Consumer 하나가 초당 1,000 메시지 처리
-- 최소 Partition 수 = 10,000 / 1,000 = 10개
+```text
+orders topic
+  -> payment-service group
+  -> inventory-service group
+  -> analytics-service group
 ```
 
-### 2. Replication Factor 선택
+각 group은 같은 event stream을 자기 속도와 offset으로 읽는다.
 
-```
-프로덕션: RF=3 (2개 Broker 장애 허용)
-개발/테스트: RF=1
-중요 데이터: RF=3, min.insync.replicas=2
-```
+## 9. 실패 사례 (What could go wrong?)
 
-### 3. Key 설계
+모든 event key를 같은 값으로 보내면 하나의 partition만 뜨거워진다. 처리량은 partition 수가 아니라 hot key 분포에 묶인다.
 
-```java
-// 좋은 예: 같은 사용자의 이벤트는 순서 보장
-record.key = userId
+Consumer가 DB write 전에 offset을 commit하면 장애 시 event를 잃은 것처럼 보일 수 있다. 반대로 DB write 후 commit 전에 죽으면 중복 처리가 발생한다.
 
-// 나쁜 예: 모든 메시지가 하나의 Partition으로
-record.key = "constant-value"
-```
+Replication factor가 3이어도 `min.insync.replicas=1`과 부적절한 producer ack를 쓰면 기대한 내구성을 얻지 못한다.
 
-## 📚 다음 단계
+Consumer 수가 partition 수보다 많으면 초과 consumer는 할당받을 partition이 없어 놀게 된다.
 
-- [로컬 설치 및 실행](02-installation-setup.md)
-- [Producer/Consumer 실습](03-producer-consumer.md)
+Topic retention을 너무 짧게 두면 장애 consumer가 복구 전에 읽어야 할 event를 잃을 수 있다. 너무 길게 두면 storage capacity가 병목이 된다.
 
-## 🔗 참고 자료
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-- [Kafka 공식 문서](https://kafka.apache.org/documentation/)
-- [Kafka 소개 (Confluent)](https://docs.confluent.io/platform/current/kafka/introduction.html)
-- [Kafka 내부 구조](https://kafka.apache.org/documentation/#design)
+Kafka Streams는 Kafka topic을 입력과 출력으로 사용하는 stream processing library다. Stateful processing을 하면 changelog topic과 local state store까지 함께 이해해야 한다.
+
+Kafka Connect는 외부 시스템과 Kafka를 연결하는 connector runtime이다. Database CDC, object storage sink, search index sink 같은 데이터 파이프라인에 적합하다.
+
+Kubernetes에서 Kafka를 운영할 때는 직접 StatefulSet보다 operator를 검토한다. Broker identity, persistent volume, rolling restart, TLS, user/topic reconciliation이 운영 핵심이기 때문이다.
+
+## 11. 최종 체크리스트 (Definition of Done)
+
+- [ ] Topic 이름과 event schema 책임을 정했다.
+- [ ] Key가 보장해야 할 ordering boundary를 설명할 수 있다.
+- [ ] Partition 수와 consumer group 병렬성을 계산했다.
+- [ ] Replication factor와 `min.insync.replicas`를 함께 설정했다.
+- [ ] Offset commit 시점과 side effect 순서를 정했다.
+- [ ] Consumer가 중복 처리에 견딜 수 있다.
+- [ ] Retention이 장애 복구 시간보다 충분하다.
+- [ ] KRaft 기준 운영 모델을 확인했다.
+
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
+
+Kafka는 topic에 event를 append하고 consumer group이 offset으로 읽는 분산 로그다. 순서는 partition 안에서만 보장되며, reliability는 producer ack, ISR, offset commit, idempotent consumer가 함께 만든다.

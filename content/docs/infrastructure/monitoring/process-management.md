@@ -1,212 +1,168 @@
-# 백그라운드 프로세스 관리
+# 백그라운드 프로세스 관리 학습 노트
 
-세션을 종료해도 프로세스가 계속 실행되도록 관리하는 방법을 설명합니다.
+백그라운드 프로세스 관리는 SSH 세션을 닫아도 작업이 계속 실행되게 하는 방법을 고르는 일이다. `nohup`, `disown`, `tmux`, `screen`, `systemd`는 모두 목적이 다르므로 작업의 성격에 맞게 선택해야 한다.
 
-## 개요
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-SSH 세션이나 터미널을 닫을 때, 기본적으로 실행 중인 프로세스는 SIGHUP 신호를 받아 종료됩니다. 장기 실행 작업의 경우, 프로세스를 세션과 분리하여 계속 실행되도록 해야 합니다.
+원격 서버에서 긴 작업을 실행하다가 SSH 세션이 끊기면 프로세스가 `SIGHUP`을 받고 종료될 수 있다. 백업, 마이그레이션, 장시간 빌드, 데이터 처리처럼 중단되면 안 되는 작업은 터미널 세션과 분리하거나 재접속 가능한 세션에서 실행해야 한다.
 
-```mermaid
-graph TD
-    A[프로세스 실행] --> B{세션 유지 필요?}
-    B -->|예| C[screen/tmux 사용]
-    B -->|아니오| D{신규 프로세스?}
-    D -->|예| E[nohup으로 시작]
-    D -->|아니오| F[disown으로 분리]
-    
-    C --> G[세션 분리/재연결 가능]
-    E --> H[백그라운드 실행]
-    F --> H
-    
-    style C fill:#e8f5e8
-    style E fill:#fff3e0
-    style F fill:#fff3e0
+운영 관점에서는 “계속 실행”만이 목표가 아니다. 로그를 어디서 볼지, 실패하면 재시작할지, 부팅 후 자동 시작할지, 누가 종료할 수 있는지도 함께 정해야 한다.
+
+## 2. 현재 나의 상태 (Baseline)
+
+기존 문서는 다음 도구를 설명했다.
+
+- `Ctrl+Z`, `bg`, `fg`, `jobs`, `disown`
+- `nohup`, `setsid`
+- `tmux`, `screen`
+- `reptyr`
+- `systemd` 서비스
+
+다만 도구별 명령이 길게 나열되어 있어, 어떤 상황에서 어떤 방법을 선택해야 하는지가 덜 명확했다.
+
+## 3. 도달하고 싶은 목표 (Target State)
+
+목표는 다음 상태다.
+
+- 일회성 장기 작업은 `nohup` 또는 `tmux`로 실행한다.
+- 대화형 작업은 `tmux` 또는 `screen`에서 실행한다.
+- 이미 실행 중인 작업은 `jobs`, `bg`, `disown`으로 분리할 수 있다.
+- 반복 실행 서비스는 `systemd`로 승격한다.
+- 모든 백그라운드 작업은 로그와 종료 방법을 가진다.
+
+## 4. 시스템 번역 (Data Flow)
+
+터미널 세션과 프로세스의 관계는 다음처럼 볼 수 있다.
+
+```text
+SSH session
+  -> shell
+  -> foreground process
+  -> SIGHUP when session closes
 ```
 
-## 프로세스 제어 명령어
+세션과 분리하면 흐름이 바뀐다.
 
-### 기본 작업 제어
-
-| 명령어 | 단축키 | 설명 |
-|--------|--------|------|
-| `Ctrl+Z` | - | 현재 프로세스 일시 중지 (SIGTSTP) |
-| `bg` | - | 중지된 프로세스를 백그라운드에서 재개 |
-| `fg` | - | 백그라운드 프로세스를 포어그라운드로 이동 |
-| `jobs` | - | 현재 셸의 작업 목록 표시 |
-| `disown` | - | 셸에서 작업 분리 |
-
-### 프로세스 상태 흐름
-
-```mermaid
-stateDiagram-v2
-    [*] --> Running: 프로세스 시작
-    Running --> Stopped: Ctrl+Z
-    Stopped --> Running: fg
-    Stopped --> Background: bg
-    Background --> Running: fg
-    Background --> Detached: disown
-    Detached --> [*]: 세션 종료 후에도 실행
-    Running --> [*]: 완료/종료
+```text
+SSH session
+  -> shell
+  -> nohup or tmux or systemd
+  -> process keeps running
+  -> log file or journal
 ```
 
-## 실행 중인 프로세스 백그라운드 전환
+운영 서비스는 다음 흐름이 더 적합하다.
 
-이미 실행 중인 프로세스를 세션과 분리하는 방법:
+```text
+systemd
+  -> service process
+  -> journal logs
+  -> restart policy
+  -> boot-time activation
+```
 
-### 방법 1: disown 사용
+## 5. 핵심 구성요소 (Building Blocks)
+
+| 도구 | 역할 | 적합한 상황 |
+| --- | --- | --- |
+| `nohup` | `SIGHUP` 무시 후 실행 | 단순 일회성 작업 |
+| `disown` | 셸 job table에서 분리 | 이미 실행 중인 작업 분리 |
+| `tmux` | 세션 유지와 재접속 | 장시간 대화형 작업 |
+| `screen` | 세션 유지와 재접속 | tmux 대안 |
+| `setsid` | 새 세션에서 실행 | 터미널 의존성 제거 |
+| `systemd` | 서비스 생명주기 관리 | 운영 서비스 |
+| `journalctl` | 서비스 로그 확인 | systemd 서비스 관측 |
+
+기본 셸 작업 제어는 다음 의미를 가진다.
+
+| 명령 | 의미 |
+| --- | --- |
+| `Ctrl+Z` | 포어그라운드 작업 일시 중지 |
+| `bg` | 중지된 작업을 백그라운드로 재개 |
+| `fg` | 백그라운드 작업을 포어그라운드로 이동 |
+| `jobs` | 현재 셸의 작업 목록 |
+| `disown -h` | 작업이 `SIGHUP`을 무시하도록 표시 |
+
+## 6. 상태 전이 (State Transition)
+
+작업 실행 상태는 다음처럼 이동한다.
+
+```text
+foreground
+  -> stopped
+  -> background
+  -> detached
+  -> completed or failed
+```
+
+운영 서비스로 승격하면 상태 모델이 달라진다.
+
+```text
+manual command
+  -> supervised service
+  -> enabled on boot
+  -> restarted on failure
+  -> observed through logs
+```
+
+상태별 확인 기준은 다음과 같다.
+
+- background: `jobs` 또는 `ps`로 PID를 확인할 수 있다.
+- detached: 세션 종료 후에도 PID가 유지된다.
+- supervised: `systemctl status`로 상태와 실패 원인을 볼 수 있다.
+- completed: 로그와 exit code를 확인할 수 있다.
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- 백그라운드 작업은 stdout과 stderr를 파일 또는 journal로 보낸다.
+- PID와 로그 경로를 기록하지 않은 장기 작업은 운영 작업으로 보지 않는다.
+- 중요한 반복 작업은 `nohup`보다 `systemd` 서비스나 타이머로 관리한다.
+- `disown`은 이미 실행 중인 작업을 임시로 살리는 방법이지 운영 관리 도구가 아니다.
+- `reptyr`와 ptrace 설정 변경은 보안 영향을 이해한 경우에만 사용한다.
+- 세션 분리 후에도 CPU, 메모리, 디스크 사용량을 모니터링한다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+단순 장기 작업은 로그 파일을 명시한다.
 
 ```bash
-# 1. 실행 중인 프로세스 일시 중지
-Ctrl+Z
-
-# 2. 작업 번호 확인
-jobs
-# [1]+  Stopped                 python long_running_script.py
-
-# 3. 백그라운드로 전환
-bg %1
-
-# 4. 셸에서 분리 (SIGHUP 무시)
-disown -h %1
-```
-
-!!! tip "disown 옵션"
-    - `disown`: 작업을 작업 테이블에서 제거
-    - `disown -h`: 작업을 유지하되 SIGHUP 무시
-    - `disown -a`: 모든 작업에 대해 적용
-
-### 방법 2: reptyr로 프로세스 마이그레이션
-
-실행 중인 프로세스를 다른 터미널(screen/tmux)로 이동:
-
-```bash
-# reptyr 설치
-sudo apt install reptyr
-
-# 프로세스 PID 확인
-ps aux | grep process_name
-
-# 새 터미널/screen 세션에서
-reptyr <PID>
-```
-
-!!! warning "ptrace 설정"
-    reptyr 사용 시 다음 설정이 필요할 수 있습니다:
-    ```bash
-    echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
-    ```
-
-## 새 프로세스 시작 방법
-
-### nohup 명령어
-
-`nohup`은 프로세스가 SIGHUP 신호를 무시하도록 합니다:
-
-```bash
-# 기본 사용법
-nohup command &
-
-# 출력을 특정 파일로 리디렉션
-nohup command > output.log 2>&1 &
-
-# PID 확인
+nohup /opt/scripts/backup.sh > /var/log/backup.log 2>&1 &
 echo $!
 ```
 
-#### nohup 동작 원리
+이미 실행 중인 작업을 분리한다.
 
-```mermaid
-sequenceDiagram
-    participant User as 사용자
-    participant Shell as 셸
-    participant nohup as nohup
-    participant Process as 프로세스
-    
-    User->>Shell: nohup command &
-    Shell->>nohup: 프로세스 생성
-    nohup->>Process: SIGHUP 핸들러 설정
-    nohup->>Process: stdin 닫기
-    nohup->>Process: stdout/stderr → nohup.out
-    Shell->>User: PID 반환
-    User->>Shell: exit
-    Shell--xProcess: SIGHUP (무시됨)
-    Process->>Process: 계속 실행
+```text
+Ctrl+Z
 ```
 
-### setsid 명령어
-
-새 세션을 생성하여 프로세스를 완전히 분리:
-
 ```bash
-# 새 세션에서 명령 실행
-setsid command > output.log 2>&1
-
-# nohup과 결합
-setsid nohup command > output.log 2>&1 &
+jobs
+bg %1
+disown -h %1
 ```
 
-## 터미널 멀티플렉서
-
-### tmux
-
-tmux는 세션 관리와 창 분할 기능을 제공합니다:
+재접속 가능한 작업은 `tmux`로 실행한다.
 
 ```bash
-# 새 세션 시작
-tmux new -s session_name
+tmux new -s backup
+```
 
-# 세션 분리
+세션 분리는 다음 키를 사용한다.
+
+```text
 Ctrl+B, D
-
-# 세션 목록 확인
-tmux ls
-
-# 세션 재연결
-tmux attach -t session_name
-
-# 특정 명령으로 세션 시작
-tmux new -d -s backup "rsync -avz /src /dest"
 ```
 
-#### tmux 주요 단축키
-
-| 단축키 | 기능 |
-|--------|------|
-| `Ctrl+B, D` | 세션 분리 |
-| `Ctrl+B, C` | 새 창 생성 |
-| `Ctrl+B, N` | 다음 창 |
-| `Ctrl+B, P` | 이전 창 |
-| `Ctrl+B, %` | 수평 분할 |
-| `Ctrl+B, "` | 수직 분할 |
-| `Ctrl+B, [` | 스크롤 모드 |
-
-### screen
-
-GNU Screen도 비슷한 기능을 제공합니다:
+재접속한다.
 
 ```bash
-# 새 세션 시작
-screen -S session_name
-
-# 세션 분리
-Ctrl+A, D
-
-# 세션 목록 확인
-screen -ls
-
-# 세션 재연결
-screen -r session_name
-
-# 분리된 세션이 있을 때 강제 재연결
-screen -dr session_name
+tmux attach -t backup
 ```
 
-## systemd 서비스로 관리
-
-장기 실행 프로세스는 systemd 서비스로 관리하는 것이 가장 안정적입니다:
+운영 서비스는 systemd unit으로 관리한다.
 
 ```ini
-# /etc/systemd/system/myapp.service
 [Unit]
 Description=My Application
 After=network.target
@@ -218,8 +174,6 @@ WorkingDirectory=/opt/myapp
 ExecStart=/opt/myapp/run.sh
 Restart=on-failure
 RestartSec=10
-
-# 로그 설정
 StandardOutput=journal
 StandardError=journal
 
@@ -227,93 +181,48 @@ StandardError=journal
 WantedBy=multi-user.target
 ```
 
+서비스를 시작하고 로그를 확인한다.
+
 ```bash
-# 서비스 시작
-sudo systemctl start myapp
-
-# 부팅 시 자동 시작
-sudo systemctl enable myapp
-
-# 상태 확인
-sudo systemctl status myapp
-
-# 로그 확인
+sudo systemctl daemon-reload
+sudo systemctl enable --now myapp
+systemctl status myapp
 journalctl -u myapp -f
 ```
 
-## 방법 비교
+## 9. 실패 사례 (What could go wrong?)
 
-| 방법 | 장점 | 단점 | 사용 사례 |
-|------|------|------|-----------|
-| **nohup** | 간단함, 추가 설치 불필요 | 출력 확인 어려움 | 일회성 장기 작업 |
-| **disown** | 실행 중 프로세스에 적용 가능 | stdin/stdout 관리 필요 | 긴급한 세션 분리 |
-| **tmux/screen** | 출력 확인, 재연결 가능 | 추가 학습 필요 | 대화형 작업, 모니터링 |
-| **systemd** | 자동 재시작, 로깅, 의존성 | 설정 복잡 | 프로덕션 서비스 |
+첫 번째 실패는 백그라운드 작업의 출력을 터미널에 그대로 두는 것이다. 세션 종료 후 출력 대상이 사라지거나 작업이 멈춘 것처럼 보일 수 있다.
 
-## 실전 예제
+두 번째 실패는 `nohup` 작업의 PID를 기록하지 않는 것이다. 나중에 어떤 프로세스를 종료해야 하는지 찾기 어렵다.
 
-### 백업 스크립트 실행
+세 번째 실패는 장기 운영 서비스를 `tmux` 안에서만 돌리는 것이다. 서버 재부팅 후 자동 시작과 실패 재시작이 없다.
 
-```bash
-# tmux 세션에서 백업 실행
-tmux new -d -s backup "bash /opt/scripts/backup.sh >> /var/log/backup.log 2>&1"
+네 번째 실패는 `disown`을 백업처럼 생각하는 것이다. 로그, 재시작, 상태 관리가 없으므로 임시 조치일 뿐이다.
 
-# 진행 상황 확인
-tmux attach -t backup
+다섯 번째 실패는 `reptyr` 사용을 위해 ptrace 제한을 낮춘 뒤 원복하지 않는 것이다. 보안 경계가 약해질 수 있다.
 
-# 또는 nohup 사용
-nohup /opt/scripts/backup.sh >> /var/log/backup.log 2>&1 &
-echo "Backup started with PID: $!"
-```
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-### Python 스크립트 백그라운드 실행
+반복 작업은 systemd timer나 cron으로 옮길 수 있다. 단, 로그와 실패 알림이 필요하면 systemd timer가 더 관측하기 쉽다.
 
-```bash
-# 가상환경과 함께 사용
-nohup /opt/venv/bin/python /opt/app/main.py > /var/log/app.log 2>&1 &
+컨테이너 안에서 장기 프로세스를 실행한다면 Docker restart policy와 로그 드라이버를 함께 고려해야 한다.
 
-# PID 파일 생성
-nohup python main.py > app.log 2>&1 & echo $! > app.pid
-```
+Kubernetes 환경에서는 Pod, Job, CronJob이 같은 역할을 담당한다. 이 경우 셸 job control이 아니라 오케스트레이터 상태를 기준으로 본다.
 
-### 실행 중인 프로세스 안전하게 분리
+장시간 마이그레이션은 `tmux`와 별도 로그 파일을 함께 쓰는 방식이 실무적으로 안전하다.
 
-```bash
-#!/bin/bash
-# save_process.sh - 실행 중인 프로세스를 안전하게 백그라운드로 전환
+## 11. 최종 체크리스트 (Definition of Done)
 
-# 1. 현재 작업 저장
-jobs -l
+- [ ] 작업이 일회성인지 운영 서비스인지 구분했다.
+- [ ] 로그 출력 경로를 정했다.
+- [ ] PID 또는 서비스 이름을 기록했다.
+- [ ] 세션 종료 후에도 작업이 유지되는지 확인했다.
+- [ ] 실패 시 재시작이 필요한 경우 systemd로 관리한다.
+- [ ] 종료 방법을 알고 있다.
+- [ ] CPU, 메모리, 디스크 사용량을 확인했다.
+- [ ] 중요한 작업은 재부팅 후 동작까지 검증했다.
 
-# 2. 모든 작업을 백그라운드로
-for job in $(jobs -p); do
-    disown -h $job
-    echo "Detached PID: $job"
-done
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-# 3. 확인
-ps aux | grep "your_process"
-```
-
-## 주의사항
-
-!!! danger "출력 리디렉션"
-    백그라운드 프로세스는 터미널에 출력을 시도할 수 있습니다. 반드시 출력을 파일로 리디렉션하세요:
-    ```bash
-    command > output.log 2>&1 &
-    ```
-
-!!! warning "리소스 모니터링"
-    백그라운드 프로세스도 시스템 리소스를 사용합니다. 정기적으로 확인하세요:
-    ```bash
-    # CPU/메모리 사용량 확인
-    ps aux | grep process_name
-    
-    # 실시간 모니터링
-    htop -p $(pgrep -f process_name)
-    ```
-
-## 관련 문서
-
-- [Tmux 가이드](../../tools/terminal/tmux.md)
-- [Prometheus/Grafana/Loki](./prometheus-grafana-loki.md)
+백그라운드 실행의 핵심은 프로세스를 숨기는 것이 아니라 `__________`, 로그, 종료 방법을 관리하는 것이다. 일회성은 `__________`, 대화형 장기 작업은 `__________`, 운영 서비스는 `__________`가 기준이다.

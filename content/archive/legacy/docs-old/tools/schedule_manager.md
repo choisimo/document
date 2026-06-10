@@ -8,7 +8,7 @@
 PHP와 MySQL 기반의 오픈소스 약속 관리 시스템으로, 2021년 공식 도커 이미지가 출시된 이후 설치 편의성이 크게 개선되었습니다. Google 캘린더 동기화 기능을 통해 기존 워크플로우와의 통합이 용이한 것이 특징입니다.
 
 ### 도커 구현 세부사항
-공식 이미지(`alextselegidis/easyappointments`)는 80번 포트를 기본으로 동작하며, MySQL/MariaDB와의 연동을 위해 환경변수 설정이 필수적입니다. 도커 컴포즈를 이용한 배포 시 데이터 지속성을 위해 볼륨 마운트가 권장되며, 다음 명령어로 최신 버전을 실행할 수 있습니다:
+공식 이미지(`alextselegidis/easyappointments`)는 80번 포트를 기본으로 동작하며, MySQL/MariaDB와의 연동을 위해 환경변수 설정이 필요합니다. 도커 컴포즈를 이용한 배포 시 데이터 지속성을 위해 볼륨 마운트를 사용하며, 다음 명령어로 버전을 실행할 수 있습니다:
 ```
 docker run -d --name easyappointments -p 8080:80 \
   -e DB_HOST=db -e DB_NAME=easyappointments \
@@ -43,7 +43,7 @@ docker run -d --name booked \
 Next.js 기반의 모던 스케줄링 플랫폼으로, 2023년 2.0 버전에서 웹소켓을 이용한 실시간 가용성 업데이트 기능이 추가되었습니다. Zoom/Google Meet 통합 기능이 내장되어 있어 원격 회의 관리에 최적화되어 있습니다.
 
 ### 도커 배포 전략
-커뮤니티 관리 이미지(`calcom/cal.com`)는 빌드 시 환경변수 주입이 필수적이며, PostgreSQL과 Redis를 외부 서비스로 연동해야 합니다. 기본 배포 명령어는 다음과 같습니다:
+커뮤니티 관리 이미지(`calcom/cal.com`)는 빌드 시 환경변수 주입이 필요하며, PostgreSQL과 Redis를 외부 서비스로 연동한다. 기본 배포 명령어는 다음과 같습니다:
 ```
 docker run -d --name calcom \
   -e DATABASE_URL="postgresql://user:pass@host:5432/db" \
@@ -53,7 +53,7 @@ docker run -d --name calcom \
 
 
 ### 성능 벤치마크
-AWS t3.medium 인스턴스에서 500 concurrent user 테스트 결과, 평균 응답 시간이 1.2초로 측정되었습니다. 그러나 사용자당 월간 10,000건 이상의 이벤트를 처리할 경우 Redis 캐시 크기를 4GB 이상으로 확장해야 한다는 주의사항이 보고되었습니다.
+AWS t3.medium 인스턴스에서 500 concurrent user 테스트 결과, 평균 응답 시간이 1.2초로 측정되었습니다. 그러나 사용자당 월간 10,000건 이상의 이벤트를 처리할 경우 Redis 캐시 크기를 4GB 이상으로 확장한다는 유의점이 보고되었습니다.
 
 ## 4. Plane
 
@@ -87,7 +87,7 @@ docker run -d --name radicale \
 
 
 ### 보안 고려사항
-2024년 보안 감사 결과, 기본 인증 방식을 사용할 경우 TLS 암호화가 강제되지 않아 MITM 공격 위험이 존재합니다. 전문가들은 반드시 역방향 프록시 뒤에 배치하고 Let's Encrypt 인증서를 적용할 것을 권고합니다.
+2024년 보안 감사 결과, 기본 인증 방식을 사용할 경우 TLS 암호화가 강제되지 않아 MITM 공격 위험이 존재합니다. 역방향 프록시 뒤에 배치하고 Let's Encrypt 인증서를 적용하는 구성이 제시됩니다.
 
 ## 결론
-각 솔루션별 기술 스택과 사용 사례를 종합해보면, 중소기업용 종합 스케줄링에는 Cal.com이 가장 적합하며, 단순 예약 관리에는 Easy!Appointments가 우수한 선택으로 판단됩니다. 자체 호스팅 캘린더 시스템 구축을 원할 경우 Radicale+Baikal 조합이 효율적입니다. 사용자 설문 결과를 바탕으로 한 추천 우선순위는 1) Cal.com 2) Easy!Appointments 3) Plane 순입니다. 향후 과제로는 모바일 네이티브 앱 지원 강화와 AI 기반 스케줄 최적화 기능 추가가 필요할 것으로 보입니다.
+각 솔루션별 기술 스택과 사용 사례를 종합하면, 중소기업용 종합 스케줄링에는 Cal.com이 적합하며, 단순 예약 관리에는 Easy!Appointments가 선택지로 제시됩니다. 자체 호스팅 캘린더 시스템 구축에는 Radicale+Baikal 조합을 사용할 수 있습니다. 사용자 설문 결과를 바탕으로 한 우선순위는 1) Cal.com 2) Easy!Appointments 3) Plane 순입니다. 향후 과제로는 모바일 네이티브 앱 지원 강화와 AI 기반 스케줄 최적화 기능 추가가 제시됩니다.

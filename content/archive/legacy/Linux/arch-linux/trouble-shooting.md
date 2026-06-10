@@ -1,4 +1,4 @@
-# 🛠️ Arch Linux 문제 해결 가이드
+# 🛠️ Arch Linux 문제 해결 정리
 
 > 📚 **목차**
 > - [🚀 부팅 문제](#-부팅-문제)
@@ -59,7 +59,7 @@ grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB
 |------|-------------------------|--------------------------|
 | **역할** | 🔧 펌웨어용 부트로더 저장소 | 📂 GRUB용 커널/설정 저장소 |
 | **내용물** | `grubx64.efi`, `bootx64.efi` | `vmlinuz`, `initrd.img`, `grub.cfg` |
-| **파일시스템** | FAT32 (필수) | ext4, Btrfs, XFS 등 |
+| **파일시스템** | FAT32 | ext4, Btrfs, XFS 등 |
 | **접근자** | UEFI 펌웨어 | GRUB 부트로더 |
 
 #### 🔧 **해결 방법**
@@ -390,5 +390,5 @@ cat ~/.local/share/xorg/Xorg.0.log
 
 ---
 
-> ⚡ **팁**: 문제 해결 시 항상 로그를 먼저 확인하고, 공식 Arch Wiki를 참조하세요!
-> 🚨 **주의**: 중요한 변경사항은 반드시 백업 후 진행하세요!
+> ⚡ **팁**: 문제 해결은 로그 확인과 Arch Wiki 대조를 함께 진행한다.
+> 🚨 **주의**: 중요한 변경사항은 백업 후 진행한다.

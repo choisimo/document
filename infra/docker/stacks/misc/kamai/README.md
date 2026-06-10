@@ -6,7 +6,7 @@ Open-source time tracking application.
 
 ```bash
 cp .env.example .env
-# Edit .env with your settings
+# Edit .env with environment-specific settings
 mkdir -p kimai/db/mysql kimai/host/data kimai/host/plugins
 docker compose up -d
 ```
@@ -31,4 +31,4 @@ See `.env.example` for configuration options.
 
 ## Initial Setup
 
-After first start, access the web UI and create your admin account with the credentials from `.env`.
+After first start, access the web UI and create an admin account with the credentials from `.env`.

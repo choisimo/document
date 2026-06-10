@@ -176,9 +176,9 @@ sudo setquota -u username 5G 6G 0 0 /home
 
 이 명령은 username 사용자의 소프트 한도를 5GB, 하드 한도를 6GB로 설정합니다.
 
-# Linux SSH 및 PAM 구성 가이드
+# Linux SSH 및 PAM 구성
 
-SSH(Secure Shell)는 리눅스 서버 관리에 가장 널리 사용되는 원격 접속 도구입니다. 이 가이드에서는 SSH 접속 명령어, PAM 설정, 사용자별 디렉토리 구성 및 보안 설정에 대해 자세히 설명드리겠습니다.
+SSH(Secure Shell)는 리눅스 서버 관리에 가장 널리 사용되는 원격 접속 도구다. 이 문서는 SSH 접속 명령어, PAM 설정, 사용자별 디렉토리 구성 및 보안 설정을 정리한다.
 
 ## SSH 접속 명령어 및 옵션
 
@@ -397,7 +397,7 @@ HostBasedAuthentication no
 IgnoreRHosts yes
 ```
 
-호스트 기반 인증 대신 키 기반 인증을 사용하도록 설정합니다[12].
+호스트 기반 인증이 아니라 키 기반 인증을 사용하도록 설정합니다[12].
 
 **인증 방식 설정:**
 ```

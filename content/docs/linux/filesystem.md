@@ -1,681 +1,239 @@
-# 5.1 파일 시스템 구조
-- 부트블록 (Boot block)
-```text
-파일 시스템 시작부에 위치하고 보통 첫 번째 섹터 차지
-리눅스 시작 시 사용되는 부트스트랩 코드가 저장되는 블록
-```
-- 슈퍼 블록 (Super block)
-```text
-전체 파일 시스템에 대한 정보를 저장
-> 총 블록수, 사용 가능 i-node 개수, 사용 가능한 블록 비트맵, 블록 크기 ,사용 중(가능)인 블록수 등
-```
-- i-리스트 (i-list)
-```text
-각 파일을 나타내는 모든 i-node 들의 list
-한 블록은 약 40개 정도의 i-node 포함
-```
-- 데이터 블록 (Data block)
-```text
-파일의 내용(데이터)를 저장하기 위한 블록들
-```
+# Linux 파일시스템과 파일 I/O
 
-## i-node (i-node)
-```text
-한 파일은 하나의 i-node를 가진다.
-```
-```text
-파일에 대한 모든 정보를 가지고 있음.
-> 파일 타입 : 일반 파일, 디렉터리, 블록 장치 (/dev/sda), 문자 장치 (/dev/tty) 등
-> 파일 크기
-> 사용 권한
-> 파일 소유자, 그룹, 그외
-> 접근 및 갱신 시간
-> 데이터 블록에 대한 포인터(주소) 등
-``` 
+이 문서는 Linux 파일시스템을 inode, directory entry, file descriptor, open file table, permission, link 관점에서 정리한다. 목표는 `ls`, `stat`, `open`, `dup`, `chmod`, `link`, `symlink`가 같은 파일 모델 위에서 어떻게 연결되는지 이해하는 것이다.
 
-## 블록 포인터
-- 데이터 블록에 대한 포인터
-```text
-> 파일의 내용을 저장하기 위해 할당된 데이터 블록의 주소
-```
-- 하나의 i-node 내의 블록 포인터
-```text
-> 직접 블록 포인터 : 10개
-> 간접 블록 포인터 : 1개
-> 이중 간접 블록 포인터 : 1개
-> 참고 : 최근 파일 시스템에서는 삼중 블록 포인터를 포함하기도 함
-```
-- 최대 가리킬 수 있는 데이터 블록의 개수
-```text
-> 직접 블록 포인터 10개 -> 블록 10개
-> 간접 블록 포인터 1개 -> 1024 개의 직접 블록 포인터
->> 가정 : 블록 포인터 크기 4 byte, 한 블록의 크기 4096 byte
-> 이중 간접 블록 포인터 1개 -> 1024 개의 간접 블록 포인터 -> 1024 * 1024 개의 직접 블록 포인터
-> 총 개수 : 1 * 10 + 1 * 1,024 + 1,024 * 1,024 = 1,049,610
-```
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-## 파일 입출력 구현 
-- 파일 입출력 구현을 위한 커널 내 자료구조
-```text
-> 파일 디스크립터 배열 (fd array)
-> 열린 파일 테이블 (Open File Table)
-> 동적 i-node 테이블 (Active i-node table)
-```
-<img src="https://github.com/choisimo/document/assets/150008602/b173b661-0b1e-4b28-935e-07550c2b4a5e">
+파일 문제는 겉으로 보기에는 “파일이 없다”, “권한이 없다”, “용량이 없다”처럼 단순해 보인다. 하지만 실제 원인은 path 해석, mount point, inode, permission, open file handle, link count, process working directory 중 하나일 수 있다.
 
-## 파일 디스크립터 배열 (fd array)
-```text
-> 프로세스 당 하나씩 갖는다
-```
-- 파일 디스크립터 배열
-```text
-> 프로세스 내의 자료 구조
-> 프로세스 내에서 열린 파일의 파일 디스크립터를 저장하기 위한 구조
-> 열린 파일 테이블 엔트리를 가리킨다
-```
-- 파일 디스크립터
-```text
-> 파일 티스트립터 배열의 인덱스
-> 열린 파일을 나타내는 번호
-```
+파일시스템 모델을 모르면 `chmod`, `chown`, `rm`, `ln`, `mount` 같은 명령을 증상에 맞춰 반복하게 된다. 구조를 알면 어떤 상태를 조회해야 하는지 빨라진다.
 
-## 열린 파일 테이블 (Open File Table)
-- 열린 파일 테이블 (file table)
-```
-> 커널 내의 자료구조
-> 열려진 모든 파일 목록
-> 파일 테이블 엔티리로 구성
-> 파일을 열 때마다 파일 테이블 엔트리가 만들어짐
-```
-- 파일 테이블 엔트리 (file table entry)
-```text
-> 파일 상태 플래그 (read, write, append)
-> 파일의 현재 위치 (current file position)
-> 동적 i-node에 대한 포인터
-```
-## 동적 i-node 테이블 (Active i-node table)
-- 동적 i-node 테이블 (Active i-node table)
-```text
-> 커널 내의 자료구조
-> 열린 파일들의 i-node를 저장하는 테이블
-> 열린 파일의 i-node의 모든 정보를 가지고 옴
-```
-- i-node
-```text
-> 하드 디스크에 저장되어 있는 파일에 대한 자료구조
-> 한 파일에 하나의 i-node
-> 하나의 파일에 대한 정보 저장
->> 소유자, 크기
->> 파일이 위치한 장치
->> 파일 내용 디스크 블록에 대한 포인터
-```
-## 파일을 위한 커널 자료 구조
-- `fd = open("file", O_RDONLY);` 실행 시
-```text
-1. i-node를 찾아서 동적 i-node 테이블로 가져와 테이블 내에 하나의 엔트리 생성
-2. 열린 파일 테이블에도 하나의 엔트리 생성하여 
-   파일 위치, 플래그, 동적 i-node 에 대한 포인터 저장
-3. 파일 디스크립터 배열에 엔트리를 만들어 인덱스(fd) 반환
-```
-- 열린 파일에 대해 읽거나 쓸 때, 데이터 블록 위치 찾는 방법<br>
-<br>
-<img src="https://github.com/choisimo/document/assets/150008602/e2daa91a-309d-4cae-bf8c-e1cfe5dd2fda"><br>
-<br>
-```text
-열린 파일 테이블 엔트리에 저장된 
-현재 파일 위치 정보 + 동적 i-node 내의 블록 포인터 정보 이용
-```
+## 2. 현재 나의 상태 (Baseline)
 
-- 한 파일을 두 번 열 때 자료구조<br>
+기존 문서는 boot block, superblock, inode, block pointer, file descriptor array, open file table, active inode table, `stat`, permission, directory, hard link, symbolic link를 강의 노트 형태로 나열한다.
 
-<br>
-<img src="https://github.com/choisimo/document/assets/150008602/2cf6f1c4-dc75-4cd4-aac2-493ed0cda272">
-<br>
+보완해야 할 점은 다음과 같다.
+
+- 오래된 파일시스템 설명과 현대 Linux 운영 관점이 섞여 있다.
+- 예제 C 코드에 오타와 중복이 있어 그대로 실행하기 어렵다.
+- kernel 자료구조와 사용자 명령의 연결이 약하다.
+- hard link와 symbolic link의 장애 사례가 충분히 분리되어 있지 않다.
+
+## 3. 도달하고 싶은 목표 (Target State)
+
+목표는 다음 질문에 답할 수 있는 상태다.
+
+- path가 inode로 해석되는 흐름을 설명한다.
+- `open()` 결과인 file descriptor가 무엇을 가리키는지 설명한다.
+- `dup()`와 같은 파일을 두 번 `open()`하는 차이를 설명한다.
+- `stat()`과 `lstat()`의 차이를 안다.
+- file permission과 directory permission의 차이를 안다.
+- hard link와 symbolic link의 link count, inode 차이를 확인한다.
+- 삭제된 파일이 process에 열려 있어도 공간이 남아 있을 수 있음을 이해한다.
+
+## 4. 시스템 번역 (Data Flow)
+
+파일 열기 흐름은 다음과 같다.
 
 ```text
-> 이미 해당 파일의 i-node 내용이 동적 i-node 테이블에 존재
-> 열린 파일 테이블 내에 새로운 엔트리를 만들어야함 (현재 파일 위치, 파일 상태 플래그 새로 설정)
-> fd 배열에도 새로운 엔트리 만들어 fd 반환
+process calls open(path)
+  -> VFS resolves path components
+  -> directory entries map names to inode numbers
+  -> inode metadata is loaded
+  -> open file table entry is created
+  -> process file descriptor table points to entry
+  -> read/write uses file offset and inode data blocks
 ```
 
-- `fd = dup(3);` 혹은 `fd = dup2(3,4);`<br>
-<br>
-<img src="https://github.com/choisimo/document/assets/150008602/799c0f96-8e78-42e2-8c44-fa80589de1e0">
-<br>
+사용자는 path를 다루지만 kernel은 directory entry, inode, open file description, file descriptor를 분리해서 관리한다.
+
+## 5. 핵심 구성요소 (Building Blocks)
+
+Superblock은 filesystem 전체 metadata를 담는다. block size, inode 수, free block 정보 같은 값이 여기에 포함된다.
+
+Inode는 파일의 metadata다. 파일 타입, 권한, 소유자, 크기, timestamp, data block pointer를 가진다. 파일 이름은 inode 안에 저장되지 않는다.
+
+Directory entry는 이름과 inode 번호의 매핑이다. directory 자체도 하나의 파일이며 그 내용이 entry 목록이다.
+
+File descriptor는 process 내부의 작은 정수 handle이다. `0`, `1`, `2`는 표준 입력, 표준 출력, 표준 오류다.
+
+Open file description은 kernel의 열린 파일 상태다. file offset과 open flag를 가진다. `dup()`된 descriptor는 같은 open file description을 공유한다.
+
+Permission은 user, group, other에 대해 read, write, execute bit를 가진다. directory의 execute bit는 path traversal 권한이다.
+
+Hard link는 같은 inode를 가리키는 directory entry를 하나 더 만든다. Symbolic link는 다른 path 문자열을 담은 별도 inode다.
+
+## 6. 상태 전이 (State Transition)
+
+파일 생성과 접근은 다음 상태로 진행한다.
 
 ```text
-fd 배열 내에만 새로운 엔트리를 만듦
-열린 파일 테이블 내의 동일한 파일 엔트리 가리키도록 함
+directory has write and execute permission
+  -> new directory entry created
+  -> inode allocated
+  -> data blocks allocated on write
+  -> metadata updated
 ```
 
-# 5.2 파일 상태 정보
+파일 열기와 복제는 다음처럼 갈라진다.
 
-## 파일 상태 (file status)
-- 파일 상태
 ```text
-> 파일에 대한 모든 정보
-> 블록수, 파일 타입, 사용 권한, 링크수, 파일 소유자의 사용자 ID, 그룹 ID, 파일 크기, 최종 수정 시간 등
-```
-```shell
-$ ls -l hello.c
-2 -rw-r--r-- 1 user group 600 11월 17일 15:33  hello.c
+open same path twice
+  -> two file descriptors
+  -> two open file descriptions
+  -> independent offsets
 ```
 
-## 상태 정보 : stat() 시스템 호출 (System Call)
 ```text
-> 파일 하나당 하나의 i-node 가 있으며, i-node 내에 파일에 대한 모든 상태 정보가 저장되어 있음
-> lstat()과 stat()의 차이는 lstat은 대상이 심볼릭 링크일 때 링크가 가리키는 파일이 아니라
-  링크 자체에 대한 정보
+dup existing descriptor
+  -> two file descriptors
+  -> one shared open file description
+  -> shared offset
 ```
-```C
-#include <sys/types.h>
-#include <sys/stat.h>
 
-int stat(const char *filename. struct stat *buf);
-int fstat(int fd, struct stat *buf);
-int lstat(const char *filename, struct stat *buf);
-/**
-    파일의 상태 정보를 가져와서 stat 구조체 buf에 저장.
-    성공시 0, 실패시 -1 리턴
-*/
-```
-## stat 구조체 (struct)
-```C
-struct stat {
-    mode_t st_mode;     // 파일 타입과 사용권한
-    ino_t st_ino;       // i-node 번호
-    dev_t st_dev;       // 장치 번호
-    dev_t st_rdev;      // 특수 파일 장치 번호
-    nlink_t st_nlink;   // 링크 수
-    uid_t st_uid;       // 소유자의 사용자 ID
-    gid_t st_gid;       // 소유자의 그룹 ID
-    off_t st_size;      // 파일 크기
-    time_t st_atime;    // 최종 접근 시간
-    time_t st_mtime;    // 최종 수정 시간
-    time_t st_ctime;    // 최종 상태 변경 시간
-    long st_blksize;    // 최종 블록 크기
-    long st_blocks;     // 파일의 블록 수 
-};
-```
-## 파일 타입
-|||
-|--|--|
-|**파일 타입**|**설명**|
-|`일반 파일`|데이터를 갖고 있는 텍스트 파일 또는 이진 파일|
-|`디렉터리 파일`|파일의 이름들과 파일 정보에 대한 포인터를 포함하는 파일|
-|`문자 장치 파일`|문자 단위로 데이터를 전송하는 장치를 나타내는 파일 <br> (입출력 장치, 예 : 터미널, 프린터, 키보드 등)|
-|`블록 장치 파일`|블록 단위로 데이터를 전송하는 장치를 나타내는 파일 <br> (HDD, SSD와 같은 저장 장치, 예: /dev/sda)|
-|`FIFO 파일`|프로세스 간 통신에 사용되는 파일로 이름 있는 파이프|
-|`SOCKET`|네트워크를 통한 프로세스 간 통신에 사용되는 파일|
-|`심볼릭 링크`|다른 파일을 가리키는 포인터 역할을 하는 파일|
-||
+삭제는 link count와 open handle 상태에 따라 완료 시점이 달라진다.
 
-## 파일 타입 검사 함수
-- 파일 타입을 검사하기 위한 매크로 함수
 ```text
-S_ISREG() : 대상이 일반 파일이면 1, 아니면 0 반환
+unlink path
+  -> directory entry removed
+  -> link count decreases
+  -> data freed only when link count is zero and no process keeps it open
 ```
-|||
-|--|--|
-|**파일 타입**|**파일 타입을 검사하기 위한 매크로 함수**|
-|`일반 파일`|S_ISREG()|
-|`디렉터리 파일`|S_ISDIR()|
-|`문자 장치 파일`|S_ISCHR()|
-|`블록 장치 파일`|S_ISBLK()|
-|`FIFO 파일`|S_ISFIFO()|
-|`SOCKET`|S_ISSOCK()|
-|`심볼릭 링크`|S_ISLNK()|
-||
 
-```C
-#include <sys/types.h>
-#include <sys/stat.h>
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- 파일 이름과 inode는 같은 것이 아니다.
+- `stat()`은 symlink target을 따라가고, `lstat()`은 symlink 자체를 본다.
+- directory에서 파일을 삭제하려면 파일 권한보다 directory write와 execute 권한이 중요하다.
+- `chmod 777`은 원인 분석 없이 사용하지 않는다.
+- `chown -R`과 `chmod -R`은 대상 tree를 먼저 출력해 확인한다.
+- hard link는 일반적으로 directory에 만들지 않는다.
+- symlink는 target path가 사라지면 dangling link가 된다.
+- 삭제했는데 공간이 안 돌아오면 열린 deleted file handle을 의심한다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+파일 metadata를 확인한다.
+
+```bash
+touch sample.txt
+stat sample.txt
+ls -li sample.txt
+namei -l sample.txt
+```
+
+Hard link와 symbolic link 차이를 본다.
+
+```bash
+echo hello > original.txt
+ln original.txt hard.txt
+ln -s original.txt sym.txt
+ls -li original.txt hard.txt sym.txt
+stat original.txt hard.txt
+lstat sym.txt
+```
+
+`lstat` 명령이 없는 환경에서는 `stat` 옵션으로 symlink 자체를 확인한다.
+
+```bash
+stat -c '%N %F %i' sym.txt
+```
+
+File descriptor를 확인한다.
+
+```bash
+exec 3< original.txt
+ls -l /proc/$$/fd
+cat <&3
+exec 3<&-
+```
+
+삭제된 파일을 process가 잡고 있는지 확인한다.
+
+```bash
+sudo lsof | rg deleted
+```
+
+`stat()`과 `lstat()`의 차이를 보는 최소 C 예제다.
+
+```c
 #include <stdio.h>
-#include <stdlib.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
-/**
-    hard-link : fd
-    symbolic-link : route
-*/
-int main(int argc, char **argv){
-    int i;
-    struct stat buf;
-    for (i=1; i<argc; i++){
-        if (lstat(argv[i], &buf) < 0){
-            perror("lstat()");
-            continue;
-       }
-
-        if(S_ISREG(buf.st_mode)) printf("%s \n", "일반 파일");
-        if(S_ISDIR(buf.st_mode)) printf("%s \n", "디렉터리");
-        if(S_ISCHR(buf.st_mode)) printf("%s \n", "문자 장치 파일");
-        if(S_ISBLK(buf.st_mode)) printf("%s \n", "블록 장치 파일");
-        if(S_ISFIFO(buf.st_mode)) printf("%s \n", "FIFO 파일");
-        if(S_ISLNK(buf.st_mode)) printf("%s \n", "심볼릭 링크");
-        if(S_ISSOCK(buf.st_mode)) printf("%s \n", "소켓");
-    }
-    exit(0);
+static void print_inode(const char *label, const struct stat *st) {
+    printf("%s inode=%lu mode=%o size=%ld\n",
+           label,
+           (unsigned long)st->st_ino,
+           st->st_mode,
+           (long)st->st_size);
 }
-```
 
-## 파일 사용 권한 (File Permissions)
-- 각 파일에 대한 권한 관리
-```text
-> 각 파일마다 사용권한이 있다
-> 소유자(owner)|그룹(group)|기타(others)로 구분하여 관리한다
-```
-- 파일에 대한 권한
-```text
-> 읽기 r
-> 쓰기 w
-> 실행 x
-```
-## 사용 권한
-- read 권한이 있어야 `O_RDONLY`, `O_RDWR` 을 사용하여 파일을 열 수 있다.
-- write 권한이 있어야 `O_WRONLY`, `O_RDWR`, `O_TRUNC` 을 사용하여 파일을 열 수 있다.
-- 디렉토리에 write 권한과 execute 권한이 있어야 파일 `생성`, `삭제` 가능
-
-## chmod(), fchmod()
-```C
-#include <sys/stat.h>
-#include <sys/types.h>
-
-int chmod(const char* path, mode_t mode);
-int fchmod(int fd, mode_t mode);
-```
-- 파일의 사용 권한을 변경
-```text
-> 리턴 값 : 성공(0), 실패(-1)
-> mode : 8진수 형태의 세자리 정수 (ex.644)
-```
-```C
-#include <sys/types.h> 
-#include <sys/stat.h> 
-#include <stdio.h> 
-#include <stdlib.h>
-
-int main(int argc, char **argv){
-    int newmode;
-    // String to long (8 진수)
-    newmode = (int) strtol(argv[1], (char**) NULL, 8);
-    if (chmod(argv[2], newmode) == -1){
-        perror(argv[2]);
-        exit(1);
-    }
-    exit(0);
-}
-```
-## chown()
-```C
-#include <sys/types.h>
-#include <unistd.h>
-
-int chown(const char* path, uid_t owner, gid_t group);
-int fchown(int fd, uid_t owner, gid_t group);
-```
-```text
-> 파일의 user ID 와 group ID 를 변경
-> 리턴 : 성공 (0), 실패 (-1)
-> 파일의 소유자는 super-user 만 가능
-> 파일의 그룹은 파일의 소유자가, 그 소유자가 멤버인 다른 그룹으로 변경 가능
-> super-user는 임의로 그룹 변경 가능
-```
-
-## utime()
-```C
-#include <sys/types.h>
-#include <utime.h>
-
-int utime(const char *filename, const struct utimbuf *times);
-```
-```text
-> 파일의 최종 접근 시간과 최종 변경 시간을 조정
-> times가 NULL 이면, 현재시간으로 설정
-> 리턴 값 : 성공 (0), 실패 (-1)
-```
-```C
-struct utimbuf{
-    time_t actime; // access time
-    time_t modtime; // modification time
-}
-```
-```text
-각 필드는 1970-01-01 00:00 부터 현재 시간까지의 경과 시간을 초로 환산한 값
-```
-```C
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <utime.h>
-#include <stdio.h>
-#include <stdlib.h>
-
-int main(int argc, char *argv[]){
-    struct stat buf; //파일 상태 저장 변수
-    struct utimbuf time;
-
-    if (argc < 3){
-        fprintf(stderr, "사용법: cptime file1 file2\n");
-        exit(1);
-    }
-
-    if (stat(argv[1], &buf) < 0){
-        perror("stat()");
-        exit(-1);
-    }
-
-    time.actime = buf.st_atime; //접근 시간
-    time.modtime = buf.sf_mtime; //수정 시간
-
-    if (utime(argv[2], &time)) //접근, 수정 시간 복사
-        perror("utime");
-    else exit(0);
-}
-```
-```shell
-ls -sl a.txt b.txt
-> 현재 파일 정보 확인
-cptime a.txt b.txt
-> b.txt의 수정 시간을 a.txt의 수정 시간으로 변경 
-ls -sl a.txt b.txt
-> 다시 파일 정보 확인
-```
-
-# 5.3 디렉터리
-## 디렉터리
-- 디렉터리는 루트 디렉터리부터 시작하여 트리 구조 형성
-```text
-디렉터리 내의 디렉터리 : 그 디렉터리의 서브 디렉터리
-```
-- 디렉터리는 폴더(folder)라고도 함
-
-## 디렉터리의 구현
-- 디렉터리 엔트리
-```text
-> 각 엔트리는 디렉터리 내 하나의 파일 나타냄
-> 파일 이름과 그 파일의 i-node 번호로 구성
-```
-```C
-#include <dirent.h>
-
-struct dirent {
-    ino_t d_ino; //i-node 번호
-    char d_name[NAME_MAX + 1] // file 이름
-}
-```
-![스크린샷 2024-04-15 034105](https://github.com/choisimo/document/assets/150008602/4ec330fe-6b1e-4bea-9cb5-1df00830f77e)
-
-## 디렉터리 리스트
-- opendir()
-```text
-> 디렉터리 열기 함수
-> DIR 포인터 (열린 디렉터리를 가리키는 포인터) 리턴
-```
-- readdir()
-```text
-디렉터리 읽기 함수
-```
-- DIR 구조체 : 디렉터리에 대한 정보를 저장하기 위한 구조체
-```C
-#include <sys/types.h>
-#include <dirent.h>
-
-DIR *opendir (const char *path);
-// path 디렉터리를 열고 성공하면 DIR 구조체 포인터, 실패하면 NULL 리턴
-struct dirent *readdir(DIR *dp);
-// 한 번에 디렉터리 엔트리를 하나씩 읽어서 리턴
-```
-```C
-#include <sys/types.h> 
-#include <sys/stat.h> 
-#include <dirent.h> 
-#include <stdio.h> 
-#include <stdlib.h>
-
-int main(int argc, char* argv[]){
-    DIR *dp;
-    char *dir;
-    struct dirent *d;
+int main(int argc, char **argv) {
     struct stat st;
-    char path[BUFSIZ + 1];
-    
-    if (argc == 1) dir = "."; 
-    else dir = argv[1];
 
-    if ((dp == opendir(dir)) == null) perror(dir);
-
-    while ((d = readdir(dp)) != NULL) 
-        printf("%s \n", d -> d_name); 
-
-    closedir(dp);
-    exit(0);
-}
-```
-## 파일 이름/크기 출력
-- 디렉터리 내에 있는 파일 이름과 그 파일의 크기 (블록의 수) 출력하도록 확장
-```C
-while ((d = raddir(dp)) != null ){
-    // 디렉터리 내의 각 파일 파일경로명 만들기
-    sprintf(path, "%s/%s", dir, d -> d_name);
-    if (lstat(path, &st) < 0); // 파일 상태 정보 가져오기
-        perror(path);
-    printf("%5d %s", st->st_blocks, d->name); // 블록 수, 파일 이름 출력
-}
-```
-## st_mode
-- `lstat()` 시스템 호출
-```text
-파일 타입과 사용권한 정보는 st->st_mode 필드에 함께 저장됨
-```
-- `st_mode` 필드 <br>
-<br>
-![스크린샷 2024-04-15 040416](https://github.com/choisimo/document/assets/150008602/839de2fa-37e2-4dfa-90b3-b01df47d8e4e)
-<br>
-- 프로그램 구성 
-```C
-> main()      // 메인 프로그램
-> printStat() // 파일 상태 정보 프린트
-> type()      // 파일 타입 리턴
-> perm()      // 파일 사용권한 리턴
-```
-```C
-#include <sys/types.h> 
-#include <sys/stat.h> 
-#include <dirent.h> 
-#include <pwd.h>
-#include <grp.h> 
-#include <stdio.h> 
-#include <time.h>
-
-char type(mode_t);
-char *perm(mode_t);
-void printStat(char*, char*, struct stat*);
-
-int main(int argc, char *argv[])
-{
-    DIR *dp;
-    char *dir;
-    struct stat st;
-    struct dirent *d;
-    char path[BUFSIZE + 1];
-
-    if (argc == 1)
-        dir = ".";
-    else 
-        dir = argv[1];
-
-    if ((dp = opendir(dir)) == NULL)
-        perror(dir);
-    
-    while ((d = readdir(dp)) != NULL){
-        sprintf(path, "%s/%s", dir, d -> d_name);
-        if (lstat(path, &st) < 0)
-            perror(path);
-        printStat(path, d->d_name, &st);
-        putchar('\n');
+    if (argc != 2) {
+        fprintf(stderr, "usage: file-stat PATH\n");
+        return 2;
     }
 
-    closedir(dp);
-    exit(0);
-}
-```
-
-```C
-void printStat(char *pathname, char* file, struct stat* st){
-        /* 파일 상태 정보를 출력 */
-    void printStat(char *pathname, char *file, struct stat *st) {
-
-    printf("%5d ", st->st_blocks);                          // 블록 수
-    printf("%c%s ", type(st->st_mode), perm(st->st_mode));  // 파일타입, 권한
-    printf("%3d ", st->st_nlink);                           // 링크 수
-    printf("%s %s ", getpwuid(st->st_uid)->pw_name,         // 사용자 이름
-    getgrgid(st->st_gid)->gr_name);                         // 그룹 이름
-    printf("%9d ", st->st_size);                            // 파일 크기 (바이트 단위)
-    printf("%.12s ", ctime(&st->st_mtime)+4);               // 변경 시간 출력 (참고: 요일 빼기 위해+4)
-    printf("%s", file);                                     // 파일 이름 
-    }
-}
-```
-- file type
-```C
-char type(mode_t mode){
-    if (S_ISREG(mode)) 
-       return ('-');
-    if (S_ISDIR(mode))
-       return ('d');
-    if (S_ISCHR(mode)) 
-       return ('c');
-    if (S_ISBLK(mode))
-       return ('b');
-    if (S_ISLNK(mode)) 
-       return('l');
-    if (S_ISFIFO(mode)) 
-       return('p');
-    if (S_ISSOCK(mode)) 
-       return('s');
-}
-```
-- perm
-```C
-#define S_IRUSR 00400
-#define S_IWUSR 00200
-#define S_IXUSR 00100
-```
-```C
-char *perm(mode_t mode){
-    int i;
-    static char perms[10] = "-------";
-
-    for (i = 0; i < 3; i++){
-        if (mode & (S_IRUSR >> i * 3))
-            perms[i*3] = 'r';
-        if (mode & (S_IWUSR >> i * 3))
-            perms[i*3 + 1] = 'w';
-        if (mode & (S_IXUSR >> i + 3))
-            perms[i*3 + 2] = 'x';
-    }
-    return(perms);
-}
-```
-## 디렉터리 만들기
-- mkdir() 시스템 호출
-```text
-> path가 나타내는 새로운 디렉터리를 만든다
-> "." 와 ".." 파일은 자동으로 만들어진다
-```
-- rmdir() 시스템 호출
-```text
-> path가 나타내는 디렉터리가 비어 있으면 삭제
-```
-```C
-#include <unistd.h>
-int rmdir(const char* path);
-// 비어있으면 삭제, 성공 (0), 실패 (-1)
-```
-## 디렉터리 구현
-- 디렉터리를 위한 구조는 따로 없다
-```text
-> 디렉터리도 일종의 파일로 다른 파일처럼 구현됨
-> 디렉터리도 다른 파일처럼 하나의 i-node 로 표현됨
-> 디렉터리의 내용은 디렉터리 엔트리 (파일이름, i-node 번호) 로 구성
-```
-![스크린샷 2024-04-15 042625](https://github.com/choisimo/document/assets/150008602/bf0ead50-1bcf-4247-a2f3-eee95a070544)
-![스크린샷 2024-04-15 042748](https://github.com/choisimo/document/assets/150008602/c118261d-d7cb-43b8-92a2-a026225cc8fa)
-
-## 링크
-- 링크는 기존 파일에 대한 또 다른 이름으로 `하드 링크`, `심볼릭 링크` 가 있다.
-- 링크 시스템 호출
-```text
-기존 파일 existing 에 대한 링크를 만듦 (동일한 i-node를 가리킴)
-```
-![스크린샷 2024-04-15 042933](https://github.com/choisimo/document/assets/150008602/72232cd1-f79d-4168-a202-8d77fcbf24f7)
-
-```C
-#include <unistd.h>
-
-int main(int argc, char* argv[]){
-    if (link(argv[1], argv[2]) == -1){
-        exit(1); // 하드 링크 생성 실패
-    }
-    exit(0);
-}
-```
-![스크린샷 2024-04-15 043542](https://github.com/choisimo/document/assets/150008602/e36c9754-93ac-460e-920d-2c2101057f15)
-```text
-하드 링크 -> 같은 i-node
-심볼릭 링크 -> 다른 i-node
-```
-```C
-#include <unistd.h>
-main (int argc, char* argv[]){
-    int unlink();
-    if (unlink(argv[1]) == -1){
-        perror(argv[1]);
-        exit(1);
-    }
-    exit(0);
-}
-// ./unlink b.txt 링크 수가 0이 되면 파일 삭제됨
-```
-## 심볼릭 링크
-```C
-int symlink (const char* actualpath, const char* sympath);
-// 만드는데 성공하면 0, 실패하면 -1을 리턴
-
-#include <unistd.h>
-int main(int argc, char* argv[]){
-    if (symlink(argv[1], argv[2]) == -1)
-    {
-        exit(1);
-    }   
-    exit(0);
-}
-```
-## 심볼릭 링크 내용
-```C
-#include <unistd.h>
-int readlink(const char* path, char* buf, size_t bufsize);
-/**
-    path 심볼릭 링크의 실제 내용을 읽어서 buf에 저장
-    리턴 : 성공(buf에 저장한 바이트 수), 실패(-1)
-*/
-```
-```C
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-
-int main(int argc, char* argv[]){
-    char buffer[1024];
-    int nread;
-    nread = readlink(argv[1], buffer, 1024);
-    if (nread > 0){
-        write(1, buffer,  nread);
-        exit(0);
+    if (stat(argv[1], &st) == 0) {
+        print_inode("stat", &st);
     } else {
-        fprintf(stderr, "오류 : 해당 링크 없음\n");
-        exit(1);
+        perror("stat");
     }
+
+    if (lstat(argv[1], &st) == 0) {
+        print_inode("lstat", &st);
+    } else {
+        perror("lstat");
+    }
+
+    return 0;
 }
 ```
+
+Permission을 확인하고 좁게 변경한다.
+
+```bash
+ls -ld .
+ls -l sample.txt
+chmod 600 sample.txt
+stat -c '%A %a %U %G %n' sample.txt
+```
+
+## 9. 실패 사례 (What could go wrong?)
+
+파일을 삭제했는데 `df` 사용량이 줄지 않으면 process가 삭제된 file handle을 열고 있을 수 있다. `lsof | rg deleted`로 확인하고 process를 재시작해야 공간이 돌아올 수 있다.
+
+`chmod`로 파일에 write 권한을 줬는데 삭제가 안 되면 parent directory 권한을 확인한다. 삭제는 directory entry 변경이기 때문이다.
+
+Symlink target을 상대 경로로 만들면 link를 이동했을 때 깨질 수 있다. `readlink`와 `readlink -f`로 실제 해석 결과를 확인한다.
+
+Hard link는 같은 filesystem 안에서만 동작한다. 다른 mount point로는 `Invalid cross-device link`가 발생한다.
+
+`cp`는 기본적으로 새 inode를 만들지만 `mv`는 같은 filesystem 안에서는 directory entry만 바꿀 수 있다. 이 차이가 권한과 timestamp 결과에 영향을 준다.
+
+`du`와 `df` 값이 다르면 sparse file, deleted open file, mount point, reserved block을 함께 의심한다.
+
+## 10. 뇌 확장하기 (Evolution & Variants)
+
+Linux의 VFS는 ext4, XFS, Btrfs, tmpfs 같은 구체 filesystem 위에 공통 인터페이스를 제공한다. 사용자 프로그램은 대부분 `open`, `read`, `write`, `stat` 같은 system call을 통해 이 공통 모델을 사용한다.
+
+Modern filesystem은 block pointer를 단순 직접, 간접 pointer만으로 설명하기 어렵다. Extents, journal, copy-on-write, checksum, subvolume 같은 구현 차이가 있다. 그래도 inode, directory entry, permission, descriptor 모델은 여전히 핵심이다.
+
+컨테이너 환경에서는 mount namespace 때문에 같은 path라도 process마다 다른 filesystem view를 볼 수 있다. `/proc/<pid>/mountinfo`와 `/proc/<pid>/fd`가 중요한 단서가 된다.
+
+## 11. 최종 체크리스트 (Definition of Done)
+
+- [ ] inode와 file name의 차이를 설명할 수 있다.
+- [ ] `stat`과 `lstat`의 차이를 확인했다.
+- [ ] file descriptor와 open file description의 관계를 이해했다.
+- [ ] `dup()`와 같은 파일을 두 번 `open()`하는 차이를 설명할 수 있다.
+- [ ] directory permission이 파일 생성과 삭제에 미치는 영향을 안다.
+- [ ] hard link와 symbolic link를 구분한다.
+- [ ] 삭제된 open file로 인한 용량 문제를 진단할 수 있다.
+
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
+
+Linux 파일시스템은 path가 아니라 inode와 descriptor 중심으로 동작한다. 이름은 directory entry이고, metadata는 inode이며, process가 쓰는 handle은 file descriptor다.

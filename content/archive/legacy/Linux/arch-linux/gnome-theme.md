@@ -1,6 +1,6 @@
-# 🎨 GNOME 데스크톱 환경 테마 및 커스터마이징 가이드
+# 🎨 GNOME 데스크톱 환경 테마 및 커스터마이징 정리
 
-> **📋 사전 조건**: 이 가이드는 Arch Linux에 GNOME이 설치되어 있다고 가정합니다. GNOME 설치는 [설치 가이드](./installation.md)를 참조하세요.
+> **📋 사전 조건**: 이 문서는 Arch Linux에 GNOME이 설치된 상태를 기준으로 한다. GNOME 설치 절차는 [설치 문서](./installation.md)에 정리되어 있다.
 
 ## 📚 목차
 
@@ -65,7 +65,7 @@ gnome-control-center
 # 또는 Activities에서 "Settings" 검색
 ```
 
-### 필수 초기 설정
+### 초기 설정 항목
 
 #### 1. 디스플레이 설정
 - **해상도 및 스케일링**: `Settings → Displays`
@@ -184,7 +184,7 @@ flatpak install flathub com.mattjakeman.ExtensionManager
 #### 1. **Orchis Theme**
 - **특징**: 현대적이고 세련된 디자인
 - **설치**: `yay -S orchis-theme-git`
-- **추천 아이콘**: Papirus Dark
+- **연계 아이콘**: Papirus Dark
 
 ```bash
 # Orchis 테마 설치 및 적용
@@ -196,24 +196,24 @@ gsettings set org.gnome.desktop.interface icon-theme 'Papirus-Dark'
 #### 2. **Dracula Theme**
 - **특징**: 인기 있는 보라색 계열 다크 테마
 - **설치**: `yay -S dracula-gtk-theme`
-- **추천 아이콘**: Dracula
+- **연계 아이콘**: Dracula
 
 #### 3. **Nordic Theme**
 - **특징**: 북유럽 스타일의 차분한 색상
 - **설치**: `yay -S nordic-theme`
-- **추천 아이콘**: Zafiro Icons
+- **연계 아이콘**: Zafiro Icons
 
 ### ☀️ 라이트 테마
 
 #### 1. **WhiteSur Theme**
 - **특징**: macOS Big Sur와 유사한 디자인
 - **설치**: `yay -S whitesur-gtk-theme`
-- **추천 아이콘**: WhiteSur Icon
+- **연계 아이콘**: WhiteSur Icon
 
 #### 2. **Materia Theme**
 - **특징**: Material Design 기반
 - **설치**: `sudo pacman -S materia-gtk-theme`
-- **추천 아이콘**: Papirus
+- **연계 아이콘**: Papirus
 
 ### 🎨 컬러풀 테마
 
@@ -309,11 +309,11 @@ GNOME Shell Extensions를 통해 기능을 대폭 확장할 수 있습니다.
 sudo pacman -S extension-manager
 ```
 
-### 필수 확장 프로그램
+### 주요 확장 프로그램
 
 #### 🔧 시스템 관리
 
-| 확장 프로그램 | 기능 | 추천도 |
+| 확장 프로그램 | 기능 | 적합도 |
 |---------------|------|--------|
 | **Dash to Dock** | 독 스타일 작업 표시줄 | ⭐⭐⭐⭐⭐ |
 | **TopIcons Plus** | 시스템 트레이 아이콘 표시 | ⭐⭐⭐⭐ |
@@ -322,7 +322,7 @@ sudo pacman -S extension-manager
 
 #### 📊 정보 표시
 
-| 확장 프로그램 | 기능 | 추천도 |
+| 확장 프로그램 | 기능 | 적합도 |
 |---------------|------|--------|
 | **System Monitor** | CPU, 메모리 사용량 표시 | ⭐⭐⭐⭐ |
 | **Weather** | 날씨 정보 표시 | ⭐⭐⭐ |
@@ -330,7 +330,7 @@ sudo pacman -S extension-manager
 
 #### 🎨 시각적 효과
 
-| 확장 프로그램 | 기능 | 추천도 |
+| 확장 프로그램 | 기능 | 적합도 |
 |---------------|------|--------|
 | **Blur my Shell** | 배경 블러 효과 | ⭐⭐⭐⭐ |
 | **Compiz alike magic lamp effect** | 창 최소화 애니메이션 | ⭐⭐⭐ |
@@ -351,7 +351,7 @@ gnome-extensions disable dash-to-dock@micheleg.gmail.com   # 확장 프로그램
 
 ### 한글 입력기 설치
 
-#### IBus 설정 (권장)
+#### IBus 설정
 
 ```bash
 # IBus 한글 입력기 설치
@@ -409,15 +409,15 @@ sudo localectl set-locale LANG=ko_KR.UTF-8
 gsettings reset org.gnome.desktop.interface gtk-theme
 gsettings set org.gnome.desktop.interface gtk-theme 'Your-Theme-Name'
 
-# 또는 완전 로그아웃 후 재로그인
+# 또는 로그아웃 후 재로그인
 ```
 
 #### 2. 아이콘이 제대로 표시되지 않음
 
 ```bash
 # 아이콘 캐시 재생성
-sudo gtk-update-icon-cache -f -t /usr/share/icons/your-icon-theme
-gtk-update-icon-cache -f -t ~/.icons/your-icon-theme
+sudo gtk-update-icon-cache -f -t /usr/share/icons/icon-theme-name
+gtk-update-icon-cache -f -t ~/.icons/icon-theme-name
 ```
 
 #### 3. 확장 프로그램이 작동하지 않음
@@ -489,7 +489,7 @@ systemctl --user disable unnecessary.service
 
 ---
 
-## 🎯 추천 설정 조합
+## 🎯 설정 조합 예시
 
 ### 🌙 다크 모드 애호가용
 
@@ -568,17 +568,15 @@ gnome-shell --version                                         # GNOME Shell 버�
 
 ---
 
-## 🎉 마무리
+## 🎉 요약
 
-이제 여러분의 GNOME 데스크톱을 자신만의 스타일로 꾸밀 수 있게 되었습니다! 
+GNOME 데스크톱 테마 변경은 GTK 테마, 아이콘, 폰트, 확장 프로그램을 함께 조정하는 작업이다.
 
 ### 핵심 요점
 
-1. **단계적 접근**: 한 번에 모든 것을 바꾸지 말고 점진적으로 커스터마이징
-2. **백업 습관**: 중요한 설정을 변경하기 전에는 현재 설정을 기록
+1. **단계적 접근**: 한 번에 모든 것을 바꾸기보다 점진적으로 커스터마이징
+2. **백업 습관**: 중요한 설정을 변경하기 전에 현재 설정을 기록
 3. **성능 고려**: 너무 많은 확장 프로그램은 성능에 영향을 줄 수 있음
 4. **일관성 유지**: 테마, 아이콘, 폰트가 서로 조화롭게 어울리도록 선택
 
-> 💡 **팁**: 정기적으로 GNOME 및 확장 프로그램을 업데이트하여 최신 기능과 보안 패치를 적용받으세요.
-
-즐거운 GNOME 커스터마이징 되세요! 🚀
+> 💡 **팁**: GNOME 및 확장 프로그램 업데이트는 최신 기능과 보안 패치를 반영하는 기본 관리 절차다.

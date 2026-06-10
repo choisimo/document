@@ -21,7 +21,7 @@ docker compose up -d
 
 ```env
 MONGO_USERNAME=admin
-MONGO_PASSWORD=your_secure_password
+MONGO_PASSWORD=STRONG_PASSWORD
 ```
 
 ## Files

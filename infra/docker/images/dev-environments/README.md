@@ -20,7 +20,7 @@
 cd images/dev-environments/node
 
 # 워크스페이스 경로 설정 후 실행
-WORKSPACE_PATH=/path/to/your/project docker compose up -d
+WORKSPACE_PATH=/path/to/project docker compose up -d
 
 # 컨테이너 접속
 docker exec -it dev-node bash

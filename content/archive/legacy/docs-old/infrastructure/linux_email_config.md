@@ -38,14 +38,14 @@ sudo nano /etc/ssmtp/ssmtp.conf
 ```
 # SMTP 서버 설정
 mailhub=smtp.gmail.com:587
-AuthUser=your-gmail@gmail.com
-AuthPass=your-app-password
+AuthUser=server-alert@example.com
+AuthPass=APP_PASSWORD
 UseTLS=YES
 UseSTARTTLS=YES
 FromLineOverride=YES
 ```
 
-> 주의: Gmail은 2023년 이후 일반 비밀번호 인증을 지원하지 않습니다. 반드시 앱 비밀번호를 생성하여 사용하세요.
+> 유의: Gmail은 2023년 이후 일반 비밀번호 인증을 지원하지 않습니다. 앱 비밀번호를 생성하여 사용한다.
 
 ### msmtp 설정 (더 안정적인 방법)
 
@@ -68,9 +68,9 @@ logfile        ~/.msmtp.log
 account        gmail
 host           smtp.gmail.com
 port           587
-from           your-email@gmail.com
-user           your-email@gmail.com
-password       your-app-password
+from           server-alert@example.com
+user           server-alert@example.com
+password       APP_PASSWORD
 
 # 기본 계정 지정
 account default : gmail
@@ -105,13 +105,13 @@ mail -s "제목" -a 첨부파일.pdf 수신자@example.com  2단계 인증 > 앱
 ```bash
 #!/bin/bash
 
-api_key="your_Mailtrap_api_token"
+api_key="MAILTRAP_API_TOKEN"
 
 curl -X POST "https://send.api.mailtrap.io/api/send" \
 --header "Authorization: Bearer $api_key" \
 --header 'Content-Type: application/json' \
 --data-raw '{
-  "from": {"email": "youremail@example.com", "name": "서버 알림"},
+  "from": {"email": "server-alert@example.com", "name": "서버 알림"},
   "to": [{"email": "recipient@example.com"}],
   "subject": "서버 백업 완료",
   "text": "백업이 성공적으로 완료되었습니다.",

@@ -25,7 +25,7 @@ images/
 
 ```bash
 cd images/dev-environments/node
-WORKSPACE_PATH=/your/project docker compose up -d
+WORKSPACE_PATH=/path/to/project docker compose up -d
 docker exec -it dev-node bash
 ```
 
@@ -37,4 +37,4 @@ docker build -t ubuntu-dev-env .
 docker run -it -v /path/to/project:/home/developer/workspace ubuntu-dev-env /bin/bash
 ```
 
-자세한 내용은 각 디렉토리의 README를 참조하세요.
+자세한 내용은 각 디렉토리의 README를 참조한다.

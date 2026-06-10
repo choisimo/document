@@ -1,6 +1,6 @@
 # 📚 데이터베이스 시스템 종합 가이드
 
-_데이터베이스 설계, 구현 및 관리를 위한 완전한 참고서_
+_데이터베이스 설계, 구현, 관리를 위한 종합 참고서_
 
 ![Database Architecture](https://img.shields.io/badge/Database-Architecture-blue) ![SQL](https://img.shields.io/badge/SQL-Advanced-green) ![Transactions](https://img.shields.io/badge/Transactions-ACID-orange) ![Normalization](https://img.shields.io/badge/Normalization-BCNF%2F3NF-red)
 
@@ -20,7 +20,7 @@ _데이터베이스 설계, 구현 및 관리를 위한 완전한 참고서_
 
 ## 🎯 학습 목표
 
-이 가이드를 완료하면 다음을 할 수 있게 됩니다:
+이 가이드의 학습 범위는 다음과 같다.
 
 ✅ 인덱스와 해싱을 사용하여 효율적인 데이터베이스 저장 구조 설계  
 ✅ 정규화 원칙을 적용하여 잘 설계된 데이터베이스 스키마 생성  
@@ -78,7 +78,7 @@ graph TD
 
 ## 🎯 챕터 개요
 
-데이터베이스 인덱싱은 잘 정리된 도서관 목록 시스템과 같습니다. 모든 책장의 모든 책을 검색하는 대신, 목록을 사용하여 필요한 정확한 책을 직접 찾을 수 있습니다. 마찬가지로 데이터베이스 인덱스는 전체 테이블을 스캔하지 않고도 특정 데이터에 빠르게 접근할 수 있게 해줍니다.
+데이터베이스 인덱싱은 잘 정리된 도서관 목록 시스템과 유사하다. 모든 책장의 모든 책을 검색하지 않고, 목록에서 위치를 찾은 뒤 해당 자료로 이동한다. 데이터베이스 인덱스도 전체 테이블 스캔을 줄이고 특정 데이터에 빠르게 접근하도록 돕는다.
 
 ```mermaid
 graph LR
@@ -159,7 +159,7 @@ graph LR
 #### 🔍 주 인덱스 (클러스터링 인덱스)
 
 - **테이블당 하나** - 데이터 파일이 검색 키 기준으로 물리적으로 정렬됨
-- **검색 키**: 보통(반드시 Primary Key는 아님) 기본 키
+- **검색 키**: 보통 Primary Key를 사용하지만 필수 조건은 아님
 - **물리적 저장**: 검색 키 순서대로 레코드가 연속적으로 저장
 
 #### 🔍 보조 인덱스 (비클러스터링 인덱스)
@@ -425,7 +425,7 @@ graph TD
 
 </details>
 
-**문제 2**: 해시 인덱스가 순서 인덱스보다 가지는 주요 장점은 무엇인가요?
+**문제 2**: 해시 인덱스가 순서 인덱스보다 가지는 주요 장점을 정리한다.
 
 <details>
 <summary>정답 보기</summary>
@@ -869,7 +869,7 @@ graph TD
 
 ### 🎓 Learning Objectives
 
-By the end of this section, you will be able to:
+This section covers the following outcomes:
 
 ✅ **Define** transactions and explain their importance  
 ✅ **Apply** ACID properties to real-world scenarios  
@@ -1535,7 +1535,7 @@ sequenceDiagram
     Note over DB: Final value: 103 ❌<br/>Should be: 108 ✅
 ```
 
-**Question**: How would you prevent this lost update problem?
+**Question**: Lost update 문제를 방지하는 방법은 무엇인가?
 
 <details>
 <summary>💡 Solution</summary>
@@ -1726,7 +1726,7 @@ graph TD
 
 ### 🎓 Learning Objectives
 
-By the end of this section, you will be able to:
+This section covers the following outcomes:
 
 ✅ **Design** scalable, maintainable database-driven applications  
 ✅ **Implement** secure data access patterns  
@@ -1883,9 +1883,9 @@ graph TD
 
 **질문**:
 
-1. 어떤 아키텍처를 선택하겠으며, 그 이유는 무엇인가요?
-2. 데이터 액세스 계층을 어떻게 보호하시겠습니까?
-3. 어떤 성능 최적화를 구현하시겠습니까?
+1. 선택 가능한 아키텍처와 선택 근거
+2. 데이터 액세스 계층 보호 방식
+3. 적용 가능한 성능 최적화
 
 <details>
 <summary>💡 Sample Solution</summary>
@@ -1986,7 +1986,7 @@ graph TD
 
 ### 🎓 Learning Objectives
 
-By the end of this section, you will be able to:
+This section covers the following outcomes:
 
 ✅ **작성**: 고급 구문을 활용한 MySQL 전용 SQL  
 ✅ **선택**: 워크로드에 맞는 스토리지 엔진  
@@ -2044,7 +2044,7 @@ ALTER TABLE mytable ENGINE = InnoDB;
 
 ## 🌐 문자 집합 & 정렬(collation)
 
-- **utf8mb4**: 완전한 유니코드 지원(권장)
+- **utf8mb4**: 전체 유니코드 범위 지원(권장)
 - **Collation**: 정렬 및 비교 규칙(예: utf8mb4_unicode_ci)
 - **Conversion**: `CONVERT()` 및 `ALTER TABLE ... CONVERT TO CHARACTER SET ...` 사용
 
@@ -2117,7 +2117,7 @@ graph LR
 
 ## 🧪 Interactive Quiz
 
-**문제 1**: MySQL에서 utf8과 utf8mb4의 차이점은 무엇인가요?
+**문제 1**: MySQL에서 utf8과 utf8mb4의 차이점을 정리한다.
 
 <details>
 <summary>정답 보기</summary>
@@ -2182,7 +2182,7 @@ mindmap
 
 # 📝 Summary Notes & Further Resources
 
-> **"Review, reinforce, and expand your database knowledge"**
+> **Database knowledge review, reinforcement, and expansion**
 
 ## 🎯 Visual Summary
 
@@ -2219,11 +2219,11 @@ mindmap
 
 ## 🗝️ Key Takeaways
 
-- **Indexing**: Use the right index for your query pattern (ordered for range, hash for exact match)
+- **Indexing**: Match the index type to the query pattern (ordered for range, hash for exact match)
 - **Normalization**: Prevent anomalies, but balance with performance needs
 - **Transactions**: ACID is essential for reliability; understand isolation levels
 - **Advanced SQL**: Window functions, CTEs, and analytics unlock powerful insights
-- **App Development**: Secure, test, and optimize your data access layer
+- **App Development**: Keep the data access layer secure, testable, and observable
 - **MySQL**: Prefer InnoDB, utf8mb4, and use EXPLAIN for tuning
 
 ---
@@ -2241,7 +2241,7 @@ mindmap
 
 ## 🤝 Collaboration & Feedback
 
-- **Suggest improvements**: Open an issue or pull request in your version control system
+- **Suggested improvements**: Issues or pull requests can track proposed changes in version control
 - **Comment and discuss**: Use collaborative tools (e.g., GitHub Discussions, Google Docs comments)
 - **Peer review**: Share with colleagues for feedback
 - **Stay updated**: Follow database community blogs and changelogs
@@ -2254,7 +2254,7 @@ mindmap
 
 <details><summary>Show answer</summary>Atomicity, Consistency, Isolation, Durability</details>
 
-**Question 2**: When should you denormalize a schema?
+**Question 2**: When is schema denormalization appropriate?
 
 <details><summary>Show answer</summary>When performance is critical and controlled redundancy is acceptable</details>
 
@@ -2262,7 +2262,7 @@ mindmap
 
 <details><summary>Show answer</summary>Clustered index determines physical row order; non-clustered is a separate structure</details>
 
-**Question 4**: How do you prevent SQL injection?
+**Question 4**: What prevents SQL injection?
 
 <details><summary>Show answer</summary>Use parameterized queries and input validation</details>
 

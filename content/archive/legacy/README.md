@@ -3,7 +3,7 @@
 이 디렉토리는 문서 저장소 재구성 과정에서 보관된 기존 문서들을 포함합니다.
 
 > **참고**: 이 폴더의 내용은 대부분 `docs/` 디렉토리로 마이그레이션되었습니다.
-> 원본 참조가 필요한 경우에만 이 폴더를 사용하세요.
+> 원본 참조가 필요한 경우에만 이 폴더를 사용한다.
 
 ---
 
@@ -24,7 +24,7 @@
 | `default/` | 4 | 기본 설정 파일 | - |
 | `docs-old/` | 99 | 이전 docs 폴더 백업 | `docs/` |
 | `documentation-site/` | 0 | (빈 디렉토리) | - |
-| `hardware/` | 2 | SSD 가이드 (EAGET) | `docs/infrastructure/hardware/` |
+| `hardware/` | 2 | SSD 문서 (EAGET) | `docs/infrastructure/hardware/` |
 | `java/` | 1 | Java 메모리, 람다, GC | `docs/java/` |
 | `middle-east/` | 3 | 중동 관련 문서 | - |
 | `module-study/` | 1 | Raspberry Pi GPIO | `docs/infrastructure/` |
@@ -99,10 +99,10 @@ pie title 콘텐츠 마이그레이션 현황
     "미사용/삭제 예정" : 5
 ```
 
-### ✅ 완전 마이그레이션된 항목
+### 마이그레이션 완료 항목
 - 컴파일러 이론 문서 → `docs/compiler/`
 - 운영체제 개념 → `docs/os/`
-- 데이터베이스 가이드 → `docs/databases/`
+- 데이터베이스 문서 → `docs/databases/`
 - Linux 명령어 및 설정 → `docs/linux/`
 - 보안 관련 문서 → `docs/security/`
 
@@ -117,18 +117,18 @@ pie title 콘텐츠 마이그레이션 현황
 
 ---
 
-## 🗑️ 정리 가이드
+## 정리 기준
 
 ### 안전하게 삭제 가능한 항목
 ```bash
 # 빈 디렉토리 삭제
 rm -rf legacy/documentation-site/
 
-# docs-old는 docs/로 완전히 마이그레이션됨
+# docs-old는 docs/로 마이그레이션됨
 rm -rf legacy/docs-old/  # 확인 후 삭제
 ```
 
-### 보존 권장 항목
+### 보존 대상 항목
 - `Algorithm/`: 원본 분석 코드 포함
 - `compiler/`: 상세 이론 문서
 - `QnA-MarkDown/`: 프로젝트별 트러블슈팅 기록

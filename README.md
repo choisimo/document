@@ -1,6 +1,6 @@
 # Documentation Hub
 
-인프라, 개발, 보안, 알고리즘 등 종합 기술 문서 저장소입니다.
+인프라, 개발, 보안, 알고리즘 문서를 관리하는 기술 문서 저장소다. 출판 문서, 보관 문서, 자동화 코드, 인프라 설정을 분리해 다룬다.
 
 ## 저장소 구조
 
@@ -37,7 +37,7 @@
     └── site/               # MkDocs 빌드 결과
 ```
 
-## 빠른 시작
+## 운영 명령
 
 ### 로컬 문서 서버 실행
 
@@ -86,7 +86,7 @@ cargo run --manifest-path src/tools/docs-validator-rs/Cargo.toml -- --check all
 - [Linux Commands](content/docs/tools/terminal/linux-commands.md)
 - [Tmux Guide](content/docs/tools/terminal/tmux.md)
 
-## 기여 가이드
+## 문서 배치 기준
 
 | 작업 | 위치 |
 |------|------|
@@ -96,11 +96,11 @@ cargo run --manifest-path src/tools/docs-validator-rs/Cargo.toml -- --check all
 | AI 프롬프트 추가 | `content/prompts/` |
 | 리서치 문서 | `content/research/` |
 
-문서 추가 후 `apps/docs-site/mkdocs.yml`의 `nav:` 섹션을 업데이트하세요.
+새 문서를 추가하면 `apps/docs-site/mkdocs.yml`의 `nav:` 섹션에도 같은 항목을 반영한다.
 
 ## 마이그레이션 정보
 
-구 경로 → 신 경로 매핑은 [MIGRATION_MAP.md](MIGRATION_MAP.md)를 참조하세요.  
+구 경로와 신 경로의 대응 관계는 [MIGRATION_MAP.md](MIGRATION_MAP.md)에 정리되어 있다.
 구조 변경 ADR: [ADR-001](content/docs/adr/ADR-001-repo-layout.md)
 
 ## 기술 스택

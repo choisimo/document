@@ -14,7 +14,7 @@
 
 ## Development Environments
 
-개발 환경 이미지 사용법은 각 이미지 디렉토리의 README를 참조하세요:
+개발 환경 이미지 사용법은 각 이미지 디렉토리의 README를 참조한다:
 
 - `images/dev-environments/node/` - Node.js 개발 환경
 - `images/dev-environments/python/` - Python 개발 환경

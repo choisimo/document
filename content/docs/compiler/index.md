@@ -1,224 +1,128 @@
-# 컴파일러 이론 문서
+# 컴파일러 이론 인덱스 학습 및 기록 노트
 
-컴파일러 설계와 구현에 관한 학습 자료입니다.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
----
+컴파일러는 소스 코드를 바로 기계어로 바꾸는 단일 단계가 아니다. 어휘 분석은 문자를 token으로 나누고, 구문 분석은 token stream을 parse tree/AST로 만들며, 의미 분석과 IR, 최적화, 코드 생성이 뒤따른다. 각 단계를 분리해 이해하지 않으면 parser 오류, grammar ambiguity, lexer state, IR 최적화의 책임 경계를 혼동하게 된다.
 
-## :material-cog-sync: 컴파일러 파이프라인
+이 문서는 `content/docs/compiler` 하위 문서를 compiler pipeline과 학습 순서 중심으로 재작성한 상위 인덱스다.
 
-```mermaid
-flowchart LR
-    A[소스 코드] --> B[어휘 분석<br/>Lexical]
-    B --> C[구문 분석<br/>Syntax]
-    C --> D[의미 분석<br/>Semantic]
-    D --> E[중간 코드<br/>IR]
-    E --> F[최적화<br/>Optimization]
-    F --> G[코드 생성<br/>Code Gen]
-    G --> H[기계어]
-    
-    style B fill:#e1f5fe
-    style C fill:#e8f5e9
-    style D fill:#fff3e0
-    style F fill:#fce4ec
-```
+## 2. 현재 나의 상태 (Baseline)
 
----
+- 정규표현식, NFA, DFA, CFG, LL parser, LR parser라는 용어는 알고 있다.
+- Lexer와 parser가 각각 어떤 입력과 출력을 갖는지 더 명확히 해야 한다.
+- Top-down parsing과 bottom-up parsing의 차이를 parse direction과 grammar constraint로 구분해야 한다.
+- IR, SSA, optimization, code generation은 프론트엔드 이후 단계로만 얕게 알고 있다.
+- 하위 문서로 들어가기 전 전체 학습 순서를 정리할 필요가 있다.
 
-## :material-book-multiple: 문서 목록
+## 3. 도달하고 싶은 목표 (Target State)
 
-<div class="grid cards" markdown>
+- Compiler pipeline을 source code부터 machine code까지 단계별 data flow로 설명한다.
+- Lexical analysis 문서와 parsing 문서의 역할을 구분한다.
+- NFA, DFA, NFA-to-DFA 변환을 scanner 구현 관점으로 연결한다.
+- CFG, LL parser, LR parser, bottom-up parsing을 parser 설계 관점으로 연결한다.
+- IR과 최적화가 front-end 결과를 backend가 다루기 쉬운 형태로 바꾸는 이유를 이해한다.
 
--   :material-format-letter-matches:{ .lg .middle } **어휘 분석 (Lexical Analysis)**
-
-    ---
-
-    토큰화, 정규표현식, 유한 오토마타
-
-    - [NFA](lexical/nfa.md) - 비결정적 유한 오토마타
-    - [DFA](lexical/dfa.md) - 결정적 유한 오토마타
-    - [NFA → DFA](lexical/nfa-to-dfa.md) - 변환 알고리즘
-
--   :material-file-tree:{ .lg .middle } **구문 분석 (Parsing)**
-
-    ---
-
-    문법, 파싱 기법, 파스 트리
-
-    - [CFG](parsing/cfg.md) - 문맥 자유 문법
-    - [LL 파서](parsing/ll-parser.md) - 하향식 파싱
-    - [LR 파서](parsing/lr-parser.md) - 상향식 파싱
-    - [Bottom-Up](parsing/bottom-up.md) - 상향식 개념
-
-</div>
-
----
-
-## :material-state-machine: 어휘 분석 단계
-
-### 정규표현식 → NFA → DFA
+## 4. 시스템 번역 (Data Flow)
 
 ```mermaid
 flowchart LR
-    A["정규표현식<br/>(a|b)*abb"] --> B["NFA<br/>(Thompson)"]
-    B --> C["DFA<br/>(부분집합)"]
-    C --> D["최소 DFA<br/>(Hopcroft)"]
-    D --> E["어휘 분석기<br/>(Scanner)"]
+    A[Source code] --> B[Lexical analysis]
+    B --> C[Token stream]
+    C --> D[Syntax parsing]
+    D --> E[Parse tree / AST]
+    E --> F[Semantic analysis]
+    F --> G[IR]
+    G --> H[Optimization]
+    H --> I[Code generation]
+    I --> J[Machine code]
 ```
 
-### 유한 오토마타 비교
+Compiler pipeline은 한 단계의 출력이 다음 단계의 입력 계약이 되는 연속 처리다. Lexer는 문자를 token으로 바꾸고, parser는 token sequence가 grammar를 만족하는지 검증한다.
 
-| 특성 | NFA | DFA |
-|------|-----|-----|
-| **전이 결과** | 상태 집합 | 단일 상태 |
-| **ε-전이** | ✅ 가능 | ❌ 불가능 |
-| **상태 수** | 적음 | 많을 수 있음 |
-| **구현** | 단순 | 복잡 |
-| **실행** | 느림 | 빠름 |
-| **표현력** | 동일 | 동일 |
+## 5. 핵심 구성요소 (Building Blocks)
 
----
+| 영역 | 문서 | 핵심 질문 |
+| --- | --- | --- |
+| NFA | [lexical/nfa.md](lexical/nfa.md) | ε-transition과 여러 가능한 상태를 어떻게 표현하는가? |
+| DFA | [lexical/dfa.md](lexical/dfa.md) | 입력 문자마다 단일 다음 상태를 어떻게 결정하는가? |
+| NFA to DFA | [lexical/nfa-to-dfa.md](lexical/nfa-to-dfa.md) | 상태 집합을 DFA state로 어떻게 바꾸는가? |
+| CFG | [parsing/cfg.md](parsing/cfg.md) | 언어의 계층 구조를 production rule로 어떻게 표현하는가? |
+| LL parser | [parsing/ll-parser.md](parsing/ll-parser.md) | 시작 기호에서 token 방향으로 어떻게 예측 파싱하는가? |
+| LR parser | [parsing/lr-parser.md](parsing/lr-parser.md) | token에서 시작 기호로 어떻게 shift/reduce하는가? |
+| Bottom-up | [parsing/bottom-up.md](parsing/bottom-up.md) | handle을 찾아 reduce하는 관점은 무엇인가? |
 
-## :material-tree: 구문 분석 단계
-
-### 하향식 vs 상향식
+## 6. 상태 전이 (State Transition)
 
 ```mermaid
-flowchart TB
-    subgraph TopDown["하향식 (Top-Down)"]
-        direction TB
-        T1[시작 심볼] --> T2[유도]
-        T2 --> T3[터미널]
-    end
-    
-    subgraph BottomUp["상향식 (Bottom-Up)"]
-        direction TB
-        B1[터미널] --> B2[축약]
-        B2 --> B3[시작 심볼]
-    end
+stateDiagram-v2
+    [*] --> Characters
+    Characters --> Tokens: lexer
+    Tokens --> ParseStack: parser
+    ParseStack --> AST: grammar accepted
+    AST --> TypedAST: semantic checks
+    TypedAST --> IR
+    IR --> OptimizedIR
+    OptimizedIR --> MachineCode
+    MachineCode --> [*]
 ```
 
-### 파싱 알고리즘 분류
+컴파일 실패는 어느 상태 전이에서 계약이 깨졌는지에 따라 lexer error, syntax error, semantic error, codegen error로 나뉜다.
 
-| 유형 | 알고리즘 | 문법 제약 | 특징 |
-|------|----------|----------|------|
-| **하향식** | Recursive Descent | LL(1) | 직관적, 수동 구현 |
-| | LL(k) Parser | LL(k) | k 토큰 lookahead |
-| **상향식** | SLR | SLR(1) | 단순, 제약 많음 |
-| | LALR | LALR(1) | yacc/bison |
-| | LR(1) | LR(1) | 강력, 테이블 큼 |
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
----
+- Lexer는 source character stream을 grammar parser가 이해할 token stream으로 변환해야 한다.
+- DFA는 현재 상태와 입력 symbol이 주어지면 다음 상태가 하나로 결정되어야 한다.
+- NFA-to-DFA 변환은 원래 NFA가 인식하는 언어를 바꾸면 안 된다.
+- Parser는 grammar와 lookahead 조건에 맞지 않는 입력을 accept하면 안 된다.
+- LL parser는 left recursion과 FIRST/FOLLOW conflict를 처리하거나 제거해야 한다.
+- LR parser는 shift/reduce와 reduce/reduce conflict를 명확히 해결해야 한다.
+- IR 최적화는 프로그램 의미를 보존해야 한다.
 
-## :material-format-text: 문맥 자유 문법 (CFG)
+## 8. 가장 작은 예제 (Minimal Viable Example)
 
-### 문법 표기법
+```text
+source: a = 3 + 4 * 5
 
-```
-// BNF (Backus-Naur Form)
-<expr>   ::= <term> (('+' | '-') <term>)*
-<term>   ::= <factor> (('*' | '/') <factor>)*
-<factor> ::= NUMBER | '(' <expr> ')'
-```
+lexer:
+IDENT(a), ASSIGN, NUMBER(3), PLUS, NUMBER(4), STAR, NUMBER(5)
 
-### 파스 트리 예시
+parser:
+expr -> term PLUS term
+term -> factor STAR factor
 
-`3 + 4 * 5`의 파스 트리:
-
-```mermaid
-flowchart TB
-    E[expr] --> T1[term]
-    E --> PLUS["+"]
-    E --> T2[term]
-    
-    T1 --> F1[factor]
-    F1 --> N1["3"]
-    
-    T2 --> F2[factor]
-    T2 --> MUL["*"]
-    T2 --> F3[factor]
-    
-    F2 --> N2["4"]
-    F3 --> N3["5"]
-```
-
----
-
-## :material-code-braces: 중간 표현 (IR)
-
-### 3-주소 코드
-
-```
-// 소스: a = b + c * d
-t1 = c * d      // 임시 변수 사용
-t2 = b + t1
+IR:
+t1 = 4 * 5
+t2 = 3 + t1
 a = t2
 ```
 
-### SSA (Static Single Assignment)
+이 예제는 compiler front-end가 문자열을 token, grammar structure, intermediate code로 단계적으로 바꾸는 흐름을 보여준다.
 
-```
-// 각 변수는 한 번만 할당
-x1 = 5
-x2 = x1 + 1
-x3 = φ(x1, x2)  // Phi 함수
-```
+## 9. 실패 사례 (What could go wrong?)
 
----
+- Lexer와 parser 책임을 섞어 tokenization 오류를 grammar 오류처럼 처리한다.
+- NFA와 DFA의 표현력은 같지만 실행 모델이 다르다는 점을 놓친다.
+- Left-recursive grammar를 recursive descent parser에 그대로 넣어 무한 재귀가 발생한다.
+- Ambiguous grammar를 그대로 사용해 parse tree가 여러 개 생긴다.
+- LR table conflict를 원인 분석 없이 precedence 선언으로만 덮는다.
+- Optimization이 side effect나 undefined behavior 가정을 잘못 다뤄 의미를 바꾼다.
 
-## :material-lightning-bolt: 최적화 기법
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-| 최적화 | 설명 | 예시 |
-|--------|------|------|
-| **상수 폴딩** | 컴파일 타임에 상수 계산 | `3 * 4` → `12` |
-| **상수 전파** | 상수를 사용처로 전파 | `x=5; y=x+1` → `y=6` |
-| **죽은 코드 제거** | 사용되지 않는 코드 제거 | unreachable code |
-| **루프 불변 이동** | 루프 밖으로 계산 이동 | loop-invariant hoisting |
-| **공통 부분식 제거** | 중복 계산 제거 | CSE |
-| **인라인 확장** | 함수 호출을 본문으로 대체 | inlining |
+- Lexer 생성기는 Flex, re2c, hand-written scanner를 비교한다.
+- Parser 생성기는 Bison/Yacc, ANTLR, recursive descent, Pratt parser로 확장한다.
+- IR은 three-address code, SSA, LLVM IR, bytecode를 비교한다.
+- Optimization은 constant folding, CSE, DCE, loop invariant code motion, inlining으로 넓힌다.
+- Backend는 register allocation, instruction selection, calling convention, object file/linking까지 이어진다.
 
----
+## 11. 최종 체크리스트 (Definition of Done)
 
-## :material-school: 학습 로드맵
+- [x] Compiler pipeline을 source, token, AST, IR, machine code 흐름으로 정리했다.
+- [x] Lexical 문서와 parsing 문서 링크를 유지했다.
+- [x] NFA/DFA/CFG/LL/LR의 학습 순서를 연결했다.
+- [x] Lexer/parser/IR 최적화의 불변식과 실패 사례를 포함했다.
+- [x] 원문 compiler index 문서를 12개 섹션 템플릿으로 재작성했다.
 
-```mermaid
-flowchart TD
-    A[기초] --> B[정규 언어]
-    B --> C[NFA/DFA]
-    C --> D[어휘 분석기 구현]
-    
-    A --> E[문맥 자유 문법]
-    E --> F[파싱 이론]
-    F --> G[파서 구현]
-    
-    D --> H[컴파일러 프론트엔드]
-    G --> H
-    
-    H --> I[IR 설계]
-    I --> J[최적화]
-    J --> K[코드 생성]
-```
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-### 추천 도구
-
-| 도구 | 용도 | 언어 |
-|------|------|------|
-| **Flex** | 어휘 분석기 생성 | C |
-| **Bison** | 파서 생성 (LALR) | C |
-| **ANTLR** | LL(*) 파서 생성 | Java, Python |
-| **LLVM** | 컴파일러 백엔드 | C++ |
-
----
-
-## :material-link-variant: 관련 문서
-
-- [알고리즘](../algorithms/index.md) - 그래프 알고리즘
-- [운영체제](../os/index.md) - 시스템 프로그래밍 기초
-
----
-
-## :material-book-open-page-variant: 참고 자료
-
-- **Dragon Book** - Compilers: Principles, Techniques, and Tools
-- **Tiger Book** - Modern Compiler Implementation
-- **Engineering a Compiler** - Keith Cooper
-- [JFLAP](https://www.jflap.org/) - 오토마타 시각화 도구
+컴파일러는 문자를 한 번에 기계어로 바꾸는 장치가 아니라, token, syntax tree, IR, machine code로 계약을 이어 가는 pipeline이다.

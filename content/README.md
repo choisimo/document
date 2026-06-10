@@ -1,6 +1,6 @@
 # content/
 
-사람이 읽는 모든 문서 자산 모음입니다.
+문서 사이트와 내부 참고 자료에서 사용하는 문서 자산 모음이다. 출판 문서, 생성 산출물, 보관 문서, 프롬프트, 메모, 리서치를 역할별로 분리한다.
 
 ## 디렉터리 구조
 
@@ -38,7 +38,7 @@ content/
     └── proxmox-rocky10-platform/
 ```
 
-## 규칙
+## 편집 규칙
 
 | 디렉터리 | 편집 권한 | 설명 |
 |----------|-----------|------|
@@ -49,9 +49,9 @@ content/
 | `notes/` | ✅ 자유 편집 | 개인 메모 |
 | `research/` | ✅ 자유 편집 | 리서치 문서 |
 
-## MkDocs 빌드
+## MkDocs 빌드 위치
 
-문서 사이트 빌드는 `apps/docs-site/`에서 수행합니다:
+문서 사이트 빌드는 `apps/docs-site/`에서 수행한다.
 
 ```bash
 cd apps/docs-site
@@ -60,4 +60,4 @@ mkdocs build
 docker compose -f docker-compose.docs.yml up docs
 ```
 
-출판 결과물은 `dist/site/`에 생성됩니다.
+출판 결과물은 `dist/site/`에 생성된다.

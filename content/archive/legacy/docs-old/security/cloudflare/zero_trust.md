@@ -1,4 +1,4 @@
-# Cloudflare Zero Trust와 Nginx를 활용한 접근 관리 구현 가이드
+# Cloudflare Zero Trust와 Nginx를 활용한 접근 관리 구현
 
 ## 인증 및 인가 흐름도 (ASCII Art)
 
@@ -223,7 +223,7 @@ ingress:
 ![DNS 검증 프로세스](https://via.placeholder.com/600x300?text=DNSCloudflare DNS 설정 검증 단계**:
   1. A 레코드 확인: `app.example.com → 서버 공인 IP`
   2. CNAME 설정: `_acme-challenge.app.example.com → app.example.com.verify.cloudflare`
-  3. TTL 값: 개발 단계에서는 300초(5분) 권장[4]
+  3. TTL 값: 개발 단계에서는 300초(5분) 사용 가능[4]
 
 ### 3. TLS/SSL 인증서 불일치 (Search result[13][15])
 ```nginx
@@ -296,7 +296,7 @@ tcpdump -i eth0 port 8080 -w capture.pcap
 
 ## 대체 솔루션 비교 분석
 
-| 솔루션 유형 | 장점 | 단점 | 권장 사용 사례 |
+| 솔루션 유형 | 장점 | 단점 | 사용 사례 |
 |------------|------|------|---------------|
 | **Cloudflare Tunnel** | - IP 노출 없음- 통합 보안 정책 | - Cloudflare 인프라 의존 | 퍼블릭 서비스 노출 |
 | **Nginx Reverse Proxy** | - 세분화된 제어- 로드 밸런싱 지원 | - 직접 인증서 관리 필요 | 복잡한 라우팅 요구 |
@@ -351,7 +351,7 @@ tcpdump -i eth0 port 8080 -w capture.pcap
         originServerName: app.example.com  # SNI 강제 지정[13]
   ```
 
-본 가이드를 통해 인프라 구성 요소 간의 상호 작용을 체계적으로 점검하고, 단계별 문제 해결 절차를 적용하면 Cloudflare Zero Trust 환경에서 발생하는 대부분의 5xx 오류를 효과적으로 해결할 수 있습니다. 특히 네트워크 트래픽 흐름 분석과 동적 설정 검증을 결합한 접근 방식이 핵심 성공 요인입니다.
+이 문서는 인프라 구성 요소 간 상호 작용을 체계적으로 점검하고, Cloudflare Zero Trust 환경에서 발생하는 5xx 오류를 단계별로 분리하는 절차를 정리한다. 네트워크 트래픽 흐름 분석과 동적 설정 검증을 결합한 접근 방식이 핵심이다.
 
 
 ---
@@ -438,21 +438,21 @@ done
 
 ## 고급 문제 해결 팁
 
-1. **Zero Trust 정책 확인**: Cloudflare 대시보드에서 Zero Trust 정책이 올바르게 설정되었는지 확인하세요[4][11]
+1. **Zero Trust 정책 확인**: Cloudflare 대시보드에서 Zero Trust 정책이 올바르게 설정되었는지 확인한다[4][11]
 
-2. **IP 제한 확인**: Cloudflare IP 범위가 방화벽에서 차단되지 않았는지 확인하세요[4][9]
+2. **IP 제한 확인**: Cloudflare IP 범위가 방화벽에서 차단되지 않았는지 확인한다[4][9]
    ```bash
    # Cloudflare IP 허용
    curl -s https://www.cloudflare.com/ips-v4 | sudo ufw allow from
    ```
 
-3. **호스트 이름 확인**: config.yml의 호스트 이름과 Cloudflare DNS 설정이 일치하는지 확인하세요[7]
+3. **호스트 이름 확인**: config.yml의 호스트 이름과 Cloudflare DNS 설정이 일치하는지 확인한다[7]
 
-4. **TLS/SSL 설정 검증**: SSL 설정이 올바른지 확인하고, 필요시 "No TLS Verify" 옵션을 활성화하세요[8][12]
+4. **TLS/SSL 설정 검증**: SSL 설정이 올바른지 확인하고, 필요시 "No TLS Verify" 옵션을 활성화한다[8][12]
 
-5. **로컬 직접 접속 확인**: 내부 네트워크에서 서비스에 직접 접속이 가능한지 확인하여 서비스 자체 문제와 Cloudflare 연결 문제를 분리하세요[7]
+5. **로컬 직접 접속 확인**: 내부 네트워크에서 서비스에 직접 접속이 가능한지 확인하여 서비스 자체 문제와 Cloudflare 연결 문제를 분리한다[7]
 
-오류 해결에도 불구하고 문제가 지속된다면, Cloudflare 터널 설정을 처음부터 다시 구성해보는 것도 효과적인 방법입니다. 이미지에서 보이는 설정은 기본적으로 올바르게 구성된 것으로 보이나, 터널과 실제 서비스 간의 연결에 문제가 있는 것으로 판단됩니다.
+오류 해결에도 불구하고 문제가 지속된다면 Cloudflare 터널 설정을 처음부터 다시 구성하는 방법을 검토한다. 이미지에서 보이는 설정은 기본적으로 올바르게 구성된 것으로 보이나, 터널과 실제 서비스 간의 연결에 문제가 있는 것으로 판단된다.
 
 
 ---
@@ -568,7 +568,7 @@ cloudflared tunnel --loglevel debug run
    sudo systemctl restart code-server@nodove.service
    ```
 
-로그를 계속 모니터링하고, 터널을 통한 액세스 문제가 해결되었는지 확인하세요. 특히 상대 경로 리다이렉트 처리가 대부분의 경우 이러한 521 오류의 원인이 됩니다.
+로그를 계속 모니터링하고, 터널을 통한 액세스 문제가 해결되었는지 확인한다. 특히 상대 경로 리다이렉트 처리가 대부분의 경우 이러한 521 오류의 원인이 된다.
 
 # 해결 방안: Cloudflare Zero Trust 연결 시 Error 521 문제
 
@@ -703,7 +703,7 @@ Apr 27 21:34:58 dev-server code-server[5473]: [2025-04-27T12:34:58.246Z] info  H
    cloudflared tunnel --loglevel debug run 
    ```
 
-## 추가 권장 사항
+## 추가 검토 사항
 
 1. **code-server 설정 확인**:
    ```yaml
@@ -730,9 +730,8 @@ Apr 27 21:34:58 dev-server code-server[5473]: [2025-04-27T12:34:58.246Z] info  H
    sudo dpkg -i cloudflared.deb
    ```
 
-터널 연결 문제가 지속될 경우 더 정확한 진단을 위해 `--loglevel debug` 옵션으로 실행한 상세 로그를 확인하는 것이 중요합니다. "context canceled" 오류는 일반적으로 오리진 서버(code-server)와 cloudflared 에이전트 간의 연결이 비정상적으로 종료될 때 발생합니다.
+터널 연결 문제가 지속될 경우 더 정확한 진단을 위해 `--loglevel debug` 옵션으로 실행한 상세 로그를 확인한다. "context canceled" 오류는 일반적으로 오리진 서버(code-server)와 cloudflared 에이전트 간의 연결이 비정상적으로 종료될 때 발생한다.
 
 
 
 ---
-

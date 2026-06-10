@@ -1,408 +1,248 @@
-## Proxmox VE(PVE) OS를 새 SSD로 마이그레이션하는 방법**중요한 사전 준비:**
+# Proxmox OS 디스크 마이그레이션
 
-  * **데이터 백업:** 마이그레이션 과정 중 예기치 않은 문제가 발생할 수 있으니, **모든 VM과 CT의 백업을 반드시 받아두시기 바랍니다.**
-  * **새 SSD 준비:** 새로운 SSD를 Proxmox 서버에 물리적으로 연결합니다.
-  * **Proxmox VE ISO 파일:** 만약을 대비하여 Proxmox VE 설치용 USB를 준비해두면 좋습니다.
+이 문서는 Proxmox VE가 설치된 OS 디스크를 새 SSD로 옮길 때 선택할 수 있는 두 가지 경로를 정리한다. 목표는 “디스크를 복제한다”가 아니라 VM/CT 데이터, host 설정, bootloader, storage mapping을 잃지 않고 검증하는 것이다.
 
------
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-### 방법 1: 디스크 전체 복제 (Clonezilla 또는 dd 사용)
+Proxmox OS 디스크를 교체할 때는 host OS만 옮기는 문제가 아니다. `/etc/pve`의 VM/CT 설정, storage 설정, network 설정, cluster 정보, bootloader, local storage에 있는 guest disk가 함께 영향을 받는다.
 
-기존 드라이브의 모든 데이터를 새 드라이브로 비트 단위로 복사하는 가장 확실한 방법입니다. 기존 드라이브와 새 드라이브의 용량이 같거나, 새 드라이브가 더 큰 경우에 적합합니다.
+무작정 `dd`로 복제하거나 `/etc/pve`를 덮어쓰면 부팅 실패, cluster filesystem 문제, storage mismatch, VM 복구 실패로 이어질 수 있다.
 
-**장점:**
+## 2. 현재 나의 상태 (Baseline)
 
-  * 가장 간단하고 직관적인 방법입니다.
-  * OS 설정, VM/CT 구성 등 모든 환경이 그대로 이전됩니다.
+기존 문서는 Clonezilla 복제와 재설치 후 복원을 여러 번 반복해 설명한다. 보완해야 할 점은 다음과 같다.
 
-**단점:**
+- `/etc/pve`를 단순 directory처럼 삭제하고 덮어쓰는 위험한 흐름이 포함되어 있다.
+- VM/CT backup과 host 설정 backup의 차이가 약하다.
+- single node와 cluster node의 절차 차이가 충분히 분리되지 않았다.
+- LVM, ZFS 확장 절차가 검증 명령과 분리되어 있지 않다.
+- 최종 검증 항목이 부족하다.
 
-  * 복제하는 동안 Proxmox 서버를 중지해야 합니다.
-  * 새 SSD의 용량이 기존 SSD보다 작으면 사용할 수 없습니다.
+## 3. 도달하고 싶은 목표 (Target State)
 
-#### **Clonezilla 사용 단계 (권장):**
+목표는 다음 중 하나의 경로로 안전하게 마이그레이션하는 것이다.
 
-Clonezilla는 디스크 복제를 위한 강력하고 사용하기 쉬운 무료 도구입니다.
+- 경로 A: 전체 디스크 복제로 기존 OS 디스크를 그대로 새 SSD에 옮긴다.
+- 경로 B: Proxmox VE를 새로 설치하고 VM/CT 백업과 필요한 host 설정을 선택적으로 복원한다.
 
-1.  **Clonezilla Live USB 준비:** Clonezilla 웹사이트에서 ISO 파일을 다운로드하여 부팅 가능한 USB 드라이브를 만듭니다.
-2.  **Clonezilla 부팅:** 서버를 종료하고 Clonezilla USB로 부팅합니다.
-3.  **`device-device` 모드 선택:** 디스크(device)에서 디스크(device)로 직접 복제하는 모드를 선택합니다.
-4.  **원본 및 대상 디스크 선택:**
-      * **원본(Source):** 현재 Proxmox가 설치된 기존 드라이브를 선택합니다.
-      * **대상(Target):** 새로 설치한 SSD를 선택합니다. **(주의: 대상 디스크의 모든 데이터는 삭제됩니다\!)**
-5.  **복제 시작:** 옵션을 확인하고 복제를 시작합니다. 디스크 용량과 속도에 따라 시간이 소요됩니다.
-6.  **마무리:** 복제가 완료되면 시스템을 종료하고 기존 드라이브를 제거합니다. 그 후 새 SSD로 부팅하여 정상적으로 동작하는지 확인합니다.
+두 경로 모두 다음 상태를 검증해야 한다.
 
-#### **`dd` 명령어 사용 단계 (고급 사용자용):**
+- VM/CT backup이 외부 저장소에 존재한다.
+- Host network와 storage 설정을 백업했다.
+- 새 SSD로 부팅된다.
+- Proxmox web UI와 SSH 접속이 된다.
+- Storage와 guest inventory가 정상이다.
+- VM/CT가 부팅되고 backup/restore 경로가 확인된다.
 
-`dd` 명령어는 강력하지만, 디스크를 잘못 선택하면 데이터가 영구적으로 삭제될 수 있으므로 극도의 주의가 필요합니다.
+## 4. 시스템 번역 (Data Flow)
 
-1.  Proxmox VE가 아닌 다른 리눅스 라이브 USB (예: Ubuntu)로 부팅합니다.
+전체 복제 흐름은 다음과 같다.
 
-2.  `lsblk` 또는 `fdisk -l` 명령어로 원본 디스크(`if`)와 대상 디스크(`of`)의 정확한 장치명(예: `/dev/sda`, `/dev/sdb`)을 확인합니다.
+```text
+old OS disk
+  -> offline clone
+  -> new SSD boot
+  -> partition or pool expansion
+  -> Proxmox service verification
+```
 
-3.  아래 명령어를 실행하여 복제를 시작합니다.
+재설치 복원 흐름은 다음과 같다.
 
-    ```bash
-    dd if=/dev/sdX of=/dev/sdY bs=64K conv=noerror,sync status=progress
-    ```
+```text
+guest backups and host config backup
+  -> fresh Proxmox install
+  -> same hostname and network plan
+  -> storage reattached
+  -> VM/CT restored from backup
+  -> selected host config reapplied
+```
 
-      * `/dev/sdX`: 원본 디스크 (예: `/dev/sda`)
-      * `/dev/sdY`: 대상 디스크 (새 SSD, 예: `/dev/sdb`)
-      * `bs=64K`: 블록 크기 설정 (성능 향상에 도움)
-      * `conv=noerror,sync`: 읽기 오류가 발생해도 계속 진행
-      * `status=progress`: 진행 상태를 표시
+## 5. 핵심 구성요소 (Building Blocks)
 
-4.  복제가 완료되면 시스템을 종료하고 원본 드라이브를 제거한 후 새 SSD로 부팅합니다.
+VM/CT backup은 `vzdump`, Proxmox Backup Server, 또는 GUI backup job으로 만든다. Proxmox 공식 문서는 VM/CT backup이 guest configuration과 data를 포함하는 full backup이라고 설명한다.
 
------
+`/etc/pve`는 Proxmox Cluster File System이다. 일반 directory처럼 취급하기보다 현재 node/cluster 상태를 고려해 선택적으로 복원해야 한다.
 
-### 방법 2: 설정 백업 후 새로 설치 및 복원
+`/etc/network/interfaces`는 host network 설정이다. 새 설치에서 IP, bridge, bond, VLAN이 달라지면 web UI 접속부터 실패할 수 있다.
 
-새로운 SSD에 Proxmox VE를 새로 설치하고, 기존 시스템의 핵심 설정 파일만 백업하여 복원하는 방식입니다. "깨끗한" 설치를 선호할 때 좋은 방법입니다.
+`/etc/pve/storage.cfg`는 storage 정의를 담는다. 실제 disk, mount, ZFS pool, LVM volume이 준비되어 있어야 의미가 있다.
 
-**장점:**
+Clonezilla는 offline disk-to-disk clone에 적합하다. 운영 중인 Proxmox OS disk를 live로 복제하지 않는다.
 
-  * 시스템을 깨끗한 상태로 재구성할 수 있습니다.
-  * 디스크 파티션 구조 등을 새로 구성할 수 있습니다.
+LVM과 ZFS는 복제 후 남은 공간 확장 방식이 다르다. 설치 당시 storage layout을 먼저 확인한다.
 
-**단점:**
+## 6. 상태 전이 (State Transition)
 
-  * 과정이 더 복잡하고 시간이 오래 걸립니다.
-  * 일부 수동 설정이 추가로 필요할 수 있습니다.
+사전 준비 상태는 다음과 같다.
 
-#### **진행 단계:**
+```text
+inventory captured
+  -> VM/CT backups completed
+  -> host config backups exported
+  -> boot media prepared
+  -> rollback path decided
+```
 
-1.  **핵심 설정 파일 백업:**
+복제 방식은 다음 상태로 진행한다.
 
-      * Proxmox 서버에 SSH로 접속하거나 콘솔을 엽니다.
-      * 가장 중요한 `/etc/pve` 디렉토리를 압축하여 백업합니다. 이 디렉토리에는 VM/CT 설정, 클러스터 정보 등이 모두 들어있습니다.
-        ```bash
-        tar czf pve-etc-backup.tar.gz /etc/pve
-        ```
-      * 네트워크 설정(`/etc/network/interfaces`), 스토리지 설정(`/etc/pve/storage.cfg`) 등 다른 중요한 설정 파일들도 별도로 백업해두면 좋습니다.
-      * 백업한 `pve-etc-backup.tar.gz` 파일을 USB나 네트워크 드라이브 등 외부 저장소로 복사해 둡니다.
+```text
+Proxmox stopped
+  -> Clonezilla boots
+  -> source and target disks selected
+  -> clone completed
+  -> old disk removed or disconnected
+  -> new SSD boots
+```
 
-2.  **새 SSD에 Proxmox VE 새로 설치:**
+재설치 방식은 다음 상태로 진행한다.
 
-      * 기존 드라이브를 제거하고 새 SSD를 장착합니다.
-      * Proxmox VE 설치 USB로 부팅하여 새 SSD에 OS를 설치합니다.
+```text
+new SSD installed
+  -> Proxmox installed
+  -> network reachable
+  -> storage configured
+  -> backups restored
+  -> services verified
+```
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- VM/CT backup 없이 OS disk 작업을 시작하지 않는다.
+- Backup은 Proxmox host 내부가 아니라 외부 저장소에도 보관한다.
+- Clone 대상 디스크를 선택하기 전 모델, serial, 용량을 확인한다.
+- 운영 중인 mounted OS disk를 `dd`로 live clone하지 않는다.
+- Cluster node는 단일 node처럼 `/etc/pve`를 덮어쓰지 않는다.
+- 새 설치에서 hostname과 IP를 바꾸면 `/etc/pve` node path, cluster, certificate, storage 참조가 영향을 받을 수 있다.
+- 복원 후 `pveproxy`, `pvedaemon`, `pvestatd`, storage 상태를 확인한다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+현재 guest와 storage inventory를 저장한다.
 
-3.  **설정 파일 복원:**
+```bash
+pvesh get /nodes/$(hostname)/qemu
+pvesh get /nodes/$(hostname)/lxc
+pvesm status
+lsblk -f
+zpool status
+lvs
+```
 
-      * 설치가 완료되면 새로 설치된 Proxmox에 접속합니다.
-      * 외부에 보관했던 `pve-etc-backup.tar.gz` 파일을 서버로 복사합니다.
-      * **복원 전, 만약을 위해 새로 설치된 `/etc/pve` 디렉토리도 백업해 둡니다.**
-        ```bash
-        mv /etc/pve /etc/pve-new
-        ```
-      * 백업 파일을 `/etc` 디렉토리에 압축 해제합니다.
-        ```bash
-        tar xzf pve-etc-backup.tar.gz -C /etc
-        ```
+VM/CT backup을 만든다.
 
-4.  **재부팅 및 확인:**
+```bash
+vzdump --all --mode snapshot --storage backup-storage
+```
 
-      * 시스템을 재부팅합니다.
-      * 재부팅 후 웹 UI에 접속하여 기존 VM/CT 목록과 설정이 정상적으로 보이는지 확인합니다. VM/CT 데이터가 저장된 디스크가 정상적으로 연결되어 있다면 그대로 인식됩니다.
+개별 VM과 CT backup을 확인한다.
 
-### 결론
+```bash
+ls -lh /var/lib/vz/dump
+find /mnt/backup -maxdepth 2 -type f
+```
 
-특별한 이유가 없다면 **Clonezilla를 이용한 방법 1**이 가장 안전하고 확실하게 OS를 마이그레이션하는 방법으로 추천됩니다. 시스템을 처음부터 다시 구성하고 싶을 때에만 방법 2를 고려하는 것이 좋습니다.
+Host 설정을 별도 보관한다.
 
-## Proxmox VE(PVE) OS를 새 SSD로 마이그레이션하는 방법
+```bash
+mkdir -p /root/pve-host-backup
+tar -czf /root/pve-host-backup/etc-pve.tar.gz /etc/pve
+cp /etc/network/interfaces /root/pve-host-backup/interfaces
+cp /etc/hosts /root/pve-host-backup/hosts
+cp /etc/hostname /root/pve-host-backup/hostname
+cp /etc/fstab /root/pve-host-backup/fstab
+pveversion -v > /root/pve-host-backup/pveversion.txt
+pvesm status > /root/pve-host-backup/storage-status.txt
+```
 
-Proxmox VE(PVE)의 OS가 설치된 기존 드라이브를 더 빠르거나 용량이 큰 새 SSD로 마이그레이션하는 방법은 크게 두 가지가 있습니다. 각 방법의 장단점을 확인하고 자신의 상황에 맞는 방법을 선택하는 것이 중요합니다.
+복제 방식은 Proxmox를 끄고 Clonezilla 같은 offline 도구로 source disk와 target SSD를 선택한다. 복제 완료 후 기존 OS 디스크를 제거하거나 disconnect한 뒤 새 SSD로 부팅한다.
 
-**🚨 중요: 작업을 시작하기 전**
+부팅 후 기본 상태를 확인한다.
 
-  * **VM 및 CT 백업:** 가장 중요합니다. PVE에 있는 모든 가상머신(VM)과 컨테이너(CT)를 외부 저장소에 반드시 백업하십시오.
-  * **/etc/pve 디렉토리 백업:** PVE의 모든 설정(VM 구성, 스토리지, 클러스터 정보 등)이 담겨있습니다. 이 디렉토리를 별도로 백업해두면 문제가 생겼을 때 복구하기 용이합니다.
-    ```bash
-    # PVE 노드의 셸에서 실행
-    tar -czf pve-etc-backup-$(date +%Y-%m-%d).tar.gz /etc/pve
-    ```
-    생성된 `pve-etc-backup-....tar.gz` 파일을 USB나 네트워크 드라이브 등 안전한 곳에 복사해 두십시오.
+```bash
+hostnamectl
+ip addr show
+systemctl --failed
+systemctl status pveproxy
+systemctl status pvedaemon
+pvesm status
+qm list
+pct list
+```
 
------
+LVM layout이면 먼저 현재 구조를 확인한다.
 
-### 방법 1: 디스크 전체 복제 (Disk Cloning)
+```bash
+lsblk -f
+pvs
+vgs
+lvs
+df -h
+```
 
-기존 드라이브의 모든 데이터를 새 SSD에 그대로 복제하는 방법입니다. **기존 드라이브와 새 SSD의 물리적 섹터 크기가 동일할 때 가장 안정적**이며, 일반적으로 가장 많이 사용되는 방법입니다.
+ZFS root면 pool 상태와 autoexpand를 확인한다.
 
-**장점:**
+```bash
+zpool status
+zpool get autoexpand
+zpool list
+```
 
-  * OS와 모든 설정을 그대로 옮기므로, 성공 시 추가 설정이 거의 필요 없습니다.
-  * 작업 시간이 비교적 짧습니다.
+재설치 방식에서는 새 Proxmox 설치 후 storage를 준비하고 backup을 복원한다.
 
-**단점:**
+```bash
+qmrestore /mnt/backup/vzdump-qemu-100.vma.zst 100 --storage local-lvm
+pct restore 101 /mnt/backup/vzdump-lxc-101.tar.zst --storage local-lvm
+```
 
-  * 복제 과정에서 실수하면 원본 데이터가 손상될 위험이 있습니다.
-  * 복제 후 새 SSD의 남는 공간을 사용하려면 파티션 및 LVM/ZFS 크기 조정 작업이 필요합니다.
-  * 원본 디스크보다 작은 디스크로는 복제가 불가능합니다.
+복원 후 guest를 하나씩 부팅해 확인한다.
 
-#### **작업 절차 (Clonezilla 사용 권장)**
+```bash
+qm start 100
+qm status 100
+pct start 101
+pct status 101
+```
 
-가장 안전하고 널리 사용되는 `Clonezilla` Live USB를 이용하는 방법입니다.
+## 9. 실패 사례 (What could go wrong?)
 
-1.  **준비물:**
+Clone source와 target을 반대로 선택하면 기존 OS 디스크를 빈 SSD로 덮어쓸 수 있다. 모델명, serial, 용량을 물리 라벨과 대조한다.
 
-      * Clonezilla Live USB ([다운로드 페이지](https://clonezilla.org/downloads.php)에서 stable 버전 다운로드 후 Rufus 등으로 제작)
-      * PC에 새 SSD를 연결할 수 있는 여분의 SATA 포트 또는 USB-SATA 어댑터
+새 SSD가 더 작으면 block-level clone이 실패하거나 끝부분 데이터가 잘린다. 이 경우 재설치와 backup restore가 더 안전하다.
 
-2.  **디스크 복제:**
+복제 후 남은 공간을 자동으로 쓰지 못할 수 있다. LVM, ZFS, partition table 확장은 별도 단계로 검증한다.
 
-      * Proxmox 서버를 종료합니다.
-      * 새 SSD를 서버에 연결합니다.
-      * Clonezilla Live USB로 부팅합니다.
-      * `Device-device` (디스크-디스크) 복제 모드를 선택합니다.
-      * **원본(Source) 디스크**로 기존 Proxmox OS 드라이브를 선택합니다.
-      * **대상(Target) 디스크**로 새로 장착한 SSD를 선택합니다.
-      * **경고 메시지를 여러 번 확인**하고 복제를 진행합니다. 대상 디스크의 모든 데이터는 삭제됩니다.
+`/etc/pve`를 새 설치에 통째로 덮어쓰면 pmxcfs, node name, cluster state가 꼬일 수 있다. 필요한 설정을 비교 후 선택적으로 반영한다.
 
-3.  **디스크 교체 및 부팅:**
+VM/CT disk가 OS 디스크의 local storage에 있었는데 backup을 외부로 빼지 않았다면 새 설치 후 복구할 데이터가 없다.
 
-      * 복제가 완료되면 서버를 종료합니다.
-      * **기존 Proxmox OS 드라이브를 제거**하고, 그 자리에 복제된 새 SSD를 장착합니다.
-      * 서버를 부팅하여 Proxmox가 정상적으로 시작되는지 확인합니다.
+Cluster node는 corosync, certificate, node identity, quorum 문제가 얽힌다. 가능하면 공식 cluster node 교체 절차를 따른다.
 
-4.  **파티션 및 스토리지 크기 조정 (새 SSD가 더 큰 경우):**
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-      * PVE가 정상 부팅되면, 이제 새 SSD의 추가된 공간을 사용하도록 시스템에 알려줘야 합니다. Proxmox는 기본적으로 LVM-thin 또는 ZFS로 설치됩니다.
+단일 node라면 “재설치 후 backup restore”가 가장 이해하기 쉽고 검증 가능하다. Clone은 빠르지만 기존 디스크 레이아웃 문제도 그대로 가져간다.
 
-      * **(LVM-thin 방식일 경우)**
+Production에 가까운 환경에서는 Proxmox Backup Server를 사용해 guest backup, retention, restore test를 정기화하는 편이 좋다.
 
-          * `gparted`와 같은 파티션 도구를 사용하여 LVM이 포함된 파티션의 크기를 먼저 늘립니다.
-          * 그 다음, PVE 노드의 셸에서 다음 명령어를 순서대로 실행하여 LVM Physical Volume(PV), Volume Group(VG), Logical Volume(LV)의 크기를 확장합니다.
-            ```bash
-            # 1. Physical Volume 리사이즈
-            pvresize /dev/sdX3  # sdX3는 LVM 파티션명, lsblk로 확인
+Host OS 자체는 IaC로 재구성 가능하게 만들고, guest data는 backup system으로 복구하는 구조가 장기적으로 안전하다.
 
-            # 2. Free PE/Size 확인
-            vgdisplay pve
+공식 문서는 Proxmox backup이 VM/CT configuration과 data를 포함하고, restore는 `qmrestore`와 `pct restore`로 수행한다고 설명한다.
 
-            # 3. root 볼륨 확장 (사용 가능한 모든 공간 할당)
-            lvresize -l +100%FREE /dev/pve/root
-            resize2fs /dev/mapper/pve-root
+- Proxmox Backup and Restore: <https://pve.proxmox.com/pve-docs/chapter-vzdump.html>
+- Proxmox documentation index: <https://pve.proxmox.com/pve-docs/index.html>
+- Host bootloader: <https://pve.proxmox.com/wiki/Host_Bootloader>
 
-            # 4. data 볼륨 확장 (필요 시)
-            # lvresize -l +100%FREE /dev/pve/data
-            ```
+## 11. 최종 체크리스트 (Definition of Done)
 
-      * **(ZFS 방식일 경우)**
+- [ ] VM/CT backup이 외부 저장소에 있다.
+- [ ] `/etc/pve`, network, storage, hostname, fstab 정보를 백업했다.
+- [ ] Source disk와 target SSD를 serial 기준으로 확인했다.
+- [ ] Clone 또는 재설치 중 하나의 경로를 선택했다.
+- [ ] 새 SSD로 부팅 후 Proxmox service 상태를 확인했다.
+- [ ] Storage 상태와 guest 목록을 확인했다.
+- [ ] VM/CT를 하나씩 부팅해 서비스 상태를 확인했다.
+- [ ] 남은 공간 확장 여부를 LVM 또는 ZFS 기준으로 확인했다.
+- [ ] Cluster node라면 quorum과 node identity를 별도로 검증했다.
 
-          * ZFS는 훨씬 간단합니다. `gdisk`나 `parted`로 GPT 파티션을 수정하여 디스크 전체를 사용하도록 설정한 후, ZFS가 파티션 변경을 인식하도록 다음 명령어를 실행하면 됩니다.
-            ```bash
-            # 1. ZFS 풀이 있는 디스크의 파티션 번호 확인 (보통 3번)
-            # lsblk
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-            # 2. 해당 파티션에 대해 autoexpand 속성 활성화
-            zpool online -e rpool /dev/sdX3 # sdX3는 ZFS 파티션명
-            ```
-
------
-
-### 방법 2: Proxmox 재설치 및 설정 복원
-
-새 SSD에 Proxmox를 새로 설치한 뒤, 미리 백업해 둔 설정 파일을 복원하는 방법입니다. **가장 안전하고 깔끔한 방법**으로 권장됩니다.
-
-**장점:**
-
-  * 디스크 복제 시 발생할 수 있는 잠재적 오류(부트로더, 파티션 테이블 등)에서 자유롭습니다.
-  * 시스템을 깨끗한 상태에서 새로 시작할 수 있습니다.
-  * 디스크 크기가 다르거나 섹터 크기가 달라도 문제없이 마이그레이션 가능합니다.
-
-**단점:**
-
-  * Proxmox를 재설치해야 하므로 시간이 더 걸릴 수 있습니다.
-  * 설정 복원 과정에서 누락되는 부분이 있을 수 있으나, `/etc/pve`만 잘 복원하면 대부분 문제없습니다.
-
-#### **작업 절차**
-
-1.  **사전 준비 (가장 중요):**
-
-      * **모든 VM/CT 백업** 및 외부 저장소로 이동
-      * **/etc/pve 디렉토리 백업** (`tar` 이용, 위 설명 참조) 및 외부 저장소로 이동
-
-2.  **Proxmox 재설치:**
-
-      * 기존 OS 드라이브를 제거하고 새 SSD를 장착합니다.
-      * 최신 Proxmox VE ISO 이미지로 부팅하여 새 SSD에 설치를 진행합니다.
-      * **주의:** 설치 과정에서 **기존과 동일한 호스트 이름(Hostname)과 IP 주소**를 설정하는 것이 좋습니다.
-
-3.  **설정 복원:**
-
-      * 설치가 완료되고 PVE가 부팅되면, 노드의 셸(콘솔)에 접근합니다.
-      * 외부 저장소에 백업해 둔 `pve-etc-backup-....tar.gz` 파일을 PVE 노드의 `/tmp` 디렉토리 등으로 복사합니다.
-      * 다음 명령어를 실행하여 Proxmox 관련 서비스를 중지하고 설정을 복원합니다.
-        ```bash
-        # PVE 클러스터 파일 시스템과 프록시 서비스 중지
-        systemctl stop pve-cluster
-        systemctl stop pveproxy
-
-        # 기존 설정 디렉토리 삭제 (이미 비어있거나 기본값만 있음)
-        rm -rf /etc/pve
-
-        # 백업한 설정 파일 압축 해제
-        tar -xzf /tmp/pve-etc-backup-....tar.gz -C /
-
-        # 재부팅
-        reboot
-        ```
-
-4.  **확인 및 백업 복원:**
-
-      * 재부팅 후 웹 인터페이스에 접속하여 기존과 동일하게 스토리지 설정, VM 구성 등이 보이는지 확인합니다.
-      * VM/CT 백업 파일을 PVE 스토리지로 다시 업로드하고 복원(Restore) 작업을 진행합니다.
-
-### 결론: 어떤 방법을 선택해야 할까?
-
-  * **초보자 또는 안정성을 최우선으로 하는 경우:** \*\*방법 2 (재설치 및 복원)\*\*를 강력히 추천합니다. 가장 안전하며 예상치 못한 문제를 피할 수 있습니다.
-  * **시스템 중단 시간을 최소화하고 싶은 숙련된 사용자:** \*\*방법 1 (디스크 복제)\*\*을 사용할 수 있습니다. 단, 파티션 및 파일 시스템 조정에 대한 이해가 필요합니다.
-
-어떤 방법을 선택하든 **가장 중요한 것은 VM/CT와 `/etc/pve` 설정의 사전 백업**이라는 점을 잊지 마십시오.
-
-## Proxmox VE(PVE) OS를 새 SSD 드라이브로 마이그레이션하는 방법
-
-Proxmox VE(PVE)의 OS가 설치된 기존 디스크(HDD 또는 소용량 SSD)를 더 빠르거나 용량이 큰 새 SSD로 마이그레이션하는 것은 서버 안정성과 성능 향상을 위해 효과적인 업그레이드입니다.
-
-마이그레이션 방법은 크게 두 가지로 나뉩니다.
-
-1.  **디스크 전체 복제 (Cloning):** 기존 디스크의 모든 내용을 새 SSD에 그대로 복사하는 방식입니다. 가장 일반적이고 권장되는 방법입니다.
-2.  **신규 설치 후 설정 복원:** 새 SSD에 Proxmox VE를 새로 설치한 뒤, 기존의 중요 설정 파일들을 덮어쓰는 방식입니다.
-
-**가장 중요한 사전 작업: 백업\!**
-어떤 방법을 사용하든, 작업 시작 전에 모든 VM과 CT(컨테이너)의 백업을 반드시 생성하여 외장 스토리지나 NAS 등 안전한 곳에 보관해야 합니다. 또한 `/etc/pve` 디렉토리의 사본을 별도로 만들어 두는 것이 좋습니다.
-
------
-
-### 방법 1: 디스크 전체 복제 (권장)
-
-이 방법은 기존 시스템을 그대로 새 드라이브로 옮겨오므로 가장 안전하고 편리합니다. `Clonezilla`와 같은 디스크 복제 전문 도구를 사용하는 것이 가장 안정적이며, 리눅스 `dd` 명령어를 사용할 수도 있습니다.
-
-#### 1단계: Clonezilla Live USB 준비 및 부팅
-
-1.  [Clonezilla Live 다운로드 페이지](https://clonezilla.org/downloads.php)에서 **stable** 버전의 **amd64 (x86-64)**, **ISO** 파일을 다운로드합니다.
-2.  [Rufus](https://rufus.ie/ko/) 또는 [Ventoy](https://www.ventoy.net/en/index.html)와 같은 도구를 사용하여 다운로드한 ISO 파일로 부팅 가능한 USB 드라이브를 만듭니다.
-3.  Proxmox 서버의 전원을 끄고, 기존 OS 드라이브와 **새 SSD를 모두 서버에 연결**합니다.
-4.  서버를 켠 후 BIOS/UEFI 설정에 진입하여 부팅 순서를 방금 만든 Clonezilla Live USB가 첫 번째가 되도록 변경하고 부팅합니다.
-
-#### 2단계: Clonezilla를 이용한 디스크 복제
-
-1.  Clonezilla 부팅 메뉴가 나타나면 기본 옵션(`Clonezilla live (Default settings, VGA 800x600)`)을 선택하여 부팅합니다.
-2.  언어(English), 키보드 레이아웃(`Don't touch keymap`)을 차례로 선택합니다.
-3.  `Start Clonezilla`를 선택합니다.
-4.  **`device-device`** (디스크-투-디스크 복제) 옵션을 선택합니다.
-5.  `Beginner` 모드를 선택하면 대부분의 설정을 자동으로 처리해 주어 편리합니다.
-6.  **`disk_to_local_disk`** (로컬 디스크 복제)를 선택합니다.
-7.  **원본 디스크 선택:** 현재 Proxmox가 설치된 드라이브를 선택합니다. 모델명과 용량을 잘 확인하여 실수하지 않도록 주의합니다.
-8.  **대상 디스크 선택:** 새로 설치할 SSD를 선택합니다. **대상 디스크의 모든 데이터는 삭제되므로 다시 한번 확인합니다.**
-9.  `-sfsck`(원본 파일 시스템 검사 건너뛰기) 옵션은 그대로 두거나 필요에 따라 선택합니다.
-10. 복제가 완료된 후 어떤 작업을 할지 묻는 메시지가 나오면 `Poweroff` 또는 `Reboot`를 선택합니다.
-11. 복제가 시작되기 전 마지막으로 경고 메시지를 보여줍니다. `y`를 입력하고 Enter를 눌러 복제를 시작합니다.
-12. 복제가 완료되면 시스템을 종료하고 **기존 OS 드라이브를 서버에서 제거**합니다.
-
-#### 3단계: 파티션 및 스토리지 크기 확장 (매우 중요)
-
-새 SSD가 기존 디스크보다 용량이 큰 경우, 복제 후 남는 공간을 사용하도록 파티션과 LVM 또는 ZFS의 크기를 조절해야 합니다.
-
-1.  새 SSD로 부팅이 정상적으로 되는지 확인합니다.
-2.  Proxmox 셸에 접근하여 다음을 진행합니다.
-
-**Proxmox가 LVM으로 설치된 경우 (기본값):**
-
-1.  `gparted`를 사용하여 파티션 크기를 늘립니다.
-
-    ```bash
-    apt update && apt install gparted -y
-    gparted
-    ```
-
-      * GParted 인터페이스에서 LVM 파티션(예: `/dev/sda3`)을 선택하고 `Resize/Move`를 클릭하여 할당되지 않은 공간까지 파티션을 확장합니다.
-
-2.  물리 볼륨(PV), 논리 볼륨(LV) 크기를 확장합니다.
-
-    ```bash
-    # 물리 볼륨 리사이즈
-    pvresize /dev/sdX3  # gparted에서 확장한 파티션 경로
-
-    # 'pve/data' 논리 볼륨을 남는 공간 전체로 확장
-    lvextend -l +100%FREE /dev/pve/data
-
-    # 파일 시스템 리사이즈
-    resize2fs /dev/mapper/pve-data
-    ```
-
-**Proxmox가 ZFS로 설치된 경우:**
-
-ZFS는 파티션 크기를 조절하는 과정이 더 간단합니다.
-
-1.  `gdisk`를 사용해 GPT 파티션 정보를 수정하여 디스크 전체를 사용하도록 합니다.
-
-    ```bash
-    gdisk /dev/sdX  # 새 SSD의 장치명 (예: sda)
-    ```
-
-      * `x` (전문가 모드) -\> `e` (GPT 재배치) -\> `w` (쓰기) -\> `Y` (확인) 순서로 진행합니다.
-
-2.  ZFS 풀(rpool)이 자동으로 공간을 인식하도록 설정하고 확장합니다.
-
-    ```bash
-    zpool set autoexpand=on rpool
-    zpool online -e rpool /dev/sdXN # ZFS 파티션 (예: sda3)
-    ```
-
------
-
-### 방법 2: 신규 설치 후 설정 복원
-
-이 방법은 디스크 복제에 실패했거나, 시스템을 깨끗하게 재구성하고 싶을 때 유용합니다. 단, 클러스터 환경에서는 권장되지 않습니다.
-
-1.  **기존 시스템 설정 백업:**
-
-      * Proxmox 셸에 접속하여 가장 중요한 `/etc/pve` 디렉토리를 압축하여 백업합니다. 이 디렉토리에는 VM/CT 설정, 스토리지 설정 등이 모두 포함되어 있습니다.
-
-    <!-- end list -->
-
-    ```bash
-    tar czf pve-etc-backup.tar.gz /etc/pve
-    ```
-
-      * WinSCP나 `scp` 명령어를 사용하여 이 백업 파일을 PC나 다른 서버로 복사해 둡니다.
-      * 네트워크 설정(`/etc/network/interfaces`), 호스트 정보(`/etc/hosts`, `/etc/hostname`) 등도 참고용으로 백업해두면 좋습니다.
-
-2.  **Proxmox VE 신규 설치:**
-
-      * 기존 드라이브를 제거하고 새 SSD를 장착합니다.
-      * Proxmox VE 설치 ISO로 부팅하여 새 SSD에 OS를 설치합니다.
-
-3.  **설정 복원:**
-
-      * 설치가 완료되면, 백업해 두었던 `pve-etc-backup.tar.gz` 파일을 새 서버의 `/tmp` 디렉토리 등으로 복사합니다.
-      * 기존 `/etc/pve`를 삭제하고 백업 파일의 압축을 해제하여 복원합니다.
-
-    <!-- end list -->
-
-    ```bash
-    # pve-cluster 서비스 중지
-    systemctl stop pve-cluster
-
-    # 기존 설정 디렉토리 이동
-    mv /etc/pve /etc/pve_new
-
-    # 백업한 설정 복원
-    tar xzf /tmp/pve-etc-backup.tar.gz -C /
-
-    # 시스템 재부팅
-    reboot
-    ```
-
-4.  **확인:** 재부팅 후 VM과 컨테이너 목록, 스토리지 설정이 이전과 동일하게 나타나는지 확인합니다.
-
-### 방법 비교
-
-| 항목 | 디스크 전체 복제 (Clonezilla) | 신규 설치 후 설정 복원 |
-| :--- | :--- | :--- |
-| **장점** | 시스템 전체가 동일하게 이전됨\<br\>가장 안정적이고 검증된 방법\<br\>작업 시간 비교적 짧음 | 시스템을 깨끗한 상태에서 시작 가능\<br\>디스크 파티션 구조를 새로 설계 가능 |
-| **단점** | 복제 후 파티션/스토리지 리사이즈 필수 | 클러스터 환경에서 문제 발생 가능성\<br\>일부 수동 설정이 필요할 수 있음\<br\>Proxmox 버전이 다르면 호환성 문제 발생 |
-| **추천 대상** | **모든 사용자 (특히 초보자 및 단일 노드)** | 단일 노드 환경에서 클린 설치를 선호하는 숙련된 사용자 |
+Proxmox OS 디스크 마이그레이션은 host disk 복사가 아니라 guest backup, host config, storage mapping, bootloader, service verification을 함께 다루는 작업이다. 가장 먼저 백업을 외부에 두고, 마지막에는 실제 VM/CT 부팅으로 검증한다.

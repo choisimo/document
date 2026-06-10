@@ -1,552 +1,205 @@
-# Kafka 로컬 설치 및 실행
+# Kafka 로컬 설치와 실행
 
-## 📖 개요
+이 문서는 Kafka를 로컬에서 실행하고 topic, producer, consumer, consumer group을 확인하는 최소 실습 기준을 정리한다. 신규 실습은 ZooKeeper가 아니라 KRaft 기반 Kafka를 기본으로 둔다.
 
-로컬 환경에서 Kafka를 설치하고 실행하는 방법을 학습합니다. Docker와 네이티브 설치 두 가지 방법을 모두 다룹니다.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-## 🎯 학습 목표
+Kafka 개념은 topic과 partition을 읽는 것만으로는 잘 익혀지지 않는다. 직접 broker를 띄우고 event를 쓰고 읽고 offset을 확인해야 producer/consumer 흐름이 선명해진다.
 
-- Kafka 로컬 환경 구성
-- Topic 생성 및 관리
-- 기본 명령어 실습
-- 모니터링 도구 사용
+기존 ZooKeeper 기반 예제를 그대로 사용하면 최신 Kafka 학습 경로와 어긋난다. Apache Kafka 공식 quickstart도 KRaft 기반 standalone format과 `apache/kafka` Docker image 실행 흐름을 안내한다.
 
-## 📦 방법 1: Docker Compose (권장)
+## 2. 현재 나의 상태 (Baseline)
 
-### 전체 구성 파일
+기존 문서는 Confluent ZooKeeper compose, 3 broker compose, native ZooKeeper 실행, topic/producer/consumer 명령을 제공한다.
 
-`docker-compose.yml` 파일 생성:
+보완해야 할 점은 다음과 같다.
 
-```yaml
-version: '3.8'
+- ZooKeeper compose를 기본값으로 둔다.
+- Kafka 3.6.0 같은 오래된 예제 버전을 고정한다.
+- replication factor 3 예제가 단일 broker 실습과 섞여 실패하기 쉽다.
+- 다음 단계 링크가 repository에 없는 문서를 가리킨다.
 
-services:
-  # ZooKeeper
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.0
-    hostname: zookeeper
-    container_name: zookeeper
-    ports:
-      - "2181:2181"
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    volumes:
-      - zookeeper-data:/var/lib/zookeeper/data
-      - zookeeper-logs:/var/lib/zookeeper/log
+## 3. 도달하고 싶은 목표 (Target State)
 
-  # Kafka Broker 1
-  kafka1:
-    image: confluentinc/cp-kafka:7.5.0
-    hostname: kafka1
-    container_name: kafka1
-    depends_on:
-      - zookeeper
-    ports:
-      - "9092:9092"
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka1:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
-      KAFKA_LOG_RETENTION_HOURS: 168
-    volumes:
-      - kafka1-data:/var/lib/kafka/data
+목표는 로컬 Kafka에서 다음 작업을 검증하는 것이다.
 
-  # Kafka Broker 2
-  kafka2:
-    image: confluentinc/cp-kafka:7.5.0
-    hostname: kafka2
-    container_name: kafka2
-    depends_on:
-      - zookeeper
-    ports:
-      - "9093:9093"
-    environment:
-      KAFKA_BROKER_ID: 2
-      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka2:29093,PLAINTEXT_HOST://localhost:9093
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
-    volumes:
-      - kafka2-data:/var/lib/kafka/data
+- Broker가 KRaft 모드로 실행된다.
+- Topic을 생성하고 describe할 수 있다.
+- Console producer로 event를 쓸 수 있다.
+- Console consumer로 event를 읽을 수 있다.
+- Consumer group offset과 lag를 확인할 수 있다.
+- 실습 후 데이터와 container를 정리할 수 있다.
 
-  # Kafka Broker 3
-  kafka3:
-    image: confluentinc/cp-kafka:7.5.0
-    hostname: kafka3
-    container_name: kafka3
-    depends_on:
-      - zookeeper
-    ports:
-      - "9094:9094"
-    environment:
-      KAFKA_BROKER_ID: 3
-      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka3:29094,PLAINTEXT_HOST://localhost:9094
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
-    volumes:
-      - kafka3-data:/var/lib/kafka/data
+## 4. 시스템 번역 (Data Flow)
 
-  # Kafka UI (모니터링 도구)
-  kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    container_name: kafka-ui
-    depends_on:
-      - kafka1
-      - kafka2
-      - kafka3
-    ports:
-      - "8080:8080"
-    environment:
-      KAFKA_CLUSTERS_0_NAME: local
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka1:29092,kafka2:29093,kafka3:29094
-      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+로컬 실습 흐름은 다음과 같다.
 
-volumes:
-  zookeeper-data:
-  zookeeper-logs:
-  kafka1-data:
-  kafka2-data:
-  kafka3-data:
+```text
+Kafka broker start
+  -> topic create
+  -> console producer writes records
+  -> broker stores records in log
+  -> console consumer reads records
+  -> consumer group commits offsets
+  -> cleanup
 ```
 
-### 실행 및 확인
+단일 broker 실습은 Kafka 동작을 배우기 위한 환경이다. production 내구성, rolling upgrade, multi-broker replication을 검증하는 환경이 아니다.
+
+## 5. 핵심 구성요소 (Building Blocks)
+
+Docker 실행은 가장 빠른 로컬 실습 경로다. `apache/kafka` image는 별도 ZooKeeper 없이 실행할 수 있다.
+
+Native 실행은 Kafka tarball을 내려받아 `kafka-storage.sh`로 KRaft log directory를 format한 뒤 `kafka-server-start.sh`를 실행한다.
+
+`kafka-topics.sh`는 topic 생성, 목록, 상세 조회, partition 증가에 사용한다.
+
+`kafka-console-producer.sh`는 표준 입력의 줄을 record로 보낸다.
+
+`kafka-console-consumer.sh`는 topic에서 record를 읽는다.
+
+`kafka-consumer-groups.sh`는 consumer group offset, current offset, log end offset, lag를 확인한다.
+
+## 6. 상태 전이 (State Transition)
+
+실습 환경은 다음 상태로 진행한다.
+
+```text
+runtime available
+  -> broker running
+  -> topic exists
+  -> records produced
+  -> records consumed
+  -> group offset visible
+  -> environment stopped
+```
+
+Native KRaft 실행은 추가로 다음 상태가 필요하다.
+
+```text
+Kafka archive extracted
+  -> cluster UUID generated
+  -> log directories formatted
+  -> broker started
+```
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- 단일 broker 실습에서는 replication factor를 1로 둔다.
+- ZooKeeper 설정을 신규 KRaft 실습에 섞지 않는다.
+- Topic을 삭제하거나 volume을 지우기 전 필요한 event가 없는지 확인한다.
+- Kafka image와 tarball 버전은 공식 download/quickstart 기준으로 확인하고 pin한다.
+- Localhost advertised listener 문제를 먼저 의심한다.
+- Consumer group offset reset은 consumer를 중지한 상태에서 의도적으로 수행한다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+Docker로 단일 broker를 실행한다. 버전은 공식 quickstart의 현재 예시를 확인하고 pin한다.
 
 ```bash
-# 클러스터 시작
-docker-compose up -d
-
-# 로그 확인
-docker-compose logs -f kafka1
-
-# 컨테이너 상태 확인
-docker-compose ps
-
-# 클러스터 중지
-docker-compose down
-
-# 데이터 포함 완전 삭제
-docker-compose down -v
+docker run -d --name kafka-quickstart -p 9092:9092 apache/kafka:4.3.0
+docker logs -f kafka-quickstart
 ```
 
-### 단일 Broker 구성 (간단 테스트용)
-
-```yaml
-version: '3.8'
-
-services:
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.0
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-    ports:
-      - "2181:2181"
-
-  kafka:
-    image: confluentinc/cp-kafka:7.5.0
-    depends_on:
-      - zookeeper
-    ports:
-      - "9092:9092"
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-```
-
-## 📦 방법 2: 네이티브 설치
-
-### Linux/macOS 설치
+Topic을 만든다.
 
 ```bash
-# Kafka 다운로드 (최신 버전)
-wget https://downloads.apache.org/kafka/3.6.0/kafka_2.13-3.6.0.tgz
-
-# 압축 해제
-tar -xzf kafka_2.13-3.6.0.tgz
-cd kafka_2.13-3.6.0
-
-# 환경변수 설정 (선택)
-echo 'export KAFKA_HOME=~/kafka_2.13-3.6.0' >> ~/.bashrc
-echo 'export PATH=$PATH:$KAFKA_HOME/bin' >> ~/.bashrc
-source ~/.bashrc
-```
-
-### ZooKeeper 시작
-
-```bash
-# ZooKeeper 시작 (터미널 1)
-bin/zookeeper-server-start.sh config/zookeeper.properties
-
-# 백그라운드 실행
-bin/zookeeper-server-start.sh -daemon config/zookeeper.properties
-```
-
-### Kafka Broker 시작
-
-```bash
-# Kafka 시작 (터미널 2)
-bin/kafka-server-start.sh config/server.properties
-
-# 백그라운드 실행
-bin/kafka-server-start.sh -daemon config/server.properties
-```
-
-### 다중 Broker 클러스터 구성
-
-```bash
-# server.properties 복사
-cp config/server.properties config/server-1.properties
-cp config/server.properties config/server-2.properties
-
-# server-1.properties 수정
-broker.id=1
-listeners=PLAINTEXT://:9093
-log.dirs=/tmp/kafka-logs-1
-
-# server-2.properties 수정
-broker.id=2
-listeners=PLAINTEXT://:9094
-log.dirs=/tmp/kafka-logs-2
-
-# 각 Broker 시작
-bin/kafka-server-start.sh -daemon config/server-1.properties
-bin/kafka-server-start.sh -daemon config/server-2.properties
-```
-
-## 🔧 기본 명령어
-
-### Topic 관리
-
-```bash
-# Topic 생성
-kafka-topics --create \
-  --bootstrap-server localhost:9092 \
-  --topic my-topic \
-  --partitions 3 \
-  --replication-factor 3
-
-# Topic 목록 조회
-kafka-topics --list \
+docker exec -it kafka-quickstart /opt/kafka/bin/kafka-topics.sh \
+  --create \
+  --topic quickstart-events \
   --bootstrap-server localhost:9092
-
-# Topic 상세 정보
-kafka-topics --describe \
-  --bootstrap-server localhost:9092 \
-  --topic my-topic
-
-# Topic 삭제
-kafka-topics --delete \
-  --bootstrap-server localhost:9092 \
-  --topic my-topic
-
-# Partition 수 증가 (감소는 불가능)
-kafka-topics --alter \
-  --bootstrap-server localhost:9092 \
-  --topic my-topic \
-  --partitions 5
 ```
 
-### Console Producer
+Topic을 확인한다.
 
 ```bash
-# 메시지 전송 (Enter로 구분)
-kafka-console-producer \
-  --bootstrap-server localhost:9092 \
-  --topic my-topic
-
-# Key:Value 형식으로 전송
-kafka-console-producer \
-  --bootstrap-server localhost:9092 \
-  --topic my-topic \
-  --property "parse.key=true" \
-  --property "key.separator=:"
-
-# 사용 예시:
-# user1:Hello from user1
-# user2:Hello from user2
+docker exec -it kafka-quickstart /opt/kafka/bin/kafka-topics.sh \
+  --describe \
+  --topic quickstart-events \
+  --bootstrap-server localhost:9092
 ```
 
-### Console Consumer
+Producer를 실행해 몇 줄을 입력한다.
 
 ```bash
-# 최신 메시지부터 소비
-kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
-  --topic my-topic
+docker exec -it kafka-quickstart /opt/kafka/bin/kafka-console-producer.sh \
+  --topic quickstart-events \
+  --bootstrap-server localhost:9092
+```
 
-# 처음부터 모든 메시지 소비
-kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
-  --topic my-topic \
-  --from-beginning
+Consumer로 처음부터 읽는다.
 
-# Key도 함께 출력
-kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
-  --topic my-topic \
+```bash
+docker exec -it kafka-quickstart /opt/kafka/bin/kafka-console-consumer.sh \
+  --topic quickstart-events \
   --from-beginning \
-  --property print.key=true \
-  --property key.separator=":"
-
-# Consumer Group 지정
-kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
-  --topic my-topic \
-  --group my-group \
-  --from-beginning
+  --bootstrap-server localhost:9092
 ```
 
-### Consumer Group 관리
+Consumer group을 지정해 읽은 뒤 상태를 확인한다.
 
 ```bash
-# Consumer Group 목록
-kafka-consumer-groups \
-  --bootstrap-server localhost:9092 \
-  --list
+docker exec -it kafka-quickstart /opt/kafka/bin/kafka-console-consumer.sh \
+  --topic quickstart-events \
+  --group quickstart-group \
+  --from-beginning \
+  --bootstrap-server localhost:9092
+```
 
-# Consumer Group 상태 확인
-kafka-consumer-groups \
+```bash
+docker exec -it kafka-quickstart /opt/kafka/bin/kafka-consumer-groups.sh \
   --bootstrap-server localhost:9092 \
-  --group my-group \
+  --group quickstart-group \
   --describe
-
-# Offset 리셋 (주의: Consumer 중지 상태에서만)
-kafka-consumer-groups \
-  --bootstrap-server localhost:9092 \
-  --group my-group \
-  --reset-offsets \
-  --to-earliest \
-  --topic my-topic \
-  --execute
-
-# 특정 Offset으로 리셋
-kafka-consumer-groups \
-  --bootstrap-server localhost:9092 \
-  --group my-group \
-  --reset-offsets \
-  --to-offset 100 \
-  --topic my-topic:0 \
-  --execute
 ```
 
-## 🔍 클러스터 상태 확인
-
-### Broker 정보
+정리한다.
 
 ```bash
-# Broker 목록
-kafka-broker-api-versions \
-  --bootstrap-server localhost:9092
-
-# 클러스터 ID 확인
-kafka-cluster --cluster-id \
-  --bootstrap-server localhost:9092
+docker rm -f kafka-quickstart
 ```
 
-### Topic 메시지 수 확인
+Native 실행은 Java 17 이상이 필요하다.
 
 ```bash
-# Partition별 Offset 확인
-kafka-run-class kafka.tools.GetOffsetShell \
-  --broker-list localhost:9092 \
-  --topic my-topic
-
-# 출력 예시:
-# my-topic:0:1234
-# my-topic:1:2345
-# my-topic:2:3456
+tar -xzf kafka_2.13-4.3.0.tgz
+cd kafka_2.13-4.3.0
+KAFKA_CLUSTER_ID="$(bin/kafka-storage.sh random-uuid)"
+bin/kafka-storage.sh format --standalone -t "$KAFKA_CLUSTER_ID" -c config/server.properties
+bin/kafka-server-start.sh config/server.properties
 ```
 
-### 로그 디렉토리 확인
+## 9. 실패 사례 (What could go wrong?)
 
-```bash
-# Docker 환경
-docker exec kafka1 ls -la /var/lib/kafka/data
+`Connection to node -1 could not be established`는 broker가 아직 ready가 아니거나 advertised listener가 client에서 접근 불가능할 때 자주 나온다. Docker log와 port mapping을 먼저 확인한다.
 
-# 네이티브 환경
-ls -la /tmp/kafka-logs
-```
+`Replication factor larger than available brokers`는 broker 수보다 큰 replication factor로 topic을 만들 때 발생한다. 단일 broker 실습은 replication factor 1을 사용한다.
 
-## 🖥️ Kafka UI 사용
+Consumer가 메시지를 못 읽는 것처럼 보여도 이미 group offset이 끝까지 commit된 상태일 수 있다. `--from-beginning`은 새 group이거나 offset이 없는 경우에 의미가 있다.
 
-브라우저에서 `http://localhost:8080` 접속
+Container를 지워도 volume이나 bind mount를 따로 둔 경우 data가 남을 수 있다. 실습 정리 범위를 명확히 확인한다.
 
-**주요 기능:**
-- Topic 목록 및 상세 정보 확인
-- 메시지 검색 및 조회
-- Consumer Group 모니터링
-- Broker 상태 확인
-- 메시지 발행 (Producer)
+Kafka UI를 붙이면 편하지만 UI가 보여주는 상태와 CLI 결과를 함께 확인해야 한다. UI가 broker 문제를 해결해주지는 않는다.
 
-## 📊 성능 테스트
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-### Producer 성능 테스트
+Multi-broker 실습은 listener, controller quorum, broker id, volume, replication factor가 모두 맞아야 한다. 단일 broker 실습을 통과한 뒤 별도 compose로 분리해서 다룬다.
 
-```bash
-kafka-producer-perf-test \
-  --topic perf-test \
-  --num-records 1000000 \
-  --record-size 1024 \
-  --throughput -1 \
-  --producer-props \
-    bootstrap.servers=localhost:9092 \
-    acks=all
-```
+Kubernetes에서 Kafka를 실행하려면 단순 StatefulSet보다 operator를 검토한다. Broker identity, storage, rolling update, TLS, topic/user 관리를 직접 작성하기 어렵기 때문이다.
 
-### Consumer 성능 테스트
+Production Kafka는 PLAINTEXT localhost가 아니다. TLS, SASL, ACL, rack awareness, monitoring, backup, capacity planning이 함께 필요하다.
 
-```bash
-kafka-consumer-perf-test \
-  --broker-list localhost:9092 \
-  --topic perf-test \
-  --messages 1000000 \
-  --threads 1
-```
+## 11. 최종 체크리스트 (Definition of Done)
 
-## 💡 실습 과제
+- [ ] Kafka image 또는 tarball 버전을 공식 문서 기준으로 확인했다.
+- [ ] Broker가 KRaft 모드로 실행된다.
+- [ ] Topic 생성과 describe가 성공했다.
+- [ ] Producer로 event를 기록했다.
+- [ ] Consumer로 event를 읽었다.
+- [ ] Consumer group lag를 확인했다.
+- [ ] 단일 broker에서는 replication factor 1을 사용했다.
+- [ ] 실습 후 container와 local data를 정리했다.
 
-### 과제 1: 주문 시스템 Topic 생성
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-```bash
-# 1. orders Topic 생성 (3 Partition, RF=3)
-kafka-topics --create \
-  --bootstrap-server localhost:9092 \
-  --topic orders \
-  --partitions 3 \
-  --replication-factor 3
-
-# 2. 메시지 발행
-kafka-console-producer \
-  --bootstrap-server localhost:9092 \
-  --topic orders
-
-# 3. 메시지 소비 (별도 터미널)
-kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
-  --topic orders \
-  --from-beginning
-```
-
-### 과제 2: Consumer Group 동작 확인
-
-```bash
-# 터미널 1: Consumer 1
-kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
-  --topic orders \
-  --group order-processors
-
-# 터미널 2: Consumer 2 (같은 그룹)
-kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
-  --topic orders \
-  --group order-processors
-
-# 터미널 3: Producer
-kafka-console-producer \
-  --bootstrap-server localhost:9092 \
-  --topic orders
-
-# 메시지가 두 Consumer에 분산되는지 확인
-```
-
-### 과제 3: Replication 테스트
-
-```bash
-# 1. Topic 상세 정보 확인
-kafka-topics --describe \
-  --bootstrap-server localhost:9092 \
-  --topic orders
-
-# 2. Leader Broker 중지
-docker stop kafka1
-
-# 3. 다시 상세 정보 확인 (Leader 변경 확인)
-kafka-topics --describe \
-  --bootstrap-server localhost:9092 \
-  --topic orders
-
-# 4. Broker 재시작
-docker start kafka1
-```
-
-## 🐛 트러블슈팅
-
-### 문제 1: "Connection to node -1 could not be established"
-**원인**: Kafka Broker가 실행되지 않음
-**해결:**
-```bash
-# Docker
-docker-compose ps
-docker-compose logs kafka1
-
-# 네이티브
-ps aux | grep kafka
-tail -f logs/server.log
-```
-
-### 문제 2: Topic 생성 실패 "Timeout"
-**원인**: ZooKeeper 연결 문제
-**해결:**
-```bash
-# ZooKeeper 상태 확인
-echo stat | nc localhost 2181
-```
-
-### 문제 3: "Replication factor: 3 larger than available brokers: 1"
-**원인**: Broker 수보다 큰 Replication Factor
-**해결:** 
-```bash
-# Broker 수에 맞게 RF 조정
---replication-factor 1
-```
-
-### 문제 4: 디스크 공간 부족
-**해결:**
-```bash
-# 오래된 로그 삭제 (주의!)
-# config/server.properties
-log.retention.hours=24
-log.retention.bytes=1073741824  # 1GB
-```
-
-## 🧹 환경 정리
-
-```bash
-# Docker 환경
-docker-compose down -v
-
-# 네이티브 환경
-bin/kafka-server-stop.sh
-bin/zookeeper-server-stop.sh
-rm -rf /tmp/kafka-logs*
-rm -rf /tmp/zookeeper
-```
-
-## 📚 다음 단계
-
-- [Producer/Consumer 실습](03-producer-consumer.md)
-- [토픽과 파티션 관리](04-topics-partitions.md)
-
-## 🔗 참고 자료
-
-- [Kafka Quickstart](https://kafka.apache.org/quickstart)
-- [Kafka Docker 이미지](https://hub.docker.com/r/confluentinc/cp-kafka)
-- [Kafka UI](https://github.com/provectus/kafka-ui)
+Kafka 로컬 실습은 broker를 띄우고 topic에 event를 쓰고 consumer group offset을 확인하는 흐름이다. 신규 실습은 ZooKeeper가 아니라 KRaft 기준으로 시작하고, 단일 broker에서는 replication factor를 1로 둔다.

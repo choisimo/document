@@ -126,7 +126,7 @@ BACKTRACK(partial_solution S, choices remaining C):
           S.pop(c)                   ← undo (key operation)
 ```
 
-The `pop` step is what distinguishes backtracking from greedy — we **undo** the choice and try alternatives:
+The `pop` step is what distinguishes backtracking from greedy — it **undoes** the choice and tries alternatives:
 
 ```mermaid
 sequenceDiagram

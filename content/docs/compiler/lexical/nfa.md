@@ -1,366 +1,130 @@
-# NFA (비결정적 유한 오토마타)
+# NFA 학습 및 기록 노트
 
-Non-deterministic Finite Automaton의 개념, 구성요소, 동작 원리를 설명합니다.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
----
+NFA(Non-deterministic Finite Automaton)는 정규표현식을 automata로 바꾸기 쉬운 중간 표현이다. 하나의 상태와 입력 symbol에서 여러 다음 상태로 갈 수 있고, 입력 없이 이동하는 ε-transition도 허용할 수 있다. 이 구조는 설계는 단순하지만 실행 시에는 가능한 상태 집합을 계속 추적해야 한다.
 
-## 📋 개요
+이 문서는 원문의 NFA 개념, ε-closure, 실행 시뮬레이션, Thompson construction 내용을 상태 집합 data flow 중심으로 재작성한다.
 
-**NFA (Non-deterministic Finite Automaton)**는 하나의 입력에 대해 여러 상태로 전이할 수 있는 유한 오토마타입니다.
+## 2. 현재 나의 상태 (Baseline)
 
-```mermaid
-flowchart LR
-    subgraph DFA["DFA (결정적)"]
-        A1[상태] -->|입력| B1[단일 상태]
-    end
-    
-    subgraph NFA["NFA (비결정적)"]
-        A2[상태] -->|입력| B2[상태 집합]
-    end
-```
+- NFA와 DFA가 finite automaton이라는 점은 알고 있다.
+- NFA의 전이 결과가 단일 상태가 아니라 상태 집합이라는 점을 명확히 해야 한다.
+- ε-transition과 ε-closure가 왜 필요한지 예제로 확인해야 한다.
+- 문자열을 읽을 때 NFA가 현재 가능한 상태 집합을 어떻게 갱신하는지 이해해야 한다.
+- NFA가 DFA와 표현력은 같지만 실행 모델과 변환 비용이 다르다는 점을 정리해야 한다.
 
-### DFA vs NFA 비교
+## 3. 도달하고 싶은 목표 (Target State)
 
-| 특성 | DFA | NFA |
-|------|-----|-----|
-| 전이 결과 | 단일 상태 | 상태 집합 |
-| ε-전이 | 불가능 | 가능 |
-| 구현 복잡도 | 높음 | 낮음 |
-| 실행 복잡도 | O(n) | O(n × \|Q\|²) |
-| 표현력 | 동일 | 동일 |
+- NFA를 `(Q, Sigma, delta, q0, F)`로 정의한다.
+- `delta: Q x (Sigma union {epsilon}) -> P(Q)`의 의미를 설명한다.
+- 입력 문자열을 상태 집합으로 시뮬레이션한다.
+- ε-closure를 포함해 다음 상태 집합을 계산한다.
+- NFA가 subset construction을 통해 DFA로 변환될 수 있음을 이해한다.
 
----
-
-## 🔧 NFA의 5가지 구성 요소
-
-NFA는 5-튜플 **(Q, Σ, δ, q₀, F)**로 정의됩니다.
-
-| 구성 요소 | 기호 | 설명 | 예시 |
-|:---:|:---:|:---|:---|
-| **상태 집합** | Q | 오토마타의 모든 상태 | {q₀, q₁, q₂} |
-| **입력 알파벳** | Σ | 허용되는 입력 기호 | {0, 1} |
-| **전이 함수** | δ | 상태 전이 규칙 | δ: Q × Σ → P(Q) |
-| **시작 상태** | q₀ | 초기 상태 | q₀ ∈ Q |
-| **종료 상태** | F | 수락 상태 집합 | {q₂} ⊆ Q |
-
-### 수학적 정의
-
-$$NFA = (Q, \Sigma, \delta, q_0, F)$$
-
-여기서:
-- $Q$: 유한한 상태 집합
-- $\Sigma$: 입력 알파벳 (유한 집합)
-- $\delta: Q \times \Sigma \rightarrow P(Q)$: 전이 함수
-- $q_0 \in Q$: 시작 상태
-- $F \subseteq Q$: 종료 상태 집합
-
----
-
-## 📊 NFA 상태도
-
-### 예제: "01"을 포함하는 문자열 인식
-
-```mermaid
-flowchart LR
-    I([start]) --> q0
-    q0((q₀))
-    q1((q₁))
-    q2((q₂))
-    q2:::accept
-
-    q0 -- "0" --> q1
-    q0 -- "0" --> q0
-    q0 -- "1" --> q0
-    q1 -- "1" --> q2
-    q2 -- "0" --> q2
-    q2 -- "1" --> q2
-
-    classDef accept stroke-width:3,stroke-dasharray: 5 2;
-```
-
-**설명:**
-- **q₀**: 시작 상태 - "01" 패턴 탐색 중
-- **q₁**: "0"을 읽은 상태 - "1"을 기다리는 중
-- **q₂**: 종료 상태 - "01" 패턴 발견됨
-
----
-
-## 📋 전이 테이블 (Transition Table)
-
-|   | **0** | **1** |
-|:-:|:-----:|:-----:|
-| **→ q₀** | {q₀, q₁} | {q₀} |
-| **q₁**   | ∅        | {q₂} |
-| **★ q₂** | {q₂}     | {q₂} |
-
-**범례:**
-- **→**: 시작 상태 (initial state)
-- **★**: 종료 상태 (accepting state)
-- **∅**: 전이 없음 (dead state로 이동)
-
-### 테이블 해석
-
-| 현재 상태 | 입력 | 다음 상태 | 설명 |
-|:---:|:---:|:---:|:---|
-| q₀ | 0 | {q₀, q₁} | "01" 시작이거나, 계속 탐색 |
-| q₀ | 1 | {q₀} | "01" 시작 아님, 계속 탐색 |
-| q₁ | 0 | ∅ | "00"이므로 실패 |
-| q₁ | 1 | {q₂} | "01" 패턴 완성! |
-| q₂ | 0, 1 | {q₂} | 나머지 입력 소비 |
-
----
-
-## ⚡ ε-전이 (Epsilon Transition)
-
-NFA는 입력 없이도 상태를 전이할 수 있는 **ε-전이**를 지원합니다.
-
-```mermaid
-flowchart LR
-    q0((q₀)) -- "ε" --> q1((q₁))
-    q0 -- "a" --> q0
-    q1 -- "b" --> q2((q₂))
-    q2:::accept
-    
-    classDef accept stroke-width:3,stroke-dasharray: 5 2;
-```
-
-### ε-클로저 (ε-closure)
-
-상태 q에서 ε-전이만으로 도달 가능한 모든 상태의 집합
-
-$$\epsilon\text{-}closure(q) = \{q\} \cup \{p : q \xrightarrow{\epsilon^*} p\}$$
-
-**예시:**
-```
-ε-closure(q₀) = {q₀, q₁}  // q₀에서 ε로 q₁ 도달 가능
-ε-closure(q₁) = {q₁}      // ε-전이 없음
-```
-
----
-
-## 🔄 NFA 실행 과정
-
-### 입력: "01001"
+## 4. 시스템 번역 (Data Flow)
 
 ```mermaid
 flowchart TD
-    subgraph Step1["Step 1: 초기"]
-        S1["{q₀}"]
-    end
-    
-    subgraph Step2["Step 2: 입력 '0'"]
-        S2["{q₀, q₁}"]
-    end
-    
-    subgraph Step3["Step 3: 입력 '1'"]
-        S3["{q₀, q₂}"]
-    end
-    
-    subgraph Step4["Step 4: 입력 '0'"]
-        S4["{q₀, q₁, q₂}"]
-    end
-    
-    subgraph Step5["Step 5: 입력 '0'"]
-        S5["{q₀, q₁, q₂}"]
-    end
-    
-    subgraph Step6["Step 6: 입력 '1'"]
-        S6["{q₀, q₂}"]
-    end
-    
-    S1 -->|"0"| S2
-    S2 -->|"1"| S3
-    S3 -->|"0"| S4
-    S4 -->|"0"| S5
-    S5 -->|"1"| S6
+    A[Regex] --> B[Thompson construction]
+    B --> C[NFA states/transitions]
+    C --> D[epsilon-closure of start]
+    D --> E[Read next symbol]
+    E --> F[move(current states, symbol)]
+    F --> G[epsilon-closure]
+    G --> H{Any accepting state?}
+    H -->|after input end yes| I[Accept]
+    H -->|after input end no| J[Reject]
+    G --> E
 ```
 
-**결과:** q₂ ∈ F를 포함하므로 **수락 (Accept)**
+NFA 실행은 현재 상태 하나를 추적하는 것이 아니라, 현재 도달 가능성이 있는 상태 집합을 갱신하는 과정이다.
 
-### 시뮬레이션 테이블
+## 5. 핵심 구성요소 (Building Blocks)
+
+| 구성요소 | 의미 | 예시 |
+| --- | --- | --- |
+| `Q` | 상태 집합 | `{q0, q1, q2}` |
+| `Sigma` | 입력 alphabet | `{0, 1}` |
+| `delta` | 전이 함수 | `delta(q0, 0) = {q0, q1}` |
+| `q0` | 시작 상태 | `q0` |
+| `F` | accepting state 집합 | `{q2}` |
+| ε-transition | 입력 없이 이동 | `q0 --epsilon--> q1` |
+| ε-closure | ε만으로 도달 가능한 상태 집합 | `{q0, q1}` |
+| State-set simulation | 가능한 상태 전체 추적 | `{q0, q1, q2}` |
+
+## 6. 상태 전이 (State Transition)
+
+```mermaid
+stateDiagram-v2
+    [*] --> StartClosure
+    StartClosure --> MoveOnSymbol
+    MoveOnSymbol --> NextClosure
+    NextClosure --> MoveOnSymbol: input remains
+    NextClosure --> Accept: accepting state 포함
+    NextClosure --> Reject: accepting state 없음
+    Accept --> [*]
+    Reject --> [*]
+```
+
+입력 symbol을 하나 읽을 때마다 먼저 가능한 모든 transition을 모으고, 그 결과에 ε-closure를 적용한다. 입력을 모두 소비한 뒤 상태 집합에 accepting state가 있으면 accept다.
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- NFA 전이 결과는 상태 하나가 아니라 상태 집합일 수 있다.
+- ε-transition은 입력을 소비하지 않아야 한다.
+- ε-closure는 자기 자신을 항상 포함해야 한다.
+- 문자열 accept 여부는 입력을 모두 소비한 뒤 현재 상태 집합과 accepting state 집합의 교집합으로 판단한다.
+- NFA와 DFA는 같은 정규 언어를 표현할 수 있어야 한다.
+- NFA를 DFA로 바꿀 때 NFA state set 하나가 DFA state 하나가 된다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+```mermaid
+flowchart LR
+    q0[q0] -- 0 --> q0
+    q0 -- 0 --> q1[q1]
+    q0 -- 1 --> q0
+    q1 -- 1 --> q2((q2))
+    q2 -- "0,1" --> q2
+```
+
+이 NFA는 문자열 안에 `01`이 포함되면 accept한다.
 
 | 단계 | 입력 | 현재 상태 집합 | 다음 상태 집합 |
-|:---:|:---:|:---:|:---:|
-| 0 | - | {q₀} | - |
-| 1 | 0 | {q₀} | {q₀, q₁} |
-| 2 | 1 | {q₀, q₁} | {q₀} ∪ {q₂} = {q₀, q₂} |
-| 3 | 0 | {q₀, q₂} | {q₀, q₁} ∪ {q₂} = {q₀, q₁, q₂} |
-| 4 | 0 | {q₀, q₁, q₂} | {q₀, q₁} ∪ ∅ ∪ {q₂} = {q₀, q₁, q₂} |
-| 5 | 1 | {q₀, q₁, q₂} | {q₀} ∪ {q₂} ∪ {q₂} = {q₀, q₂} |
+| --- | --- | --- | --- |
+| 0 | start | `{q0}` | `{q0}` |
+| 1 | `0` | `{q0}` | `{q0, q1}` |
+| 2 | `1` | `{q0, q1}` | `{q0, q2}` |
+| 3 | `0` | `{q0, q2}` | `{q0, q1, q2}` |
 
----
+상태 집합에 `q2`가 포함된 뒤에는 accepting possibility가 유지되므로, 입력 종료 시 `q2`가 포함되어 있으면 accept된다.
 
-## 🔀 정규표현식과 NFA
+## 9. 실패 사례 (What could go wrong?)
 
-### Thompson 구성법
+- NFA를 실행하면서 현재 상태 하나만 저장해 nondeterministic branch를 잃는다.
+- ε-closure 계산에서 시작 상태 자신을 빼먹는다.
+- ε-transition을 입력 소비 transition처럼 처리해 문자열 위치가 밀린다.
+- Accepting state에 도달한 적이 있다는 사실만으로 즉시 accept하고 남은 입력을 무시한다.
+- NFA-to-DFA 변환에서 상태 집합을 중복 생성해 같은 DFA state를 여러 개 만든다.
+- Dead transition을 empty set으로 표현하지 않아 시뮬레이션 결과가 불명확해진다.
 
-정규표현식을 NFA로 변환하는 체계적인 방법
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-```mermaid
-flowchart TB
-    subgraph Basic["기본 구성"]
-        A1["a"] --> A2["q₀ --a--> q₁"]
-        B1["ε"] --> B2["q₀ --ε--> q₁"]
-    end
-    
-    subgraph Union["합집합 (a|b)"]
-        C1["a|b"] --> C2["  q₀ --ε--> [a] --ε--> q_f
-                           q₀ --ε--> [b] --ε--> q_f"]
-    end
-    
-    subgraph Concat["연결 (ab)"]
-        D1["ab"] --> D2["[a] --ε--> [b]"]
-    end
-    
-    subgraph Star["클로저 (a*)"]
-        E1["a*"] --> E2["q₀ --ε--> [a] --ε--> q_f
-                        q₀ --ε--> q_f
-                        [a] --ε--> q₀"]
-    end
-```
+- Thompson construction은 regex의 union, concatenation, star를 ε-transition이 있는 NFA로 조립한다.
+- Subset construction은 NFA state set을 DFA state로 바꾸며, 자세한 흐름은 [NFA to DFA 변환](nfa-to-dfa.md)에서 다룬다.
+- DFA 최소화는 변환 후 불필요하거나 동등한 상태를 줄이며, [DFA 개요](dfa.md)와 연결된다.
+- 실제 lexer에서는 NFA를 직접 시뮬레이션하기보다 DFA table로 변환해 실행하는 경우가 많다.
+- JFLAP 같은 도구로 NFA, DFA, ε-closure를 시각적으로 검증할 수 있다.
 
-### 예제: (a|b)*abb
+## 11. 최종 체크리스트 (Definition of Done)
 
-```mermaid
-flowchart LR
-    q0((q₀)) -->|"ε"| q1((q₁))
-    q1 -->|"a"| q1
-    q1 -->|"b"| q1
-    q1 -->|"a"| q2((q₂))
-    q2 -->|"b"| q3((q₃))
-    q3 -->|"b"| q4((q₄))
-    q4:::accept
-    
-    classDef accept stroke-width:3,stroke-dasharray: 5 2;
-```
+- [x] NFA의 5-tuple과 전이 함수 의미를 정리했다.
+- [x] ε-transition과 ε-closure의 역할을 설명했다.
+- [x] 상태 집합 기반 실행 예제를 포함했다.
+- [x] NFA-to-DFA 변환과 DFA 최소화로 이어지는 학습 경로를 연결했다.
+- [x] 원문 NFA 문서를 12개 섹션 템플릿으로 재작성했다.
 
----
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-## 💻 구현 예제
-
-### Python 구현
-
-```python
-class NFA:
-    def __init__(self, states, alphabet, transitions, start, accepts):
-        self.states = states          # 상태 집합
-        self.alphabet = alphabet      # 입력 알파벳
-        self.transitions = transitions # 전이 함수 (dict)
-        self.start = start            # 시작 상태
-        self.accepts = accepts        # 종료 상태 집합
-    
-    def epsilon_closure(self, states):
-        """ε-클로저 계산"""
-        closure = set(states)
-        stack = list(states)
-        
-        while stack:
-            state = stack.pop()
-            # ε-전이로 도달 가능한 상태 추가
-            for next_state in self.transitions.get((state, 'ε'), set()):
-                if next_state not in closure:
-                    closure.add(next_state)
-                    stack.append(next_state)
-        
-        return closure
-    
-    def move(self, states, symbol):
-        """상태 집합에서 symbol로 이동 가능한 상태 집합"""
-        result = set()
-        for state in states:
-            result.update(self.transitions.get((state, symbol), set()))
-        return result
-    
-    def accepts_string(self, input_string):
-        """문자열 수락 여부 확인"""
-        current = self.epsilon_closure({self.start})
-        
-        for symbol in input_string:
-            current = self.epsilon_closure(self.move(current, symbol))
-        
-        # 최종 상태가 종료 상태를 포함하는지 확인
-        return bool(current & self.accepts)
-
-
-# 예제: "01"을 포함하는 문자열 인식 NFA
-nfa = NFA(
-    states={'q0', 'q1', 'q2'},
-    alphabet={'0', '1'},
-    transitions={
-        ('q0', '0'): {'q0', 'q1'},
-        ('q0', '1'): {'q0'},
-        ('q1', '1'): {'q2'},
-        ('q2', '0'): {'q2'},
-        ('q2', '1'): {'q2'},
-    },
-    start='q0',
-    accepts={'q2'}
-)
-
-# 테스트
-print(nfa.accepts_string("01"))     # True
-print(nfa.accepts_string("1001"))   # True
-print(nfa.accepts_string("111"))    # False
-```
-
----
-
-## 🔗 NFA → DFA 변환 (부분집합 구성법)
-
-NFA의 각 상태 집합을 DFA의 단일 상태로 변환합니다.
-
-```mermaid
-flowchart LR
-    subgraph NFA["NFA 상태"]
-        N1["{q₀}"]
-        N2["{q₀, q₁}"]
-        N3["{q₀, q₂}"]
-    end
-    
-    subgraph DFA["DFA 상태"]
-        D1["A"]
-        D2["B"]
-        D3["C"]
-    end
-    
-    N1 -.->|변환| D1
-    N2 -.->|변환| D2
-    N3 -.->|변환| D3
-```
-
-자세한 내용은 [NFA to DFA 변환](nfa-to-dfa.md) 문서를 참조하세요.
-
----
-
-## 📚 연습 문제
-
-### 문제 1
-다음 언어를 인식하는 NFA를 설계하세요:
-- L = {w | w는 "ab"로 끝남}
-
-### 문제 2
-다음 NFA의 언어를 설명하세요:
-
-| | 0 | 1 |
-|:-:|:-:|:-:|
-| →q₀ | {q₀, q₁} | {q₀} |
-| ★q₁ | ∅ | ∅ |
-
-### 문제 3
-정규표현식 `(0|1)*00`에 대한 NFA를 Thompson 구성법으로 만드세요.
-
----
-
-## 🔗 관련 문서
-
-- [NFA → DFA 변환](nfa-to-dfa.md)
-- [DFA 개요](dfa.md)
-- [컴파일러 개요](../index.md)
-
----
-
-## 📖 참고 자료
-
-- Hopcroft, Motwani, Ullman - "Introduction to Automata Theory"
-- Michael Sipser - "Introduction to the Theory of Computation"
-- [Visualizing NFA](https://www.jflap.org/) - JFLAP 도구
+NFA는 한 번에 하나의 상태만 갖는 기계가 아니라, 현재 가능성이 있는 상태 집합을 움직이며 문자열을 인식하는 모델이다.

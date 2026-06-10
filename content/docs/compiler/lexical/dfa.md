@@ -1,209 +1,130 @@
-네, 그럼요. 제공해주신 슬라이드 자료를 바탕으로 **DFA를 최소 DFA(Minimal DFA)로 만드는 최적화 과정**을 모든 다이어그램을 Mermaid 코드로 표현하고, 각 단계를 상세히 설명해 드리겠습니다.
+# DFA와 최소화 학습 및 기록 노트
 
-## DFA 최소화 개요
-본 문서에서는 DFA를 최소 DFA(Minimal DFA)로 최적화하는 과정을 단계별로 안내합니다.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-- **목적:** DFA의 상태 수를 줄여 효율성 향상
-- **주요 절차:**
-  1. 도달 불가능 상태 제거 (Unreachable States)
-  2. 동등 상태 병합 (Equivalence & Merging)
+DFA(Deterministic Finite Automaton)는 lexical analyzer가 token을 빠르게 판별하는 실행 모델이다. NFA보다 구현 시 상태 수가 많아질 수 있지만, 입력 문자마다 다음 상태가 하나로 결정되므로 scanner에서 table lookup으로 빠르게 실행할 수 있다. 다만 변환 과정에서 불필요한 상태가 생길 수 있어 최소화가 필요하다.
 
----
+이 문서는 원문의 DFA 최소화 설명을 결정적 실행 모델, unreachable state 제거, equivalent state 병합 중심으로 재작성한다.
 
-### **DFA 최소화 (Optimization) 개요**
+## 2. 현재 나의 상태 (Baseline)
 
-DFA를 최소화하는 것은 주어진 언어를 인식하는 DFA 중에서 **가장 적은 수의 상태**를 가진, 가장 효율적인 DFA를 만드는 과정입니다. 이 과정은 일반적으로 두 단계로 이루어집니다.
+- DFA가 상태와 전이로 구성된다는 사실은 알고 있다.
+- NFA와 달리 DFA는 같은 상태와 입력 symbol에 대해 다음 상태가 하나뿐이라는 점을 명확히 해야 한다.
+- NFA-to-DFA 변환 뒤 상태 수가 커질 수 있고, 최소화로 줄일 수 있음을 이해해야 한다.
+- 도달 불가능 상태와 동등 상태가 서로 다른 제거 대상임을 구분해야 한다.
+- 최소 DFA가 원래 DFA와 같은 언어를 인식해야 한다는 불변식을 기억해야 한다.
 
-1.  **도달 불가능한 상태(Unreachable States) 제거:** 시작 상태에서 어떠한 경로로도 도달할 수 없는 상태를 삭제합니다.
-2.  **동등한 상태(Equivalent States) 병합:** 기능적으로 똑같은 역할을 하는 상태들을 하나의 상태로 합칩니다.
+## 3. 도달하고 싶은 목표 (Target State)
 
----
+- DFA를 `Q`, `Sigma`, `delta`, `q0`, `F`로 설명한다.
+- Scanner가 DFA transition table을 이용해 token을 판별하는 흐름을 이해한다.
+- 시작 상태에서 도달 불가능한 상태를 BFS/DFS로 제거한다.
+- Final/non-final 분할에서 시작해 동등 상태를 refinement로 병합한다.
+- 최소화 후에도 인식 언어가 바뀌지 않는지 검증한다.
 
-### **1단계: 도달 불가능한 상태 제거 (Reachability)**
-
-DFA에는 시작 상태에서부터 어떠한 입력을 통해서도 절대 도달할 수 없는 "쓸모없는" 상태가 존재할 수 있습니다. 최소화의 첫 단계는 이러한 상태들을 찾아 제거하는 것입니다.
-
-#### **예제 다이어그램**
-
-슬라이드에 나온 예제 DFA입니다.
+## 4. 시스템 번역 (Data Flow)
 
 ```mermaid
-graph LR
-    direction LR
-    S0(0) -- a --> S1(1)
-    S1 -- a --> S0
-    S1 -- b --> S2((2))
-    S2 -- a --> S3((3))
-    S2 -- b --> S1
-    S3 -- a --> S3
-    S3 -- b --> S4(4)
-    S4 -- a --> S2
-    S4 -- b --> S0
-
-    style S0 fill:#9f9,stroke:#333,stroke-width:2px
+flowchart LR
+    A[Regex or NFA] --> B[DFA states]
+    B --> C[Transition table]
+    C --> D[Input characters]
+    D --> E[Current state update]
+    E --> F{Accepting state?}
+    F -->|yes| G[Token accepted]
+    F -->|no| H[Continue or reject]
+    B --> I[Reachability analysis]
+    I --> J[Partition refinement]
+    J --> K[Minimal DFA]
 ```
 
-#### **제거 과정 설명**
+DFA는 실행 시 현재 상태 하나만 유지한다. 최소화는 실행 전 분석 단계에서 같은 언어를 유지하면서 상태 수를 줄이는 작업이다.
 
-1.  **시작 상태에서 탐색 시작:** 시작 상태인 `0`에서 시작합니다.
-2.  **도달 가능한 상태 확인:**
-   
-   | 단계 | 현재 상태 | 입력 | 도달 상태 | 누적 집합 |
-   |:---:|:---------:|:------:|:-----------:|:-----------:|
-   | 1   | 0         | a     | 1         | {0,1}      |
-   | 2   | 1         | b     | 2         | {0,1,2}    |
-   | 3   | 2         | a     | 3         | {0,1,2,3}  |
-   | 4   | 3         | b     | 4         | {0,1,2,3,4}|
-   
-   ```mermaid
-   flowchart TB
-       A["시작 상태 0"] -->|a| B["상태 1, 집합 {0,1}"]
-       B -->|b| C["상태 2, 집합 {0,1,2}"]
-       C -->|a| D["상태 3, 집합 {0,1,2,3}"]
-       D -->|b| E["상태 4, 집합 {0,1,2,3,4}"]
-   ```
-   
-   *이 예제에서는 모든 상태가 도달 가능하지만, 만약 상태 `2, 3, 4`로 가는 경로가 전혀 없었다면 이들은 제거 대상이 됩니다.*
+## 5. 핵심 구성요소 (Building Blocks)
 
----
+| 구성요소 | 의미 | 핵심 질문 |
+| --- | --- | --- |
+| `Q` | 상태 집합 | 어떤 단계들을 상태로 표현하는가? |
+| `Sigma` | 입력 alphabet | scanner가 읽는 문자는 무엇인가? |
+| `delta` | 전이 함수 | `delta(state, symbol)`이 하나로 결정되는가? |
+| `q0` | 시작 상태 | 탐색과 실행은 어디서 시작하는가? |
+| `F` | accepting state 집합 | 어떤 상태에서 token이 완성되는가? |
+| Reachability | 시작 상태에서 닿는 상태 | 불필요한 상태가 있는가? |
+| Partition | 동등성 후보 그룹 | final/non-final을 구분했는가? |
+| Refinement | 그룹 세분화 | 같은 입력에서 같은 그룹으로 이동하는가? |
 
-### **2단계: 동등한 상태 병합 (Merging Equivalent States)**
-
-이 단계가 최소화의 핵심입니다. 기능적으로 구별할 수 없는 상태들을 찾아 하나의 상태로 합칩니다. "두 상태가 동등하다"는 것은 어떤 입력 문자열에 대해서든 두 상태가 항상 같은 결과(둘 다 최종 상태로 끝나거나, 둘 다 최종 상태가 아닌 상태로 끝남)를 내놓는다는 의미입니다.
-
-#### **예제 다이어그램**
-
-슬라이드 우측 상단에 나온 DFA와 그 최소화 예제를 사용해 설명하겠습니다.
-
-* **원본 DFA**
-    ```mermaid
-    graph LR
-        direction LR
-        q0 -- "a, b" --> q1
-        q1 -- b --> q2((q2))
-        q1 -- a --> q3((q3))
-        q2 -- a --> q3
-        q2 -- b --> q2
-        q3 -- "a, b" --> q3
-
-        style q0 fill:#9f9,stroke:#333,stroke-width:2px
-    ```
-
-#### **병합 과정 설명 (상태 분할법)**
-
-1.  **초기 분할 (Initial Partition):** 먼저 모든 상태를 **최종 상태(Final States) 그룹**과 **일반 상태(Non-Final States) 그룹**으로 나눕니다.
-    * **그룹 1 (일반 상태):** `{q0, q1}`
-    * **그룹 2 (최종 상태):** `{q2, q3}`
-
-2.  **그룹 세분화 (Refining Partitions):** 이제 각 그룹 내의 상태들이 정말 동등한지 검사합니다.
-    * **검사 규칙:** 같은 그룹에 속한 두 상태 `s`, `t`가 있을 때, 동일한 입력 `x`에 대해 `δ(s, x)`와 `δ(t, x)`가 서로 **다른 그룹**으로 이동한다면, 두 상태 `s`, `t`는 **구별 가능(distinguishable)**하므로 분리해야 합니다.
-
-    * **그룹 2 `{q2, q3}` 검사:**
-        * `q2`에서: `a` 입력 → `q3` (그룹 2), `b` 입력 → `q2` (그룹 2)
-        * `q3`에서: `a` 입력 → `q3` (그룹 2), `b` 입력 → `q3` (그룹 2)
-        * `q2`와 `q3`는 어떤 입력을 받든 항상 같은 그룹(그룹 2) 안에 머무릅니다. 따라서 두 상태는 **구별 불가능**, 즉 **동등(equivalent)**합니다. 이들은 합칠 수 있습니다.
-
-    * **그룹 1 `{q0, q1}` 검사:**
-        * `q0`에서: `a` 입력 → `q1` (그룹 1), `b` 입력 → `q1` (그룹 1)
-        * `q1`에서: `a` 입력 → `q3` (그룹 2), `b` 입력 → `q2` (그룹 2)
-        * `q0`과 `q1`을 비교해봅시다. 입력 `a`에 대해 `q0`은 그룹 1에 속한 `q1`로 가지만, `q1`은 그룹 2에 속한 `q3`로 갑니다. 두 상태가 서로 다른 그룹으로 이동했으므로, `q0`과 `q1`은 **구별 가능**합니다. 따라서 이 그룹은 더 이상 나눌 필요 없이 각자 독립적인 상태가 됩니다.
-
-3.  **최종 분할 및 상태 병합:**
-    * 최종적으로 구분된 상태 집합은 `{{q0}, {q1}, {q2, q3}}` 입니다.
-    * 이제 동등한 상태인 `{q2, q3}`를 새로운 상태 하나, **`q2'`** 로 병합합니다.
-
-4.  **최소 DFA 생성:**
-    * **새로운 상태:** `{q0, q1, q2'}`
-    * **시작 상태:** `q0`
-    * **최종 상태:** `q2'` (병합된 상태 `{q2, q3}`가 최종 상태였으므로)
-    * **전이 재구성:**
-        * `q0`의 전이는 변함없이 `q1`로 갑니다.
-        * `q1`에서 `a` 입력은 원래 `q3`로 갔지만, 이제 병합된 `q2'`로 갑니다.
-        * `q1`에서 `b` 입력은 원래 `q2`로 갔지만, 이제 병합된 `q2'`로 갑니다.
-        * 새로운 `q2'` 상태의 전이는 원래 `q2`와 `q3`의 전이를 따릅니다. `a`나 `b`를 입력받으면 항상 그룹 `{q2,q3}` 안으로 갔으므로, `q2'`는 자기 자신으로 루프를 돕니다.
-
-
-**1. 초기 분할 (Initial Partition)**
-
-| 그룹        | 상태 집합    |
-|:-----------:|:------------:|
-| 1 (비최종)  | `{q0, q1}`   |
-| 2 (최종)    | `{q2, q3}`   |
-
-**2. 그룹 세분화 (Refining Partitions)**  
-- 검사 규칙: 동일한 입력에서 다른 그룹으로 이동하면 `구별 가능`
-
-| 상태 | a 전이 (그룹) | b 전이 (그룹) | 전이 패턴 | 결과 그룹    |
-|:----:|:-------------:|:-------------:|:---------:|:------------:|
-| q0   | q1 (1)        | q1 (1)        | (1,1)     | `{q0}`       |
-| q1   | q3 (2)        | q2 (2)        | (2,2)     | `{q1}`       |
-| q2   | q3 (2)        | q2 (2)        | (2,2)     | `{q2, q3}`   |
-| q3   | q3 (2)        | q3 (2)        | (2,2)     | `{q2, q3}`   |
-
-**3. 최종 분할 및 상태 병합**  
-최종 그룹: `{q0}`, `{q1}`, `{q2, q3}`  
-동등 상태 `{q2, q3}` 병합 → **q2'**
-
-**4. 최소 DFA 생성**  
-- 새로운 상태: `{q0, q1, q2'}`  
-- 시작 상태: `q0`  
-- 최종 상태: `q2'`  
-- 전이 재구성:  
-  - `q0` → `q1`  
-  - `q1` → `q2'` (a, b)  
-  - `q2'` → `q2'` (a, b)
-
-#### **최종 결과: Minimal DFA**
-
-위 과정을 거쳐 슬라이드에 나온 것과 동일한 최소 DFA가 만들어집니다.
+## 6. 상태 전이 (State Transition)
 
 ```mermaid
-graph LR
-    direction LR
-    q0 -- "a, b" --> q1
-    q1 -- "a, b" --> q2_merged((q2'))
-    q2_merged -- "a, b" --> q2_merged
-
-    style q0 fill:#9f9,stroke:#333,stroke-width:2px
+stateDiagram-v2
+    [*] --> RawDFA
+    RawDFA --> ReachabilityScan
+    ReachabilityScan --> RemoveUnreachable
+    RemoveUnreachable --> InitialPartition
+    InitialPartition --> RefinePartitions
+    RefinePartitions --> MergeEquivalent
+    MergeEquivalent --> MinimalDFA
+    MinimalDFA --> [*]
 ```
-*(여기서 `q2'`는 원래의 `q2`와 `q3`가 합쳐진 상태입니다.)*
 
----
+최소화는 먼저 시작 상태에서 닿을 수 없는 상태를 제거하고, 남은 상태를 final/non-final로 나눈 뒤 전이 패턴이 같은 상태들을 같은 그룹으로 유지한다.
 
-### **DFA 최소화 (Minimal DFA)**
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-# DFA 최소화 (Minimal DFA)
-> **목표:** 주어진 DFA를 가능한 최소 상태 수로 줄여 효율성을 높임
+- DFA의 전이 함수는 현재 상태와 입력 symbol에 대해 다음 상태를 하나만 반환해야 한다.
+- 시작 상태에서 도달 불가능한 상태는 제거해도 인식 언어가 바뀌지 않는다.
+- Final state와 non-final state는 같은 동등 그룹에 들어가면 안 된다.
+- 두 상태가 동등하려면 모든 가능한 suffix 입력에 대해 accept/reject 결과가 같아야 한다.
+- Partition refinement는 더 이상 그룹이 쪼개지지 않을 때까지 반복해야 한다.
+- 최소화 결과 DFA는 원래 DFA와 같은 언어를 인식해야 한다.
 
-## 최소화 절차 개요
-| 단계 | 설명 |
-|:---:|:---|
-| **1. 도달 불가능 상태 제거**<br>Unreachable States | 시작 상태에서 BFS/DFS로 탐색해 도달 불가능한 상태 삭제 |
-| **2. 동등 상태 병합**<br>Equivalence & Merging | 기능적으로 같은 상태를 그룹화해 하나로 병합 |
+## 8. 가장 작은 예제 (Minimal Viable Example)
 
----
-
-## 1. 도달 불가능 상태 제거
-- **목적:** 쓸모없는 상태를 삭제하여 DFA 간소화
-- **방법:**
-  1. 시작 상태에서 BFS/DFS 수행
-  2. 탐색된 상태만 유지, 나머지 상태 제거
-
-**예제 DFA**
 ```mermaid
-graph LR
-  A((A)) -- a --> B((B))
-  A -- b --> C((C))
-  B -- a --> D((D))
-  B -- b --> E((E))
-  C -- a --> B
-  C -- b --> C
-  D -- a --> B
-  D -- b --> E
-  E -- a --> B
-  E -- b --> C
-  style A fill:#9f9,stroke:#333,stroke-width:2px
-  style E fill:#f96,stroke:#333,stroke-width:2px
+flowchart LR
+    q0[q0] -- "a,b" --> q1[q1]
+    q1 -- "a,b" --> q2((q2))
+    q2 -- "a,b" --> q2
 ```
 
----
+```text
+초기 분할:
+non-final = {q0, q1}
+final = {q2}
+
+refinement:
+q0 --a,b--> q1(non-final)
+q1 --a,b--> q2(final)
+따라서 q0과 q1은 구별 가능
+```
+
+이 예제는 final/non-final 분할만으로 끝나지 않고, 같은 입력에서 이동하는 그룹을 비교해 상태를 더 나누어야 함을 보여준다.
+
+## 9. 실패 사례 (What could go wrong?)
+
+- NFA처럼 여러 다음 상태를 허용해 DFA transition table을 잘못 만든다.
+- 시작 상태에서 닿지 않는 상태를 남겨 scanner table을 불필요하게 키운다.
+- Final state와 non-final state를 병합해 accept/reject 의미를 바꾼다.
+- 한 번만 partition을 나누고 refinement fixpoint까지 반복하지 않는다.
+- 최소화 후 token 우선순위나 longest match 규칙과의 관계를 확인하지 않는다.
+- Error/dead state를 누락해 일부 입력에서 transition이 정의되지 않는다.
+
+## 10. 뇌 확장하기 (Evolution & Variants)
+
+- NFA-to-DFA subset construction에서 생성된 상태 집합을 최소화 입력으로 사용한다.
+- Hopcroft 알고리즘은 partition refinement를 더 효율적으로 수행한다.
+- Lexer 구현에서는 accepting state에 token type과 priority metadata를 함께 둔다.
+- Unicode나 character class가 커지면 alphabet compression과 transition table 압축이 필요하다.
+- DFA 기반 scanner와 backtracking regex engine의 성능 차이를 비교한다.
+
+## 11. 최종 체크리스트 (Definition of Done)
+
+- [x] DFA의 결정적 전이 모델을 설명했다.
+- [x] Reachability 제거와 equivalent state 병합을 분리했다.
+- [x] Partition refinement의 핵심 규칙을 정리했다.
+- [x] 최소 DFA가 같은 언어를 인식해야 한다는 불변식을 포함했다.
+- [x] 원문 DFA 최소화 문서를 12개 섹션 템플릿으로 재작성했다.
+
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
+
+DFA 최소화는 상태 수를 줄이는 작업이지만, 시작 상태에서 읽는 모든 문자열의 accept/reject 결과는 절대 바꾸면 안 된다.

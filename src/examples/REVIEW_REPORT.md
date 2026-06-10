@@ -136,7 +136,7 @@ hash-table/LinearProbingHashTable.java
 
 ## Action Item 2: End-to-End Data Flow Simulation
 
-> **Note:** 이 프로젝트는 웹 애플리케이션이 아닌 알고리즘 학습 코드이므로, 프론트엔드-백엔드 연동 대신 **알고리즘 실행 흐름 시뮬레이션**을 제공합니다.
+> **Note:** 이 프로젝트는 웹 애플리케이션이 아닌 알고리즘 학습 코드이므로, 프론트엔드-백엔드 연동 대신 **알고리즘 실행 흐름 시뮬레이션**을 사용한다.
 
 ### [Scenario 1: BST 삽입 및 호출 횟수 카운트 - p1/Main.java]
 

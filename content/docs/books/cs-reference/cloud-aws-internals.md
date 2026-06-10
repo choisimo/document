@@ -1,464 +1,138 @@
-# Cloud & AWS Internals: Hypervisors, Virtual Networks & Managed Services
+# Cloud & AWS Internals 학습 및 기록 노트
 
-> Under the Hood: How EC2 instances boot on bare metal, how S3 stores objects across failure domains, how VPCs route packets through virtual switches, how Lambda cold starts work — the exact hardware, network, and storage mechanics behind cloud infrastructure.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
----
+AWS 서비스를 "관리형"이라고만 이해하면 장애 원인, 비용, 보안 경계, 지연 시간을 설명하기 어렵다. EC2는 Nitro 하이퍼바이저와 전용 카드 위에서 실행되고, VPC는 가상 스위치와 라우팅 테이블로 패킷을 이동시키며, S3와 DynamoDB는 분산 저장소와 metadata/index 계층을 통해 내구성과 확장성을 만든다.
 
-## 1. Hypervisor Architecture: EC2 on Nitro
+이 문서는 원문의 AWS 내부 동작 설명을 서비스별 data path, control plane, 실패 모드 중심으로 재작성한다.
 
-AWS Nitro is a custom hypervisor offloading I/O and security to dedicated hardware cards rather than a host OS.
+## 2. 현재 나의 상태 (Baseline)
 
-```mermaid
-flowchart TD
-    subgraph "Traditional Hypervisor (Xen)"
-        DOM0["Dom0 (privileged VM)\nRuns host OS\nHandles all I/O\nConsumes 10-20% CPU"]
-        DOMX["DomX (guest VM)\nEC2 instance"]
-        NET["Network I/O via Dom0\n→ latency + CPU overhead"]
-        DOM0 --> DOMX
-        DOM0 --> NET
-    end
-    subgraph "Nitro Hypervisor"
-        NH["Nitro Hypervisor\n(bare metal, <2% overhead)\nOnly CPU + memory virtualization"]
-        NIC["Nitro Card: Network\nDedicated FPGA/ASIC\nSR-IOV: guest accesses NIC directly"]
-        EBS["Nitro Card: EBS\nNVMe over PCIe to storage\nEncryption in hardware"]
-        SEC["Nitro Security Chip\nBoot attestation\nTPM-based instance identity"]
-        NH --> NIC
-        NH --> EBS
-        NH --> SEC
-    end
-```
+- EC2, VPC, S3, Lambda, DynamoDB, EBS, IAM, RDS, CloudFront, Auto Scaling의 사용법은 대략 알고 있다.
+- Nitro, SR-IOV, Firecracker, erasure coding, LSM-tree 같은 내부 구현 요소가 서비스 동작과 어떻게 연결되는지 정리해야 한다.
+- Security Group, IAM policy, NAT/IGW 같은 네트워크와 권한 경계를 운영 관점에서 추적하는 습관이 부족하다.
+- 관리형 서비스의 보장과 고객 책임 경계를 구분해야 한다.
+- 성능 수치는 workload와 리전/설정에 따라 달라질 수 있음을 문서에 반영해야 한다.
 
-### VM Boot Sequence on Nitro
+## 3. 도달하고 싶은 목표 (Target State)
 
-```mermaid
-sequenceDiagram
-    participant PH as Physical Host
-    participant NC as Nitro Controller
-    participant NH as Nitro Hypervisor
-    participant VM as Guest VM (EC2)
+- EC2 boot, VPC packet flow, S3 object read/write, Lambda cold start, DynamoDB write path를 data flow로 설명한다.
+- IAM 평가 순서에서 explicit deny, SCP, identity policy, resource policy, permissions boundary의 역할을 구분한다.
+- RDS Multi-AZ와 read replica의 동기/비동기 복제 차이를 운영 영향으로 연결한다.
+- CloudFront cache key와 origin fetch 흐름을 이해한다.
+- AWS shared responsibility model에서 AWS 책임과 고객 책임을 기술 경계로 나눠 판단한다.
 
-    PH->>NC: Provision request (instance type, AMI, network config)
-    NC->>NH: Create vCPU+memory allocation
-    Note over NH: Allocate EPT (Extended Page Tables)\nfor guest physical→host physical mapping
-    NH->>VM: Virtual CPU VMLAUNCH instruction
-    Note over VM: Boots via UEFI/SeaBIOS
-    Note over VM: Kernel detects Nitro NVMe driver
-    VM->>NC: NVMe over PCIe: fetch EBS blocks for root volume
-    Note over VM: initrd → systemd → user space
-    VM->>NC: VirtIO-net SR-IOV: connect to ENI
-    NC-->>VM: IP assigned via DHCP (VPC DHCP server)
-    Note over VM: Instance ready
-```
-
----
-
-## 2. VPC Network Architecture: Virtual Switches and Routing
+## 4. 시스템 번역 (Data Flow)
 
 ```mermaid
 flowchart TD
-    subgraph "AWS Region: us-east-1"
-        subgraph "VPC: 10.0.0.0/16"
-            subgraph "AZ-1a"
-                PUB["Public Subnet 10.0.1.0/24"]
-                PRIV["Private Subnet 10.0.2.0/24"]
-                EC2A["EC2: 10.0.1.5"]
-                EC2B["EC2: 10.0.2.10"]
-                PUB --> EC2A
-                PRIV --> EC2B
-            end
-            IGW["Internet Gateway\n(VPC attachment)"]
-            NGW["NAT Gateway\n10.0.1.20 (Elastic IP)"]
-            RTB_PUB["Route Table (public):\n0.0.0.0/0 → IGW"]
-            RTB_PRIV["Route Table (private):\n0.0.0.0/0 → NGW"]
-        end
-        IGW -->|EIP| Internet["Internet"]
-        EC2A --> PUB --> RTB_PUB --> IGW
-        EC2B --> PRIV --> RTB_PRIV --> NGW --> IGW
-    end
+    A[Client/API 요청] --> B{서비스 종류}
+    B -->|EC2| C[Nitro control plane + guest VM]
+    B -->|VPC| D[Route table + SG/NACL + overlay network]
+    B -->|S3| E[Frontend + metadata index + storage shards]
+    B -->|Lambda| F[Invocation dispatcher + Firecracker microVM]
+    B -->|DynamoDB| G[Request router + partition leader + replicas]
+    B -->|IAM| H[Policy evaluation engine]
+    C --> I[응답 또는 상태 변경]
+    D --> I
+    E --> I
+    F --> I
+    G --> I
+    H --> I
 ```
 
-### Packet Flow: EC2 to Internet
+AWS 서비스는 대부분 control plane과 data plane이 분리되어 있다. 설정 변경은 control plane을 거치고, 실제 패킷/블록/object/API 요청은 data plane에서 처리된다.
 
-```mermaid
-sequenceDiagram
-    participant EC2 as EC2 10.0.1.5
-    participant HyperV as Nitro Hypervisor
-    participant VSwitch as Virtual Switch (VPC)
-    participant IGW as Internet Gateway
-    participant Internet as Internet Host 1.2.3.4
+## 5. 핵심 구성요소 (Building Blocks)
 
-    EC2->>HyperV: Send packet\nsrc=10.0.1.5:44321\ndst=1.2.3.4:443
-    Note over HyperV: SG egress check:\n443/TCP allowed?
-    Note over HyperV: VPC route lookup:\n0.0.0.0/0 → IGW
-    HyperV->>VSwitch: Encapsulate in VxLAN/Nitro overlay\nVNI=vpc-id tunnel to physical host running IGW
-    VSwitch->>IGW: Inner packet + VPC metadata
-    Note over IGW: SNAT: src=10.0.1.5\n→ src=52.x.x.x (EIP)\nConnection tracked in NAT table
-    IGW->>Internet: src=52.x.x.x:44321, dst=1.2.3.4:443
-    Internet->>IGW: dst=52.x.x.x:44321
-    Note over IGW: DNAT lookup: 52.x.x.x:44321\n→ 10.0.1.5:44321
-    IGW->>EC2: dst=10.0.1.5:44321
-```
+| 구성요소 | 역할 | 주의할 점 |
+| --- | --- | --- |
+| Nitro Hypervisor | EC2 CPU/메모리 가상화와 격리 | I/O는 Nitro 카드로 offload된다. |
+| ENI/VPC route table | instance의 네트워크 정체성과 라우팅 | subnet route와 SG/NACL이 함께 작동한다. |
+| Security Group | stateful instance-level firewall | return traffic은 connection tracking에 의존한다. |
+| S3 metadata index | bucket/key를 object location으로 매핑 | object data와 metadata path를 구분해야 한다. |
+| Erasure coding | shard와 parity로 내구성 확보 | 복구는 여러 shard fetch와 decode가 필요하다. |
+| Firecracker | Lambda/Fargate 계열 microVM 격리 | cold start는 image/runtime/init code 영향을 받는다. |
+| DynamoDB partition | partition key hash 기반 저장 단위 | hot partition이 throughput 병목이 될 수 있다. |
+| IAM policy engine | 요청 context와 policy를 평가 | explicit deny가 allow보다 우선한다. |
+| RDS Multi-AZ | standby로 동기 복제/장애 조치 | read scaling 목적의 read replica와 다르다. |
+| CloudFront cache key | edge cache 분기 기준 | header/query/cookie 설정이 hit ratio를 좌우한다. |
 
-### Security Groups: Stateful Packet Inspection
+## 6. 상태 전이 (State Transition)
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Evaluate_Egress: Outbound packet
-    Evaluate_Egress --> Allowed: Rule match (allow)
-    Evaluate_Egress --> Dropped: No rule match (default deny)
-    Allowed --> ConnTrack: Add to connection tracking table
-    ConnTrack --> PassThrough: Return traffic (automatic)\nno inbound rule needed
+    [*] --> Request
+    Request --> Authz: IAM/STS/Policy 평가
+    Authz --> NetworkPath: VPC/SG/Route 확인
+    NetworkPath --> ServiceDataPlane: EC2/S3/DDB/Lambda/RDS 처리
+    ServiceDataPlane --> Replication: shard/replica/WAL/cache 갱신
+    Replication --> Response: quorum 또는 처리 완료
+    Response --> [*]
 ```
 
-SGs are **stateful** (connection tracking via Linux conntrack tables in the Nitro hypervisor) — inbound rules are only checked for new connections, not return traffic.
+예를 들어 DynamoDB write는 요청 router가 partition leader를 찾고, leader가 replica quorum을 만족한 뒤 응답한다. S3 GET은 metadata lookup 후 object shard를 병렬 fetch한다.
 
----
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-## 3. S3 Internals: Object Storage Architecture
+- IAM은 explicit deny가 있으면 어떤 allow도 이를 덮을 수 없다.
+- VPC packet flow는 route table, security group, network ACL, target resource 상태가 모두 맞아야 통과한다.
+- S3 object key lookup과 object shard fetch는 일관된 metadata를 기준으로 수행되어야 한다.
+- DynamoDB partition key 설계는 hot key를 만들지 않아야 한다.
+- Lambda handler 성능을 논할 때 cold start와 warm invoke를 분리해야 한다.
+- RDS Multi-AZ는 고가용성 목적이고, read replica는 읽기 확장 목적이라는 차이를 유지해야 한다.
+- CloudFront cache key가 달라지면 같은 URL처럼 보여도 별도 cache entry가 될 수 있다.
+- 고객이 관리하는 OS, IAM policy, 애플리케이션 취약점은 shared responsibility model에서 고객 책임이다.
 
-```mermaid
-flowchart TD
-    subgraph "S3 Storage Hierarchy"
-        PUT["PUT /bucket/key — 5MB object"]
-        FE["S3 Frontend Fleet\n(per-region, anycast)\nAuthentication + rate limiting"]
-        INDEX["Index Service\nBucket+key → object metadata\n(partition key: bucket/key hash)\nStored in DynamoDB-like service"]
-        STORE["Storage Fleet\nErasure coding: RS(6,2)\n6 data shards + 2 parity\nAny 6 of 8 can reconstruct"]
-        AZ1["AZ-1: shards 1,3,5,7"]
-        AZ2["AZ-2: shards 2,4,6,8"]
-        PUT --> FE --> INDEX
-        FE --> STORE
-        STORE --> AZ1
-        STORE --> AZ2
-    end
-```
-
-### Reed-Solomon Erasure Coding (RS 6+2)
-
-S3 splits objects into 6 data chunks and computes 2 parity chunks using Reed-Solomon coding over GF(2⁸):
-
-```
-Object → [d1, d2, d3, d4, d5, d6]  (data chunks)
-         [p1, p2]                   (parity: p_i = linear combination of d_j over GF(2⁸))
-
-Reconstruction: Any 6 of 8 shards sufficient.
-               Solve system of linear equations over GF(2⁸)
-               Tolerates: 2 simultaneous shard failures = 2 AZ failures
-```
+## 8. 가장 작은 예제 (Minimal Viable Example)
 
 ```mermaid
 sequenceDiagram
-    participant Client as S3 Client
-    participant FE as S3 Frontend
-    participant IDX as Index Service
-    participant ST1 as Storage Node 1 (AZ-1)
-    participant ST2 as Storage Node 2 (AZ-2)
+    participant Client
+    participant IAM
+    participant VPC
+    participant S3
+    participant Storage
 
-    Client->>FE: GET /bucket/large-object
-    FE->>IDX: Lookup(bucket, key) → object_id, chunk_locations
-    IDX-->>FE: chunks: [node1:c1, node2:c2, node3:c3, node4:c4, node5:c5, node6:c6]
-    Note over FE: Parallel fetch all 6 chunks
-    FE->>ST1: Fetch c1, c3, c5 (parallel)
-    FE->>ST2: Fetch c2, c4, c6 (parallel)
-    ST1-->>FE: c1, c3, c5
-    Note over ST2: Node crashes!
-    ST2-->>FE: c2, c4 (only 2/3)
-
-    Note over FE: 5 chunks received (need 6)\nFetch parity p1 from another node
-    FE->>ST1: Fetch p1
-    ST1-->>FE: p1
-    Note over FE: Reconstruct c6 from d1..d5,p1\nvia RS decode (Gaussian elimination GF(2⁸))
-    FE->>Client: Stream reassembled object
+    Client->>IAM: s3:GetObject 요청 서명 검증
+    IAM-->>Client: allow/deny 결정
+    Client->>VPC: endpoint 또는 internet path로 요청 전송
+    VPC->>S3: route/SG/NACL 조건 통과
+    S3->>S3: bucket/key metadata lookup
+    S3->>Storage: object shard fetch
+    Storage-->>S3: shard 또는 재구성 데이터
+    S3-->>Client: object stream 반환
 ```
 
-### S3 Consistency Model
+이 흐름은 클라우드 요청을 볼 때 권한, 네트워크, 서비스 metadata, 실제 저장소 접근을 분리해서 추적해야 한다는 점을 보여준다.
 
-Since December 2020, S3 provides **strong read-after-write consistency** for all operations. Internally, this is achieved by the index service using a serializable metadata store — GET after PUT sees the new object guaranteed (previously only eventually consistent for overwrite).
+## 9. 실패 사례 (What could go wrong?)
 
----
+- Security Group만 보고 NACL, route table, subnet association 문제를 놓친다.
+- Lambda cold start 지연을 handler 실행 시간과 섞어 보고 잘못된 최적화를 한다.
+- DynamoDB partition key가 한 값으로 몰려 adaptive capacity 이전에 hot partition 병목이 생긴다.
+- IAM에서 resource policy allow만 보고 SCP나 permissions boundary의 deny 효과를 놓친다.
+- CloudFront cache key에 불필요한 header/cookie를 포함해 hit ratio가 급감한다.
+- RDS read replica를 HA failover 대상으로 오해해 장애 복구 설계를 잘못한다.
+- 관리형 서비스라는 이유로 고객 책임인 OS patch, least privilege, encryption 설정, app 보안을 생략한다.
 
-## 4. Lambda Cold Start Internals
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-```mermaid
-stateDiagram-v2
-    [*] --> Cold: Invocation (no warm container)
-    Cold --> Download: Download container image\n(if not cached on worker host)
-    Download --> Init_Sandbox: Create MicroVM (Firecracker)\nAllocate memory + vCPUs
-    Init_Sandbox --> Run_Init: Run function init code\nimport modules, connect DB
-    Run_Init --> Warm: Function ready (warm)
-    Warm --> Execute: Invoke handler
-    Execute --> Warm: Reuse container (next invocation)
-    Warm --> Frozen: No invocations for ~15 min
-    Frozen --> [*]: Container destroyed
-```
+- EC2는 Nitro, bare metal, placement group, ENA/EFA, instance store 성능 특성으로 확장해 비교한다.
+- VPC는 PrivateLink, Transit Gateway, VPC peering, NAT Gateway, Gateway Endpoint까지 data path를 추적한다.
+- S3는 storage class, multipart upload, lifecycle, replication, event notification으로 확장된다.
+- DynamoDB는 GSI/LSI, streams, transactions, global tables, adaptive capacity를 함께 본다.
+- Lambda는 provisioned concurrency, container image, SnapStart, connection reuse를 별도 튜닝 축으로 본다.
+- IAM은 SCP, permission boundary, session policy, resource policy, condition key를 조합해 평가한다.
 
-### Firecracker MicroVM
+## 11. 최종 체크리스트 (Definition of Done)
 
-AWS Lambda uses **Firecracker** (open-source KVM-based microVM):
+- [x] AWS 주요 서비스의 control plane과 data plane을 분리해 설명했다.
+- [x] EC2/Nitro, VPC packet flow, S3, Lambda, DynamoDB, IAM, RDS, CloudFront의 핵심 내부 상태를 정리했다.
+- [x] IAM explicit deny와 shared responsibility model을 불변식으로 포함했다.
+- [x] S3 GET 흐름을 최소 sequence diagram으로 정리했다.
+- [x] 원문에 있던 서비스별 내부 동작을 운영 실패 사례와 연결했다.
 
-```mermaid
-flowchart LR
-    subgraph "Lambda Worker Host"
-        FC["Firecracker VMM\n(virtual machine monitor)\nminimal device model:\nonly virtio-net + virtio-block\nNo USB, no PCI bus, no BIOS\n→ 125ms boot time"]
-        GUEST["Guest: Amazon Linux 2 mini-kernel\n+ Python/Node/Java runtime\n+ customer code"]
-        VSOCK["vsock socket:\nhost ↔ guest IPC\nfor invocation payload delivery"]
-        FC --> GUEST
-        FC --> VSOCK
-    end
-    subgraph "Lambda Control Plane"
-        CP["Invocation Dispatcher\nPicks warm slot or cold-start\nSends payload via vsock"]
-    end
-    CP --> VSOCK
-```
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-**Cold start breakdown (Python 3.11, 256MB)**:
-- Firecracker boot: ~125ms
-- Amazon Linux init: ~50ms  
-- Python interpreter start: ~100ms
-- Customer `import` statements: variable (0ms–2000ms)
-- **Total: 250ms–2500ms** (vs warm: <1ms overhead)
-
----
-
-## 5. DynamoDB Internals: Partitioning and Replication
-
-```mermaid
-flowchart TD
-    subgraph "DynamoDB Request Path"
-        REQ["PutItem(PK='user#123', SK='profile')"]
-        RF["Request Router\nHash(PK) → partition number\npartition_key = hash(PK) mod num_partitions"]
-        PART["Storage Node (partition owner)\nLeader of Paxos group"]
-        REP1["Replica 1 (AZ-1)"]
-        REP2["Replica 2 (AZ-2)"]
-        REP3["Replica 3 (AZ-3)"]
-        RF --> PART
-        PART -->|replicate| REP1
-        PART -->|replicate| REP2
-        PART -->|replicate| REP3
-        Note["Write acknowledged after\n2 of 3 replicas confirm\n(quorum write)"]
-    end
-```
-
-### DynamoDB LSM-Tree Storage Engine
-
-Each DynamoDB partition uses an LSM-tree (Log-Structured Merge-Tree) under the hood:
-
-```mermaid
-flowchart TD
-    subgraph "DynamoDB Storage Layer (per partition)"
-        WAL["Write-Ahead Log\n(append-only, sequential)\n→ durability guarantee\nbefore memtable write"]
-        MEM["MemTable\n(in-memory BTree, sorted by PK+SK)\n→ fast writes"]
-        L0["Level-0 SSTables\n(flushed from MemTable)\nsmall, may overlap"]
-        L1["Level-1 SSTables\n(compacted, non-overlapping)\n10MB each"]
-        L2["Level-2 SSTables\n(100MB each)"]
-        BF["Bloom Filter\n(per SSTable, 10 bits/key)\n→ skip irrelevant SSTables on read"]
-        IDX["Block Index\n(sparse: one entry per 4KB block)\n→ binary search to block"]
-        WAL --> MEM --> L0
-        L0 -->|compaction| L1 -->|compaction| L2
-        L0 --> BF
-        L0 --> IDX
-    end
-```
-
-### DynamoDB Auto-Partitioning (Adaptive Capacity)
-
-When a partition exceeds 1000 WCU/s or 3000 RCU/s, DynamoDB splits it:
-
-```
-partition_id=abc → [abc_low, abc_high]
-split_point = median key in partition
-all keys < median → abc_low
-all keys ≥ median → abc_high
-Transparent to application: router table updated atomically
-```
-
----
-
-## 6. EBS: Block Storage Internals
-
-```mermaid
-sequenceDiagram
-    participant EC2 as EC2 Instance
-    participant Nitro as Nitro NVMe Card
-    participant EBS as EBS Storage Fleet
-
-    EC2->>Nitro: NVMe write(LBA=0x1000, data=4KB, queue_depth=32)
-    Note over Nitro: Hardware NVMe queue\nNo host CPU involvement
-    Nitro->>EBS: TCP over dedicated EBS network\n(encrypted with NitroEnclaveKey)\nWrite(volume_id, offset, data)
-    Note over EBS: Stripe data across 6+ nodes\n(RAID-6 equivalent within AZ)\nReplicate to 2nd AZ (Multi-AZ gp3)
-    EBS-->>Nitro: ACK (after 2 replicas confirm)
-    Nitro-->>EC2: NVMe completion queue entry
-```
-
-**EBS gp3 throughput**: 125 MB/s baseline, up to 1000 MB/s (provisioned). The Nitro card handles all NVMe protocol, encryption (AES-256 in hardware), and TCP networking to EBS fleet — zero host CPU for I/O.
-
----
-
-## 7. IAM Policy Evaluation Engine
-
-```mermaid
-flowchart TD
-    REQ["API Call: s3:GetObject\non arn:aws:s3:::my-bucket/file"]
-    
-    P1["1. Is the caller authenticated?\n(STS token valid, not expired?)"]
-    P2["2. Explicit DENY?\n(Any policy with Deny effect matches?)"]
-    P3["3. Organizational SCPs allow?"]
-    P4["4. Resource-based policy\nallows cross-account access?"]
-    P5["5. Identity-based policy allows?"]
-    P6["6. Permissions boundary allows?"]
-    P7["7. Session policy (STS assume-role) allows?"]
-
-    ALLOW["ALLOW"]
-    DENY["DENY (default)"]
-
-    REQ --> P1
-    P1 -->|no| DENY
-    P1 -->|yes| P2
-    P2 -->|explicit deny found| DENY
-    P2 -->|no deny| P3
-    P3 -->|not allowed by SCP| DENY
-    P3 -->|allowed| P4
-    P4 -->|resource policy allows| ALLOW
-    P4 -->|no resource policy match| P5
-    P5 -->|identity policy allows| P6
-    P5 -->|no allow| DENY
-    P6 -->|within boundary| P7
-    P6 -->|outside boundary| DENY
-    P7 -->|session policy allows| ALLOW
-    P7 -->|no allow| DENY
-```
-
-**Condition evaluation**: IAM conditions are evaluated using AND within a Condition block, OR across multiple Condition elements. `aws:RequestedRegion`, `aws:SourceVpc`, `aws:CurrentTime` are context keys injected at evaluation time by the service control plane.
-
----
-
-## 8. RDS Multi-AZ: Synchronous Replication Internals
-
-```mermaid
-sequenceDiagram
-    participant App as Application
-    participant Primary as RDS Primary (AZ-1)
-    participant Standby as RDS Standby (AZ-2)
-    participant EBS_P as EBS Primary Volume
-    participant EBS_S as EBS Standby Volume
-
-    App->>Primary: INSERT INTO orders(...)
-    Primary->>EBS_P: Write WAL + data pages
-    Primary->>Standby: Synchronous WAL shipping\n(PostgreSQL streaming replication)
-    Standby->>EBS_S: Apply WAL → replicate pages
-    Standby-->>Primary: WAL position confirmed
-    Primary-->>App: COMMIT OK
-
-    Note over Primary: Primary instance failure
-    Note over Primary: EBS primary unavailable
-    Note over Standby: Automatic failover triggered\n(Route 53 CNAME update: ~60-120s)
-    App->>Standby: Connection via CNAME endpoint\n(Standby promoted to primary)
-    Standby-->>App: Requests served
-```
-
-### Read Replica Architecture (Asynchronous)
-
-Read replicas use **asynchronous** log shipping. Unlike Multi-AZ (synchronous, same-region failover), read replicas can lag minutes and are used for **read scaling**, not HA:
-
-```
-Primary → WAL chunks → replica_1 (async, may lag)
-                     → replica_2 (async, may lag)
-                     → replica_3 (cross-region, higher lag)
-```
-
----
-
-## 9. CloudFront CDN Internals: Edge Caching
-
-```mermaid
-flowchart TD
-    subgraph "CloudFront Request Flow"
-        USER["User in Tokyo"]
-        EDGE["CloudFront Edge\n(Tokyo PoP)\n220+ PoPs globally"]
-        REG_EDGE["Regional Edge Cache\n(Osaka — larger cache tier)"]
-        ORIGIN["Origin: S3 bucket in us-east-1"]
-
-        USER -->|1. DNS: cf-id.cloudfront.net\nresolves to nearest PoP| EDGE
-        EDGE -->|2. Cache HIT| USER
-        EDGE -->|3. Cache MISS| REG_EDGE
-        REG_EDGE -->|4. Cache HIT in regional cache| EDGE
-        REG_EDGE -->|5. Cache MISS → origin fetch| ORIGIN
-        ORIGIN -->|6. Response + Cache-Control headers| REG_EDGE
-        REG_EDGE -->|cache + forward| EDGE
-        EDGE -->|cache + respond| USER
-    end
-```
-
-### Cache Key Composition
-
-```
-Default cache key = host + path + query string params (configured)
-Vary headers (Accept-Encoding: gzip,br) → separate cache variants
-CloudFront Functions: modify cache key in edge compute (sub-ms JS runtime)
-Lambda@Edge: full Node.js (origin/response/request phase — 5ms max)
-```
-
----
-
-## 10. AWS Auto Scaling: Control Loop Mechanics
-
-```mermaid
-flowchart TD
-    subgraph "Target Tracking Scaling"
-        METRIC["CloudWatch Metric\ne.g., ALBRequestCountPerTarget = 1500\ntarget = 1000 req/target"]
-        CALC["desired_capacity = ceil(current_metric / target)\n= ceil(1500/1000) * current_instances\n= 1.5 × 2 = 3 instances"]
-        ASG["Auto Scaling Group\nLaunch 1 more instance\n(via Launch Template)"]
-        COOLDOWN["Cooldown: 300s\nNo scale actions during cooldown\n(prevents thrash)"]
-        METRIC --> CALC --> ASG --> COOLDOWN
-    end
-    subgraph "Instance Launch Flow"
-        LT["Launch Template:\nAMI, instance type, SG, IAM role"]
-        EC2["EC2 RunInstances API"]
-        USERDATA["User Data Script\n(cloud-init runs on boot)\nInstall app, start service"]
-        ALB["Register with ALB target group\nHealth check: HTTP /health 200"]
-        LT --> EC2 --> USERDATA --> ALB
-    end
-```
-
----
-
-## 11. AWS Service Internals Summary
-
-```mermaid
-block-beta
-    columns 3
-    block:Compute
-        EC2["EC2\nNitro KVM hypervisor\nSR-IOV NIC"]
-        Lambda["Lambda\nFirecracker microVM\n125ms cold boot"]
-        ECS["ECS/EKS\nDocker + kubelet\non EC2 or Fargate"]
-    end
-    block:Storage
-        S3["S3\nRS(6,2) erasure coding\nStrong consistency"]
-        EBS["EBS\nNVMe over TCP\nAES-256 hardware"]
-        ElastiCache["ElastiCache\nRedis replica groups\nCluster mode sharding"]
-    end
-    block:Network
-        VPC["VPC\nVirtual switches\nOverlay (Nitro)"]
-        CF["CloudFront\nEdge cache\n220+ PoPs"]
-        ALB["ALB\nL7 load balancer\nWeighted target groups"]
-    end
-    block:Database
-        RDS["RDS Multi-AZ\nSync WAL replication\nAuto failover 60-120s"]
-        DynamoDB["DynamoDB\nLSM-tree + Paxos\nAuto-partition"]
-        Aurora["Aurora\n6-way replication\n3 AZs, 6 copies"]
-    end
-```
-
----
-
-## AWS Shared Responsibility Model: Technical Boundaries
-
-| Layer | AWS Responsible | Customer Responsible |
-|---|---|---|
-| Physical hardware | ✅ Nitro cards, BIOS, firmware | — |
-| Hypervisor | ✅ Nitro hypervisor isolation | — |
-| Host OS | ✅ Patching, updates | — |
-| Guest OS | — | ✅ Patch EC2 AMI |
-| Network ACLs | ✅ VPC infrastructure | ✅ Configure rules |
-| Data at rest | ✅ Hardware AES-256 option | ✅ Enable encryption |
-| IAM permissions | ✅ Policy engine | ✅ Write least-privilege policies |
-| Application code | — | ✅ Vulnerabilities are yours |
+클라우드 서비스는 버튼 하나처럼 보이지만 내부에서는 권한, 네트워크, metadata, 저장소, 복제 상태가 순서대로 통과한다. 장애 분석은 이 경로를 분리해서 보는 일이다.

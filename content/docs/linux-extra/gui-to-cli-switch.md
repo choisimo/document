@@ -1,150 +1,214 @@
-# 리눅스 GUI에서 CLI로 전환하기: Top-Down 접근 및 배포판별 가이드
+# Linux GUI에서 CLI로 전환하기
 
-이 문서는 리눅스 운영체제에서 **GUI(Graphical User Interface)** 환경을 **CLI(Command Line Interface)**로 전환하는 과정을 설명합니다. 추상적인 사용자 레벨에서 하드웨어 레벨로 내려가는 **Top-Down** 방식으로 작동 원리를 이해하고, 주요 배포판(Distro)별 구체적인 적용 방법을 다룹니다.
+이 문서는 systemd 기반 Linux에서 GUI 환경을 CLI 중심 환경으로 전환하는 방법을 정리한다. 목표는 desktop package를 바로 삭제하는 것이 아니라 `graphical.target`, `multi-user.target`, display manager, TTY의 차이를 이해하고 안전하게 전환하는 것이다.
 
----
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-## 1. Top-Down 개요: 리눅스의 계층 구조
+서버나 저사양 장비에서는 GUI가 불필요한 memory, CPU, GPU 자원을 사용할 수 있다. 장애 복구 중에는 그래픽 세션 대신 TTY나 SSH에서 작업해야 할 때도 있다.
 
-사용자가 화면에서 보는 그래픽 환경이 사라지고 검은 터미널 화면만 남는 과정은 단순한 '화면 전환'이 아니라, OS 내부의 **실행 레벨(Target)**이 변경되는 과정입니다.
+하지만 GUI를 끄는 방법을 잘못 선택하면 원격 접속을 잃거나 display manager만 꺼진 상태와 desktop package가 삭제된 상태를 혼동할 수 있다.
 
-GUI에서 CLI로 전환될 때 일어나는 일을 위에서 아래로 내려가며 살펴보겠습니다.
+## 2. 현재 나의 상태 (Baseline)
 
-1.  **사용자 레벨:** 데스크탑 환경(GNOME, KDE 등)이 종료됩니다.
-2.  **서비스 레벨 (Systemd):** 그래픽 서비스를 관리하는 'Target'이 비활성화됩니다.
-3.  **디스플레이 레벨:** 디스플레이 매니저(GDM, LightDM 등)와 X Server(또는 Wayland)가 프로세스에서 제거됩니다.
-4.  **커널 레벨:** 비디오 출력이 그래픽 모드에서 텍스트 모드(TTY)로 전환됩니다.
+기존 문서는 top-down 구조, systemd target, display manager, TTY, 배포판별 차이를 설명한다. 보완해야 할 점은 다음과 같다.
 
----
+- 일시 전환, 부팅 기본값 변경, 패키지 삭제가 분리되어야 한다.
+- 원격 작업 중 GUI 전환이 SSH와 network에 미치는 영향을 명확히 해야 한다.
+- Display manager 이름 확인과 rollback 절차가 더 앞에 와야 한다.
+- Desktop package 제거는 기본 절차가 아니라 최후 단계로 둬야 한다.
 
-## 2. 상세 작동 원리 (Architecture Deep Dive)
+## 3. 도달하고 싶은 목표 (Target State)
 
-이 전환의 핵심은 리눅스의 초기화 시스템인 **Systemd**와 **Target**의 개념을 이해하는 것입니다.
+목표는 다음 작업을 구분하는 것이다.
 
-### A. Systemd와 Target (서비스 관리 계층)
+- TTY로 일시 전환한다.
+- 현재 default target을 확인한다.
+- 현재 boot에서만 CLI target으로 전환한다.
+- 다음 boot부터 CLI로 시작하게 한다.
+- GUI default target으로 되돌린다.
+- Display manager service를 확인하고 필요 시 disable한다.
+- Desktop package 삭제는 충분한 검증 후 별도로 진행한다.
 
-과거 리눅스(SysVinit)는 'Runlevel(런레벨)'이라는 숫자로 상태를 정의했습니다(예: Runlevel 3은 CLI, 5는 GUI). 현대 리눅스는 **Systemd Target**이라는 유닛을 사용합니다.
+## 4. 시스템 번역 (Data Flow)
 
-*   **GUI 모드 (`graphical.target`):** 시스템이 부팅될 때 네트워킹, 파일 시스템, 그리고 **디스플레이 매니저**까지 모두 실행하도록 지시합니다.
-*   **CLI 모드 (`multi-user.target`):** 다중 사용자 로그인과 네트워킹은 지원하지만, **그래픽 관련 서비스는 제외**된 상태입니다.
+GUI boot 흐름은 다음과 같다.
 
-> **작동 원리:** `graphical.target`은 `multi-user.target`의 상위 집합입니다. 즉, GUI에서 CLI로 간다는 것은 가장 상위의 그래픽 레이어만 "걷어내는" 작업입니다.
+```text
+systemd default target
+  -> graphical.target
+  -> display manager service
+  -> X11 or Wayland session
+  -> desktop environment
+```
 
-### B. 디스플레이 매니저와 세션 (애플리케이션 계층)
+CLI boot 흐름은 다음과 같다.
 
-GUI가 실행 중일 때는 백그라운드에서 **Display Manager**(예: `gdm3`, `sddm`, `lightdm`)라는 서비스가 돌고 있습니다. 이 서비스가 그래픽 서버(X11 또는 Wayland)를 구동시켜 화면에 그림을 그립니다.
+```text
+systemd default target
+  -> multi-user.target
+  -> getty on virtual consoles
+  -> shell login
+  -> optional SSH
+```
 
-**전환 시 발생 동작:**
-1.  OS가 `multi-user.target`으로 전환 명령을 받습니다.
-2.  `graphical.target`에 의존성이 있는 디스플레이 매니저 서비스에 종료 시그널(`SIGTERM`/`SIGKILL`)을 보냅니다.
-3.  디스플레이 매니저가 종료되면서 자식 프로세스인 데스크탑 환경(창 관리자, 패널 등)이 연쇄적으로 종료됩니다.
+`graphical.target`은 보통 `multi-user.target` 위에 display manager를 더한 상태다.
 
-### C. TTY (Virtual Console) (커널/하드웨어 계층)
+## 5. 핵심 구성요소 (Building Blocks)
 
-리눅스 커널은 **TTY(Teletypewriter)**라는 가상 콘솔을 제공합니다.
+`graphical.target`은 GUI login까지 포함하는 systemd target이다.
 
-*   **GUI 상태:** 보통 TTY1이나 TTY7번 채널이 그래픽 모드로 점유되어 비디오 카드를 제어합니다.
-*   **CLI 전환:** 그래픽 프로세스가 종료되면 커널은 비디오 카드의 모드를 그래픽 모드에서 텍스트 모드로 리셋하고, `getty` 프로세스를 통해 텍스트 로그인 프롬프트를 띄웁니다.
+`multi-user.target`은 network와 multi-user login은 제공하지만 graphical login은 시작하지 않는 target이다.
 
----
+Display manager는 GDM, SDDM, LightDM처럼 graphical login을 제공하는 service다.
 
-## 3. 배포판(Distro)별 상세 가이드
+TTY는 kernel virtual console이다. GUI가 깨져도 TTY에서 로그인해 복구할 수 있다.
 
-대부분의 최신 리눅스 배포판은 **systemd**를 채택하고 있어 핵심 명령어(`systemctl`)는 동일합니다. 하지만 **디스플레이 매니저(DM)**의 이름이나 패키지 관리 방식에 차이가 있습니다.
+SSH는 원격 CLI 접근 경로다. GUI를 끄기 전 SSH가 살아 있는지 확인하면 안전하다.
 
-### 공통 명령어 (Systemd 기반)
+## 6. 상태 전이 (State Transition)
 
-모든 systemd 기반 배포판에서 통용되는 명령어입니다.
+일시 전환은 다음 상태다.
 
-*   **즉시 전환 (현재 세션만):**
-    ```bash
-    sudo systemctl isolate multi-user.target
-    ```
-*   **영구 전환 (부팅 시 CLI 고정):**
-    ```bash
-    sudo systemctl set-default multi-user.target
-    ```
-*   **복구 (GUI로 되돌리기):**
-    ```bash
-    sudo systemctl set-default graphical.target
-    ```
+```text
+GUI running
+  -> isolate multi-user.target
+  -> display manager stops
+  -> TTY login remains
+  -> reboot returns to default target
+```
 
----
+영구 전환은 다음 상태다.
 
-### A. Ubuntu / Debian 계열 (Mint, Kali, Pop!_OS)
+```text
+default graphical.target
+  -> set-default multi-user.target
+  -> reboot
+  -> CLI login by default
+```
 
-이 계열은 주로 **GDM3** (GNOME) 또는 **LightDM** (XFCE/MATE)을 사용합니다.
+복구는 다음 상태다.
 
-*   **디스플레이 매니저 확인:**
-    ```bash
-    cat /etc/X11/default-display-manager
-    # 결과 예: /usr/sbin/gdm3 또는 /usr/sbin/lightdm
-    ```
+```text
+CLI default
+  -> set-default graphical.target
+  -> start display manager or reboot
+  -> GUI login
+```
 
-*   **특이 사항:**
-    *   Ubuntu Desktop은 기본적으로 `gdm3`를 사용합니다.
-    *   GUI가 아예 필요 없어 삭제하고 싶다면(서버화):
-        ```bash
-        sudo apt purge ubuntu-desktop gdm3 && sudo apt autoremove
-        ```
-    *   다시 설치하려면:
-        ```bash
-        sudo apt install ubuntu-desktop
-        ```
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-### B. RHEL / CentOS / Rocky / Fedora 계열
+- 원격 서버에서는 SSH 접속과 sudo 권한을 확인한 뒤 target을 바꾼다.
+- Desktop package 삭제는 target 전환으로 충분한지 확인한 뒤 결정한다.
+- `isolate multi-user.target`은 현재 GUI 세션을 종료할 수 있다.
+- Display manager service 이름을 확인하지 않고 disable하지 않는다.
+- Network service가 `multi-user.target`에서 시작되는지 확인한다.
+- GPU driver 문제 해결 중에는 package 삭제보다 TTY 복구를 우선한다.
+- 변경 후 rollback 명령을 알고 있어야 한다.
 
-레드햇 계열은 엔터프라이즈 환경이 많아 GUI/CLI 전환이 빈번합니다. 주로 **GDM**을 사용합니다.
+## 8. 가장 작은 예제 (Minimal Viable Example)
 
-*   **현재 Target 확인:**
-    ```bash
-    systemctl get-default
-    ```
+현재 default target을 확인한다.
 
-*   **패키지 그룹 관리:**
-    이 계열은 `dnf` 또는 `yum`의 그룹 기능을 이용해 GUI 환경 전체를 쉽게 관리할 수 있습니다.
-    *   GUI 패키지 그룹 설치 (Server with GUI):
-        ```bash
-        sudo dnf groupinstall "Server with GUI"
-        ```
-    *   GUI 패키지 삭제 (최소 설치로 변경):
-        *   *주의: 의존성 문제로 시스템 중요 파일이 삭제될 수 있으니 `isolate` 방식을 권장합니다.*
+```bash
+systemctl get-default
+systemctl list-units --type=service --state=running | rg 'gdm|sddm|lightdm'
+```
 
-### C. Arch Linux / Manjaro
+Display manager를 확인한다.
 
-사용자가 직접 설치한 데스크탑 환경(DE)에 따라 디스플레이 매니저가 제각각입니다.
+```bash
+systemctl status gdm
+systemctl status sddm
+systemctl status lightdm
+```
 
-*   **주요 디스플레이 매니저:**
-    *   **GDM:** GNOME 사용자
-    *   **SDDM:** KDE Plasma 사용자
-    *   **LightDM:** XFCE, I3 등 경량 환경
+TTY로 일시 전환한다.
 
-*   **서비스 제어:**
-    Arch는 타겟 변경 외에도 디스플레이 매니저 서비스를 직접 끄는 방식을 선호하기도 합니다.
-    ```bash
-    # 부팅 시 GUI 자동 실행 끄기
-    sudo systemctl disable gdm  # 사용 중인 DM 이름(sddm, lightdm 등) 입력
-    
-    # 켜기
-    sudo systemctl enable gdm
-    ```
+```text
+Ctrl+Alt+F3
+```
 
-### 4. 요약 비교표
+GUI로 돌아간다. 배포판과 display manager에 따라 F1, F2, F7 중 하나일 수 있다.
 
-| 구분 | GUI (`graphical.target`) | CLI (`multi-user.target`) |
-| :--- | :--- | :--- |
-| **주요 프로세스** | Xorg/Wayland, Gnome-shell, DM | Bash/Sh, SSHD, Getty |
-| **메모리 점유** | 높음 (수백 MB ~ 수 GB) | 매우 낮음 (수십 MB) |
-| **비디오 모드** | 그래픽 모드 (픽셀 제어) | 텍스트 모드 (TTY) |
-| **용도** | 일반 데스크탑 작업, 웹 브라우징 | 서버 운영, 시스템 복구, 고성능 연산 |
+```text
+Ctrl+Alt+F1
+```
 
----
+현재 boot에서만 CLI target으로 전환한다.
 
-### [참고] 방법 1: TTY 스위칭 (일시적 전환)
+```bash
+sudo systemctl isolate multi-user.target
+```
 
-명령어 없이 키보드만으로 화면을 전환하는 방법입니다. GUI 프로세스는 백그라운드에서 계속 실행됩니다.
+다시 GUI를 시작한다.
 
-*   **CLI로 이동:** `Ctrl` + `Alt` + `F3` (또는 F4 ~ F6)
-*   **GUI로 복귀:** `Ctrl` + `Alt` + `F1` (또는 F2, F7 - 배포판마다 다름)
-    *   *Ubuntu:* 주로 F1 또는 F2가 GUI 세션입니다.
-    *   *RHEL/CentOS:* 주로 F1이 GUI입니다.
+```bash
+sudo systemctl isolate graphical.target
+```
+
+다음 boot부터 CLI로 시작하게 한다.
+
+```bash
+sudo systemctl set-default multi-user.target
+systemctl get-default
+```
+
+GUI default로 되돌린다.
+
+```bash
+sudo systemctl set-default graphical.target
+systemctl get-default
+```
+
+특정 display manager 자동 시작을 끈다.
+
+```bash
+sudo systemctl disable sddm
+```
+
+다시 켠다.
+
+```bash
+sudo systemctl enable sddm
+```
+
+원격 서버에서 작업 전 SSH 상태를 확인한다.
+
+```bash
+systemctl status ssh
+ss -tulpen | rg ':22'
+```
+
+## 9. 실패 사례 (What could go wrong?)
+
+`isolate multi-user.target`를 실행하면 현재 GUI 세션의 작업이 종료될 수 있다. 저장하지 않은 GUI 작업은 사라질 수 있다.
+
+Desktop package를 purge하면 나중에 GUI 복구가 target 변경만으로 되지 않는다. package 목록과 display manager를 다시 설치해야 한다.
+
+Display manager가 `gdm`인지 `gdm3`인지, `sddm`인지 확인하지 않고 disable하면 효과가 없거나 다른 service를 건드릴 수 있다.
+
+NetworkManager가 GUI session에 의존한다고 오해하면 CLI 전환 후 network가 끊길 수 있다. 실제 service enable 상태를 확인한다.
+
+GPU driver 문제로 GUI가 깨진 경우 desktop package 삭제는 원인 해결이 아닐 수 있다. journal과 display manager log를 먼저 본다.
+
+## 10. 뇌 확장하기 (Evolution & Variants)
+
+Server 운영에서는 GUI package를 제거하지 않아도 `multi-user.target`을 default로 두는 것만으로 충분한 경우가 많다. Disk와 package attack surface까지 줄이고 싶을 때만 제거를 검토한다.
+
+Container나 cloud image는 애초에 graphical target이 없을 수 있다. 이 경우 GUI 전환 문서가 아니라 package installation 문서가 필요하다.
+
+Old SysV runlevel은 systemd target으로 대응된다. 대략 runlevel 3은 `multi-user.target`, runlevel 5는 `graphical.target`에 해당한다.
+
+## 11. 최종 체크리스트 (Definition of Done)
+
+- [ ] 현재 default target을 확인했다.
+- [ ] Display manager service 이름을 확인했다.
+- [ ] SSH 또는 TTY rollback 경로가 있다.
+- [ ] 일시 전환과 영구 전환의 차이를 이해했다.
+- [ ] GUI로 되돌리는 명령을 알고 있다.
+- [ ] Desktop package 삭제가 필요한지 별도로 판단했다.
+- [ ] 변경 후 reboot 동작을 확인했다.
+
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
+
+Linux에서 GUI를 CLI로 바꾸는 핵심은 desktop을 삭제하는 것이 아니라 systemd default target과 display manager를 제어하는 것이다. 먼저 target으로 전환해 보고, package 제거는 마지막에 판단한다.

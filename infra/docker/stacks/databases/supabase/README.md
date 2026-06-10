@@ -6,7 +6,7 @@ PostgreSQL with pgvector extension and PostgREST API for vector database operati
 
 ```bash
 cp .env.example .env
-# Edit .env with your settings
+# Edit .env with environment-specific settings
 docker network create nodove-net  # If not exists
 docker compose up -d
 ```

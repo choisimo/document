@@ -1,507 +1,143 @@
-# Python Internals: Under the Hood
+# Python Internals 학습 및 기록 노트
 
-> Synthesized from: Beazley *Python Essential Reference*, Ramalho *Fluent Python* 2nd ed, Martelli *Python in a Nutshell*, CPython source internals, and comp(19/20/32/44/46-47/55/61/64-65/75/77/192/202) Python references.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
----
+Python 코드는 간결하지만 CPython 내부에서는 모든 값이 `PyObject`이고, reference counting과 cyclic GC가 객체 수명을 관리하며, bytecode eval loop가 opcode를 실행한다. GIL, PyMalloc, descriptor protocol, generator frame, compact dict, import cache 같은 내부 구조를 이해하면 성능 병목과 메모리 누수를 더 정확히 설명할 수 있다.
 
-## 1. CPython Object Model — Everything is a PyObject
+이 문서는 원문의 Python internals 내용을 CPython runtime state와 실행 흐름 중심으로 재작성한다.
 
-Every Python value, from integers to functions to classes, is a heap-allocated `PyObject`. This is the foundation of Python's runtime.
+## 2. 현재 나의 상태 (Baseline)
 
-### PyObject Structure
+- Python 문법, list/dict, class, generator, async/await, import 사용법은 알고 있다.
+- `PyObject`, `ob_refcnt`, `ob_type`, reference counting의 실제 의미를 더 명확히 해야 한다.
+- GIL이 왜 존재하고 CPU-bound Python thread에 어떤 영향을 주는지 설명해야 한다.
+- Descriptor lookup, bound method 생성, dict compact layout, import cache가 성능에 어떤 영향을 주는지 정리해야 한다.
+- NumPy가 왜 순수 Python loop보다 빠른지 CPython overhead 관점으로 연결해야 한다.
 
-```c
-// Base type — every Python object starts with this
-typedef struct _object {
-    Py_ssize_t ob_refcnt;      // reference count (for garbage collection)
-    PyTypeObject *ob_type;     // pointer to type object (= type(obj))
-} PyObject;
+## 3. 도달하고 싶은 목표 (Target State)
 
-// Variable-length objects (lists, tuples, bytes) extend with:
-typedef struct {
-    PyObject ob_base;
-    Py_ssize_t ob_size;        // number of items
-} PyVarObject;
+- 모든 Python 값이 heap object이고 type pointer를 통해 동작이 dispatch됨을 설명한다.
+- Reference counting과 cyclic GC의 역할을 구분한다.
+- Source -> AST -> code object -> frame -> eval loop 흐름을 이해한다.
+- GIL과 multiprocessing, asyncio, C extension의 관계를 구분한다.
+- Descriptor, generator, dict, import, PyMalloc이 성능과 메모리 사용에 미치는 영향을 판단한다.
 
-// Integer example:
-typedef struct {
-    PyObject ob_base;
-    Py_ssize_t ob_digit_count; // number of 30-bit digits
-    digit ob_digit[1];         // digits array (arbitrary precision!)
-} PyLongObject;
-```
+## 4. 시스템 번역 (Data Flow)
 
 ```mermaid
 flowchart TD
-    subgraph Heap["Python Heap (PyMalloc arenas)"]
-        I1["PyObject at 0x7f...\nob_refcnt = 3\nob_type → &PyLong_Type\nob_digit[0] = 42"]
-        I2["PyObject\nob_refcnt = 1\nob_type → &PyUnicode_Type\nob_hash = -1\nob_data → 'hello'"]
-        L1["PyListObject\nob_refcnt = 2\nob_type → &PyList_Type\nob_size = 3\nob_item → [ptr1, ptr2, ptr3]"]
-    end
-    
-    L1 -->|"ob_item[0]"| I1
-    L1 -->|"ob_item[1]"| I2
+    A[Python source] --> B[Parser/AST]
+    B --> C[Code object]
+    C --> D[Frame object]
+    D --> E[Eval loop]
+    E --> F{Object operation}
+    F -->|속성 조회| G[Descriptor/MRO/dict]
+    F -->|연산| H[Type slot dispatch]
+    F -->|할당| I[PyMalloc/Heap]
+    F -->|대기| J[GIL/Event loop]
+    G --> K[Result object]
+    H --> K
+    I --> K
+    J --> K
 ```
 
-### Small Integer Cache
+Python 실행은 high-level statement가 아니라 opcode와 `PyObject` 조작의 연속이다. 성능 문제는 보통 이 조작 횟수와 객체 할당 수에서 나온다.
 
-CPython pre-allocates integer objects for values **-5 to 256**. All references to `x = 5` point to the **same** PyLongObject:
+## 5. 핵심 구성요소 (Building Blocks)
 
-```python
-a = 256
-b = 256
-a is b   # True — same object
-a = 257
-b = 257
-a is b   # False — separate objects (outside cache range)
-```
+| 구성요소 | 역할 | 핵심 상태 |
+| --- | --- | --- |
+| `PyObject` | 모든 객체의 공통 헤더 | `ob_refcnt`, `ob_type` |
+| Reference counting | 즉시 수명 관리 | `Py_INCREF`, `Py_DECREF` |
+| Cyclic GC | 순환 참조 회수 | generation list, `gc_refs` |
+| Code object | 컴파일된 bytecode | `co_code`, `co_consts`, `co_varnames` |
+| Frame object | 실행 중인 호출 상태 | locals, value stack, instruction pointer |
+| GIL | CPython 내부 공유 상태 보호 | bytecode 실행권 |
+| PyMalloc | 작은 객체 allocator | arena, pool, block |
+| Descriptor protocol | 속성 조회와 method binding | `__get__`, `__set__` |
+| Generator/coroutine | frame suspension | `f_lasti`, value stack |
+| Compact dict | hash index와 dense entries | insertion order, load factor |
+| Import system | module cache와 loader | `sys.modules`, `sys.meta_path` |
 
-```mermaid
-flowchart LR
-    subgraph static_ints["CPython static array: small_ints_-5_to_256"]
-        INT_5["PyLongObject(-5)\nob_refcnt = IMMORTAL"]
-        INT0["PyLongObject(0)"]
-        INT1["PyLongObject(1)"]
-        INT256["PyLongObject(256)"]
-    end
-    
-    A["a = 1"] --> INT1
-    B["b = 1"] --> INT1
-    C["c = 0"] --> INT0
-```
-
-String interning: short identifier-like strings (alphanumeric, ≤20 chars typically) are interned in a global dict `interned`. `'hello' is 'hello'` → True. Arbitrary strings: no guarantee.
-
----
-
-## 2. Reference Counting and Garbage Collection
-
-### Py_INCREF / Py_DECREF — The Atomic Operations
-
-```c
-#define Py_INCREF(op) ((op)->ob_refcnt++)
-#define Py_DECREF(op)                        \
-    do {                                      \
-        if (--((op)->ob_refcnt) == 0)         \
-            _Py_Dealloc(op);                  \
-    } while(0)
-```
-
-Every Python operation that creates a reference increments; every operation that releases decrements. When `ob_refcnt == 0` → `_Py_Dealloc()` called → object's `tp_dealloc` slot invoked → memory returned to `PyMalloc`.
-
-### Cyclic Garbage Collector
-
-Reference counting cannot collect cycles:
-
-```python
-a = []
-b = [a]
-a.append(b)   # a.ob_refcnt = 2, b.ob_refcnt = 2
-del a, del b  # both drop to 1 — NOT 0 — leak!
-```
-
-```mermaid
-flowchart TD
-    subgraph Generations["GC Generations (gc.collect)"]
-        G0["Generation 0\n~100 objects threshold\nmost recently created\ncollected frequently (~700µs)"]
-        G1["Generation 1\nsurvived 1 gen-0 collection\ncollected less often"]
-        G2["Generation 2\nlong-lived objects\ncollected rarely (~500ms)"]
-    end
-
-    G0 -->|"survived"| G1
-    G1 -->|"survived"| G2
-    
-    subgraph Algorithm["Cycle Detection (tricolor mark)"]
-        SCAN["1. For each object in generation:\ncopy ob_refcnt → gc_refs\n2. For each object, traverse refs:\ndecrement gc_refs of referents"]
-        SCAN --> MARK["3. Objects with gc_refs > 0:\nreachable from outside — MARK LIVE"]
-        MARK --> SWEEP["4. Unreachable (gc_refs == 0):\npart of cycle → tp_dealloc"]
-    end
-```
-
-**GIL interaction**: Cyclic GC runs with GIL held (world stop). Large gen-2 collections on CPython can pause for 10-50ms — visible in latency-sensitive apps. Mitigation: `gc.disable()` + manual `gc.collect()` scheduling, or avoid reference cycles.
-
----
-
-## 3. CPython Bytecode and Eval Loop
-
-### Compilation Pipeline
-
-```mermaid
-flowchart TD
-    SRC["source.py"] --> PARSE["Python Parser\nTokenizer → CST\nCST → AST (ast module)"]
-    PARSE --> COMPILE["Compiler (compile.c)\nSymbol table analysis\nScope resolution (local/global/free)\nBytecode generation"]
-    COMPILE --> CO["code object (PyCodeObject)\n.co_code: bytes of opcodes\n.co_consts: [None, 42, 'hello', ...]\n.co_varnames: ['x', 'y', ...]\n.co_freevars: closure variables\n.co_stacksize: max eval stack depth"]
-    CO --> EXEC["exec()\nFrame object (PyFrameObject) created\nEval loop begins"]
-```
-
-### PyCodeObject and PyFrameObject
-
-```c
-typedef struct {
-    PyObject_HEAD
-    int co_argcount;        // number of positional args
-    int co_nlocals;         // number of local variables
-    int co_stacksize;       // max eval stack depth needed
-    PyObject *co_code;      // bytes: [opcode, arg, opcode, arg, ...]
-    PyObject *co_consts;    // tuple: constants referenced by LOAD_CONST
-    PyObject *co_varnames;  // tuple: local variable names
-    PyObject *co_freevars;  // tuple: names from enclosing scope (closures)
-    PyObject *co_filename;
-    int co_firstlineno;
-    PyObject *co_lnotab;    // line number table: offset → lineno mapping
-} PyCodeObject;
-
-typedef struct _frame {
-    PyObject_VAR_HEAD
-    struct _frame *f_back;      // caller frame (linked list)
-    PyCodeObject *f_code;       // code object being executed
-    PyObject **f_locals;        // local variable array
-    PyObject **f_valuestack;    // base of eval stack
-    PyObject **f_stacktop;      // top of eval stack (current)
-    int f_lasti;                // index of last attempted instruction
-    int f_lineno;               // current line number
-} PyFrameObject;
-```
-
-### Bytecode — Example Disassembly
-
-```python
-def add(a, b):
-    return a + b
-
-import dis
-dis.dis(add)
-```
-
-```
-  2           0 LOAD_FAST                0 (a)    ← push locals[0] onto eval stack
-              2 LOAD_FAST                1 (b)    ← push locals[1]
-              4 BINARY_ADD                        ← pop 2, push result
-              6 RETURN_VALUE                      ← pop and return
-```
-
-### CPython Eval Loop (ceval.c) — Simplified
-
-```c
-for (;;) {
-    opcode = *next_instr++;
-    oparg  = *next_instr++;
-    
-    switch(opcode) {
-    case LOAD_FAST:
-        PyObject *val = fastlocals[oparg];
-        Py_INCREF(val);
-        PUSH(val);
-        break;
-    case BINARY_ADD:
-        PyObject *right = POP();
-        PyObject *left  = TOP();
-        PyObject *res   = PyNumber_Add(left, right);  // dispatch through nb_add slot
-        Py_DECREF(right); Py_DECREF(left);
-        SET_TOP(res);
-        break;
-    case RETURN_VALUE:
-        return POP();
-    // ... ~150 more opcodes
-    }
-    
-    // Check for GIL release every sys.getswitchinterval() (5ms default)
-    if (--eval_breaker) { check_signals(); maybe_release_GIL(); }
-}
-```
-
----
-
-## 4. The GIL — Global Interpreter Lock
-
-### What the GIL Protects
-
-```mermaid
-flowchart TD
-    subgraph GIL_Protected["GIL-protected shared state"]
-        RC["ob_refcnt on every object\n(non-atomic increment/decrement\nwould race without GIL)"]
-        MALLOC["PyMalloc arena state\n(free list pointers)"]
-        DICT["Global dict operations\n(import sys, builtins)"]
-        GC["Cyclic GC state\n(generation lists)"]
-    end
-    
-    T1["Thread 1\nrunning Python bytecode"] -->|"holds GIL"| GIL_Protected
-    T2["Thread 2\nblocked on GIL"] -.->|"waiting"| GIL_Protected
-```
-
-### GIL Release Mechanism
-
-```mermaid
-sequenceDiagram
-    participant T1 as Thread 1
-    participant T2 as Thread 2
-    participant GIL
-
-    T1->>GIL: holds GIL, running bytecode
-    Note over T1: eval_breaker counter → 0 (every 5ms)
-    T1->>GIL: _PyEval_DropGIL()\ndrop GIL, signal waiting threads
-    T2->>GIL: _PyEval_TakeGIL()\nwait on mutex+condvar → acquire
-    T2->>T2: run bytecode (5ms slice)
-    T1->>GIL: request GIL back
-    Note over T2: sees eval_breaker → drops GIL
-    T1->>GIL: reacquire → continue
-```
-
-**GIL-free operations**: I/O (read/write/socket), numpy C extensions, ctypes calls — all release GIL while in C code. CPU-bound C extensions (hashlib, zlib, etc.) also release GIL. Only pure Python bytecode execution holds GIL continuously.
-
-**True parallelism**: `multiprocessing` module — separate processes, separate GILs, communicate via pipes/shared memory. PEP 703 (CPython 3.13 experimental): no-GIL build using per-object fine-grained locks and biased reference counting.
-
----
-
-## 5. Python Memory Manager — PyMalloc
-
-### Three-Level Allocator
-
-```mermaid
-flowchart TD
-    subgraph PyMalloc
-        ARENAS["Arenas: 256KB each\nallocated with mmap/VirtualAlloc\naligned to 256KB boundary"]
-        POOLS["Pools: 4KB each within arena\neach pool holds one size class\n(8, 16, 24, ... 512 bytes)"]
-        BLOCKS["Blocks: fixed-size within pool\nfreeblock linked list"]
-    end
-    
-    REQ["malloc(size ≤ 512B)"] --> POOLS
-    REQ2["malloc(size > 512B)"] -->|"bypass PyMalloc"| GLIBC["glibc malloc / OS"]
-    POOLS --> BLOCKS
-```
-
-```
-Arena (256KB):
-+--[pool 0: 4KB]--+--[pool 1: 4KB]--+-- ... --+--[pool 63: 4KB]--+
-
-Pool for 32-byte size class:
-+--[header: 8B]--+--[block0: 32B]--+--[block1: 32B]-- ... --+--[block126: 32B]--+
-                   ↑ freeblock linked list chains free blocks
-```
-
-**usedpools[64]**: Array of pool pointers, one per size class. `malloc(size)` → round up to 8-byte boundary → `size_class = (size-1) / 8` → `pool = usedpools[size_class]` → pop block from pool's freelist.
-
----
-
-## 6. Descriptors and the Attribute Lookup Protocol
-
-### Attribute Lookup Algorithm (`__getattribute__`)
-
-```mermaid
-flowchart TD
-    A["obj.attr"] --> B["type(obj).__mro__\n= [type(obj), Base1, Base2, object]"]
-    B --> C{"attr in type(obj).__dict__\nor any MRO class?"}
-    C -->|"Yes, and is data descriptor\n(has __get__ AND __set__)"| D["descriptor.__get__(obj, type(obj))\ndata descriptor wins over instance dict"]
-    C -->|"No data descriptor"| E{"attr in obj.__dict__?"}
-    E -->|"Yes"| F["Return obj.__dict__['attr']\ninstance variable wins"]
-    E -->|"No"| G{"non-data descriptor\n(has __get__ only)?"}
-    G -->|"Yes"| H["descriptor.__get__(obj, type(obj))"]
-    G -->|"No"| I["Return class attribute\nAttributeError if not found"]
-```
-
-**Property** is a data descriptor:
-```python
-class Property:
-    def __init__(self, fget): self.fget = fget
-    def __get__(self, obj, cls):
-        if obj is None: return self          # class access → return descriptor itself
-        return self.fget(obj)                # instance access → call getter
-    def __set__(self, obj, val): raise AttributeError  # data descriptor (blocks instance __dict__)
-```
-
-**Function → bound method**: `function.__get__(instance, cls)` returns a `PyMethodObject` wrapping `(self, func)`. Every `obj.method` call dynamically creates a method object (unless cached by `functools.cached_property`).
-
----
-
-## 7. Generator and Coroutine Internals
-
-### Generator Frame Suspension
+## 6. 상태 전이 (State Transition)
 
 ```mermaid
 stateDiagram-v2
-    [*] --> CREATED: gen = gen_func()
-    CREATED --> RUNNING: next(gen) / send(val)
-    RUNNING --> SUSPENDED: yield expr\n(frame saved, control returned)
-    SUSPENDED --> RUNNING: next(gen) / send(val)\n(frame restored, eval continues)
-    SUSPENDED --> CLOSED: gen.close() / gen.throw()\nGeneratorExit raised at yield point
-    RUNNING --> CLOSED: return / StopIteration raised
-    CLOSED --> [*]
+    [*] --> Compile
+    Compile --> FrameCreated
+    FrameCreated --> BytecodeLoop
+    BytecodeLoop --> ObjectAllocated
+    BytecodeLoop --> AttributeLookup
+    BytecodeLoop --> Suspended: yield/await
+    Suspended --> BytecodeLoop: resume
+    ObjectAllocated --> RefcountZero: DECREF
+    RefcountZero --> Dealloc
+    AttributeLookup --> BytecodeLoop
+    Dealloc --> [*]
 ```
 
-When `yield` executes:
-1. Current `f_stacktop` saved in frame
-2. `f_lasti` updated to current instruction index
-3. Frame's `f_executing` flag cleared
-4. Frame **not** freed — kept alive by generator object
-5. Yielded value returned to `next()` caller
+Generator는 frame을 버리지 않고 `yield` 지점에서 중단한다. `next()`가 호출되면 같은 frame의 instruction pointer와 value stack을 복원해 이어서 실행한다.
 
-When `next()` resumes:
-1. Same `PyFrameObject` passed back to `_PyEval_EvalFrameDefault()`
-2. `f_lasti` resumes from saved instruction
-3. Eval stack restored from `f_valuestack`
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-### async/await — Event Loop Integration
+- 모든 live object는 참조 수 또는 GC reachability로 도달 가능해야 한다.
+- `Py_DECREF` 후 refcount가 0이 되면 객체는 더 이상 접근되면 안 된다.
+- 순환 참조는 reference counting만으로 회수되지 않으므로 cyclic GC가 필요하다.
+- GIL이 보호하는 CPython 내부 상태는 동시에 여러 thread가 변경하면 안 된다.
+- Descriptor lookup 순서는 data descriptor, instance dict, non-data descriptor, class attribute 순서를 지켜야 한다.
+- Dict lookup은 hash와 key equality를 모두 확인해야 한다.
+- Import는 `sys.modules` cache를 통해 같은 module object를 재사용해야 한다.
+- CPU-bound 순수 Python thread가 여러 개여도 GIL 때문에 동시에 bytecode를 실행하지 못한다.
 
-```mermaid
-sequenceDiagram
-    participant EL as asyncio Event Loop
-    participant CO as coroutine: async def fetch()
-    participant IO as I/O (epoll/kqueue)
+## 8. 가장 작은 예제 (Minimal Viable Example)
 
-    EL->>CO: send(None) [initial start]
-    CO->>IO: await asyncio.sleep(1)\n→ coroutine yields Future object
-    CO-->>EL: yield Future (suspended)
-    EL->>IO: register future callback with epoll
-    Note over EL: select() / epoll_wait() — no busy wait
-    IO-->>EL: timeout fires → callback invoked
-    EL->>CO: send(None) [resume]
-    CO-->>EL: return result / StopIteration
+```python
+class User:
+    @property
+    def name(self):
+        return "alice"
+
+
+user = User()
+print(user.name)
 ```
 
-`await expr` compiles to `GET_AWAITABLE` + `YIELD_FROM` bytecodes. The coroutine object is itself an iterator whose `__next__` drives the inner awaitable until it completes.
-
----
-
-## 8. Python's Data Model — Special Methods and Slots
-
-### Type Object Slots
-
-```c
-typedef struct _typeobject {
-    PyObject_VAR_HEAD
-    const char *tp_name;           // "int", "str", "list", ...
-    Py_ssize_t tp_basicsize;       // sizeof(PyXxxObject)
-    
-    // Number protocol
-    PyNumberMethods *tp_as_number; // nb_add, nb_sub, nb_mul, nb_truediv, ...
-    
-    // Sequence protocol  
-    PySequenceMethods *tp_as_sequence; // sq_length, sq_item, sq_contains, ...
-    
-    // Mapping protocol
-    PyMappingMethods *tp_as_mapping;   // mp_length, mp_subscript, ...
-    
-    // Core slots
-    hashfunc tp_hash;       // __hash__
-    reprfunc tp_repr;       // __repr__
-    ternaryfunc tp_call;    // __call__
-    destructor tp_dealloc;  // called when ob_refcnt → 0
-    
-    // Attribute access
-    getattrofunc tp_getattro;  // __getattr__/__getattribute__
-    setattrofunc tp_setattro;  // __setattr__/__delattr__
-    
-    PyObject *tp_dict;      // class __dict__
-    PyObject *tp_bases;     // tuple of base classes
-    PyObject *tp_mro;       // tuple: Method Resolution Order
-} PyTypeObject;
+```text
+user.name 조회 순서:
+1. type(user).__mro__에서 "name" 검색
+2. property 객체는 __get__과 __set__을 가진 data descriptor
+3. instance __dict__보다 descriptor가 우선
+4. property.__get__(user, User)가 호출되어 "alice" 반환
 ```
 
-`a + b` → `PyNumber_Add(a, b)` → check `type(a)->tp_as_number->nb_add` → if NotImplemented, check `type(b)->tp_as_number->nb_add`. Special methods bypassed for built-in types (direct slot call, faster than dict lookup).
+이 예제는 Python의 속성 접근이 단순 dict lookup이 아니라 descriptor protocol과 MRO를 거치는 dynamic dispatch임을 보여준다.
 
----
+## 9. 실패 사례 (What could go wrong?)
 
-## 9. Dictionary Internals — Compact Hash Table
+- 순환 참조가 있는 객체에 `__del__`이나 외부 리소스가 얽혀 회수 타이밍이 예상과 달라진다.
+- CPU-bound 작업을 thread로 병렬화하려고 해도 GIL 때문에 속도가 늘지 않는다.
+- `str += part`를 loop에서 반복해 매번 새 문자열을 만들고 `O(n^2)` 비용을 만든다.
+- 전역 변수 lookup과 attribute lookup이 hot loop 안에서 반복되어 bytecode overhead가 커진다.
+- Generator/coroutine frame이 참조를 유지해 큰 객체가 예상보다 오래 살아남는다.
+- Import top-level code가 무겁고 cold import latency가 커진다.
+- Dict key의 `__hash__`/`__eq__` 구현이 불안정하면 lookup 불변식이 깨진다.
 
-### CPython dict (Python 3.6+ compact layout)
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-```
-indices array (sparse):
-[0]: slot=2   [1]: empty   [2]: slot=0   [3]: slot=1   ...
-  ↑ 1 byte per entry (small dicts), 2 or 4 for larger
+- CPython 내부는 PEP 703 no-GIL build, immortal objects, specializing interpreter 같은 변화와 함께 봐야 한다.
+- 성능 개선은 `cProfile`, `py-spy`, `line_profiler`, `tracemalloc`으로 병목을 확인한 뒤 진행한다.
+- CPU-bound 작업은 multiprocessing, C extension, NumPy vectorization, Numba/Cython을 비교한다.
+- Async I/O는 event loop, Future, coroutine suspension, backpressure를 함께 학습한다.
+- 메모리는 object graph, weakref, `__slots__`, allocator fragmentation, GC tuning으로 확장해 본다.
 
-entries array (dense):
-slot 0: {hash=0x..., key="name",   value="Alice"}
-slot 1: {hash=0x..., key="age",    value=30}
-slot 2: {hash=0x..., key="region", value="US"}
-```
+## 11. 최종 체크리스트 (Definition of Done)
 
-Lookup `d["age"]`:
-1. `h = hash("age")` → e.g. `0x7f3a...`
-2. `i = h % len(indices)` → index into indices array
-3. `slot = indices[i]` → 1 (if hit, or LINEAR_PROBE on collision)
-4. `entries[1].hash == h` and `entries[1].key == "age"` → return `entries[1].value`
+- [x] `PyObject`, refcount, cyclic GC, bytecode/frame, GIL을 한 실행 흐름으로 정리했다.
+- [x] descriptor lookup을 최소 예제로 설명했다.
+- [x] dict/import/generator/PyMalloc/NumPy 성능 관점을 포함했다.
+- [x] CPU-bound thread, 순환 참조, hot loop lookup 같은 실패 사례를 정리했다.
+- [x] 원문 Python internals 문서를 12개 섹션 템플릿으로 재작성했다.
 
-```mermaid
-flowchart LR
-    A["d['age'] lookup"] --> B["hash('age') = H"]
-    B --> C["i = H % 8 = 3\nindices[3] = slot 1"]
-    C --> D["entries[1].hash == H?\nentries[1].key == 'age'?\n→ YES → return entries[1].value = 30"]
-    
-    E["Collision: indices[3] already occupied"] --> F["linear probe: i = (i*5+1+H>>5) % 8\ntry next slot until empty or match"]
-```
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-**Dict resize**: When `size / capacity > 2/3`, resize to `capacity * 2`. Entire indices array rebuilt. All entries rehashed. Dict keeps insertion order (guaranteed since Python 3.7) via dense entries array maintaining insertion sequence.
-
----
-
-## 10. Import System Internals
-
-```mermaid
-flowchart TD
-    A["import numpy"] --> B["sys.modules cache check\n'numpy' in sys.modules?"]
-    B -->|"Yes (cached)"| C["Return cached module object\nO(1) dict lookup"]
-    B -->|"No"| D["sys.meta_path finders\n[BuiltinImporter, FrozenImporter, PathFinder]"]
-    D --> E["PathFinder searches sys.path\n['/usr/lib/python3.11', 'site-packages', ...]"]
-    E --> F["numpy/__init__.py found\nSourceFileLoader.load_module()"]
-    F --> G["Compile: py_compile → .pyc\n(.pyc = magic + mtime + marshal(code_obj))"]
-    G --> H["exec(code_obj, module.__dict__)\nTop-level numpy code executed\nAll numpy.* names added to module dict"]
-    H --> I["sys.modules['numpy'] = module\nReturn module to caller"]
-```
-
-**.pyc cache**: `__pycache__/numpy.cpython-311.pyc`. Magic number = interpreter version. If source mtime unchanged and magic matches → load bytecode directly, skip recompile. `marshal.loads()` deserializes code object from .pyc bytes.
-
----
-
-## 11. Python Performance Internals
-
-### Profiling at Bytecode Level
-
-```mermaid
-flowchart LR
-    A["Python code"] -->|"cProfile\n(C-level hook: c_call/c_return/call/return events)"| B["Per-function stats:\ntottime, cumtime, ncalls"]
-    A -->|"line_profiler\n(settrace on each line)"| C["Per-line timing\n~10x overhead vs cProfile"]
-    A -->|"memory_profiler\n(tracemalloc)"| D["Per-line allocation delta\nmemory snapshots"]
-```
-
-### Common Performance Patterns
-
-| Pattern | Why Slow | Fix |
-|---------|----------|-----|
-| `str += str` in loop | O(n²) — new allocation each concat | `''.join(list)` |
-| `[x for x in gen] * N` | Eagerly materializes | lazy iteration |
-| `dict[key]` in loop without `.get()` | KeyError exception path | `dict.get(key, default)` |
-| Global variable access | `LOAD_GLOBAL` → dict lookup | bind to local: `g = global_var` |
-| `append` vs `extend` | Repeated single-item inserts | batch with `extend` |
-| Pure Python loops | ~100 bytecodes/µs | numpy vectorization |
-
-### NumPy — How it Bypasses CPython Slowness
-
-```mermaid
-flowchart TD
-    A["np.sum(arr) where arr is ndarray of 1M floats"] 
-    A --> B["Python call: np.sum → C function"]
-    B --> C["GIL released\nC loop: sum += arr[i] for i in 0..999999\nAVX-256 SIMD: 8 doubles per instruction\n~10M flops/cycle on modern CPU"]
-    C --> D["GIL reacquired\nReturn Python float"]
-    
-    E["Pure Python: sum([...]) with 1M floats"] 
-    E --> F["1M × BINARY_ADD opcodes\n1M × ob_refcnt++/--\n1M × PyFloat heap objects\n~50-100x slower than numpy"]
-```
-
----
-
-## Python Runtime Numbers Reference
-
-| Operation | Time | Notes |
-|-----------|------|-------|
-| Python bytecode execution | ~100 ns/opcode | per eval loop iteration |
-| Function call overhead | ~100-200 ns | frame create + locals setup |
-| Attribute lookup (dict) | ~50-100 ns | LOAD_ATTR + tp_getattro |
-| Method call (bound method) | ~200-300 ns | __get__ + call overhead |
-| List append | ~50 ns | amortized (capacity doubling) |
-| Dict lookup | ~50-100 ns | hash + index + compare |
-| GC cycle collection (gen-0) | ~100 µs | ~100 objects |
-| GC cycle collection (gen-2) | ~10-100 ms | thousands of objects |
-| Import cached module | ~100 ns | sys.modules dict lookup |
-| Import cold (compile+exec) | 10-500 ms | compile + exec top-level code |
-| Thread GIL switch interval | 5 ms | sys.getswitchinterval() |
+Python의 편리함은 CPython의 객체 헤더, reference counting, descriptor, eval loop가 대신 일해주기 때문에 가능하다. 성능과 메모리를 보려면 그 내부 비용을 함께 봐야 한다.

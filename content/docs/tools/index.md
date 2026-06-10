@@ -1,279 +1,139 @@
-# 도구 문서
+# Tools
 
-터미널 유틸리티, 원격 접근, 자동화 도구에 관한 가이드입니다.
+이 영역은 터미널, 원격 접근, 자동화, AI 도구를 실제 작업 흐름에 맞춰 선택하고 운영하기 위한 문서 모음이다.
 
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-<div class="compose-hero" markdown>
-<span class="compose-kicker">Tools</span>
+생산성 도구는 많이 설치할수록 좋은 것이 아니다. 터미널 멀티플렉서, 에디터, 스니펫 매니저, 원격 접속, 웹 자동화, AI 도구는 서로 겹치는 역할이 있고, 잘못 섞으면 설정만 복잡해진다.
 
-## 작업 환경을 바로 구성할 수 있는 생산성 도구 모음
+도구 문서의 목적은 "인기 있는 도구 목록"이 아니라 "내 작업 흐름에서 어떤 문제를 어떤 도구가 해결하는가"를 분명히 하는 것이다.
 
-터미널 기반 생산성 도구, 원격 접근, 자동화, AI 도구를 실제 사용 흐름에 맞춰 빠르게 탐색할 수 있도록 정리했습니다.
+## 2. 현재 나의 상태 (Baseline)
 
-<div class="landing-meta-list" markdown>
-<span>Terminal</span>
-<span>Remote Access</span>
-<span>Automation</span>
-<span>AI Tools</span>
-</div>
+현재 문서 범위는 다음과 같다.
 
-<div class="compose-actions" markdown>
-[:octicons-arrow-right-24: 모던 CLI 도구](terminal/modern-cli-tools.md){ .md-button .md-button--primary }
-[:material-console: Tmux 빠른 참조](terminal/tmux.md){ .md-button }
-[:material-arrow-split-vertical: Split View](split-view.md){ .md-button }
-</div>
-</div>
+- Terminal: [Linux Commands](terminal/linux-commands.md), [Modern CLI Tools](terminal/modern-cli-tools.md), [tmux](terminal/tmux.md), [Vim](terminal/vim.md), [pet](terminal/pet.md), [GNU Stow](terminal/stow.md).
+- Remote: [Guacamole](remote/guacamole.md).
+- Automation: [Selenium](automation/selenium.md), [Change Detection](automation/change-detection.md), [Schedule Manager](automation/schedule-manager.md).
+- AI: [Gemini Shell](ai/gemini-shell.md), [Langflow](ai/langflow.md), [MCP](ai/mcp.md).
+- UI helper: [Split View](split-view.md).
 
-## :material-tools: 핵심 도구 영역
+## 3. 도달하고 싶은 목표 (Target State)
 
-<div class="grid cards" markdown>
+목표는 도구를 역할별로 분리해 유지보수 가능한 작업 환경을 만드는 것이다.
 
--   :material-console:{ .lg .middle } **터미널 도구**
+- 명령 실행, 세션 유지, 편집, 스니펫, dotfiles 관리를 구분한다.
+- 원격 접근은 브라우저 기반 gateway와 SSH/VPN 접근을 분리한다.
+- 자동화는 브라우저 자동화, 변경 감지, 스케줄링을 분리한다.
+- AI 도구는 API 호출, 시각적 플로우, 외부 도구 연결 프로토콜을 구분한다.
+- secrets와 토큰은 문서에 직접 남기지 않는다.
+- 설치보다 검증과 rollback 절차를 먼저 둔다.
 
-    ---
+## 4. 시스템 번역 (Data Flow)
 
-    커맨드라인 생산성 도구
+작업 환경 흐름은 다음처럼 구성된다.
 
-    - [모던 CLI 도구 가이드](terminal/modern-cli-tools.md) - 터미널 에뮬레이터 & CLI 도구 종합
-    - [Tmux](terminal/tmux.md) - 터미널 멀티플렉서
-    - [Vim](terminal/vim.md) - 텍스트 에디터
-    - [Linux 명령어](terminal/linux-commands.md) - 필수 레퍼런스
-    - [Pet](terminal/pet.md) - CLI 스니펫 매니저
+```text
+shell
+  -> tmux session
+  -> editor or CLI tools
+  -> snippets and dotfiles
+  -> remote access if needed
+  -> automation for repeated work
+  -> AI tools for generation or tool integration
+```
 
--   :material-remote-desktop:{ .lg .middle } **원격 접근**
+도구를 추가할 때는 기존 흐름의 어느 단계에 들어가는지 먼저 정한다.
 
-    ---
+## 5. 핵심 구성요소 (Building Blocks)
 
-    웹 기반 원격 연결 도구
+- Shell: 명령 실행의 기본 환경.
+- Tmux: 장시간 세션과 여러 pane/window 관리.
+- Vim: 터미널 기반 편집과 빠른 텍스트 조작.
+- Modern CLI tools: `rg`, `fd`, `bat`, `eza`, `fzf`, `jq` 같은 대체/보완 도구.
+- Pet: 긴 명령어를 스니펫으로 저장하고 검색하는 도구.
+- Stow: dotfiles를 symlink로 관리하는 도구.
+- Guacamole: 브라우저 기반 SSH/RDP/VNC gateway.
+- Selenium: 브라우저 자동화와 E2E 테스트 도구.
+- Change Detection: 웹 페이지 변경 감지와 알림.
+- Gemini API shell: API 호출을 CLI로 감싼 작은 도구.
+- Langflow: LLM workflow를 시각적으로 구성하는 플랫폼.
+- MCP: LLM 클라이언트와 외부 도구/리소스를 연결하는 프로토콜.
 
-    - [Guacamole](remote/guacamole.md) - 웹 원격 데스크톱
+## 6. 상태 전이 (State Transition)
 
--   :material-robot:{ .lg .middle } **자동화**
-
-    ---
-
-    작업 자동화 및 모니터링
-
-    - [Selenium](automation/selenium.md) - 웹 자동화
-    - [Change Detection](automation/change-detection.md) - 웹 변경 감지
-    - [스케줄 매니저](automation/schedule-manager.md) - 작업 스케줄링
-
--   :material-head-snowflake:{ .lg .middle } **AI 도구**
-
-    ---
-
-    AI 통합 개발 도구
-
-    - [Gemini Shell](ai/gemini-shell.md) - AI 셸 통합
-    - [MCP](ai/mcp.md) - Model Context Protocol
-
-</div>
-
----
-
-## :material-lightning-bolt: 생산성 도구 체인
+도구 도입은 다음 순서로 진행한다.
 
 ```mermaid
-flowchart LR
-    subgraph Terminal["터미널 환경"]
-        A[Zsh/Bash] --> B[Tmux]
-        B --> C[Vim/Neovim]
-    end
-    
-    subgraph Remote["원격 작업"]
-        D[SSH] --> E[Guacamole]
-        E --> F[VNC/RDP]
-    end
-    
-    subgraph Automation["자동화"]
-        G[Cron] --> H[Change Detection]
-        H --> I[알림]
-    end
-    
-    Terminal --> Remote
-    Remote --> Automation
+stateDiagram-v2
+    [*] --> NeedIdentified
+    NeedIdentified --> ToolSelected
+    ToolSelected --> Installed
+    Installed --> Configured
+    Configured --> Verified
+    Verified --> Documented
+    Documented --> Maintained
+    Configured --> Removed: not useful or unsafe
 ```
 
----
+`Verified` 없이 dotfiles나 자동화에 넣으면 문제가 생겼을 때 원인을 찾기 어렵다.
 
-## :material-keyboard: Tmux 빠른 참조
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-### 기본 키바인딩 (Prefix: `Ctrl+b`)
+- API key, webhook URL, tunnel token, SSH private key는 문서에 직접 기록하지 않는다.
+- 도구 설치 명령은 운영 시스템에서 바로 실행하기 전 격리된 환경에서 검토한다.
+- 자동화 도구는 실패, 재시도, 중복 실행 조건을 가져야 한다.
+- 브라우저 자동화는 사이트 이용 약관과 rate limit을 고려해야 한다.
+- dotfiles 도구는 기존 설정 파일을 백업한 뒤 적용한다.
+- 원격 접근 도구는 인증과 로그를 반드시 확인한다.
 
-| 키 | 동작 |
-|----|------|
-| `c` | 새 윈도우 |
-| `n` / `p` | 다음/이전 윈도우 |
-| `%` | 수직 분할 |
-| `"` | 수평 분할 |
-| `o` | 다음 패인 |
-| `d` | 세션 분리 |
-| `[` | 복사 모드 |
+## 8. 가장 작은 예제 (Minimal Viable Example)
 
-### 세션 관리
+기본 터미널 생산성 세트는 다음 정도면 충분하다.
 
-```bash
-# 새 세션 생성
-tmux new -s dev
-
-# 세션 목록
-tmux ls
-
-# 세션 연결
-tmux attach -t dev
-
-# 세션 종료
-tmux kill-session -t dev
+```text
+tmux for persistent sessions
+vim or nvim for terminal editing
+rg and fd for search
+jq for JSON
+stow for dotfiles
+pet for reusable long commands
 ```
 
----
+AI 도구는 다음처럼 목적별로 나눈다.
 
-## :material-file-edit: Vim 모드와 명령어
-
-### 모드 전환
-
-```mermaid
-flowchart LR
-    N[Normal] -->|i, a, o| I[Insert]
-    I -->|Esc| N
-    N -->|v, V| V[Visual]
-    V -->|Esc| N
-    N -->|:| C[Command]
-    C -->|Enter/Esc| N
+```text
+single API call -> Gemini shell wrapper
+visual LLM flow -> Langflow
+tool and resource integration -> MCP
 ```
 
-### 필수 명령어
+## 9. 실패 사례 (What could go wrong?)
 
-| 범주 | 명령 | 설명 |
-|------|------|------|
-| **이동** | `h,j,k,l` | 좌, 하, 상, 우 |
-| | `w/b` | 단어 앞/뒤로 |
-| | `gg/G` | 파일 시작/끝 |
-| **편집** | `dd` | 줄 삭제 |
-| | `yy` | 줄 복사 |
-| | `p` | 붙여넣기 |
-| | `u` | 실행 취소 |
-| **검색** | `/pattern` | 검색 |
-| | `n/N` | 다음/이전 |
-| **저장** | `:w` | 저장 |
-| | `:q` | 종료 |
-| | `:wq` | 저장 후 종료 |
+- 최신 도구를 많이 설치했지만 기존 shell alias와 충돌한다.
+- dotfiles를 stow로 적용하다가 기존 설정을 덮어쓴다.
+- 웹 자동화가 로그인/2FA/캡차 변화에 취약해진다.
+- 변경 감지 알림 webhook URL이 유출되어 외부에서 메시지를 보낸다.
+- AI 도구에 API key를 하드코딩해 저장소에 커밋한다.
+- Guacamole 같은 원격 gateway를 외부에 열고 기본 계정을 바꾸지 않는다.
 
----
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-## :material-web: 웹 자동화 스택
+- shell 설정을 bootstrap script가 아니라 stow 패키지와 문서화된 설치 순서로 관리한다.
+- terminal multiplexer는 tmux, zellij, terminal built-in split 중 하나로 통일한다.
+- 자동화는 cron, systemd timer, workflow tool 중 운영 관찰이 쉬운 방식을 선택한다.
+- AI 도구는 local-first, cloud API, workflow orchestration, MCP integration으로 분류한다.
+- 원격 접근은 VPN, Zero Trust, Guacamole, SSH bastion의 보안 경계를 비교한다.
 
-### Selenium 아키텍처
+## 11. 최종 체크리스트 (Definition of Done)
 
-```mermaid
-flowchart TB
-    subgraph Client["클라이언트"]
-        A[Python/Java Script] --> B[Selenium WebDriver]
-    end
-    
-    subgraph Driver["드라이버"]
-        C[ChromeDriver]
-        D[GeckoDriver]
-        E[EdgeDriver]
-    end
-    
-    subgraph Browser["브라우저"]
-        F[Chrome]
-        G[Firefox]
-        H[Edge]
-    end
-    
-    B --> C --> F
-    B --> D --> G
-    B --> E --> H
-```
+- [ ] 도구마다 해결하려는 문제가 명확하다.
+- [ ] secrets를 환경 변수나 secret store로 분리했다.
+- [ ] 설치 후 최소 검증 명령이 있다.
+- [ ] 기존 설정 파일을 백업하고 rollback할 수 있다.
+- [ ] 자동화는 실패와 중복 실행을 고려한다.
+- [ ] 도구 문서가 실제 사용 흐름과 연결되어 있다.
 
-### Change Detection 워크플로우
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-```mermaid
-flowchart LR
-    A[웹 페이지] --> B[스크래핑]
-    B --> C{변경 감지?}
-    C -->|Yes| D[알림 전송]
-    C -->|No| E[대기]
-    E --> B
-    D --> F[Email/Slack/Discord]
-```
-
----
-
-## :material-server-network: 원격 접근 비교
-
-| 도구 | 프로토콜 | 장점 | 단점 |
-|------|----------|------|------|
-| **SSH** | SSH | 가볍고, 안전 | CLI 전용 |
-| **Guacamole** | VNC/RDP/SSH | 웹 기반, 다중 프로토콜 | 설정 복잡 |
-| **VS Code Remote** | SSH | IDE 통합 | 리소스 사용 |
-| **Code Server** | HTTP | 웹 기반 VS Code | 서버 필요 |
-| **RustDesk** | 자체 | 오픈소스, P2P | 설정 필요 |
-
----
-
-## :material-robot-outline: AI 개발 도구
-
-### MCP (Model Context Protocol)
-
-```mermaid
-flowchart LR
-    A[IDE/Editor] <--> B[MCP Server]
-    B <--> C[LLM API]
-    B <--> D[Local Context]
-    D --> E[코드베이스]
-    D --> F[문서]
-    D --> G[터미널]
-```
-
-### 추천 AI 도구
-
-| 도구 | 용도 | 통합 |
-|------|------|------|
-| **GitHub Copilot** | 코드 자동완성 | VS Code, JetBrains |
-| **Cursor** | AI 네이티브 IDE | 독립 |
-| **Aider** | CLI 코딩 어시스턴트 | 터미널 |
-| **Continue** | 오픈소스 Copilot | VS Code |
-
----
-
-## :material-check-circle: 도구 설치 체크리스트
-
-### 개발 환경 필수 도구
-
-- [ ] **Shell**: Zsh + Oh My Zsh
-- [ ] **Terminal Multiplexer**: Tmux
-- [ ] **Editor**: Vim/Neovim 또는 VS Code
-- [ ] **Version Control**: Git + GitHub CLI
-- [ ] **Container**: Docker + Docker Compose
-
-### 자동화 도구
-
-- [ ] **Cron**: 시스템 작업 스케줄링
-- [ ] **Change Detection**: 웹 모니터링
-- [ ] **Ansible**: 서버 자동화
-
-### 모니터링
-
-- [ ] **htop**: 시스템 모니터링
-- [ ] **Prometheus + Grafana**: 메트릭 수집
-
----
-
-## :material-link-variant: 관련 문서
-
-- [Linux 명령어](../linux/commands.md)
-- [SSH 설정](../security/ssh/configuration.md)
-- [Docker 설치](../development/docker/installation.md)
-- [Code Server 설치](../development/ide/code-server.md)
-
----
-
-## :material-book-open-page-variant: 참고 자료
-
-- [Tmux Cheat Sheet](https://tmuxcheatsheet.com/)
-- [Vim Adventures](https://vim-adventures.com/) - 게임으로 Vim 학습
-- [Selenium Documentation](https://www.selenium.dev/documentation/)
-- [Apache Guacamole](https://guacamole.apache.org/)
+좋은 도구 환경은 많은 프로그램을 설치한 상태가 아니라, 각 도구가 맡는 역할과 검증 방법이 분명한 작업 흐름이다.

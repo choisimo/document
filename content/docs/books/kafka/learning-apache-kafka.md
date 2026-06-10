@@ -1,527 +1,142 @@
-# Learning Apache Kafka (2nd Edition) — Under the Hood
+# Learning Apache Kafka 학습 및 기록 노트
 
-> **Source**: Nishant Garg, Packt Publishing, 2015 (Kafka 0.8.x era)  
-> **Focus**: Internal broker architecture, ZooKeeper coordination, partition log mechanics, ISR replication pipeline, producer/consumer offset state machines
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
----
+Nishant Garg의 *Learning Apache Kafka*는 Kafka 0.8.x 시대의 broker, ZooKeeper coordination, partition log, ISR replication, producer/consumer offset 흐름을 설명한다. 이 시기의 Kafka는 modern Kafka와 다르게 consumer offset과 group coordination을 ZooKeeper에 크게 의존하므로, 현재 Kafka 구조를 이해할 때도 무엇이 바뀌었는지 비교 기준이 된다.
 
-## 1. Kafka's Architectural DNA: Why It Was Built This Way
+이 문서는 원문의 Kafka 0.8 internals 내용을 log segment, ZooKeeper, ISR, producer/consumer state machine, compaction, compression penalty 중심으로 재작성한다.
 
-Kafka emerged from LinkedIn's need to handle activity stream data and operational metrics at scale — a problem that JMS-style queuing systems couldn't solve efficiently due to broker-side metadata overhead, synchronous delivery contracts, and single-consumer semantics.
+## 2. 현재 나의 상태 (Baseline)
 
-The core design principles that shape every internal decision:
+- Kafka topic, partition, producer, consumer, broker의 기본 개념은 알고 있다.
+- Kafka 0.8에서 ZooKeeper가 broker discovery, leader election, consumer group, offset 저장에 어떻게 쓰였는지 구분해야 한다.
+- ISR, High Watermark, Log End Offset의 관계를 정확히 설명해야 한다.
+- Producer batching과 `acks` 설정이 data loss/latency와 어떻게 연결되는지 정리해야 한다.
+- Modern Kafka의 `__consumer_offsets`, group coordinator, KRaft와 0.8 구조의 차이를 알아야 한다.
+
+## 3. 도달하고 싶은 목표 (Target State)
+
+- Broker가 topic-partition을 segment log와 index file로 저장하는 방식을 설명한다.
+- ZooKeeper znode와 watch가 broker failure, leader election, consumer rebalance를 유발하는 흐름을 이해한다.
+- ISR과 High Watermark가 consumer에게 보이는 committed offset을 결정하는 과정을 설명한다.
+- Consumer offset lifecycle과 at-least-once 중복 읽기 가능성을 연결한다.
+- Kafka 0.8 설계의 병목이 modern Kafka에서 어떤 구조로 개선됐는지 비교한다.
+
+## 4. 시스템 번역 (Data Flow)
 
 ```mermaid
 flowchart TD
-    subgraph Design["Kafka Design Axioms"]
-        A["Messages are log segments<br/>on OS page cache"] -->|immutable append| B["Sequential I/O<br/>100x faster than random"]
-        B --> C["Consumers pull, never push<br/>State held by consumer, not broker"]
-        C --> D["Broker is stateless<br/>Time-based SLA for retention"]
-        D --> E["Partitions are the unit<br/>of parallelism and replication"]
-    end
+    A[Producer] --> B[Metadata request to seed broker]
+    B --> C[Leader broker 선택]
+    A --> D[ProduceRequest]
+    D --> E[ReplicaManager/Log.append]
+    E --> F[Segment log + OS page cache]
+    F --> G[Followers fetch]
+    G --> H[ISR ack]
+    H --> I[High Watermark advance]
+    J[Consumer] --> K[ZooKeeper offset/group state]
+    K --> L[Fetch from leader]
+    I --> L
+    L --> M[Process messages]
+    M --> K
 ```
 
-These axioms cascade into every subsystem: the log format, ZooKeeper schema, ISR mechanism, and consumer group rebalancing protocol.
+Kafka 0.8의 핵심 data flow는 sequential log append, follower pull replication, High Watermark commit, ZooKeeper 기반 consumer offset commit으로 이어진다.
 
----
+## 5. 핵심 구성요소 (Building Blocks)
 
-## 2. Broker Internal Architecture: Log Segments and Page Cache
+| 구성요소 | 역할 | 핵심 상태 |
+| --- | --- | --- |
+| Segment log | partition data 저장 | active segment, offset, byte position |
+| Index file | offset에서 segment byte 위치 탐색 | sparse offset index |
+| OS page cache | broker heap 대신 disk I/O 완충 | hot/warm/cold page |
+| ZooKeeper znode | cluster metadata와 liveness 저장 | ephemeral node, watch |
+| Controller broker | metadata 변경과 leader election 조정 | broker session, ISR state |
+| ISR | leader와 동기화된 replica 집합 | in-sync, lagging, out-of-ISR |
+| High Watermark | consumer에게 보이는 committed offset | min ISR LEO |
+| Producer async buffer | batch 전송과 대기 | queue time, batch size, acks |
+| Consumer group | partition ownership과 offset | group id, owner znode, committed offset |
+| Log cleaner | compacted topic 정리 | latest key value, dirty segment |
 
-Each Kafka broker maps every topic-partition to a sequence of **segment files** on disk. The broker never loads these into heap — it relies entirely on the OS kernel's page cache (mmap-style zero-copy).
+## 6. 상태 전이 (State Transition)
 
 ```mermaid
-block-beta
-  columns 3
-  block:disk["Disk — /tmp/kafka-logs/"]:3
-    seg0["segment-0.log\n(0 → 999)"]
-    seg1["segment-1.log\n(1000 → 1999)"]
-    seg2["segment-2.log\n(2000 → active)"]
-  end
-  block:idx["Index Files"]:3
-    i0[".index (offset → byte pos)"]
-    i1[".index"]
-    i2[".index (active)"]
-  end
-  block:cache["OS Page Cache"]:3
-    p0["Hot pages\n(recent writes)"]
-    p1["Warm pages\n(recent reads)"]
-    p2["Cold pages\n(eviction candidates)"]
-  end
-  seg2 --> p0
-  i2 --> p0
+stateDiagram-v2
+    [*] --> MetadataLookup
+    MetadataLookup --> ProduceToLeader
+    ProduceToLeader --> AppendToLog
+    AppendToLog --> ReplicateToISR
+    ReplicateToISR --> Committed: High Watermark advance
+    Committed --> Fetchable
+    Fetchable --> ConsumerProcessed
+    ConsumerProcessed --> OffsetCommitted
+    OffsetCommitted --> [*]
 ```
 
-**Write path internals:**
-1. Producer sends `ProduceRequest` → broker's `SocketServer` thread accepts via Java NIO
-2. `RequestHandlerPool` dispatches to `ReplicaManager.appendRecords()`
-3. `Log.append()` serializes `MessageSet` → writes to active segment's `FileChannel`
-4. OS page cache absorbs write → async flush to disk after `log.flush.interval.messages` or `log.flush.interval.ms`
-5. Once flushed, `LogManager` makes segment available to consumers by advancing **High Watermark (HW)**
+Leader는 log append 후 follower fetch와 ISR ack를 기준으로 High Watermark를 전진시킨다. Consumer는 HW 이하의 message만 읽고, 처리 후 ZooKeeper에 offset을 기록한다.
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- 같은 key의 순서 보장이 필요하면 같은 partition으로 routing되어야 한다.
+- Consumer는 High Watermark 이후의 uncommitted message를 읽으면 안 된다.
+- Leader failover 후 follower는 새 leader의 HW에 맞춰 log를 truncate할 수 있어야 한다.
+- ZooKeeper ephemeral node와 watch는 broker/consumer liveness 변화와 일치해야 한다.
+- `acks=0`은 broker 확인 없이 반환되므로 data loss 가능성을 감수해야 한다.
+- Async producer buffer는 process crash 시 유실될 수 있다.
+- Log compaction은 key별 최신 값을 남기되 retained message의 offset ordering을 유지해야 한다.
+- Kafka 0.8의 consumer offset은 ZooKeeper에 있으므로 offset commit 부하와 rebalance storm을 고려해야 한다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
 
 ```mermaid
 sequenceDiagram
     participant P as Producer
-    participant SN as SocketServer<br/>(NIO thread)
-    participant RH as RequestHandler<br/>(thread pool)
-    participant RM as ReplicaManager
-    participant Log as Log.append()
-    participant FS as FileSystem<br/>(page cache)
-
-    P->>SN: ProduceRequest(topic, partition, messages)
-    SN->>RH: enqueue request
-    RH->>RM: appendRecords(leaderEpoch, messages)
-    RM->>Log: append to active segment
-    Log->>FS: FileChannel.write(ByteBuffer)
-    FS-->>Log: buffered in page cache
-    Log-->>RM: LogAppendInfo(firstOffset, lastOffset)
-    RM-->>P: ProduceResponse(acks) after ISR flush
-```
-
----
-
-## 3. ZooKeeper Coordination Fabric
-
-In Kafka 0.8.x, ZooKeeper serves as the central coordination layer — a hierarchical key-value store that all brokers and consumers watch for state changes.
-
-### ZooKeeper Znode Schema
-
-```mermaid
-flowchart TD
-    root["/"] --> brokers["/brokers"]
-    root --> consumers["/consumers"]
-    root --> config["/config"]
-    
-    brokers --> ids["/brokers/ids/\n├── 0  (broker 0 alive)\n├── 1  (broker 1 alive)\n└── 2  (broker 2 alive)"]
-    brokers --> topics["/brokers/topics/\n└── my-topic/\n    └── partitions/\n        ├── 0/state → leader=1, ISR=[1,2]\n        ├── 1/state → leader=2, ISR=[2,0]\n        └── 2/state → leader=0, ISR=[0,1]"]
-    
-    consumers --> groups["/consumers/\n└── my-group/\n    ├── ids/ (live consumers)\n    ├── owners/ (partition → consumer)\n    └── offsets/ (partition → offset)"]
-```
-
-**Key coordination flows:**
-
-| Event | ZooKeeper Operation |
-|-------|-------------------|
-| Broker starts | Creates ephemeral znode `/brokers/ids/{id}` |
-| Broker fails | Ephemeral znode auto-deleted → triggers watches |
-| Leader election | Controller watches broker deletion → writes new ISR to `/brokers/topics/…/state` |
-| Consumer joins group | Creates ephemeral `/consumers/{group}/ids/{consumer-id}` |
-| Consumer offset commit | Writes to `/consumers/{group}/offsets/{topic}/{partition}` |
-
-```mermaid
-sequenceDiagram
-    participant B1 as Broker 1 (fails)
-    participant ZK as ZooKeeper
-    participant Ctrl as Controller (Broker 0)
-    participant B2 as Broker 2
-
-    B1->>ZK: ephemeral session expires
-    ZK-->>Ctrl: watch fired: /brokers/ids/1 deleted
-    Ctrl->>ZK: read /brokers/topics/X/partitions/0/state
-    ZK-->>Ctrl: {leader: 1, ISR: [1, 2]}
-    Ctrl->>Ctrl: elect new leader from ISR → B2
-    Ctrl->>ZK: write /brokers/topics/X/partitions/0/state<br/>{leader: 2, ISR: [2]}
-    ZK-->>B2: watch fired: you are new leader
-    B2->>B2: truncate log to HW<br/>open partition for reads/writes
-```
-
----
-
-## 4. Producer Internals: Metadata, Partitioning, and Async Batching
-
-### Metadata Bootstrap and Leader Discovery
-
-Before a producer can write, it must discover the **lead replica** for each target partition. This bootstraps via `metadata.broker.list` — only used for the initial metadata request.
-
-```mermaid
-sequenceDiagram
-    participant Prod as Producer
-    participant B0 as Any Broker (seed)
-    participant BL as Lead Broker
-
-    Prod->>B0: TopicMetadataRequest(topic)
-    B0-->>Prod: {partition: 0, leader: broker_id=2, replicas: [2,1,0], ISR: [2,1]}
-    Prod->>Prod: cache metadata locally
-    Prod->>BL: ProduceRequest(partition=0, messages)
-    BL-->>Prod: ProduceResponse(ack)
-```
-
-### Partitioner Hash Mechanics
-
-The default `DefaultPartitioner` hashes the key modulo partition count:
-
-```
-partition = hash(key) % num_partitions
-```
-
-Custom partitioner example from the book (IP-based routing):
-
-```mermaid
-flowchart LR
-    msg["Message: clientIP=192.168.14.37"] --> extract["Extract last octet: 37"]
-    extract --> mod["37 % 5 partitions = 2"]
-    mod --> p2["Partition 2 on Lead Broker"]
-    
-    style p2 fill:#2d6a4f,color:#fff
-```
-
-**Why key-based partitioning matters internally**: All messages with the same key land on the same partition → same ordered log → consumers see messages in causal order per key. This is the basis for event sourcing and stream joins.
-
-### Async Mode Internal Buffer
-
-```mermaid
-stateDiagram-v2
-    [*] --> Accumulating: producer.type=async
-    Accumulating --> Flushing: queue.time elapsed OR batch.size reached
-    Flushing --> Serializing: ProducerSendThread dequeues
-    Serializing --> Dispatching: EventHandler.serialize()
-    Dispatching --> Sent: ProduceRequest → lead broker
-    Sent --> Accumulating: continue buffering
-    
-    Accumulating --> DATALOSS: Producer crash
-    note right of DATALOSS: In-memory data lost\nNo WAL for async mode
-```
-
-| Configuration | Effect |
-|--------------|--------|
-| `queue.time` (ms) | Max buffer time before flush |
-| `batch.size` | Max message count before flush |
-| `request.required.acks=0` | Fire-and-forget (no confirmation) |
-| `request.required.acks=1` | Ack from lead replica only |
-| `request.required.acks=-1` | Ack from all ISR replicas |
-
----
-
-## 5. Replication Pipeline: ISR Mechanics Under Load
-
-Kafka 0.8's replication protocol is synchronous by design for committed messages, but async for propagation.
-
-### ISR Replication State Machine
-
-```mermaid
-stateDiagram-v2
-    [*] --> InSync: Follower catches up to leader LEO
-    InSync --> Lagging: Follower falls behind by replica.lag.time.max.ms
-    Lagging --> OutOfISR: Leader removes follower from ISR
-    OutOfISR --> CatchingUp: Follower truncates log to HW, re-fetches
-    CatchingUp --> InSync: Follower fully caught up → leader adds back to ISR
-    
-    InSync --> Dead: Broker crash
-    Dead --> CatchingUp: Broker restarts
-```
-
-### Commit Protocol (High Watermark)
-
-The **High Watermark (HW)** is the offset of the last message **replicated to all ISR members**. Consumers only see messages at or below HW — this is what guarantees consistency.
-
-```mermaid
-flowchart TD
-    subgraph Leader["Lead Broker — Partition 0"]
-        LEO_L["LEO = 1005\n(latest written offset)"]
-        HW_L["HW = 1000\n(committed to all ISR)"]
-    end
-    
-    subgraph F1["Follower Broker 1"]
-        LEO_F1["LEO = 1004\n(slightly behind)"]
-        HW_F1["HW = 1000\n(same as leader)"]
-    end
-    
-    subgraph F2["Follower Broker 2"]
-        LEO_F2["LEO = 1000\n(most behind)"]
-        HW_F2["HW = 1000"]
-    end
-    
-    LEO_L -->|"ISR = [Lead, F1, F2]\nMin(LEO) = 1000\n→ advance HW to 1000"| HW_L
-    
-    Consumer["Consumer\n(reads up to HW=1000 only)"]
-    HW_L --> Consumer
-```
-
-**Leader failover with log truncation:**
-
-```mermaid
-sequenceDiagram
-    participant L as Leader (fails at offset 1005)
-    participant F1 as Follower 1 (LEO=1004)
-    participant F2 as Follower 2 (LEO=1001, first in ISR)
+    participant B as Leader broker
+    participant F as Follower broker
+    participant C as Consumer
     participant ZK as ZooKeeper
 
-    L->>L: crash (LEO=1005, HW=1000)
-    F2->>ZK: register as candidate for new leader
-    ZK-->>F2: you are new leader (first registered)
-    F2->>F2: new HW = my LEO = 1001
-    
-    F1->>F1: truncate log to HW=1001
-    F1->>F2: FetchRequest from offset 1001
-    F2-->>F1: messages 1001..1004
-    F1->>F1: now LEO=1004, catch up to leader
-    F2->>ZK: write new ISR = [F2, F1]
+    P->>B: ProduceRequest(topic, partition, batch)
+    B->>B: append to active segment
+    F->>B: FetchRequest for replication
+    B-->>F: records
+    F-->>B: follower LEO advanced
+    B->>B: High Watermark advance
+    C->>ZK: read committed offset
+    C->>B: FetchRequest(offset)
+    B-->>C: records up to HW
+    C->>ZK: commit processed offset
 ```
 
----
+이 예제는 Kafka 0.8의 내구성과 읽기 가시성이 broker log, follower replication, ZooKeeper offset state를 함께 통과한다는 점을 보여준다.
 
-## 6. Consumer Architecture: Pull Model and Offset State Machine
+## 9. 실패 사례 (What could go wrong?)
 
-### High-Level API Internal Architecture
+- `acks=0` 또는 async buffer만 믿고 producer crash/data loss를 놓친다.
+- ISR follower가 오래 lagging 상태인데도 replication health를 확인하지 않아 failover 위험이 커진다.
+- Consumer가 처리 전에 offset을 commit해 crash 후 message loss가 생긴다.
+- Consumer가 처리 후 commit 전에 crash해 같은 message를 다시 읽는다.
+- 새 consumer가 같은 `group.id`로 들어와 rebalance가 발생하고 in-flight 처리 중복이 생긴다.
+- ZooKeeper watch/rebalance 부하가 커져 대규모 group에서 stop-the-world처럼 보이는 지연이 생긴다.
+- Kafka 0.8 compression은 broker가 decompress, offset assign, recompress를 수행해 leader CPU 병목이 된다.
 
-The `ZookeeperConsumerConnector` abstracts the entire consumer state machine:
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-```mermaid
-flowchart TD
-    App["Application Thread"] -->|createMessageStreams| ZCC["ZookeeperConsumerConnector"]
-    ZCC --> KS1["KafkaStream[K,V] — Partition 0\n(BlockingQueue[FetchedDataChunk])"]
-    ZCC --> KS2["KafkaStream[K,V] — Partition 1"]
-    ZCC --> KS3["KafkaStream[K,V] — Partition 2"]
-    
-    subgraph FetchLoop["Fetch Thread Pool"]
-        FT1["FetcherThread — Broker 0"]
-        FT2["FetcherThread — Broker 1"]
-    end
-    
-    FT1 -->|"FetchRequest(offset=last_committed)"| B0["Broker 0"]
-    B0 -->|"FetchResponse(messages)"| KS1
-    FT2 -->|"FetchRequest"| B1["Broker 1"]
-    B1 -->|"FetchResponse"| KS2
-    
-    subgraph ZK["ZooKeeper"]
-        Offsets["/consumers/group/offsets/topic/partition"]
-    end
-    
-    ZCC -->|"auto.commit.interval.ms"| ZK
-```
+- Modern Kafka에서는 consumer offset이 ZooKeeper가 아니라 `__consumer_offsets` internal topic에 저장된다.
+- Group coordination은 ZooKeeper watch 대신 broker-side group coordinator로 옮겨졌다.
+- KRaft 기반 Kafka는 ZooKeeper 없이 metadata quorum을 운영한다.
+- Producer는 idempotence와 transaction API로 duplicate/write fencing을 다룬다.
+- Log compaction은 tombstone, compaction lag, cleanup policy와 함께 이해해야 한다.
+- MirrorMaker, Kafka Connect, REST proxy는 cluster 간 복제와 외부 시스템 연동의 별도 data flow로 확장된다.
 
-### Offset Lifecycle State Machine
+## 11. 최종 체크리스트 (Definition of Done)
 
-```mermaid
-stateDiagram-v2
-    [*] --> NoOffset: Consumer group never consumed topic
-    NoOffset --> AutoReset: auto.offset.reset=largest/smallest
-    AutoReset --> Consuming: fetch from largest (tail) or smallest (head)
-    Consuming --> CommitPending: messages processed
-    CommitPending --> Committed: auto.commit.interval.ms triggers\n→ write to ZooKeeper
-    Committed --> Consuming: continue fetching from committed+1
-    
-    Consuming --> Rebalancing: consumer joins/leaves group
-    Rebalancing --> Consuming: new partition assignment
-    
-    Rebalancing --> DuplicateRead: crash before commit
-    note right of DuplicateRead: at-least-once delivery\nby design
-```
+- [x] Kafka 0.8의 broker log, ZooKeeper, ISR, HW, consumer offset 흐름을 정리했다.
+- [x] Producer/consumer 최소 sequence diagram으로 write-read 경로를 설명했다.
+- [x] Async producer, rebalance, offset commit, compression penalty 실패 사례를 포함했다.
+- [x] Kafka 0.8과 modern Kafka의 구조 차이를 evolution 항목에 반영했다.
+- [x] 원문 *Learning Apache Kafka* 문서를 12개 섹션 템플릿으로 재작성했다.
 
-### Consumer Group Rebalancing Mechanics
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-When any consumer joins or leaves a group, ZooKeeper fires a watch → all consumers in the group rebalance:
-
-```mermaid
-sequenceDiagram
-    participant C1 as Consumer 1 (existing)
-    participant C2 as Consumer 2 (new)
-    participant ZK as ZooKeeper
-    participant B as Broker
-
-    C2->>ZK: create ephemeral /consumers/group/ids/C2
-    ZK-->>C1: watch fired: new member C2
-    ZK-->>C2: you are registered
-    
-    C1->>C1: release all partition ownership
-    C2->>C2: calculate new partition assignment
-    C1->>C1: calculate new partition assignment
-    
-    Note over C1,C2: Assignment algorithm: sort consumers + partitions,<br/>distribute round-robin
-    
-    C1->>ZK: claim /consumers/group/owners/topic/partition-0 → C1
-    C1->>ZK: claim /consumers/group/owners/topic/partition-1 → C1
-    C2->>ZK: claim /consumers/group/owners/topic/partition-2 → C2
-    
-    C1->>B: FetchRequest(partition=0, offset=last_committed)
-    C2->>B: FetchRequest(partition=2, offset=last_committed)
-```
-
-**Rebalancing hazard**: If a new consumer starts with an existing `group.id`, in-flight consumers release partitions mid-stream → some messages may be re-delivered to the new consumer. This is the "ambiguous behavior" the book warns about.
-
----
-
-## 7. Log Compaction Internals
-
-Log compaction is a background process that eliminates superseded key-value records, preserving only the most recent value per key.
-
-```mermaid
-flowchart LR
-    subgraph Before["Before Compaction — Partition Log"]
-        direction TB
-        m0["offset=0: key=A val=v1"]
-        m1["offset=1: key=B val=v1"]
-        m2["offset=2: key=A val=v2"]
-        m3["offset=3: key=C val=v1"]
-        m4["offset=4: key=B val=v2"]
-        m5["offset=5: key=A val=v3"]
-    end
-
-    subgraph After["After Compaction"]
-        direction TB
-        r1["offset=1: key=B val=v1 ❌ (superseded)"]
-        r3["offset=3: key=C val=v1 ✅"]
-        r4["offset=4: key=B val=v2 ✅"]
-        r5["offset=5: key=A val=v3 ✅"]
-    end
-    
-    Before -->|"LogCleaner thread\n(background)"| After
-    
-    style r1 fill:#c0392b,color:#fff
-    style r3 fill:#27ae60,color:#fff
-    style r4 fill:#27ae60,color:#fff
-    style r5 fill:#27ae60,color:#fff
-```
-
-**Compaction properties:**
-- Ordering of retained messages is always preserved (offsets are monotonically increasing)
-- Once a key's record is compacted away, its offset no longer exists — consumers observing a gap in offsets must skip ahead
-- The "head" of the log (recent messages) is never compacted; only the "tail" (old segments) is eligible
-
----
-
-## 8. Message Compression Pipeline
-
-Kafka 0.8's compression operates at the **MessageSet** level, not per-message — enabling superior compression ratios via batch entropy reduction.
-
-```mermaid
-flowchart TD
-    subgraph Producer["Producer Side"]
-        msgs["Messages: M1, M2, M3, M4"]
-        batch["Batch as MessageSet"]
-        compress["GZIP/Snappy compress(MessageSet)"]
-        envelope["Wrap in outer Message\nattributes byte = codec_id"]
-    end
-    
-    subgraph Broker["Broker 0.8 — Lead Replica"]
-        recv["Receive compressed envelope"]
-        decomp["Decompress inner MessageSet"]
-        assign["Assign logical offsets to each inner message"]
-        recommp["Re-compress with offsets embedded"]
-        append["Append to segment log"]
-    end
-    
-    subgraph Consumer["Consumer Side"]
-        fetch["Fetch compressed envelope"]
-        cdecomp["Decompress → extract messages with offsets"]
-        process["Process individual messages"]
-    end
-    
-    msgs --> batch --> compress --> envelope
-    envelope --> recv --> decomp --> assign --> recommp --> append
-    append --> fetch --> cdecomp --> process
-```
-
-**The 0.8 compression penalty**: Unlike 0.7 (where compressed batches passed through the broker opaquely), 0.8 brokers must decompress → assign per-message logical offsets → re-compress. This causes measurable CPU load on the lead broker for high-throughput compressed topics.
-
-**Compression attribute byte layout** (lowest 2 bits):
-```
-00 = uncompressed
-01 = GZIP
-10 = Snappy
-11 = LZ4 (later versions)
-```
-
----
-
-## 9. Broker Cluster Topology: Peer-to-Peer Without a Master
-
-Unlike traditional databases with primary/secondary, Kafka uses a **controller** broker (elected via ZooKeeper) for administrative operations only — not for data paths.
-
-```mermaid
-flowchart TD
-    subgraph Cluster["Kafka Cluster (3 Brokers)"]
-        B0["Broker 0\n(Controller)\nLeader: partition-2"]
-        B1["Broker 1\nLeader: partition-0"]
-        B2["Broker 2\nLeader: partition-1"]
-    end
-    
-    subgraph ZooKeeper["ZooKeeper Ensemble"]
-        ZKL["ZK Leader"]
-        ZKF1["ZK Follower 1"]
-        ZKF2["ZK Follower 2"]
-    end
-    
-    subgraph Clients["Clients"]
-        P["Producer"]
-        C["Consumer"]
-    end
-    
-    B0 <-->|"ISR sync\n(partition-0 follower)"| B1
-    B1 <-->|"ISR sync\n(partition-1 follower)"| B2
-    B2 <-->|"ISR sync\n(partition-2 follower)"| B0
-    
-    B0 --> ZKL
-    B1 --> ZKL
-    B2 --> ZKL
-    
-    P -->|"metadata req → any broker"| B0
-    P -->|"produce → lead broker"| B1
-    C -->|"fetch → lead broker"| B1
-    
-    B0 -->|"controller: writes ISR\nleader election decisions"| ZKL
-```
-
-**Why no master for data paths?** Each producer connects directly to the lead broker for each partition — removing a central hotspot. The controller's role is purely metadata: writing ISR updates, triggering leader elections when brokers fail.
-
----
-
-## 10. Multi-Broker Single-Node vs Multi-Node: What Changes Internally
-
-```mermaid
-block-beta
-  columns 2
-  block:single["Single-Node Multi-Broker"]:1
-    b0s["Broker 0\nport:9092\nlog:/tmp/kafka-0"]
-    b1s["Broker 1\nport:9093\nlog:/tmp/kafka-1"]
-    b2s["Broker 2\nport:9094\nlog:/tmp/kafka-2"]
-    zks["ZooKeeper\nlocalhost:2181"]
-  end
-  block:multi["Multi-Node Multi-Broker"]:1
-    b0m["Broker 0 — Node A\nport:9092"]
-    b1m["Broker 1 — Node B\nport:9092"]
-    b2m["Broker 2 — Node C\nport:9092"]
-    zkm["ZooKeeper Ensemble\n3 nodes"]
-  end
-```
-
-**Internal difference**: In single-node multi-broker, all brokers share the same NIC → replication traffic competes with producer/consumer traffic. In multi-node, replication traffic crosses the network but benefits from node-level failure isolation.
-
----
-
-## 11. Kafka 0.8 vs Modern Kafka: What This Era Reveals
-
-| Aspect | Kafka 0.8 (this book) | Modern Kafka (2.x+) |
-|--------|----------------------|---------------------|
-| Offset storage | ZooKeeper znodes | Internal `__consumer_offsets` topic |
-| Consumer group coordination | ZooKeeper watches | Group Coordinator broker |
-| Leader election | ZooKeeper + Controller | KRaft (Raft-based, no ZK) |
-| Producer API | `kafka.javaapi.producer.Producer` | `KafkaProducer` (new API) |
-| Compression re-assignment | Broker decompresses+recompresses | Broker passes through (magic byte v2) |
-| Exactly-once | Not supported | Transactional API + idempotent producer |
-
-Understanding the 0.8 era illuminates *why* the modern APIs were redesigned — every pain point (ZooKeeper offset contention, rebalancing storms, compression CPU overhead) has a specific architectural fix in the later versions.
-
----
-
-## Summary: Internal Data Flow Map
-
-```mermaid
-flowchart LR
-    Producer -->|"1. TopicMetadataRequest\n(seed broker)"| AnyBroker
-    AnyBroker -->|"2. leader=B1, ISR=[B1,B2]"| Producer
-    Producer -->|"3. ProduceRequest(partition=0)\ncompressed MessageSet"| LeadBroker["Lead Broker B1"]
-    
-    LeadBroker -->|"4. decompress → assign offsets\n→ recompress → append to log"| SegLog["Segment Log\n(page cache)"]
-    LeadBroker -->|"5. FetchRequest pulled by followers"| FollowerB2["Follower B2"]
-    FollowerB2 -->|"6. FetchResponse → append\n→ ACK to leader"| LeadBroker
-    
-    LeadBroker -->|"7. advance HW after ISR ack\n→ ProduceResponse to producer"| Producer
-    
-    Consumer -->|"8. read /consumers/group/offsets in ZK"| ZK["ZooKeeper"]
-    ZK -->|"9. last committed offset"| Consumer
-    Consumer -->|"10. FetchRequest(offset=N)"| LeadBroker
-    LeadBroker -->|"11. messages [N..HW]"| Consumer
-    Consumer -->|"12. process → commit offset+N to ZK"| ZK
-```
-
-The entire system — from log append to consumer pull — is designed around **sequential I/O + OS page cache + pull-based consumers + stateless brokers**. Every design decision traces back to these four principles.
+Kafka 0.8은 sequential log, OS page cache, ISR High Watermark, ZooKeeper coordination을 결합해 확장성을 만들었고, modern Kafka는 그 병목을 broker-side coordination과 metadata quorum으로 옮겨 개선했다.

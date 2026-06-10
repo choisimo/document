@@ -42,7 +42,7 @@ docker run -d --name=loki \
 ---
 
 ### **3. Promtail과 Loki 시간 동기화 확인**
-Promtail과 Loki가 같은 시간대를 사용하는지 확인하세요. 시간대가 다르면 타임스탬프 불일치 문제가 발생할 수 있습니다.
+Promtail과 Loki가 같은 시간대를 사용하는지 확인한다. 시간대가 다르면 타임스탬프 불일치 문제가 발생할 수 있습니다.
 
 ##### Promtail 시간 확인:
 ```bash
@@ -57,7 +57,7 @@ docker exec -it <Loki_컨테이너_ID> date
 ---
 
 ### **4. 문제 해결 후 확인**
-시간을 동기화한 후 다음을 확인하세요:
+시간을 동기화한 후 다음을 확인한다.
 1. Promtail 로그에서 `tail`이 제대로 작동하는지.
 2. Loki API를 통해 데이터가 수집되고 있는지:
    ```bash
@@ -66,4 +66,4 @@ docker exec -it <Loki_컨테이너_ID> date
    ```
 3. Grafana에서 시간 범위를 넓혀 데이터를 조회.
 
-시간 동기화 이후에도 문제가 지속되면 알려주세요! 추가 도움을 드릴게요.
+시간 동기화 이후에도 문제가 지속되면 Promtail 로그, Loki API 응답, Grafana 조회 시간 범위를 다시 점검한다.

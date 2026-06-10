@@ -1,4 +1,4 @@
-# 🚨 AI 안전신문고: 통합 아키텍처 설계 및 구현 가이드
+# AI 안전신문고: 통합 아키텍처 설계 및 구현 문서
 
 **프로젝트명**: AI 안전신문고 (AI Safety Report System)  
 **작성일**: 2025년 6월 21일  
@@ -24,7 +24,7 @@ mindmap
       객체 탐지 모델
       텍스트 분석 AI
       위치 기반 분석
-    구현 가이드
+    구현 문서
       개발 단계
       배포 전략
       모니터링
@@ -37,7 +37,7 @@ mindmap
     성능 모니터링
       KPI 설정
       대시보드 구성
-    개발 가이드
+    개발 기준
       코드 구조
       환경 설정
     참고 자료
@@ -986,7 +986,7 @@ journey
         추가 사진 촬영     : 3 : 시민
         위치 정보 확인     : 4 : 시민
     section ✍️ 상세 정보 입력
-        AI 카테고리 추천   : 5 : AI
+        AI 카테고리 제안   : 5 : AI
         카테고리 선택      : 4 : 시민
         상황 설명 입력     : 3 : 시민
         긴급도 자동 판정   : 5 : AI
@@ -1100,7 +1100,7 @@ const ACCESSIBLE_UI_COMPONENTS = {
     CameraCapture: {
       description: "카메라 촬영 인터페이스",
       accessibility: {
-        visualIndicators: "초점 가이드라인",
+        visualIndicators: "초점 기준선",
         audioGuidance: "촬영 안내 음성",
         alternativeInput: "파일 업로드 옵션",
       },
@@ -1114,7 +1114,7 @@ const ACCESSIBLE_UI_COMPONENTS = {
       },
     },
     CategorySelector: {
-      description: "AI 추천 카테고리",
+      description: "AI 제안 카테고리",
       accessibility: {
         clearLabels: "명확한 카테고리명",
         confirmationDialog: "선택 확인",
@@ -1261,7 +1261,7 @@ graph TB
     subgraph "🎯 성과 지표 (KPI)"
         G[⚡ 효율성 지표<br/>• 평균 해결 시간: 4.2시간<br/>• 자동 분류 정확도: 95.3%<br/>• 1차 해결률: 87.6%<br/>• 비용 절감률: 45%]
 
-        H[😊 만족도 지표<br/>• 사용자 만족도: 4.3/5<br/>• 재사용률: 78%<br/>• 추천 의향: 82%<br/>• 앱 평점: 4.5/5]
+        H[😊 만족도 지표<br/>• 사용자 만족도: 4.3/5<br/>• 재사용률: 78%<br/>• 타인 권유 의향: 82%<br/>• 앱 평점: 4.5/5]
 
         I[🔄 개선 지표<br/>• AI 학습 정확도 향상<br/>• 처리 시간 단축<br/>• 오류 감소율<br/>• 기능 개선 요청]
     end
@@ -1330,7 +1330,7 @@ graph TD
 
 ---
 
-## 9. 📚 개발 가이드 및 Best Practices
+## 9. 개발 기준 및 운영 관행
 
 ### 9.1 코드 구조 및 네이밍 규칙
 
@@ -1389,11 +1389,11 @@ npm install -D @types/node @types/react
 
 | 🛠️ **기술 스택** | 📖 **공식 문서**                           | 🔍 **학습 리소스**             |
 | ---------------- | ------------------------------------------ | ------------------------------ |
-| **Next.js 14**   | [nextjs.org](https://nextjs.org)           | App Router 마이그레이션 가이드 |
+| **Next.js 14**   | [nextjs.org](https://nextjs.org)           | App Router 마이그레이션 문서 |
 | **YOLOv8**       | [ultralytics.com](https://ultralytics.com) | Object Detection Tutorial      |
-| **Gemini API**   | [ai.google.dev](https://ai.google.dev)     | Prompt Engineering Guide       |
+| **Gemini API**   | [ai.google.dev](https://ai.google.dev)     | Prompt Engineering 문서        |
 | **shadcn/ui**    | [ui.shadcn.com](https://ui.shadcn.com)     | Component Library Docs         |
-| **Tailwind CSS** | [tailwindcss.com](https://tailwindcss.com) | Design System Guide            |
+| **Tailwind CSS** | [tailwindcss.com](https://tailwindcss.com) | Design System 문서             |
 
 ### 10.2 향후 확장 계획
 
@@ -1427,13 +1427,13 @@ timeline
 - **🐛 이슈 리포팅**: [GitHub Issues](https://github.com/ai-safety-reporter/issues)
 - **💡 기능 제안**: [Feature Request](https://github.com/ai-safety-reporter/discussions)
 - **📖 문서 개선**: [Wiki 편집](https://github.com/ai-safety-reporter/wiki)
-- **🤝 코드 기여**: [Contributing Guide](https://github.com/ai-safety-reporter/CONTRIBUTING.md)
+- **🤝 코드 기여**: [Contributing 문서](https://github.com/ai-safety-reporter/CONTRIBUTING.md)
 
 ---
 
 ## 📝 결론
 
-**AI 안전신문고** 프로젝트는 최신 AI 기술과 사용자 중심 설계를 결합하여, 시민들이 보다 쉽고 효과적으로 안전 위험을 신고할 수 있는 혁신적인 플랫폼을 제공합니다.
+**AI 안전신문고** 프로젝트는 AI 기술과 사용자 중심 설계를 결합하여, 시민들이 안전 위험을 신고하고 처리 상태를 확인할 수 있는 플랫폼을 정의한다.
 
 ### 🎯 핵심 성공 요인
 
@@ -1443,7 +1443,7 @@ timeline
 4. **🔒 견고한 보안 체계**: 개인정보 보호와 데이터 암호화
 5. **📊 데이터 기반 개선**: 실시간 모니터링과 지속적인 성능 최적화
 
-이러한 기술적 토대를 바탕으로, **AI 안전신문고**는 공공 안전 분야에서 AI 기술의 새로운 활용 사례를 제시하며, 시민들의 안전한 일상을 위한 디지털 인프라로 자리잡을 것입니다.
+이러한 기술적 토대는 공공 안전 분야에서 객체 탐지, 자연어 처리, 위치 분석을 결합한 신고 처리 인프라의 기준이 된다.
 
 ---
 
@@ -1455,4 +1455,4 @@ timeline
 - **검토자**: 기술 아키텍트, UX 디자이너
 - **다음 리뷰**: 2025년 7월 5일
 
-_본 문서는 프로젝트의 기술적 구현과 사용자 경험 향상을 위한 종합 가이드로 작성되었습니다._
+_본 문서는 프로젝트의 기술 구현과 사용자 경험 설계를 정리한 종합 문서이다._

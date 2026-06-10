@@ -1,15 +1,10 @@
-Okay, I can help you with that! To automatically run your `file_concatter.sh` script, create a `total` directory, and place the output file (let's call it `total.txt`) inside it every time you push to your GitHub project, you'll need to use **GitHub Actions**.
+# GitHub Actions 기반 소스 병합 파일 생성
 
-Here's how you can set it up:
+GitHub 저장소에 push가 발생할 때 `file_concatter.sh`를 실행하고, `.h` 및 `.cpp` 파일을 `total/total.txt`로 병합한 뒤 변경 사항이 있으면 다시 커밋하는 구성이다.
 
-## 1. Modify Your Shell Script (Optional but Recommended)
+## Shell 스크립트
 
-It's good practice for your script to handle the directory creation and specific output path.
-
-Here's an updated version of your `file_concatter.sh` script. I've made the following changes:
-* The default output directory is now `total/`.
-* The default output filename is `total.txt`.
-* The script will create the `total` directory if it doesn't exist.
+`file_concatter.sh`는 기본 출력 디렉토리를 `total/`, 기본 출력 파일명을 `total.txt`로 둔다. 출력 디렉토리가 없으면 생성하고, 재실행 시 `total/total.txt`가 다시 입력 파일로 병합되지 않도록 출력 디렉토리를 건너뛴다.
 
 ```bash
 #!/bin/bash
@@ -112,17 +107,9 @@ else
 fi
 ```
 
-**Key changes in the script:**
-* `output_dir="total"` and `output_file_name="total.txt"` are new default variables.
-* `output_path="$output_dir/$output_file_name"` combines them.
-* `mkdir -p "$output_dir"` creates the `total` directory if it doesn't exist.
-* The script now checks if a found file is within the `output_dir` itself to prevent trying to add `total/total.txt` to itself if the script is run multiple times or if `start_dir` includes `total`.
-* Improved the final count message to be more accurate by counting the separators in the output file.
+## GitHub Actions 워크플로우
 
----
-## 2. Create a GitHub Actions Workflow File
-
-In your GitHub repository, create a directory named `.github` and inside it, another directory named `workflows`. In the `.github/workflows` directory, create a YAML file (e.g., `main.yml` or `build_total.yml`).
+저장소의 `.github/workflows/` 디렉토리에 `main.yml` 또는 `build_total.yml` 파일을 둔다.
 
 ```yaml
 name: Generate Total Source File
@@ -130,7 +117,7 @@ name: Generate Total Source File
 on:
   push:
     branches:
-      - main  # 또는 master, develop 등 기본 브랜치명으로 변경하세요.
+      - main  # 또는 master, develop 등 기본 브랜치명으로 변경한다.
 
 jobs:
   build:
@@ -141,10 +128,10 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Make script executable
-      run: chmod +x ./file_concatter.sh # 스크립트 경로가 다르면 수정하세요.
+      run: chmod +x ./file_concatter.sh # 스크립트 경로가 다르면 수정한다.
 
     - name: Run file_concatter.sh
-      run: ./file_concatter.sh # 스크립트 경로가 다르면 수정하세요.
+      run: ./file_concatter.sh # 스크립트 경로가 다르면 수정한다.
 
     - name: Commit and push if changes
       run: |
@@ -160,46 +147,12 @@ jobs:
         fi
 ```
 
-**Explanation of the `main.yml` file:**
+## 동작 흐름
 
-* **`name: Generate Total Source File`**: The name of your workflow, which will appear in the Actions tab of your GitHub repository.
-* **`on:`**: Defines the trigger for the workflow.
-    * **`push:`**: The workflow runs on push events.
-    * **`branches:`**:
-        * **`- main`**: Specifies that the workflow should only run for pushes to the `main` branch. You can change this to your default branch (e.g., `master`) or add other branches.
-* **`jobs:`**: Defines one or more jobs that run when the workflow is triggered.
-    * **`build:`**: The ID of the job (you can name it anything).
-    * **`runs-on: ubuntu-latest`**: Specifies that the job will run on the latest version of an Ubuntu virtual machine provided by GitHub.
-    * **`steps:`**: A sequence of tasks to be executed.
-        * **`name: Checkout repository`**: A descriptive name for the step.
-            * **`uses: actions/checkout@v4`**: This uses a pre-built action to check out your repository's code into the runner environment.
-        * **`name: Make script executable`**:
-            * **`run: chmod +x ./file_concatter.sh`**: This command makes your shell script executable. Adjust the path (`./file_concatter.sh`) if your script is in a different location.
-        * **`name: Run file_concatter.sh`**:
-            * **`run: ./file_concatter.sh`**: This command executes your script. The script will create the `total/total.txt` file.
-        * **`name: Commit and push if changes`**: This step commits the generated `total/total.txt` file back to your repository if it has changed.
-            * `git config --global user.name 'github-actions[bot]'`: Sets the Git username for the commit.
-            * `git config --global user.email 'github-actions[bot]@users.noreply.github.com'`: Sets the Git email for the commit.
-            * `git add total/total.txt`: Stages the generated file.
-            * `if ! git diff --staged --quiet; then ... else ... fi`: This checks if there are any staged changes. If `total.txt` hasn't changed since the last commit, it won't create an empty commit.
-            * `git commit -m "Automated: Update total.txt"`: Commits the changes with a message.
-            * `git push`: Pushes the commit to the repository.
+1. push 이벤트가 `main` 브랜치에서 발생한다.
+2. GitHub Actions runner가 저장소를 체크아웃한다.
+3. `file_concatter.sh` 실행 권한을 부여한다.
+4. 스크립트가 `total/total.txt`를 생성하거나 갱신한다.
+5. `total/total.txt`에 변경 사항이 있으면 Actions bot 계정으로 커밋하고 push한다.
 
----
-## 3. How to Use
-
-1.  **Save your script**: Make sure `file_concatter.sh` (preferably the modified version) is in the root directory of your project (or adjust the path in the YAML file if it's elsewhere).
-2.  **Create the workflow file**:
-    * In your repository, go to the `.github/workflows/` directory (create these directories if they don't exist).
-    * Create a new file named `main.yml` (or any other `.yml` name) and paste the YAML content into it.
-3.  **Commit and Push**:
-    * Commit the `file_concatter.sh` script (if updated) and the new `.github/workflows/main.yml` file to your repository.
-    * Push these changes to your `main` (or specified) branch on GitHub.
-
-Now, every time you push to the `main` branch, the GitHub Action will automatically:
-1.  Check out your code.
-2.  Run your `file_concatter.sh` script.
-3.  The script will create `total/total.txt` with the concatenated content.
-4.  The action will commit `total/total.txt` back to your repository if its content has changed.
-
-You can view the progress and logs of your actions in the "Actions" tab of your GitHub repository. 🚀
+`branches` 값과 스크립트 경로는 저장소의 실제 기본 브랜치와 파일 위치에 맞춰 조정한다.

@@ -1,120 +1,98 @@
-# JPA 개요 및 복합키
+# JPA 개요 및 복합키 학습 및 기록 노트
 
-Java Persistence API(JPA)의 기본 개념과 복합키 매핑 방법을 설명합니다.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
----
+JPA는 Java object와 relational database table 사이의 mapping contract를 제공한다. Entity, primary key, persistence context, association, query abstraction을 이해하지 못하면 object graph와 SQL 실행 결과가 어긋나고, 복합키나 식별 관계에서는 equals/hashCode, lazy loading, repository method까지 함께 깨질 수 있다.
 
-## 📋 JPA란?
+이 문서는 원문의 JPA 개요와 composite key 매핑 내용을 persistence context와 identity mapping 중심으로 재작성한다.
 
-**JPA (Java Persistence API)**는 자바 객체를 관계형 데이터베이스에 영속화하기 위한 표준 명세입니다.
+## 2. 현재 나의 상태 (Baseline)
 
-```mermaid
-flowchart LR
-    subgraph Application["애플리케이션"]
-        A[Java Object] --> B[JPA/Hibernate]
-    end
-    
-    subgraph Database["데이터베이스"]
-        C[(Table)]
-    end
-    
-    B <-->|SQL| C
-```
+- `@Entity`, `@Id`, `JpaRepository` 사용법은 알고 있다.
+- EntityManager와 persistence context가 entity lifecycle을 관리한다는 점을 더 명확히 해야 한다.
+- 단일 기본키와 복합키의 repository type이 어떻게 달라지는지 정리해야 한다.
+- `@EmbeddedId`, `@IdClass`, `@MapsId`의 선택 기준을 이해해야 한다.
+- Composite key class에서 `Serializable`, `equals`, `hashCode`가 필요한 이유를 설명해야 한다.
 
-### 핵심 개념
+## 3. 도달하고 싶은 목표 (Target State)
 
-| 개념 | 설명 |
-|------|------|
-| **Entity** | DB 테이블과 매핑되는 Java 클래스 |
-| **EntityManager** | 엔티티의 생명주기를 관리 |
-| **Persistence Context** | 엔티티를 관리하는 환경 |
-| **JPQL** | 객체 지향 쿼리 언어 |
+- JPA가 object operation을 SQL로 변환하는 위치를 설명한다.
+- Entity identity와 primary key strategy를 구분한다.
+- `@EmbeddedId`와 `@IdClass` 방식의 차이를 판단한다.
+- Foreign key가 primary key 일부인 경우 `@MapsId`를 사용한다.
+- Composite key 기반 조회, 존재 확인, bulk delete를 안전하게 작성한다.
 
-### JPA 구현체
+## 4. 시스템 번역 (Data Flow)
 
 ```mermaid
-graph TD
-    A[JPA 명세] --> B[Hibernate]
-    A --> C[EclipseLink]
-    A --> D[OpenJPA]
-    
-    B --> E[가장 많이 사용]
+flowchart TD
+    A[Java Entity] --> B[JPA mapping metadata]
+    B --> C[Persistence Context]
+    C --> D[EntityManager/Hibernate]
+    D --> E[SQL generation]
+    E --> F[(Relational table)]
+    F --> G[Result set]
+    G --> C
+    C --> H[Managed entity]
 ```
 
----
+JPA의 data flow는 Java object를 바로 table row로 던지는 것이 아니라, mapping metadata와 persistence context를 거쳐 SQL과 managed entity state를 동기화하는 흐름이다.
 
-## 🔑 기본키 전략
+## 5. 핵심 구성요소 (Building Blocks)
 
-### 단일 기본키
+| 구성요소 | 역할 | 주의점 |
+| --- | --- | --- |
+| `@Entity` | table과 매핑되는 class | 기본 생성자와 identity 필요 |
+| `@Id` | primary key 지정 | entity identity 기준 |
+| `@GeneratedValue` | key 생성 전략 지정 | DB dialect와 맞아야 함 |
+| EntityManager | entity lifecycle 관리 | transaction boundary와 함께 동작 |
+| Persistence Context | managed entity 저장소 | 1차 cache와 dirty checking |
+| JPQL | entity 중심 query | table/column이 아니라 entity field 기준 |
+| `@EmbeddedId` | composite key object 포함 | key class가 value object처럼 동작 |
+| `@IdClass` | entity field 여러 개로 key 구성 | field name/type 일치 필요 |
+| `@MapsId` | FK를 PK 일부와 연결 | 식별 관계 mapping |
 
-```java
-@Entity
-public class User {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    
-    private String name;
-}
-```
-
-### 기본키 생성 전략
-
-| 전략 | 설명 | 사용처 |
-|------|------|--------|
-| `IDENTITY` | DB에 위임 (AUTO_INCREMENT) | MySQL, PostgreSQL |
-| `SEQUENCE` | 시퀀스 사용 | Oracle, PostgreSQL |
-| `TABLE` | 키 생성 테이블 사용 | 모든 DB |
-| `AUTO` | 자동 선택 | 기본값 |
-
----
-
-## 🔗 복합키 (Composite Key)
-
-두 개 이상의 컬럼을 기본키로 사용하는 경우 복합키를 정의합니다.
-
-### 복합키 구현 방법
+## 6. 상태 전이 (State Transition)
 
 ```mermaid
-flowchart TB
-    A[복합키 구현] --> B["@EmbeddedId<br/>(권장)"]
-    A --> C["@IdClass"]
-    
-    B --> D["별도 클래스에<br/>@Embeddable"]
-    C --> E["엔티티에<br/>직접 @Id 2개"]
+stateDiagram-v2
+    [*] --> NewEntity
+    NewEntity --> Managed: persist/save
+    Managed --> Dirty: field changed
+    Dirty --> Flushed: flush/commit
+    Flushed --> Managed
+    Managed --> Detached: transaction/context end
+    Detached --> Managed: merge
+    Managed --> Removed: remove
+    Removed --> Deleted: flush/commit
+    Deleted --> [*]
 ```
 
----
+Composite key entity도 이 lifecycle을 따른다. 다만 identity가 단일 `Long id`가 아니라 key object 또는 여러 `@Id` field로 구성된다.
 
-## 📝 @EmbeddedId 방식 (권장)
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-### 1. 복합키 클래스 정의
+- Entity primary key는 persistence context 안에서 identity를 구분하는 기준이다.
+- Composite key class는 `Serializable`을 구현하고 `equals`/`hashCode`를 안정적으로 제공해야 한다.
+- `@EmbeddedId`는 key object field 경로로 query해야 한다. 예: `id.userId`.
+- `@IdClass`는 ID class field name/type이 entity의 ID field와 일치해야 한다.
+- `@MapsId`는 association의 FK 값과 embedded ID field를 같은 값으로 유지해야 한다.
+- Lazy association을 조회할 때 transaction boundary 밖에서 접근하면 lazy loading 문제가 생길 수 있다.
+- Bulk update/delete는 persistence context와 DB 상태를 어긋나게 할 수 있어 clear/flush 전략이 필요하다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
 
 ```java
 @Embeddable
-@NoArgsConstructor
-@AllArgsConstructor
-@EqualsAndHashCode  // 필수!
 public class AlarmReadsId implements Serializable {
-    
-    @Column(name = "alarm_id")
     private Long alarmId;
-    
-    @Column(name = "user_id")
     private Long userId;
+
+    // equals and hashCode are required
 }
-```
 
-> ⚠️ **중요**: 복합키 클래스는 반드시 `Serializable` 구현하고, `equals()`, `hashCode()` 재정의해야 합니다.
-
-### 2. 엔티티 클래스 정의
-
-```java
 @Entity
-@NoArgsConstructor
-@Table(name = "alarm_reads")
 public class AlarmReads {
-
     @EmbeddedId
     private AlarmReadsId id;
 
@@ -127,219 +105,43 @@ public class AlarmReads {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "alarm_id", nullable = false)
     private Alarm alarm;
-
-    @CreationTimestamp
-    @Column(name = "read_at")
-    private Timestamp readAt;
 }
 ```
 
-### 3. 사용 예시
-
 ```java
-// 복합키 객체 생성
-AlarmReadsId id = new AlarmReadsId(alarmId, userId);
-
-// 엔티티 생성 및 저장
-AlarmReads alarmRead = new AlarmReads();
-alarmRead.setId(id);
-alarmRead.setUser(user);
-alarmRead.setAlarm(alarm);
-
-alarmReadsRepository.save(alarmRead);
-
-// 조회
-Optional<AlarmReads> found = alarmReadsRepository.findById(id);
-```
-
-### 4. Repository 정의
-
-```java
-public interface AlarmReadsRepository 
-    extends JpaRepository<AlarmReads, AlarmReadsId> {
-    
-    // 사용자별 읽은 알람 조회
+public interface AlarmReadsRepository
+        extends JpaRepository<AlarmReads, AlarmReadsId> {
     List<AlarmReads> findByIdUserId(Long userId);
-    
-    // 특정 알람을 읽은 사용자 수
-    long countByIdAlarmId(Long alarmId);
 }
 ```
 
----
+이 예제는 `alarm_id`와 `user_id`가 함께 primary key이면서 각각 association foreign key인 식별 관계를 보여준다.
 
-## 📝 @IdClass 방식
+## 9. 실패 사례 (What could go wrong?)
 
-### 1. ID 클래스 정의
+- Composite key class에 `equals`/`hashCode`가 없어 persistence context와 collection lookup이 불안정해진다.
+- `@EmbeddedId` field 경로를 잘못 써서 repository method parsing이 실패한다.
+- `@MapsId` 없이 ID 값과 association FK 값을 따로 관리해 서로 다른 값이 들어간다.
+- Lazy association을 view rendering 단계에서 접근해 transaction 밖 lazy loading exception이 발생한다.
+- Fetch join 없이 composite key entity 목록에서 association을 반복 접근해 N+1 query가 생긴다.
+- Bulk delete 후 persistence context를 정리하지 않아 이미 삭제된 entity가 managed 상태로 남는다.
 
-```java
-@NoArgsConstructor
-@AllArgsConstructor
-@EqualsAndHashCode
-public class AlarmReadsId implements Serializable {
-    private Long alarm;  // 엔티티의 필드명과 일치해야 함
-    private Long user;
-}
-```
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-### 2. 엔티티 정의
+- Relationship mapping은 [JPA 관계 매핑](relationships.md)에서 1:1, 1:N, N:1, N:M 기준으로 확장한다.
+- Entity lifecycle과 persistence context 상태는 [JPA 라이프사이클](lifecycle.md) 문서와 함께 확인한다.
+- QueryDSL은 composite key field와 association path를 type-safe하게 다룰 수 있다.
+- ID 전략은 IDENTITY, SEQUENCE, TABLE, AUTO와 database dialect 차이를 비교한다.
+- Composite key 대신 surrogate key와 unique constraint를 쓰는 설계도 trade-off로 검토한다.
 
-```java
-@Entity
-@Table(name = "alarm_reads")
-@IdClass(AlarmReadsId.class)
-public class AlarmReads {
+## 11. 최종 체크리스트 (Definition of Done)
 
-    @Id
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "alarm_id")
-    private Alarm alarm;
+- [x] JPA 기본 구성요소와 persistence context 흐름을 정리했다.
+- [x] 단일 key와 composite key의 차이를 설명했다.
+- [x] `@EmbeddedId`, `@IdClass`, `@MapsId`의 역할을 포함했다.
+- [x] Composite key 최소 예제와 repository type을 제시했다.
+- [x] 원문 JPA overview 문서를 12개 섹션 템플릿으로 재작성했다.
 
-    @Id
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    private User user;
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-    @CreationTimestamp
-    @Column(name = "read_at")
-    private Timestamp readAt;
-}
-```
-
----
-
-## 📊 방식 비교
-
-| 특성 | @EmbeddedId | @IdClass |
-|------|-------------|----------|
-| **객체지향적** | ✅ 더 객체지향적 | ❌ 덜 객체지향적 |
-| **JPQL 접근** | `e.id.alarmId` | `e.alarmId` |
-| **식별 관계** | 복잡할 수 있음 | 간단함 |
-| **선호도** | 권장 | 레거시 코드 |
-
----
-
-## 🔄 @MapsId 어노테이션
-
-`@MapsId`는 외래키가 기본키의 일부일 때 사용합니다.
-
-```mermaid
-erDiagram
-    USERS ||--o{ ALARM_READS : "1:N"
-    ALARMS ||--o{ ALARM_READS : "1:N"
-    
-    USERS {
-        bigint id PK
-        varchar name
-    }
-    
-    ALARMS {
-        bigint id PK
-        varchar message
-    }
-    
-    ALARM_READS {
-        bigint user_id PK,FK
-        bigint alarm_id PK,FK
-        timestamp read_at
-    }
-```
-
-```java
-@MapsId("userId")  // AlarmReadsId.userId에 매핑
-@ManyToOne(fetch = FetchType.LAZY)
-@JoinColumn(name = "user_id")
-private User user;
-```
-
-**동작 방식:**
-1. `@MapsId("userId")`는 `AlarmReadsId.userId` 필드에 매핑
-2. `User` 엔티티의 `id` 값이 자동으로 복합키에 설정됨
-3. 별도로 `alarmReadsId.setUserId()` 호출 불필요
-
----
-
-## 💡 실전 팁
-
-### 1. N+1 문제 방지
-
-```java
-// 페치 조인 사용
-@Query("SELECT ar FROM AlarmReads ar " +
-       "JOIN FETCH ar.alarm " +
-       "WHERE ar.id.userId = :userId")
-List<AlarmReads> findByUserIdWithAlarm(@Param("userId") Long userId);
-```
-
-### 2. 복합키로 벌크 삭제
-
-```java
-@Modifying
-@Query("DELETE FROM AlarmReads ar " +
-       "WHERE ar.id.userId = :userId AND ar.id.alarmId IN :alarmIds")
-void deleteByUserIdAndAlarmIds(
-    @Param("userId") Long userId, 
-    @Param("alarmIds") List<Long> alarmIds
-);
-```
-
-### 3. 존재 여부 확인
-
-```java
-// 효율적인 존재 확인
-boolean exists = alarmReadsRepository.existsById(
-    new AlarmReadsId(alarmId, userId)
-);
-```
-
----
-
-## ⚠️ 주의사항
-
-### equals()와 hashCode() 필수 구현
-
-```java
-@Embeddable
-public class AlarmReadsId implements Serializable {
-    
-    private Long alarmId;
-    private Long userId;
-    
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        AlarmReadsId that = (AlarmReadsId) o;
-        return Objects.equals(alarmId, that.alarmId) && 
-               Objects.equals(userId, that.userId);
-    }
-    
-    @Override
-    public int hashCode() {
-        return Objects.hash(alarmId, userId);
-    }
-}
-```
-
-### 프록시 이슈
-
-```java
-// LAZY 로딩 시 프록시 비교 주의
-// getId()로 비교하거나 Hibernate.initialize() 사용
-```
-
----
-
-## 🔗 관련 문서
-
-- [JPA 관계 매핑](relationships.md)
-- [JPA 라이프사이클](lifecycle.md)
-- [QueryDSL 가이드](querydsl.md)
-
----
-
-## 📚 참고 자료
-
-- [JPA 공식 명세](https://jakarta.ee/specifications/persistence/)
-- [Hibernate 문서](https://hibernate.org/orm/documentation/)
-- [Spring Data JPA](https://spring.io/projects/spring-data-jpa)
+JPA에서 key는 단순 컬럼 값이 아니라 persistence context가 entity identity를 추적하는 계약이다.

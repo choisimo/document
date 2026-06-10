@@ -1,4 +1,4 @@
-Spring Boot와 React 애플리케이션을 백그라운드에서 실행하고, 로그를 각각 `/server/log/backend.log`와 `/server/log/front.log`에 저장하도록 **Linux 시스템 서비스**로 설정하는 방법을 단계별로 설명하겠습니다.
+Spring Boot와 React 애플리케이션을 백그라운드에서 실행하고, 로그를 각각 `/server/log/backend.log`와 `/server/log/front.log`에 저장하도록 **Linux 시스템 서비스**로 설정하는 절차다.
 
 ---
 
@@ -75,7 +75,7 @@ Spring Boot 애플리케이션을 실행하는 스크립트를 만듭니다.
 - 내용:
   ```bash
   #!/bin/bash
-  java -jar /path/to/your/spring-boot-app.jar > /server/log/backend.log 2>&1 &
+  java -jar /path/to/spring-boot-app.jar > /server/log/backend.log 2>&1 &
   ```
 
 - 실행 권한 부여:
@@ -99,7 +99,7 @@ Description=Spring Boot Application
 After=network.target
 
 [Service]
-User=your-username
+User=app-user
 ExecStart=/server/start-backend.sh
 Restart=always
 
@@ -118,7 +118,7 @@ React 애플리케이션 실행을 위한 스크립트를 만듭니다.
 - 내용:
   ```bash
   #!/bin/bash
-  cd /path/to/your/react-app
+  cd /path/to/react-app
   npm start > /server/log/front.log 2>&1 &
   ```
 
@@ -143,8 +143,8 @@ Description=React Frontend Application
 After=network.target
 
 [Service]
-User=your-username
-WorkingDirectory=/path/to/your/react-app
+User=app-user
+WorkingDirectory=/path/to/react-app
 ExecStart=/server/start-frontend.sh
 Restart=always
 
@@ -223,4 +223,4 @@ tail -f /server/log/front.log
 
 ---
 
-위 과정을 완료하면 Spring Boot와 React 애플리케이션이 서비스로 실행되며, 로그가 지정된 경로에 저장됩니다. 추가적인 설정이나 문제가 있다면 알려주세요! 😊
+위 과정을 완료하면 Spring Boot와 React 애플리케이션이 서비스로 실행되며, 로그가 지정된 경로에 저장된다.

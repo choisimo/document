@@ -232,7 +232,7 @@ curl -H "X-Vault-Token: $VAULT_TOKEN" "http://10.10.10.11:8200/v1/secret/data/pr
 
 ## 8. 보안/운영 강화 권장사항 (실서비스)
 
-현재 템플릿은 빠른 자동화와 검증을 위한 기본 구성이며, 실서비스 전에는 아래를 반드시 적용하세요.
+현재 템플릿은 빠른 자동화와 검증을 위한 기본 구성이며, 실서비스 전에는 아래 항목을 적용한다.
 
 - Vault/Nginx TLS 적용 (내부망 포함)
 - Vault root token 상시 사용 금지, AppRole/정책 분리
@@ -257,4 +257,3 @@ cd research/proxmox-rocky10-platform
 export VAULT_TOKEN='<token>'
 ./scripts/deploy_project.sh sample-app
 ```
-

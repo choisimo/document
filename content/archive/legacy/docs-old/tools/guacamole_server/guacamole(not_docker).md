@@ -3,9 +3,9 @@ Guacamole을 Docker 없이 서버에 직접 설치하려면 아래 단계를 따
 ---
 
 ## 1. **필요 패키지 설치**
-Guacamole을 설치하기 위해 필요한 Java, Tomcat, MySQL 등 필수 패키지를 설치합니다.
+Guacamole을 설치하기 위해 필요한 Java, Tomcat, MySQL 등 패키지를 설치합니다.
 
-### 1.1 업데이트 및 필수 패키지 설치
+### 1.1 업데이트 및 필요 패키지 설치
 ```bash
 sudo apt update
 sudo apt upgrade -y
@@ -140,7 +140,7 @@ sudo ln -s /etc/guacamole /usr/share/tomcat9/.guacamole
    ```nginx
    server {
        listen 80;
-       server_name your-domain.com;
+       server_name example.com;
 
        location / {
            proxy_pass http://localhost:8080/guacamole/;
@@ -164,7 +164,7 @@ sudo ln -s /etc/guacamole /usr/share/tomcat9/.guacamole
 
 1. 브라우저에서 Guacamole에 접속:
    ```
-   http://your-domain.com
+   http://example.com
    ```
 2. 기본 로그인 정보:
    - 사용자 이름: `guacadmin`
@@ -183,4 +183,4 @@ sudo ln -s /etc/guacamole /usr/share/tomcat9/.guacamole
 
 ---
 
-이 단계들을 완료하면 Docker 없이 Guacamole이 서버에 직접 설치됩니다. 추가적인 문제가 있으면 말씀해주세요!
+이 단계들을 완료하면 Docker 없이 Guacamole이 서버에 직접 설치됩니다.

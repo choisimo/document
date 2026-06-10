@@ -93,10 +93,10 @@ services:
     image: n8nio/n8n
     environment:
       # MCP 서버 환경 변수
-      - MCP_BRAVE_API_KEY=your-brave-api-key
-      - MCP_OPENAI_API_KEY=your-openai-key
-      - MCP_SERPER_API_KEY=your-serper-key
-      - MCP_WEATHER_API_KEY=your-weather-api-key
+      - MCP_BRAVE_API_KEY=BRAVE_API_KEY
+      - MCP_OPENAI_API_KEY=OPENAI_API_KEY
+      - MCP_SERPER_API_KEY=SERPER_API_KEY
+      - MCP_WEATHER_API_KEY=WEATHER_API_KEY
       # 커뮤니티 노드 활성화
       - N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true
     ports:
@@ -168,7 +168,7 @@ curl -X POST http://localhost:5678/mcp/abc123 -d '{"query": "test"}'
 3. 노드 연결 및 매개변수 매핑
 4. 워크플로우 활성화
 
-AI 에이전트에서 이 계산기 도구를 호출하려면 MCP 클라이언트 자격 증명을 설정해야 합니다[10].
+AI 에이전트에서 이 계산기 도구를 호출하려면 MCP 클라이언트 자격 증명을 설정한다[10].
 
 ### 4. 웹 검색 통합
 
@@ -231,7 +231,7 @@ N8N(엔에이트엔)은 강력한 워크플로우 자동화 플랫폼으로, MCP
 
 ## 1. N8N 설치하기
 
-먼저 N8N을 설치해야 합니다. 두 가지 주요 설치 방법이 있습니다:
+N8N을 설치한다. 두 가지 주요 설치 방법이 있습니다:
 
 **npm 사용:**
 ```bash
@@ -248,7 +248,7 @@ docker run -it --rm --name n8n -p 5678:5678 n8nio/n8n
 
 ## 2. MCP 서버 설정하기
 
-다음으로 MCP 서버를 설정해야 합니다:
+다음으로 MCP 서버를 설정한다:
 
 1. GitHub에서 사용 가능한 MCP 서버 목록을 확인합니다
 2. 선택한 MCP 서버를 로컬 또는 클라우드 인스턴스에 설치합니다
@@ -305,10 +305,10 @@ Claude Desktop과 같은 AI 어시스턴트를 N8N MCP 서버와 통합하려면
     "n8n-local": {
       "command": "node",
       "args": [
-        "/path/to/your/cloned/n8n-mcp-server/build/index.js"
+        "/path/to/cloned/n8n-mcp-server/build/index.js"
       ],
       "env": {
-        "N8N_API_URL": "http://your-n8n-instance:5678/api/v1",
+        "N8N_API_URL": "http://n8n-instance:5678/api/v1",
         "N8N_API_KEY": "YOUR_N8N_API_KEY"
       },
       "disabled": false,
