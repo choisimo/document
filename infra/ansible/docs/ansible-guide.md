@@ -1,6 +1,8 @@
-# Ansible 완벽 가이드
+# Ansible 설치와 실행 구조 가이드
 
 > Ansible을 활용한 인프라 자동화 구성 및 운영 가이드
+> 버전 경계: 설치 명령과 module option은 바뀔 수 있습니다. control node OS, Python, `ansible-core`와 collection 버전을 기록하고 해당 버전의 공식 문서를 기준으로 실행합니다.
+> 안전 경계: 예시는 production inventory에 바로 적용하지 않습니다. 대상 host, privilege escalation, secret, serial/canary, 중단 조건과 rollback을 먼저 정합니다.
 
 ---
 
@@ -19,18 +21,17 @@
 
 ### uv란?
 
-**uv**는 Rust로 작성된 초고속 Python 패키지 및 프로젝트 관리자입니다. pip, pip-tools, virtualenv를 대체할 수 있으며, 기존 도구 대비 **10-100배 빠른 속도**를 자랑합니다.
+**uv**는 Rust로 작성된 Python package 및 project manager입니다. 일부 작업에서 기존 도구보다 빠를 수 있지만 성능 차이는 cache, network, dependency graph와 측정 방법에 따라 달라집니다.
 
 ### 설치 방법
 
 #### Linux/macOS (권장)
 
 ```bash
-# curl을 사용한 설치 (권장)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# 또는 wget 사용
-wget -qO- https://astral.sh/uv/install.sh | sh
+# 공식 URL과 installer 내용을 확인한 뒤 실행
+curl -LsSf https://astral.sh/uv/install.sh -o /tmp/uv-install.sh
+sed -n '1,200p' /tmp/uv-install.sh
+sh /tmp/uv-install.sh
 ```
 
 #### 패키지 관리자를 통한 설치
@@ -486,7 +487,7 @@ tasks:
 
 ### 5.4 Module
 
-**Module**은 Ansible의 실제 작업 수행 단위입니다. Python으로 작성되며, 멱등성을 보장합니다.
+**Module**은 Ansible의 작업 수행 단위입니다. 많은 module이 원하는 상태를 반복 적용하도록 설계됐지만, `command`, `shell`, 외부 API와 custom module은 멱등성을 자동 보장하지 않습니다.
 
 #### 자주 사용하는 모듈
 
@@ -546,7 +547,7 @@ tasks:
 - name: Run application container
   community.docker.docker_container:
     name: myapp
-    image: myapp:latest
+    image: myapp:<immutable-version-or-digest>
     state: started
     ports:
       - "8080:80"
@@ -838,6 +839,13 @@ Free Strategy:
 ---
 
 ## 참고 자료
+
+### 실행 완료 기준
+
+- 적용 대상과 제외 대상을 inventory 출력으로 보존하고 canary 결과를 확인했다.
+- 두 번째 실행에서 예상하지 않은 `changed`가 없으며, service health와 외부 의존성까지 확인했다.
+- 일부 host 실패 시 재실행 가능한 task와 수동 복구 대상을 구분하고, handler가 실행됐는지 기록했다.
+- 출력·diff·fact cache에 secret이 노출되지 않았음을 확인했다.
 
 - [Ansible 공식 문서](https://docs.ansible.com/)
 - [Ansible Galaxy](https://galaxy.ansible.com/) - 커뮤니티 Role 저장소

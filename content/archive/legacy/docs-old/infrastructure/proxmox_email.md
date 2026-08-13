@@ -1,10 +1,10 @@
 # Proxmox 이메일 알림 설정 가이드
 
-Proxmox VE에서는 백업 완료/실패, 디스크 상태, 시스템 이벤트 등에 대한 알림을 이메일로 받을 수 있어 시스템 관리에 매우 유용합니다. 이 가이드에서는 Proxmox에서 이메일 알림을 설정하는 방법을 단계별로 자세히 살펴보겠습니다.
+이 문서는 Proxmox VE에서 SMTP 릴레이를 통해 알림을 보내던 과거 구성 기록입니다. Proxmox 알림 기능과 공급자 인증 방식은 버전에 따라 다르므로, 적용 전에 Proxmox VE 버전과 메일 공급자의 현재 SMTP 정책을 고정합니다. 예시 주소·비밀번호는 실제 비밀값으로 간주하지 말고 비밀 저장소의 값으로 교체합니다.
 
 ## 개요 및 중요성
 
-Proxmox의 이메일 알림 기능은 백업 상태, 디스크 상태, 시스템 이벤트 등을 실시간으로 모니터링할 수 있게 해주는 중요한 기능입니다. 이 기능을 활성화하면 시스템 문제를 즉시 파악하고 대응할 수 있어 Proxmox를 사용하는 경우 필수적으로 설정하는 것이 좋습니다.
+이메일 알림은 백업 작업이나 시스템 이벤트를 전달하는 채널 중 하나입니다. 발송 성공은 운영자가 즉시 인지했다는 뜻이 아니므로 지연, 반송, 스팸 분류를 감시하고 다른 경보 채널의 필요성을 별도로 판단합니다.
 
 ## Gmail을 이용한 이메일 알림 설정
 
@@ -20,7 +20,7 @@ Gmail에서 2단계 인증을 사용 중인 경우, 앱 비밀번호를 생성�
 4. 페이지 하단의 "앱 비밀번호" 설정으로 이동합니다
    - 앱 비밀번호가 보이지 않는 경우 다음 URL로 직접 이동할 수 있습니다: https://accounts.google.com/v3/signin/challenge/pwd?continue=https://myaccount.google.com/apppasswords&service=accountsettings
 5. 앱 이름을 입력하고(예: "Proxmox") "만들기"를 클릭합니다
-6. 생성된 앱 비밀번호를 기록해둡니다(예: "htlumtimtpuoxhil")
+6. 생성된 앱 비밀번호를 비밀 저장소에 보관하고 문서·셸 기록·티켓에 붙여 넣지 않습니다.
 
 ### 2. Postfix 설치 및 설정
 
@@ -55,7 +55,7 @@ nano /etc/postfix/sasl_passwd
 smtp.gmail.com [이메일주소]@gmail.com:[앱비밀번호]
 ```
 
-예: `smtp.gmail.com example@gmail.com:htlumtimtpuoxhil`
+형식 예: `[smtp.gmail.com]:587 account@example.com:<APP_PASSWORD>`
 
 파일을 저장한 후 다음 명령어를 실행하여 계정 정보를 해시 처리하고 권한을 변경합니다:
 

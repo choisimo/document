@@ -1,7 +1,16 @@
 # Proxmox VE 명령어 치트시트
 
-> **Quick Reference for Proxmox VE 8.x**  
-> 운영 환경에서 자주 사용하는 명령어 모음
+> **Command examples written for Proxmox VE 8.x; verify installed help and state before use**  
+> 운영 환경의 대표 명령 예시이며, 파괴적 명령은 backup·대상·rollback 확인 후 사용
+
+---
+
+## 적용 범위와 명령 실행 기준
+
+- **범위:** 이 치트시트는 Proxmox VE 8.x 계열 예시입니다. 설치된 PVE, Debian, kernel, QEMU/LXC, ZFS/Ceph와 command help를 먼저 확인하며 다른 release의 option·출력을 보장하지 않습니다.
+- **실행 전제:** node·VMID·CTID·storage·pool·device와 cluster quorum을 식별하고 조회, 변경, 파괴 명령을 구분합니다. backup과 rollback 없이 destroy·remove·wipe·force 계열 예제를 실행하지 않습니다.
+- **사실과 추론:** exit status와 CLI 출력은 일부 근거이며, task log, resource config, storage와 guest 상태까지 일치해야 실제 성공입니다.
+- **실패·완료:** partial task, timeout, quorum·lock·storage 오류와 다른 node에 남은 상태를 확인합니다. 기대 resource 상태, cluster consistency와 재시작 후 동작이 검증될 때 완료입니다.
 
 ---
 

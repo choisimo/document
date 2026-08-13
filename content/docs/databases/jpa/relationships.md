@@ -1,6 +1,15 @@
 # JPA Entity Relationships
 
-> Complete guide to JPA/Hibernate entity relationship mappings
+> Practical guide to representative JPA/Hibernate entity relationship mappings
+
+---
+
+## Scope and Verification Contract
+
+- **Scope:** State the JPA specification level, provider and version, enhancement or proxy mode, database dialect, and transaction boundary. Provider behavior must not be presented as a portable JPA guarantee.
+- **Assumptions:** Define the owning side, aggregate boundary, nullability, expected cardinality, fetch plan, cascade intent, orphan lifecycle, and serialization boundary before choosing a mapping.
+- **Facts and inference:** Annotation semantics are contract claims; generated SQL, join count, proxy initialization, and performance are implementation observations that require logs and tests.
+- **Failure and completion:** Test both sides of an association, detached access, delete and orphan behavior, rollback, N+1 queries, and constraint failures. A mapping is complete when database rows and the in-memory graph remain consistent across those paths.
 
 ---
 
@@ -186,7 +195,7 @@ public class Course {
 | `LAZY` | Load on access | Default for collections |
 | `EAGER` | Load immediately | Default for single entities |
 
-> **Best Practice:** Always use `FetchType.LAZY` and fetch explicitly when needed.
+> **Selection rule:** Prefer deliberate fetch plans. `LAZY` can reduce unnecessary loading, but provider support, transaction boundaries, aggregate size, query count, and detached access determine whether it is appropriate; verify generated SQL and use fetch joins or entity graphs where needed.
 
 ---
 

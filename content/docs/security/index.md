@@ -1,5 +1,18 @@
 # 보안 문서
 
+
+## 이 문서의 사용 기준
+
+이 페이지는 보안 통제 후보를 찾기 위한 내비게이션이며 모든 환경에 동일하게 적용하는 기준선이 아닙니다. 자산, 위협 행위자, 관리 경로, 규제 요구사항과 가용성 목표를 먼저 정한 뒤 각 통제의 효과와 운영 비용을 평가합니다.
+
+- **환경 전제**: Linux 배포판, OpenSSH와 방화벽 구현, VPN 및 Zero Trust 제품의 버전과 요금제에 따라 명령과 기능이 달라집니다.
+- **변경 안전성**: 원격 호스트에서는 콘솔 또는 별도 관리자 세션을 유지하고, 현재 관리 포트와 허용 대역을 확인한 뒤 SSH와 방화벽을 단계적으로 적용합니다.
+- **증거 상태**: 체크리스트와 빠른 시작은 예시입니다. 설정 파일, 유효 설정 출력, 방화벽 규칙, 인증 및 거부 로그로 실제 적용 여부를 입증해야 합니다.
+- **실패 대응**: 구문 오류, 인증 실패, 네트워크 차단 시 즉시 이전 설정으로 복구할 백업과 명시적인 롤백 담당자를 준비합니다.
+- **완료 조건**: 승인된 계정의 새 세션 성공, 비승인 접근 거부, 필요한 서비스의 도달성, 로그와 경보 수신, 복구 절차 리허설을 확인합니다.
+
+패스워드 인증을 끄기 전에는 승인된 키 또는 MFA와 비상 접근 수단을 실제로 시험합니다. 아래 ADMIN_CIDR, SSH_PORT, 사용자 이름은 운영 환경 값으로 치환해야 하며 치환되지 않은 예시는 실행하지 않습니다.
+
 시스템과 네트워크 보안을 위한 종합 가이드입니다.
 
 <div class="compose-hero" markdown>
@@ -167,7 +180,7 @@ graph LR
 
 ## 보안 체크리스트
 
-### :material-checkbox-marked: 필수 설정
+### :material-checkbox-marked: 위협 모델별 기준선 후보
 
 - [ ] **SSH 키 기반 인증** 활성화
 - [ ] **패스워드 인증 비활성화**
@@ -210,9 +223,10 @@ AllowUsers admin deploy
 ```bash
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
-sudo ufw allow ssh
+sudo ufw allow from ADMIN_CIDR to any port SSH_PORT proto tcp
 sudo ufw allow 443/tcp
-sudo ufw enable
+sudo ufw --dry-run enable
+# 콘솔 또는 별도 세션에서 규칙 확인 후: sudo ufw enable
 ```
 
 ### Fail2ban 설치

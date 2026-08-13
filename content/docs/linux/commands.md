@@ -1,9 +1,18 @@
 # Linux 명령어 참조
 
-시스템 관리를 위한 필수 Linux 명령어 가이드입니다.
+시스템 관리에서 자주 사용하는 Linux 명령의 대표 예시입니다. option과 출력은 배포판·도구 버전에서 확인합니다.
 
 !!! tip "상세 가이드"
     더 자세한 내용은 [Complete Linux Commands Guide](../tools/terminal/linux-commands.md)를 참조하세요.
+
+---
+
+## 적용 범위와 안전 기준
+
+- **범위:** shell, Linux 배포판, GNU coreutils·BusyBox·util-linux·iproute2 버전, filesystem과 권한을 명시합니다. 같은 명령 이름도 platform과 구현에 따라 option·출력이 다를 수 있습니다.
+- **전제:** 현재 경로, 대상 file·process·device, glob 확장, quoting, locale와 privilege를 확인합니다. 삭제·권한·signal·network 변경은 먼저 조회로 범위를 확인합니다.
+- **사실과 추론:** exit status, stdout/stderr와 변경된 system state가 사실이며, 성공 메시지만으로 데이터·서비스의 의도한 결과를 추론하지 않습니다.
+- **실패·완료:** 잘못된 대상, 부분 처리, permission·disk-full 오류, 끊어진 session과 되돌릴 수 없는 삭제를 실패로 둡니다. 기대 상태와 영향 범위, 재실행 안전성 또는 복구 방법을 확인해야 완료입니다.
 
 ---
 

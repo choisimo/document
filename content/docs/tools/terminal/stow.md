@@ -2,9 +2,18 @@
 
 GNU Stow는 심볼릭 링크를 생성하여 dotfiles를 효율적으로 관리할 수 있는 도구입니다. 홈 디렉토리를 깔끔하게 유지하면서 Git으로 설정 파일들을 버전 관리할 수 있습니다.
 
+## 적용 범위와 안전 기준
+
+- **범위:** GNU Stow version, stow directory, target directory, shell expansion, filesystem와 existing symlink·file 상태를 기록합니다. 다른 symlink manager의 semantics와 혼용하지 않습니다.
+- **전제:** package tree와 target의 상대 경로를 먼저 계산하고 기존 dotfile, secret, generated file와 host-specific setting을 분리합니다. Git에 secret을 포함하지 않습니다.
+- **사실과 추론:** dry-run 결과, symlink target과 conflict message는 근거이고, “깔끔함·효율성·이식성”은 repository 구조와 host 차이에 따른 설계 판단입니다.
+- **실패·완료:** 기존 file 덮어쓰기, dangling/link loop, 잘못된 target, permission과 unstow 후 잔존 link를 시험합니다. link가 예상 source로 해석되고 application이 읽으며 unstow·rollback이 성공할 때 완료입니다.
+
+---
+
 ## Stow의 동작 원리
 
-Stow는 "package" 디렉토리 내의 구조를 타겟 디렉토리(기본값: 부모 디렉토리)에 심볼릭 링크로 복제합니다.
+Stow는 package tree를 target tree에 대응하는 symlink로 관리합니다. default target은 실행 위치와 stow directory 해석에 따라 보통 상위 directory가 되므로 실제 dry-run 결과와 `--target`을 확인합니다.
 
 ```
 ~/dotfiles/

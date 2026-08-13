@@ -2,11 +2,18 @@
 
 > **Source**: *Effective Kafka* — Emil Koutanov (Leanpub, 2021). Focus: not API usage but the mechanical internals of how Kafka batches records through the accumulator, how compression interacts with batching end-to-end, how consumer offset semantics prevent data loss, and how reliability guarantees propagate through the entire pipeline.
 
+## Scope and evidence
+
+- Examples reflect the cited 2021 material. Client internals, broker defaults, group protocols, and transaction behavior must be checked against the deployed Kafka and client versions.
+- Configuration values shown as `default` are examples until confirmed from the effective broker or client configuration.
+- Offset commits record a restart position; they do not by themselves prove that a side effect occurred once or that no record was lost.
+- Reliability is complete only when producer acknowledgement, replication, consumer isolation, offset timing, downstream idempotency, and recovery evidence agree.
+
 ---
 
 ## 1. Producer Internals: RecordAccumulator and I/O Thread
 
-The Kafka producer is **asynchronous by design** — `send()` never directly writes to the network. Instead, it stages records through an internal accumulator.
+The Kafka producer normally stages `send()` records in an accumulator and a background sender performs network I/O. The application call can still block while obtaining metadata or waiting for buffer capacity, and serialization or partitioning can fail before enqueueing.
 
 ```mermaid
 flowchart TD
@@ -206,7 +213,7 @@ block-beta
     end
 ```
 
-**Segment rollover**: when active segment reaches `log.segment.bytes` (default 1GB) or `log.roll.ms` (default 7 days), a new segment is created. Old segments become eligible for retention/compaction.
+**Segment rollover**: a size or time threshold can roll the active segment. The exact defaults and precedence vary by Kafka version and broker/topic override, so inspect the effective configuration before estimating file count or retention timing.
 
 **Sparse index**: `.index` file does NOT index every offset — it indexes every `log.index.interval.bytes` of data. Finding offset `O`:
 1. Binary search `.index` for largest indexed offset ≤ O → physical position P
@@ -238,7 +245,7 @@ sequenceDiagram
 
 **High Watermark (HW)**: the highest offset that ALL ISR replicas have confirmed. Consumers can only read up to HW — no "dirty reads" of uncommitted data.
 
-**ISR shrinkage**: if a follower lags beyond `replica.lag.time.max.ms` (default 30s), it's removed from ISR. If ISR shrinks to just the leader and `min.insync.replicas=2`, the leader rejects `acks=all` produces — **preventing data loss over availability**.
+**ISR shrinkage**: a follower that exceeds the configured lag condition can leave the ISR. If the ISR then falls below `min.insync.replicas`, an `acks=all` produce is rejected. This trades write availability for the configured replica acknowledgement floor; it does not eliminate every loss mode, such as unsafe leader election, storage failure, or an acknowledged external side effect.
 
 ---
 

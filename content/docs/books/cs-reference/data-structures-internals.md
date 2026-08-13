@@ -2,6 +2,10 @@
 
 > Source synthesis: Data structures reference books (comp 180–186, 189, 191–192, 213, 241–243) covering memory layout, pointer mechanics, cache behavior, amortized complexity, and algorithmic invariants for all major data structures.
 
+## Assumptions used in this reference
+
+Complexity statements assume the invariant named in each section and a stated cost model. Byte counts, cache misses, growth factors, node capacities, and implementation names are examples, not consequences of Big-O notation. When selecting a structure, record operation mix, maximum input size, ordering/concurrency requirements, allocator/layout, and the benchmark or proof that satisfies the requirement.
+
 ---
 
 ## 1. Dynamic Array — Amortized Growth Mechanics
@@ -27,6 +31,8 @@ flowchart TD
 
 ## 2. Linked List — Memory and Pointer Anatomy
 
+The doubling trace is one dynamic-array policy. `std::vector` does not standardize its growth factor, and common `ArrayList` implementations use a different factor. Geometric growth by any constant greater than one supports amortized `O(1)` append, while copy/move cost and iterator invalidation remain implementation- and element-type-specific.
+
 ```mermaid
 flowchart LR
     subgraph Singly Linked List Node Layout
@@ -50,6 +56,8 @@ flowchart LR
 ---
 
 ## 3. Hash Table — Collision Resolution & Probing
+
+“One cache miss per node” and “10–100× slower” are workload hypotheses. Pool allocation, node packing, hardware prefetch, element size, traversal work, and cache state can change the result; use a benchmark with the same allocator and data distribution before choosing on this basis.
 
 ```mermaid
 flowchart TD
@@ -182,6 +190,8 @@ flowchart TD
 
 ## 8. Heap — Array Representation & Heapify
 
+A minimum degree of `t=500` does not by itself imply that a node fits in 4 KiB or that one billion keys require exactly three reads. Capacity depends on key width, child-pointer/record width, headers, fill occupancy, root caching, and whether leaves store values. Compute fan-out from the actual page format before estimating height.
+
 ```mermaid
 flowchart LR
     subgraph Min-Heap Array Layout
@@ -223,6 +233,8 @@ flowchart LR
 ---
 
 ## 10. Trie — String Prefix Operations
+
+The skip-list diagram's `O(n log n)` expected-space label is incorrect for independent geometric levels with fixed promotion probability: the expected number of forward pointers is `O(n)`. Search and update remain `O(log n)` in expectation and `O(n)` in the worst case unless an additional probabilistic bound is stated.
 
 ```mermaid
 flowchart TD
@@ -271,6 +283,8 @@ flowchart TD
 ---
 
 ## 12. Segment Tree — Range Query Internals
+
+Union by **rank** attaches the root with lower rank below the root with higher rank; rank is an upper-bound heuristic, not necessarily current tree size. Use union by size if “smaller tree” is intended literally. The inverse-Ackermann bound requires both path compression and a rank/size heuristic over a sequence of operations.
 
 ```mermaid
 flowchart TD

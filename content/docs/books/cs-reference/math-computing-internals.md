@@ -1,6 +1,18 @@
 # Mathematical Computing Internals: Numerical Methods, Linear Algebra & Optimization
 
-> Under the Hood: How floating-point arithmetic loses precision, how matrix decompositions factor linear systems, how gradient descent navigates loss landscapes, how FFT reduces O(N²) to O(N log N), how numerical integration accumulates error — the exact algorithms, mathematical guarantees, and computational mechanics.
+> Under the Hood: How floating-point arithmetic loses precision, how matrix decompositions factor linear systems, how gradient descent navigates loss landscapes, how FFT reduces O(N²) to O(N log N), how numerical integration accumulates error — representative algorithms, conditional mathematical guarantees, and computational mechanics.
+
+---
+
+## Scope, Assumptions, and Numerical Validation
+
+This document connects mathematical algorithms to representative implementations. A theorem, an asymptotic bound, and an observed runtime are different kinds of claims and are evaluated separately.
+
+- **Scope:** Results apply only to the stated arithmetic model, matrix structure, norm, convergence criterion, and algorithm variant. Dense and sparse costs are not interchangeable.
+- **Numeric assumptions:** Record data type, rounding mode, scaling, dimensions, sparsity, conditioning, initialization, tolerance, and iteration limit. Constants and iteration counts without these inputs are illustrative.
+- **Guarantees and uncertainty:** A convergence or error guarantee is valid only when its hypotheses hold. Finite precision adds rounding, overflow, cancellation, and stopping-error terms that exact arithmetic omits.
+- **Evidence:** Report residuals, backward and forward error where meaningful, condition estimates, iteration histories, and a higher-precision or independently derived reference result.
+- **Failure and completion:** Treat NaN/Inf, stagnation, divergence, violated constraints, unstable pivots, or tolerance exhaustion as explicit failures. A computation is complete only when its stopping rule and error budget are both satisfied.
 
 ---
 
@@ -35,7 +47,7 @@ flowchart TD
     end
 ```
 
-**Machine epsilon**: The smallest ε such that `1.0 + ε ≠ 1.0` in floating point. For doubles, ε ≈ 2.22×10⁻¹⁶. Adding 1e16 to 1.0 gives 1e16 (the 1 is lost!).
+**Machine epsilon** is commonly defined as the gap from 1 to the next representable value. For IEEE 754 binary64 it is 2⁻⁵² ≈ 2.22×10⁻¹⁶; some error analyses instead use unit roundoff 2⁻⁵³, so the convention must be stated. The `1e16 + 1.0` example illustrates rounding under the active format and mode.
 
 ---
 
@@ -43,7 +55,7 @@ flowchart TD
 
 ### LU Decomposition (Gaussian Elimination)
 
-Factors matrix A = L × U where L is lower triangular, U is upper triangular. Used to solve Ax = b via forward/back substitution in O(N³).
+Factors matrix A = L × U where L is lower triangular, U is upper triangular. Dense LU factorization costs O(N³), while the two triangular solves cost O(N²); pivoting and matrix structure affect stability and cost.
 
 ```mermaid
 flowchart LR
@@ -89,9 +101,9 @@ flowchart TD
 
 ## 3. Fast Fourier Transform: Butterfly Network
 
-DFT: `X[k] = Σₙ₌₀ᴺ⁻¹ x[n] × e^(-2πi×k×n/N)` — naively O(N²).
+Direct evaluation of `X[k] = Σₙ₌₀ᴺ⁻¹ x[n] × e^(-2πi×k×n/N)` takes O(N²) arithmetic operations.
 
-FFT (Cooley-Tukey) reduces to O(N log N) by **divide and conquer**:
+For compatible factorizations of N, the Cooley-Tukey FFT reduces the arithmetic count to O(N log N) by **divide and conquer**; other lengths require an appropriate FFT variant:
 
 ```mermaid
 flowchart TD
@@ -163,7 +175,7 @@ flowchart TD
     end
 ```
 
-**Worst case vs average case**: Simplex is exponential in the worst case (Klee-Minty cube) but polynomial in practice. Interior-point methods (IPM) are polynomial O(N³·⁵) in theory but simplex often faster in practice for sparse LP.
+**Worst case vs observed behavior**: Some simplex pivot rules have exponential worst-case examples, while simplex is often competitive on practical sparse instances; this is empirical behavior, not a polynomial guarantee. Interior-point complexity depends on formulation, dimensions, accuracy, and linear-system solves, so `O(N³·⁵)` is not a universal LP bound.
 
 ---
 
@@ -303,8 +315,8 @@ flowchart TD
 |---|---|---|---|
 | Gaussian elimination | O(N³) | Pivot blowup | Partial pivoting |
 | FFT | O(N log N) | Round-off accumulation | Double precision |
-| Conjugate Gradient | O(N√κ) iterations | κ large → slow convergence | Preconditioning |
-| Power iteration | O(N² per iter) | Slow if λ₁≈λ₂ | Deflation |
-| QR eigenvalue | O(N³ per iter) | Non-Hermitian → complex eig | Hessenberg reduction |
-| Monte Carlo | O(1/√N) | Variance proportional to f² | Importance sampling |
-| Backprop | O(N params) | Vanishing/exploding gradients | Layer norm, gradient clip |
+| Conjugate Gradient | O(nnz(A)) per iteration; convergence often scales with √κ log(1/ε) under SPD assumptions | κ large or assumptions fail | Preconditioning and residual checks |
+| Power iteration | O(N²) per dense iteration, O(nnz(A)) when sparse | Slow when the dominant eigenvalue gap is small | Residual check, shift, or deflation |
+| QR eigenvalue | Reduction and iteration costs depend on structure; dense total work is commonly O(N³) | Convergence and complex pairs depend on matrix class | Hessenberg reduction, shifts, residual checks |
+| Monte Carlo | Standard error O(1/√N) under independent finite-variance sampling | High or infinite variance invalidates the estimate | Variance reduction and confidence intervals |
+| Backprop | Work is proportional to executed forward operations for the chosen graph, not merely parameter count | Vanishing/exploding gradients and memory pressure | Normalization, clipping, checkpointing |

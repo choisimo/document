@@ -12,6 +12,15 @@
 
 ---
 
+## 적용 범위와 문제 해결 증거
+
+- **범위:** 점검 시각, Arch package versions, kernel, initramfs, boot mode·loader, filesystem, network stack, desktop session과 hardware를 기록합니다. rolling release에서는 오래된 명령을 현재 상태에 그대로 적용하지 않습니다.
+- **전제:** 증상, 마지막 정상 상태, 직전 변경, 재현 단계와 복구 shell·live media 접근 여부를 먼저 확인합니다. 수정 전 변경 대상의 backup 또는 rollback 지점을 만듭니다.
+- **사실과 추론:** journal, boot log, package database, device state와 명령 출력은 근거이고, 원인 설명은 한 번에 하나의 변수를 바꿔 재현하기 전까지 가설입니다.
+- **실패·완료:** boot 불가, network 단절, package DB 손상, 권한·보안 약화와 재부팅 후 재발을 실패로 봅니다. 원인과 수정이 log로 연결되고 reboot·update 뒤에도 정상이며 rollback 경로가 남아 있을 때 완료입니다.
+
+---
+
 ## 🚀 부팅 문제
 
 ### ⚠️ UEFI 부팅 실패: GRUB 설치 경로 오류
@@ -59,7 +68,7 @@ grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB
 |------|-------------------------|--------------------------|
 | **역할** | 🔧 펌웨어용 부트로더 저장소 | 📂 GRUB용 커널/설정 저장소 |
 | **내용물** | `grubx64.efi`, `bootx64.efi` | `vmlinuz`, `initrd.img`, `grub.cfg` |
-| **파일시스템** | FAT32 (필수) | ext4, Btrfs, XFS 등 |
+| **파일시스템** | firmware와 UEFI 요구사항에 맞는 FAT 계열(일반적으로 FAT32 사용) | ext4, Btrfs, XFS 등 |
 | **접근자** | UEFI 펌웨어 | GRUB 부트로더 |
 
 #### 🔧 **해결 방법**
@@ -390,5 +399,5 @@ cat ~/.local/share/xorg/Xorg.0.log
 
 ---
 
-> ⚡ **팁**: 문제 해결 시 항상 로그를 먼저 확인하고, 공식 Arch Wiki를 참조하세요!
+> ⚡ **팁**: 증상과 마지막 변경을 기록한 뒤 접근 가능한 journal·boot·package log를 확인하고, 현재 Arch Wiki의 대상 구성 절차와 대조하세요. log를 읽을 수 없는 boot failure는 live media 관측부터 시작합니다.
 > 🚨 **주의**: 중요한 변경사항은 반드시 백업 후 진행하세요!

@@ -3,11 +3,18 @@
 > **Sources**: Kafka: The Definitive Guide 1st Ed. (Narkhede, Shapira, Palino — O'Reilly 2016) + 2nd Ed. (Shapira, Palino, Sivaram, Narkhede — O'Reilly 2022)  
 > **Focus**: Broker I/O thread model, controller internals, replication mechanics, AdminClient async architecture, KRaft consensus, OS-level optimizations
 
+## Evidence boundary
+
+- The two source editions span ZooKeeper and KRaft generations. Controller, request-thread, storage, and metadata descriptions must be labeled by Kafka version.
+- Broker acceptance, replica acknowledgement, transaction commit, page-cache writeback, and durable media persistence are distinct milestones.
+- Hardware and latency figures are illustrative. Record workload, compression, batch size, rack topology, storage, network, percentiles, and Kafka configuration before reusing them.
+- Verify lifecycle claims with broker logs, protocol/API versions, topic configuration, ISR metrics, and a controlled restart or failover.
+
 ---
 
 ## 1. The Broker as a Log Server
 
-Kafka's broker is fundamentally a **log server** — not a queue. Every message written is durably appended to a log segment file. Brokers do not track which consumers have seen what; they expose offsets and let consumers track position themselves.
+Kafka brokers expose partitioned logs and do not maintain an acknowledgement per record for every independent consumer. A successful append first reaches the leader's log/page-cache path; the durability available to a producer depends on acknowledgement mode, ISR policy, storage behavior, and failure assumptions. Consumer groups may persist offsets in Kafka, while applications can also manage positions externally.
 
 ```mermaid
 flowchart TD
@@ -16,7 +23,7 @@ flowchart TD
     PT -->|enqueue| RQ[Request Queue\nArrayBlockingQueue]
     RQ --> IH[I/O Handler Thread\nKafkaRequestHandler]
     IH --> LM[LogManager]
-    LM --> LS[Log Segment\n.log file mmap]
+    LM --> LS[Log Segment\nfile-backed append path]
     LS --> OS[OS Page Cache\nkernel buffer]
     OS -->|fsync optional| DISK[Persistent Disk]
     
@@ -269,7 +276,7 @@ flowchart TD
     
     subgraph HW["Hardware Bottlenecks"]
         DISK2["Disk throughput\n250MB/s HDD → 2GB/s NVMe\nsequential matters, not IOPS"]
-        RAM2["RAM for Page Cache\nmore = bigger read cache\nno heap benefit beyond ~6GB"]
+        RAM2["RAM budget\npage cache and JVM heap trade off\nsize from workload evidence"]
         NET2["NIC bandwidth\n10GbE minimum for production\nreplication doubles traffic"]
         CPU2["CPU rarely bottleneck\nexcept TLS or compression"]
     end
@@ -559,7 +566,9 @@ gantt
 
 Key latency factors:
 - `linger.ms` — deliberate batching delay at producer
-- `acks=all` — waits for full ISR replication (cross-rack = 2-5ms extra)
+- `acks=all` — waits for the leader's required ISR acknowledgement condition; added latency depends on replica health, rack/network topology, load, and configured minimum ISR
+
+The Gantt durations above form one hypothetical trace, not a latency budget. Replace each value with p50/p95/p99 measurements from producer, broker, and consumer telemetry before sizing an SLO.
 - `fetch.min.bytes` — broker holds response until N bytes available (reduces requests, adds latency)
 - `fetch.max.wait.ms` — max hold time for `fetch.min.bytes`
 

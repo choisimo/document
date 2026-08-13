@@ -4,7 +4,20 @@ description: 포트포워딩 없이 외부에서 내부 서버에 안전하게 �
 
 # Tailscale VPN 상세 가이드
 
-포트포워딩 없이 외부에서 내부 서버에 **속도 저하 최소화**로 접속하는 방법을 정리합니다.
+
+## 적용 범위와 운영 계약
+
+이 가이드는 Tailscale 클라이언트와 관리 콘솔을 사용하는 tailnet 예시입니다. 운영체제, 클라이언트 버전, 계정 플랜, ACL 또는 grants 정책 형식에 따라 명령과 제한이 달라지므로 공식 문서와 현재 관리 콘솔을 기준으로 확인합니다.
+
+- **증거 상태**: 속도, 기기 수, 업로드 제한과 기능 비교는 보장값이 아닌 정성적 참고입니다. 실제 경로가 direct인지 DERP relay인지, 왕복 지연과 처리량을 대상 기기 사이에서 측정합니다.
+- **보안 전제**: SSO와 MFA, 최소 권한 정책, 태그 소유자, 장치 승인과 만료, 퇴사자 및 분실 장치 회수 절차를 먼저 정의합니다.
+- **비밀 관리**: 인증 키는 등록용 비밀이며 문서, 셸 기록, 프로세스 목록, 로그에 남기지 않습니다. 가능한 경우 일회성, 사전 승인, 짧은 수명, ephemeral 속성을 사용하고 즉시 폐기할 수 있어야 합니다.
+- **라우팅 변경**: Exit Node와 Subnet Router는 IP forwarding, 방화벽, DNS, 승인된 라우트, 역방향 경로와 장애 시 원복 경로를 함께 검토합니다.
+- **완료 조건**: tailscale status, netcheck와 ping 결과, 승인 및 거부 정책 테스트, DNS와 대상 서비스 확인, relay 전환 시 동작, 장치 회수 테스트를 기록합니다.
+
+설치 스크립트를 파이프로 바로 실행하기보다 지원 배포판과 저장소 서명을 확인하고 검토된 패키지 경로를 사용합니다. tailscale up의 반복 실행은 기존 비기본 플래그와 충돌할 수 있으므로 현재 버전에서 증분 변경용 tailscale set 지원 여부를 먼저 확인합니다.
+
+포트포워딩 없이 외부에서 내부 서버에 접속하고 실제 연결 경로와 접근 정책을 검증하는 방법을 정리합니다.
 
 ## 방법 비교
 
@@ -23,7 +36,7 @@ description: 포트포워딩 없이 외부에서 내부 서버에 안전하게 �
 
 - **WireGuard** 기반의 메시 VPN
 - **NAT Traversal(홀 펀칭)** 기술로 방화벽 통과
-- P2P 직접 연결 시 **포트포워딩과 동일한 속도**
+- 가능한 경우 P2P로 직접 연결하며 실제 성능은 NAT, 경로, MTU, 암호화와 호스트 부하에 따라 달라짐
 
 ### 핵심 개념
 
@@ -107,7 +120,7 @@ sudo tailscale status
 ```
 
 !!! success "Direct 연결 확인"
-    `direct`가 표시되면 P2P 연결 성공! 포트포워딩과 동일한 속도
+    direct는 P2P 경로가 성립했다는 뜻이며 포트포워딩과 동일한 성능을 보장하지는 않습니다.
 
 !!! warning "Relay 연결"
     `relay`로 표시되면 중계 서버 경유 중 (속도 저하 가능)
@@ -197,11 +210,11 @@ tailscale ping home-server
 ### 속도 최적화
 
 ```bash
-# MTU 최적화 (기본 1280)
-sudo tailscale up --netfilter-mode=off
+# 설정을 바꾸기 전에 연결 경로와 UDP 가능 여부를 진단
+tailscale netcheck
 
-# 불필요한 서비스 비활성화
-sudo tailscale up --accept-routes=false
+# 광고 라우트를 사용하지 않는 클라이언트에서만 선택
+sudo tailscale set --accept-routes=false
 ```
 
 ### 연결 초기화
@@ -223,8 +236,8 @@ sudo tailscale up
 | **연결 방식** | P2P 직접 | Cloudflare 경유 |
 | **지연 시간** | 낮음 | 약간 높음 |
 | **계정 필요** | Tailscale 계정 | Cloudflare 계정 |
-| **무료 제한** | 100 기기 | 무제한 |
-| **웹 노출** | 불가 | 가능 |
+| **사용 한도** | 현재 플랜에서 확인 | 현재 플랜과 제품 정책에서 확인 |
+| **웹 노출** | tailnet 전용이 기본이며 Serve/Funnel은 별도 검토 | Tunnel 정책에 따라 가능 |
 
 !!! tip "언제 무엇을 선택?"
     - **SSH/RDP/내부 서비스** → Tailscale
@@ -242,8 +255,8 @@ ip -6 addr show
 ssh user@2001:db8::1
 ```
 
-**장점:** 오버헤드 0, 가장 빠름  
-**단점:** 클라이언트도 IPv6 필요
+**장점:** 양 끝의 IPv6 경로가 안정적이면 직접 연결 가능  
+**주의:** 양 끝의 IPv6 지원과 방화벽 정책이 필요하며 서비스가 공인 주소에 직접 노출될 수 있음
 
 ---
 
@@ -282,16 +295,16 @@ Tailscale 관리 콘솔에서 접근 제어:
 {
   "acls": [
     {"action": "accept", "src": ["group:admins"], "dst": ["*:*"]},
-    {"action": "accept", "src": ["*"], "dst": ["*:22"]}
+    {"action": "accept", "src": ["group:ssh-users"], "dst": ["tag:servers:22"]}
   ]
 }
 ```
 
-### 키 만료 비활성화 (서버용)
+### 서버 등록 키와 장치 만료 관리
 
 ```bash
-# 키 만료 없이 항상 연결
-sudo tailscale up --authkey=<AUTH_KEY> --operator=$USER
+# 짧은 수명의 등록 키를 secret 파일에서 읽는 예시
+sudo tailscale up --authkey=file:/run/secrets/tailscale_authkey --operator=$USER
 ```
 
 ---

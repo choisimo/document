@@ -4,6 +4,10 @@
 
 함수 포인터와 다른 언어의 동등한 개념에 대한 비교를 설명해 드리겠습니다.
 
+## 문서 지도와 구현 경계
+
+이 파일은 C/C++ 함수 포인터, Python callable, Java functional interface·method reference, JVM memory·GC라는 세 개 주제를 누적한 비교 자료다. 언어 간 “주소”를 동일한 runtime 개념으로 취급하지 않는다. C/C++ 함수 포인터는 언어가 정의한 pointer 값이고, Python과 Java는 raw address가 아닌 object/reference와 호출 계약을 노출한다. 첫 Java 예제는 반환값이 있는데 method signature가 `void`여서 그대로 compile되지 않는 설명용 fragment다. JVM object 배치·lambda 구현·GC는 Java와 JVM version·collector에 따라 달라지며, 완료된 비교는 대상 version과 compile·runtime 관찰 결과를 함께 제시해야 한다.
+
 ## C/C++에서의 함수 포인터
 
 C와 C++에서는 함수 포인터를 통해 함수 자체를 다른 함수에 전달할 수 있습니다. 함수 포인터는 함수의 메모리 주소를 가리키며, 이를 통해 런타임에 호출할 함수를 결정할 수 있습니다[^1_1].
@@ -246,7 +250,7 @@ Integer::parseInt  // 람다 등가식: str -&gt; Integer.parseInt(str)
 Instant.now()::isAfter  // 람다 등가식: t -&gt; Instant.now().isAfter(t)
 ```
 
-여기서는 특정 객체 인스턴스(Instant.now()가 반환한 객체)의 메서드를 참조합니다. 이 경우 **실제로 해당 인스턴스의 주소값을 가지고 있으며**, 이후에 메서드가 호출될 때 그 주소값에 있는 인스턴스의 메서드가 호출됩니다[^2_1].
+여기서는 특정 객체 인스턴스(Instant.now()가 반환한 객체)의 메서드를 참조합니다. 이 경우 특정 인스턴스의 객체 참조를 캡처하며, 이후 호출은 그 참조가 가리키는 객체를 receiver로 사용합니다. Java 언어 수준에서 raw 메모리 주소가 노출되는 것은 아닙니다[^2_1].
 
 **3. 언바운드 인스턴스 메서드 참조(Unbound instance method references)**
 
@@ -271,7 +275,7 @@ int[]::new  // 람다 등가식: len -&gt; new int[len]
 
 ## 인스턴스 주소값 사용
 
-질문에 대한 직접적인 답변으로, 바운드 인스턴스 메서드 참조의 경우에는 맞습니다. 이미 존재하는 인스턴스의 주소값만을 가지고 와서 해당 인스턴스의 메서드를 호출하는 데 사용됩니다[^2_1].
+바운드 인스턴스 메서드 참조는 이미 존재하는 객체의 참조를 캡처해 해당 객체의 메서드를 호출합니다. 이를 raw 주소값 보관으로 표현하면 Java의 추상화 수준을 벗어난 설명이 됩니다[^2_1].
 
 예를 들어:
 
@@ -280,7 +284,7 @@ Button saveButton = new Button("Save");
 actionEvents.forEach(saveButton::handleEvent);
 ```
 
-이 코드에서 `saveButton::handleEvent`는 saveButton 객체의 참조(주소값)를 저장하고 있으며, 이벤트가 발생할 때마다 그 참조를 통해 handleEvent 메서드를 호출합니다.
+이 코드에서 `saveButton::handleEvent`는 `saveButton` 객체 참조를 캡처하며, 이벤트가 발생할 때마다 그 참조를 통해 handleEvent 메서드를 호출합니다.
 
 따라서 바운드 메서드 참조는 새로운 객체를 생성하지 않고 기존 인스턴스의 참조만 유지합니다[^2_1]. 이는 람다식이 해당 메서드에 단순히 위임하는 경우 더 간결한 구문을 제공하기 위한 것입니다.
 
@@ -472,7 +476,7 @@ public class Processor {
 // filter 객체는 GC 대상에서 제외
 ```
 
-이 구현에서는 `filter` 인스턴스가 스택에서 힙으로 참조가 이동하며, 람다 실행 컨텍스트에 저장됩니다[^3_6][^3_12].
+이 구현은 `filter` 객체 참조를 호출 context가 유지할 수 있다. 구체적인 lambda object와 allocation 방식은 JVM implementation에 따라 달라집니다[^3_6][^3_12].
 
 ## 4. 문자열 상수 풀의 최적화 전략
 
@@ -492,7 +496,7 @@ System.out.println(s1.equals(s3));    // true
 
 ### 4.2 최신 JVM의 문자열 처리
 
-Java 8 이후 문자열 풀은 힙 영역으로 이동되어 GC 대상이 되며, G1 GC의 문자열 중복 제거 기능으로 메모리 사용 효율이 개선되었습니다.
+HotSpot에서는 Java 7부터 문자열 풀이 heap으로 이동해 GC 대상이 되며, G1 GC의 문자열 중복 제거 기능으로 메모리 사용 효율이 개선되었습니다.
 
 ## 5. 메모리 관리 최적화 기법
 

@@ -1,6 +1,12 @@
 # MongoDB Stack
 
-MongoDB 데이터베이스 스택입니다. Replica Set 구성을 지원합니다.
+MongoDB stack example with replica-set configuration support. Availability depends on member count, votes, failure domains and tested elections.
+
+## Deployment Contract
+
+Pin MongoDB version and feature compatibility, replica-set topology, keyfile ownership, storage and authentication. “Replica Set supported” does not imply high availability when only one voting data-bearing member or one failure domain exists. Initialization scripts may run only on a fresh data directory. Test election, member loss, auth, backup/restore, restart, upgrade and rollback before completion.
+
+---
 
 ## Quick Start
 
@@ -27,7 +33,7 @@ MONGO_PASSWORD=your_secure_password
 ## Files
 
 - `docker-compose.yaml` - MongoDB 컨테이너 설정
-- `scripts/mongo-init.js` - 초기화 스크립트 (DB, 사용자, 컬렉션 생성)
+- `scripts/mongo-init.js` - fresh data directory에서 실행되는 초기화 예시; 기존 volume의 재실행 여부는 image behavior 확인
 - `scripts/init-keyfile.sh` - Replica Set 키파일 생성 스크립트
 
 ## Network

@@ -6,8 +6,17 @@
 |------|------|
 | **Use Case** | 최적 부분 구조, 탐욕적 선택 속성 |
 | **Components** | Sorting (대부분), Selection Logic |
-| **Constraint** | 매 순간 최선의 선택이 전체 최적해 보장해야 함 |
-| **시간 복잡도** | O(N log N) (정렬 포함) |
+| **Constraint** | local choice가 optimal solution으로 확장됨을 문제별로 증명해야 함 |
+| **시간 복잡도** | sorting-based 예제는 O(N log N); algorithm별로 다름 |
+
+---
+
+## 적용 범위와 검증 기준
+
+- **범위:** greedy는 local choice가 optimal solution으로 확장됨을 exchange argument, cut property, matroid 등 문제별 근거로 증명할 수 있을 때 사용합니다.
+- **복잡도 전제:** `O(N log N)`은 sorting을 사용하는 대표 pattern일 뿐이며 selection data structure와 input ordering에 따라 달라집니다.
+- **실패 조건:** arbitrary coin denomination, tie rule, incompatible interval와 proof 없는 local heuristic을 포함합니다. canonical coin이 아닌 경우 greedy change가 optimal하지 않을 수 있습니다.
+- **완료 증거:** brute-force 가능한 작은 입력과 adversarial counterexample를 비교하고 feasibility와 optimality proof의 전제를 확인합니다.
 
 ---
 

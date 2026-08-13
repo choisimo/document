@@ -1,7 +1,11 @@
-# vaultwarden + nginx + cerbot settings
+# Vaultwarden + Nginx + Certbot 설정
 ---
 
-# Vaultwarden Docker Compose 설정 (보안 강화)
+## 배포 토폴로지와 차단 조건
+
+Nginx를 호스트에 APT로 설치하는 현재 예시에서는 Compose가 공개한 `127.0.0.1:8180`으로 프록시한다. `vaultwarden:80` 서비스 이름은 Nginx도 같은 Docker 네트워크에 있는 별도 토폴로지에서만 사용한다. 두 방식을 섞지 않는다. `latest` 이미지는 재현 가능한 버전 기준이 아니며, `ssl_ciphers`의 생략 기호는 유효한 Nginx 설정이 아니다. 운영 반영 전 이미지 버전, 비밀값 파일 권한, `nginx -t`, 인증서 갱신 시험, 데이터·첨부 파일을 포함한 복원 시험을 완료 증거로 남긴다.
+
+## Vaultwarden Docker Compose 설정 예시
 
 ## 목차
 1. [Vaultwarden Docker Compose 설정 (보안 강화)](#vaultwarden-docker-compose-설정-보안-강화)
@@ -22,7 +26,7 @@
 
 ## 1. Vaultwarden Docker Compose 설정 (보안 강화)
 
-안정적이고 보안이 강화된 Vaultwarden 운영을 위한 `docker-compose.yml` 설정입니다.
+배포 환경의 버전·네트워크·비밀값 정책에 맞춰 검증해야 하는 `docker-compose.yml` 예시입니다.
 
 ### docker-compose.yml 파일 예시
 
@@ -156,7 +160,7 @@ server {
 
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers off;
-    ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:...';
+    # ssl_ciphers는 배포 환경에서 지원되는 완전한 목록을 검증한 뒤 지정한다.
     ssl_session_timeout 1d;
     ssl_session_cache shared:SSL:10m;
     ssl_session_tickets off;
@@ -181,11 +185,11 @@ server {
     client_max_body_size 55M;
 
     location / {
-        proxy_pass http://vaultwarden:80;
+        proxy_pass http://127.0.0.1:8180;
     }
 
     location /notifications/hub {
-        proxy_pass http://vaultwarden:80;
+        proxy_pass http://127.0.0.1:8180;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
     }

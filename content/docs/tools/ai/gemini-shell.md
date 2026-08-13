@@ -1,5 +1,18 @@
 # Gemini API 호출 스크립트 개선: 사용자 친화적 출력을 위한 최적화
 
+
+## 실행 전 계약과 예제 상태
+
+이 문서는 여러 세대의 Bash 예제를 비교하는 보고서입니다. v1beta 엔드포인트, 모델 ID, 생성 옵션, 함수 호출과 스트리밍 응답 형식은 변경될 수 있으므로 현재 Gemini API 명세에서 지원 여부와 할당량을 확인하고 모델을 명시적으로 고정합니다.
+
+- **증거 상태**: 예제는 이 문서에서 실행 검증되지 않았습니다. sed 또는 grep 기반 JSON 대체 경로는 따옴표, 줄바꿈, Unicode와 오류 응답을 안전하게 처리하지 못하므로 운영 사용에서는 jq를 필수 의존성으로 둡니다.
+- **비밀과 데이터**: API 키를 URL 쿼리, 명령 인자, 디버그 로그에 넣지 않고 전용 헤더와 비밀 저장소를 사용합니다. 프롬프트와 응답의 개인정보, 소스 코드, 보존 기간과 출력 파일 권한을 검토합니다.
+- **오류 처리**: curl의 HTTP 실패와 타임아웃을 구분하고 429 및 일시적 5xx만 Retry-After와 지수 백오프, jitter, 최대 횟수로 재시도합니다. 인증 실패와 잘못된 요청은 자동 재시도하지 않습니다.
+- **응답 판정**: HTTP 상태, API 오류 객체, candidate 종료 이유, 안전 차단, 빈 응답, 토큰 사용량을 각각 처리하고 원문 응답은 민감정보를 제거한 경우에만 제한적으로 보관합니다.
+- **완료 조건**: 정상 응답, 잘못된 키, 할당량 제한, 타임아웃, 빈 candidate, 특수문자 프롬프트를 시험하고 종료 코드와 stderr, 요청 추적 ID를 증거로 남깁니다.
+
+아래 세 버전은 기능 목록이지 동시에 유지할 세 개의 운영 클라이언트가 아닙니다. 하나의 구현을 선택해 공통 요청 생성, 오류 판정, 재시도와 출력 계약을 테스트 가능한 함수로 통합합니다.
+
 여러분이 작성한 Gemini API 호출 스크립트를 분석하고 더 사용자 친화적으로 개선했습니다. 원본 스크립트는 기본적인 API 호출 기능을 제공하지만, 출력 형식과 오류 처리 등 여러 부분에서 개선이 가능합니다. 아래에서 세 가지 다른 버전의 개선된 스크립트를 제안하고 각각의 특징을 설명드리겠습니다.
 
 ## 기존 스크립트 분석
@@ -151,7 +164,8 @@ fi
 echo "Gemini API 요청 전송 중..."
 
 # API 호출 및 응답 캡처
-RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}" \
+RESPONSE=$(curl --fail-with-body --silent --show-error --connect-timeout 10 --max-time 120 "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent" \
+  -H "x-goog-api-key: $GEMINI_API_KEY" \
   -H 'Content-Type: application/json' \
   -X POST \
   -d "$JSON_DATA")
@@ -171,7 +185,7 @@ echo -e "\n===== Gemini API 응답 =====\n"
 
 # 텍스트 내용만 추출하여 표시
 if command -v jq &> /dev/null; then
-  TEXT=$(echo "$RESPONSE" | jq -r '.candidates.content.parts.text // "응답에 텍스트가 없습니다"')
+  TEXT=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[].text // "응답에 텍스트가 없습니다"')
   echo "$TEXT"
   
   echo -e "\n===== 전체 JSON 응답 =====\n"
@@ -327,7 +341,8 @@ process_request() {
   
   # API 호출 및 응답 캡처
   local response
-  response=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}" \
+  response=$(curl --fail-with-body --silent --show-error --connect-timeout 10 --max-time 120 "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent" \
+  -H "x-goog-api-key: $GEMINI_API_KEY" \
     -H 'Content-Type: application/json' \
     -X POST \
     -d "$json_data")
@@ -346,7 +361,7 @@ process_request() {
   # 텍스트 내용 추출
   local text_content
   if command -v jq &> /dev/null; then
-    text_content=$(echo "$response" | jq -r '.candidates.content.parts.text // "응답에 텍스트가 없습니다"')
+    text_content=$(echo "$response" | jq -r '.candidates[0].content.parts[].text // "응답에 텍스트가 없습니다"')
   else
     # jq가 없는 경우 간단한 텍스트 추출
     text_content=$(echo "$response" | grep -o '"text":"[^"]*"' | sed 's/"text":"//;s/"$//')
@@ -610,7 +625,8 @@ process_request() {
     
     echo -e "${GREEN}스트리밍 응답:${NC}"
     # 스트리밍을 위해 버퍼링을 비활성화한 curl 사용
-    curl -N -s "$endpoint?key=${GEMINI_API_KEY}" \
+    curl -N -s "$endpoint" \
+  -H "x-goog-api-key: $GEMINI_API_KEY" \
       -H 'Content-Type: application/json' \
       -X POST \
       -d "$json_data" | while read -r line; do
@@ -620,7 +636,7 @@ process_request() {
         # 스트림의 각 줄 처리
         if command -v jq &> /dev/null; then
           # 각 청크에서 텍스트만 추출
-          text=$(echo "$line" | jq -r '.candidates.content.parts.text // empty')
+          text=$(echo "$line" | jq -r '.candidates[0].content.parts[].text // empty')
           if [ -n "$text" ]; then
             echo -n "$text"
             # 요청된 경우 파일에 추가
@@ -638,7 +654,8 @@ process_request() {
   
   # 표준 API 호출 및 응답 캡처
   local response
-  response=$(curl -s "$endpoint?key=${GEMINI_API_KEY}" \
+  response=$(curl --fail-with-body --silent --show-error --connect-timeout 10 --max-time 120 "$endpoint" \
+  -H "x-goog-api-key: $GEMINI_API_KEY" \
     -H 'Content-Type: application/json' \
     -X POST \
     -d "$json_data")
@@ -669,7 +686,7 @@ process_request() {
   # 텍스트 내용 추출 (함수 호출이 아닌 경우)
   local text_content
   if [ "$has_function_call" = "false" ] && command -v jq &> /dev/null; then
-    text_content=$(echo "$response" | jq -r '.candidates.content.parts.text // "응답에 텍스트가 없습니다"')
+    text_content=$(echo "$response" | jq -r '.candidates[0].content.parts[].text // "응답에 텍스트가 없습니다"')
   elif command -v jq &> /dev/null; then
     text_content="(응답에 직접 텍스트가 아닌 함수 호출이 포함되어 있습니다)"
   else
@@ -914,20 +931,23 @@ if command -v jq &> /dev/null; then
   # jq가 있는 경우 예쁘게 포맷팅
   if [ "$COLOR_OUTPUT" = true ]; then
     # 컬러 출력
-    curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}" \
+    curl --fail-with-body --silent --show-error --connect-timeout 10 --max-time 120 "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent" \
+  -H "x-goog-api-key: $GEMINI_API_KEY" \
     -H 'Content-Type: application/json' \
     -X POST \
-    -d "$JSON_DATA" | jq -C '.candidates.content.parts.text'
+    -d "$JSON_DATA" | jq -C '.candidates[0].content.parts[].text'
   else
     # 일반 포맷팅
-    curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}" \
+    curl --fail-with-body --silent --show-error --connect-timeout 10 --max-time 120 "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent" \
+  -H "x-goog-api-key: $GEMINI_API_KEY" \
     -H 'Content-Type: application/json' \
     -X POST \
-    -d "$JSON_DATA" | jq '.candidates.content.parts.text'
+    -d "$JSON_DATA" | jq '.candidates[0].content.parts[].text'
   fi
 else
   # jq가 없는 경우 간단한
-  RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}" \
+  RESPONSE=$(curl --fail-with-body --silent --show-error --connect-timeout 10 --max-time 120 "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent" \
+  -H "x-goog-api-key: $GEMINI_API_KEY" \
   -H 'Content-Type: application/json' \
   -X POST \
   -d "$JSON_DATA")
@@ -1016,7 +1036,8 @@ if [ "$FORMAT" = "json" ]; then
 fi
 
 # API 호출 및 출력 처리
-RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}" \
+RESPONSE=$(curl --fail-with-body --silent --show-error --connect-timeout 10 --max-time 120 "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent" \
+  -H "x-goog-api-key: $GEMINI_API_KEY" \
   -H 'Content-Type: application/json' \
   -X POST \
   -d "$JSON_DATA")
@@ -1024,12 +1045,12 @@ RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemi
 # 응답 형식에 따라 처리
 if [ "$FORMAT" = "json" ] && command -v jq &> /dev/null; then
   echo -e "\n=== 응답 내용 ===\n"
-  echo "$RESPONSE" | jq -r '.candidates.content.parts.text' | jq '.'
+  echo "$RESPONSE" | jq -r '.candidates[0].content.parts[].text' | jq '.'
 else
   # 텍스트 응답 처리
   echo -e "\n=== 응답 내용 ===\n"
   if command -v jq &> /dev/null; then
-    echo "$RESPONSE" | jq -r '.candidates.content.parts.text'
+    echo "$RESPONSE" | jq -r '.candidates[0].content.parts[].text'
   else
     echo "$RESPONSE" | grep -o '"text":"[^"]*"' | sed 's/"text":"//;s/"$//'
   fi
@@ -1114,7 +1135,8 @@ if [ -n "$MAX_TOKENS" ]; then
 fi
 
 # API 호출 및 출력
-RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}" \
+RESPONSE=$(curl --fail-with-body --silent --show-error --connect-timeout 10 --max-time 120 "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent" \
+  -H "x-goog-api-key: $GEMINI_API_KEY" \
   -H 'Content-Type: application/json' \
   -X POST \
   -d "$JSON_DATA")
@@ -1122,7 +1144,7 @@ RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemi
 # 응답 포맷팅 및 출력
 echo -e "\n=== 응답 내용 ===\n"
 if command -v jq &> /dev/null; then
-  echo "$RESPONSE" | jq -r '.candidates.content.parts.text'
+  echo "$RESPONSE" | jq -r '.candidates[0].content.parts[].text'
 else
   echo "$RESPONSE" | grep -o '"text":"[^"]*"' | sed 's/"text":"//;s/"$//'
 fi

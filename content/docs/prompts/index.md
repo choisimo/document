@@ -2,6 +2,13 @@
 
 > AI prompt engineering resources and templates for documentation
 
+## Usage contract
+
+- Prompts structure a task; they do not grant tools, execute SQL, inspect repositories, or verify facts unless those capabilities are explicitly connected.
+- Replace placeholders with bounded context, audience, source paths, versions, constraints, exclusions, and the required evidence format.
+- Require outputs to label confirmed facts, inferences, recommendations, and unresolved questions.
+- A prompt result is ready to publish only after source-backed review, security/privacy checks, and task-specific validation.
+
 ---
 
 ## Available Prompts

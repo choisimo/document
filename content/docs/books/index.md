@@ -1,6 +1,13 @@
 # Under the Hood — CS Knowledge Library Index
 
-> A comprehensive collection of "Under the Hood" documentation covering internals of systems, algorithms, distributed systems, messaging, DevOps, and computer science fundamentals. Each document focuses on **why & how** — internal data flows, memory layouts, thread interactions, and algorithm mechanics — visualized with Mermaid diagrams.
+> A curated index of "Under the Hood" documentation covering systems, algorithms, distributed systems, messaging, DevOps, and computer science fundamentals. Each entry summarizes the document's intended focus; it does not certify that every listed implementation detail is current for every version.
+
+## Index contract
+
+- File counts and topic summaries describe this maintained snapshot, not every Markdown file in the repository.
+- A link is considered complete only when its target exists and the target document states its own version or execution boundary.
+- Product defaults and performance figures belong in the target document with evidence, not in this index.
+- When entries are added, removed, or renamed, update the category count, total, and relative link in the same change.
 
 ---
 
@@ -15,7 +22,7 @@
 | [DevOps](#devops) | 6 | Docker/K8s, Jenkins, Consul, edge computing, K8s orchestration, Java+K8s |
 | [CS Reference](cs-references/index.md) | 26 | Architecture, compilers, networking, security, ML, and more |
 
-**Total: 59 files**
+**Listed snapshot: 59 files.** Recount the tables when the library structure changes.
 
 ---
 
@@ -155,7 +162,7 @@
 
 | File | Topics Covered |
 |------|----------------|
-| [`cs-reference/algorithms-cs-reference.md`](cs-reference/algorithms-cs-reference.md) | DP subproblem DAG + memoization, network flow push-relabel O(V²√E), KMP failure function, NP complexity hierarchy + 3-SAT reduction, Bloom filter FPR formula, dynamic array amortized accounting, 2-approx vertex cover, Fenwick tree lowbit trick, convex hull cross product |
+| [`cs-reference/algorithms-cs-reference.md`](cs-reference/algorithms-cs-reference.md) | DP subproblem DAG + memoization, implementation-dependent push-relabel bounds, KMP failure function, NP complexity hierarchy + 3-SAT reduction, Bloom filter FPR formula, dynamic array amortized accounting, 2-approx vertex cover, Fenwick tree lowbit trick, convex hull cross product |
 | [`cs-reference/math-computing-internals.md`](cs-reference/math-computing-internals.md) | IEEE 754 special values + catastrophic cancellation, LU decomposition partial pivoting, SVD Eckart-Young theorem, FFT Cooley-Tukey butterfly O(N log N), gradient descent Adam moments + bias correction, Monte Carlo importance sampling, network flow max-flow min-cut duality |
 
 ### AI/ML and Data Science

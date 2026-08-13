@@ -4,6 +4,10 @@
 
 ---
 
+## Audience and learning contract
+
+This index is a suggested route for readers comparing pointer mechanics, callbacks, and object-oriented patterns. The arrows are not strict prerequisites: design patterns do not require mastering raw pointers, and Java references do not expose C++-style pointer arithmetic. Treat each linked page as a separate language-specific guide. A topic is complete when the reader can state its input or ownership contract, explain one failure mode, and run or reason through the supplied example in the stated language version.
+
 ## Topics
 
 <div class="grid cards" markdown>

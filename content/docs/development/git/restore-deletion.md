@@ -1,5 +1,14 @@
 # Git 삭제 취소 및 빈 브랜치 생성 방법
 
+## 적용 범위와 복구 기준
+
+- **범위:** 삭제가 working tree, index, commit, remote 중 어디에 반영됐는지와 Git 버전, 현재 `HEAD`, reflog·garbage-collection 상태를 먼저 확인합니다.
+- **안전 전제:** untracked 파일과 미커밋 변경을 별도로 보존하고, restore 대상 tree와 path를 확인하기 전 파괴적 명령을 실행하지 않습니다.
+- **사실과 추론:** orphan branch는 첫 commit에 parent가 없는 새 history를 만들 수 있지만 repository의 object database와 reflog까지 물리적으로 분리하는 것은 아닙니다.
+- **실패·완료:** 예상 밖 파일 삭제, 잘못된 commit 복원과 remote history 불일치를 실패로 봅니다. file 내용·index·commit parent·remote ref가 의도한 상태인지 확인해야 완료입니다.
+
+---
+
 ## Git 삭제 취소하는 방법
 
 Git에서 실수로 파일을 삭제했을 때 복구하는 방법은 삭제 상황에 따라 다릅니다.
@@ -56,11 +65,11 @@ git restore --source=~1 --worktree -- path/to/file.ts
 
 ## 빈 브랜치 생성 방법
 
-완전히 새로운 히스토리를 가진 빈 브랜치(다른 타입의 내용을 저장하기 위한)를 생성하는 방법:
+첫 commit에 기존 parent가 없는 orphan branch를 만드는 방법입니다. 생성 직후 working tree가 자동으로 비어 있다는 뜻은 아닙니다:
 
 ### 1. 고아 브랜치(Orphan Branch) 생성
 
-고아 브랜치는 기존 히스토리와 전혀 관련이 없는 완전히 새로운 브랜치입니다:
+orphan branch의 첫 commit은 기존 commit을 parent로 갖지 않지만 같은 repository의 object database와 reflog 안에서 작업합니다:
 
 ```bash
 # 새 고아 브랜치 생성
@@ -78,7 +87,7 @@ git rm -rf .
 
 ### 3. 새 파일 추가 및 커밋
 
-이제 완전히 빈 상태에서 새로운 파일을 추가하고 커밋할 수 있습니다:
+기존 tracked 파일을 의도대로 제거했는지 확인한 뒤 새 root commit에 포함할 파일을 추가합니다:
 
 ```bash
 # 새 파일 추가
@@ -104,5 +113,5 @@ git push -u origin
    ```bash
    git merge  --allow-unrelated-histories
    ```
-3. 이 방식은 완전히 다른 타입의 프로젝트를 동일한 저장소에서 관리할 때 유용합니다[4][6].
+3. 별도 history가 필요한 콘텐츠에 사용할 수 있지만 repository 권한·용량·CI가 공유된다는 trade-off를 별도 repository와 비교합니다[4][6].
 

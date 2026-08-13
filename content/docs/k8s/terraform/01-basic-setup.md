@@ -1,5 +1,12 @@
 # Terraform 기본 설정
 
+## 실습 범위와 상태 계약
+
+- 이 문서는 로컬 파일 provider로 Terraform workflow를 익히는 범위입니다. 클라우드 계정·조직의 운영 IaC 정책은 별도입니다.
+- Terraform CLI와 provider 버전을 제약 파일과 lock file로 고정하고 배포 파일의 checksum을 확인합니다.
+- state에는 리소스 식별자와 민감 값이 포함될 수 있습니다. 저장 위치, 암호화, 잠금, 접근 권한과 백업 소유자를 정합니다.
+- 적용 완료는 `apply` 종료가 아니라 state와 실제 대상 일치, 산출물 확인, 재계획 시 예상치 못한 diff 부재와 destroy/rollback 결과입니다.
+
 ## 📖 개요
 
 Terraform은 HashiCorp Configuration Language(HCL)을 사용하여 인프라를 코드로 정의하는 IaC 도구입니다.
@@ -14,7 +21,7 @@ Terraform은 HashiCorp Configuration Language(HCL)을 사용하여 인프라를 
 
 ### Linux/macOS
 ```bash
-# Terraform 설치 (최신 버전)
+# 예제 고정 버전: 프로젝트 요구 버전과 checksum을 별도로 확인
 wget https://releases.hashicorp.com/terraform/1.6.0/terraform_1.6.0_linux_amd64.zip
 unzip terraform_1.6.0_linux_amd64.zip
 sudo mv terraform /usr/local/bin/
@@ -204,7 +211,7 @@ output "file_content" {
 | `terraform init` | 프로바이더 다운로드, 백엔드 초기화 | 프로젝트 시작 시, 프로바이더 추가 시 |
 | `terraform plan` | 변경 사항 미리보기 (실제 변경 X) | 적용 전 검증 |
 | `terraform apply` | 실제 리소스 생성/수정/삭제 | 인프라 변경 시 |
-| `terraform destroy` | 모든 관리 리소스 삭제 | 테스트 환경 정리 시 |
+| `terraform destroy` | 선택한 구성·state가 관리하는 삭제 가능 리소스 계획 | 대상 state와 보존 리소스를 확인한 테스트 환경 정리 시 |
 | `terraform fmt` | 코드 포맷팅 | 코드 정리 |
 | `terraform validate` | 구문 검증 | 오류 체크 |
 

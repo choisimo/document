@@ -1,6 +1,6 @@
 # Java 문서
 
-Java 프로그래밍, 메모리 관리, OOP에 관한 학습 자료입니다.
+Java 언어와 HotSpot JVM의 입문 자료 인덱스입니다. 예제는 JDK 17·21 중심이지만 공급업체 지원 기간과 내부 동작은 버전·GC 옵션마다 다릅니다. `java -version`과 `javac -version`을 기록하세요.
 
 ---
 
@@ -66,13 +66,15 @@ flowchart TD
 | 버전 | 출시년도 | 주요 기능 |
 |------|---------|----------|
 | **Java 8** | 2014 | Lambda, Stream API, Optional |
-| **Java 11** | 2018 | LTS, var, HTTP Client |
+| **Java 11** | 2018 | LTS 배포판, 표준 HTTP Client, 단일 파일 소스 실행. 지역 변수 `var`는 Java 10에서 도입 |
 | **Java 17** | 2021 | LTS, Sealed Classes, Pattern Matching |
 | **Java 21** | 2023 | LTS, Virtual Threads, Record Patterns |
 
 ---
 
 ## :material-head-cog: JVM 메모리 구조
+
+아래 그림은 전통적인 세대별 힙의 단순 모델입니다. 모든 collector가 연속된 Eden/Survivor/Old 레이아웃이나 `Minor/Major GC` 용어를 동일하게 쓰지는 않습니다.
 
 ```mermaid
 flowchart TB
@@ -145,11 +147,15 @@ List<Integer> result = numbers.stream()
 // 동시성
 ExecutorService executor = Executors.newFixedThreadPool(4);
 CompletableFuture<String> future = CompletableFuture
-    .supplyAsync(() -> "result")
+    .supplyAsync(() -> "result", executor)
     .thenApply(s -> s.toUpperCase());
 ```
 
 ---
+
+## 학습 완료 기준
+
+코드가 대상 JDK에서 컴파일되고 예상 출력과 실패 예외를 설명할 수 있어야 합니다. GC·성능 설명은 JFR, GC 로그, JMH 같은 측정 없이 특정 지연이나 처리량을 보장하지 않습니다. 링크 존재와 예제 빌드는 문서 파이프라인에서 별도로 검사합니다.
 
 ## :material-link-variant: 관련 문서
 

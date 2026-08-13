@@ -1,6 +1,15 @@
 # GitHub 원격 저장소와 로컬 브랜치 이름 불일치 해결 방법
 
-GitHub에서 로컬 브랜치와 원격 브랜치의 이름이 일치하지 않으면 push할 때마다 새로운 브랜치가 생성되는 문제가 발생할 수 있습니다. 이 문제를 해결하고 일관성을 유지하기 위한 여러 방법을 알아보겠습니다.
+로컬 branch와 remote-tracking branch의 이름이 달라도 올바른 upstream이 설정되어 있으면 새 branch가 매번 생성되지는 않습니다. 의도하지 않은 생성은 refspec, upstream과 `push.default` 조합에서 발생할 수 있습니다. 이 문제를 해결하고 일관성을 유지하기 위한 여러 방법을 알아보겠습니다.
+
+## 적용 범위와 완료 기준
+
+- **범위:** Git 버전, remote 이름, `push.default`, `branch.*.merge`, 현재 branch와 GitHub branch-protection 규칙을 확인합니다. 원격 추적은 Git 설정이며 hosting UI의 branch 이름과 구분합니다.
+- **전제:** 명령 전 `HEAD`, working tree, upstream과 target ref를 기록하고 새 원격 branch 생성 또는 이름 변경이 허용되는지 확인합니다.
+- **실패 조건:** 잘못된 remote/ref에 push, 의도하지 않은 새 branch, force update, 보호 규칙·권한 오류와 열린 PR 연결 변경을 포함합니다.
+- **완료 기준:** local branch가 의도한 remote-tracking ref를 가리키고 dry-run 또는 실제 push 결과와 hosting UI의 target이 일치할 때 완료입니다.
+
+---
 
 ## 업스트림 브랜치 설정하기
 
@@ -82,7 +91,7 @@ git config --global branch.autoSetupMerge always
 
 ## 결론
 
-원격 브랜치와 로컬 브랜치의 이름 불일치 문제는 위의 방법들을 통해 해결할 수 있습니다. 가장 권장되는 방법은:
+선택은 branch 이름을 통일할지, 서로 다른 이름을 명시적으로 추적할지와 팀의 push 정책에 따라 달라집니다. 적용 전 현재 upstream과 target ref를 확인합니다:
 
 1. 브랜치 이름을 일치시키거나
 2. 업스트림 브랜치를 명시적으로 설정하거나

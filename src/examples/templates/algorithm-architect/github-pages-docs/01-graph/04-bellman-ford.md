@@ -8,6 +8,12 @@
 ## 원본 템플릿
 - Source: [01-graph/04-bellman-ford.md](../../01-graph/04-bellman-ford.md)
 
+## 적용 계약과 근거 경계
+
+- 노드는 `1..n`인 directed edge tuple `(u, v, weight)`로 가정합니다. 음수 간선은 허용합니다.
+- `None`은 시작점에서 도달 가능한 음수 사이클이 있어 유한 최단 거리를 정의할 수 없다는 뜻입니다. 다른 component의 음수 사이클은 이 코드가 보고하지 않습니다.
+- 최악 시간 `O(VE)`, 공간 `O(V)`입니다. 조기 종료는 일부 입력만 줄이며 최악 상한을 바꾸지 않습니다.
+
 ## 내부 메커니즘 (Flow)
 ```mermaid
 flowchart TD
@@ -52,11 +58,15 @@ def bellman_ford(start, edges, n):
     
     # 2. 완화 반복 (Relaxation Loop)
     #    - (V-1)번 반복: 최단 경로는 최대 V-1개의 간선
-    for i in range(n - 1):
+    for _ in range(n - 1):
+        updated = False
         # 3. 간선 순회 (Edge Iteration)
         for u, v, weight in edges:
             if distances[u] != INF and distances[u] + weight < distances[v]:
                 distances[v] = distances[u] + weight
+                updated = True
+        if not updated:
+            break
     
     # 4. 음수 사이클 검출 (Negative Cycle Detection)
     #    - 한 번 더 완화가 일어나면 음수 사이클 존재
@@ -75,7 +85,7 @@ def bellman_ford(start, edges, n):
 - **Termination**: 목표 도달, 범위 소진, 큐/스택 고갈, 사이클 검출 등으로 종료한다.
 
 ## 실전 적용 체크리스트
-- 입력 자료구조 형식(인접 리스트, 간선 리스트, 정렬 여부, 1-index/0-index)을 먼저 고정한다.
-- 시간 복잡도 한계에 맞게 자료구조를 교체한다 (`list.pop(0)` -> `deque.popleft` 등).
-- 실패/예외 경로를 명시한다 (도달 불가, 음수 사이클, 빈 결과, 사이클 존재).
-- 테스트는 최소 3개: 정상 케이스, 경계 케이스, 반례 케이스를 포함한다.
+- endpoint 범위, directed/undirected 변환, 숫자 overflow 정책을 고정합니다.
+- 도달 가능한 음수 cycle, 도달 불가능한 음수 cycle, 평행 간선과 고립 노드를 구분해 시험합니다.
+- 음수 cycle이 없을 때 작은 그래프의 단순 경로 전수 결과와 대조합니다.
+- `None`과 거리 배열을 호출자가 혼동하지 않도록 반환 계약을 고정합니다.

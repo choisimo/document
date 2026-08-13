@@ -2,11 +2,19 @@
 
 > 내부 내용: CPU 메모리 모델의 저장/로드 순서, 시스템 호출이 사용자/커널 경계를 넘는 방법, 뮤텍스와 퓨텍스가 커널에서 차단을 구현하는 방법, Rust의 빌림 검사기가 컴파일 타임에 메모리 안전을 강화하는 방법, POSIX 스레드가 커널 스케줄러 엔터티에 매핑되는 방법.
 
+## 문서 범위와 검증 계약
+
+- **범위**: 주로 x86-64 Linux, glibc 계열 환경과 safe Rust의 대표 동작을 설명하는 학습용 개요입니다. POSIX가 보장하는 인터페이스와 Linux·CPU·할당자 버전의 구현 세부를 구분합니다.
+- **전제**: 레지스터 저장 순서, 스케줄러 자료구조, bin/size class, syscall·NUMA 지연과 컨텍스트 전환 비용은 커널·libc·CPU·보안 완화·부하에 따라 바뀝니다. 다이어그램은 실제 소스의 완전한 제어 흐름이 아닙니다.
+- **근거 상태**: 메모리 순서는 언어와 ISA 명세, 커널 동작은 대상 커널 소스/문서와 추적으로 확인합니다. 시간·크기·배수는 조건이 없는 참조값이 아니며 벤치마크와 프로파일 결과가 있어야 사실로 사용합니다.
+- **실패/재시도**: syscall·I/O·락 획득은 `errno`, 부분 완료, `EINTR`, timeout과 취소 상태를 보존합니다. 재시도 가능 오류만 멱등성과 진행 한계를 확인해 백오프하며, 무한 CAS·I/O 재시도나 오류 무시는 완료가 아닙니다.
+- **완료 증거**: 실습에는 커널/libc/compiler 버전, CPU·NUMA 토폴로지, 빌드 플래그, 실행 명령, 입력 부하와 원시 trace/profile을 남깁니다. 동시성 코드는 불변식, 메모리 순서, 중복/부분 실패와 종료 조건을 검증해야 완료입니다.
+
 ---
 
 ## 1. CPU 메모리 모델: 저장/로드 순서
 
-최신 CPU는 성능을 위해 메모리 작업 순서를 변경합니다. 프로그래머의 순차적 정신 모델은 하드웨어 현실과 일치하지 않습니다.
+CPU와 컴파일러는 각 메모리 모델이 허용하는 범위에서 관찰 가능한 순서를 바꿀 수 있습니다. 데이터 경쟁이 있는 코드를 소스 순서만으로 추론하지 말고 언어 원자 연산과 happens-before 규칙을 함께 사용해야 합니다.
 
 ```mermaid
 flowchart TD
@@ -35,10 +43,10 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    MFENCE["MFENCE (x86):\n  Drain store buffer\n  Wait for all pending stores\n  to be globally visible\n  ← → full barrier"]
+    MFENCE["MFENCE (x86):\n  orders prior loads/stores before later loads/stores\n  exact microarchitectural completion is implementation-specific\n  full memory-ordering barrier"]
     SFENCE["SFENCE:\n  Store barrier only\n  (stores ordered before fence\n  visible before stores after)"]
     LFENCE["LFENCE:\n  Load barrier only\n  (serializes loads\n  also prevents speculation)"]
-    LOCK["LOCK prefix:\n  Implicit full barrier\n  (LOCK ADD, XCHG, CMPXCHG)\n  → Read-modify-write atomic"]
+    LOCK["LOCKed RMW / XCHG:\n  atomic read-modify-write with strong ordering\n  exact instruction semantics must be checked\n  not a substitute for a language memory model"]
     MFENCE --> SFENCE
     MFENCE --> LFENCE
     MFENCE --> LOCK
@@ -55,7 +63,7 @@ sequenceDiagram
     participant KERN as Linux Kernel
 
     APP->>CPU: SYSCALL instruction\n(x86-64: rax=syscall_number\nrdi,rsi,rdx,r10,r8,r9 = args)
-    Note over CPU: Save registers to kernel stack\nSwitch CS to kernel segment (ring 0)\nLoad kernel stack pointer\nJump to LSTAR MSR (syscall entry)
+    Note over CPU: Hardware saves return RIP/RFLAGS in registers\nand loads entry RIP/selectors from MSRs\nLinux entry code switches to a kernel stack\nand saves the full pt_regs frame
 
     CPU->>KERN: entry_SYSCALL_64:\n  1. Save user regs to pt_regs\n  2. Check seccomp filters\n  3. sys_call_table[rax](args)\n     → e.g., sys_write(fd,buf,count)
     Note over KERN: Execute in kernel mode\n(full memory access, all privileges)
@@ -65,14 +73,14 @@ sequenceDiagram
 
 ### vDSO: Syscall 오버헤드 방지
 
-부작용 없이 자주 호출되는 syscall(gettimeofday, clock_gettime)의 경우 Linux는 **vDSO**(가상 동적 공유 개체)를 통해 커널 코드를 사용자 프로세스 주소 공간에 직접 매핑합니다.
+일부 시간 조회처럼 커널이 안전한 사용자 공간 구현을 제공할 수 있는 호출에서 Linux는 **vDSO**(가상 동적 공유 개체)의 사용자 공간 코드를 매핑합니다. vDSO는 “커널 코드를 직접 실행”하는 것이 아니며 clocksource·아키텍처에 따라 실제 syscall로 폴백할 수 있습니다.
 
 ```
 gettimeofday() call in user space:
-  NORMAL: SYSCALL → kernel → read clock → SYSRET (~100ns)
+  NORMAL: SYSCALL → kernel → read clock → return (cost is platform-dependent)
   vDSO:   Call vDSO function directly (no ring switch!)
           Reads time from shared memory page (mapped by kernel)
-          ~10ns — 10× faster
+          Usually cheaper; measure on the target kernel/CPU
 ```
 
 ---
@@ -103,15 +111,15 @@ sequenceDiagram
     Note over T2: Retry CAS → acquire lock
 ```
 
-**빠른 경로**: 대기자 없이 잠금/잠금 해제 = 원자 CAS 1개 + 시스템 호출 0개.  
-**느린 경로**: 경합이 발생하는 경우에만 syscall이 커널에 들어가 잠자기/깨우기를 수행합니다.
+**빠른 경로**: 대표적인 futex 기반 mutex는 비경합 시 사용자 공간 원자 연산으로 끝날 수 있습니다. 정확한 연산 수는 pthread 구현과 mutex 속성에 따라 다릅니다.  
+**느린 경로**: 경합 시 futex wait/wake를 사용할 수 있지만 적응형 스핀, 경쟁 상태와 wake 정책 때문에 경합 한 번당 syscall 수가 고정되는 것은 아닙니다.
 
 ### Spinlock 대 Mutex Tradeoff
 
 ```mermaid
 flowchart LR
-    SPIN["Spinlock\n  while(!CAS(lock,0,1)) { PAUSE }\n  Pros: No context switch overhead\n  Cons: Burns CPU while waiting\n  Use: Short critical sections (<5μs)\n       Under interrupt handlers (no sleep!)"]
-    MUTEX["Mutex (via futex)\n  CAS fast path → sleep if contended\n  Pros: Yields CPU to other threads\n  Cons: Context switch overhead (~1-5μs)\n  Use: Long critical sections\n       When contention is common"]
+    SPIN["Spinlock\n  while(!CAS(lock,0,1)) { PAUSE }\n  Pros: may avoid sleeping for very short waits\n  Cons: burns CPU and can starve under contention\n  Use only with measured hold/wait time and context rules"]
+    MUTEX["Mutex (often futex-backed)\n  user-space fast path → may sleep if contended\n  Pros: lets scheduler run other work\n  Cons: scheduling/wakeup cost varies\n  Use when blocking is permitted and waits may be longer"]
     SPIN --> MUTEX
 ```
 
@@ -148,10 +156,12 @@ sequenceDiagram
     BC-->>CODE: OK or Error: "does not live long enough"
 ```
 
-**빌림 검사기는 컴파일 타임에 제거됩니다**:
+**빌림 검사는 정적 분석이며 별도 런타임 검사기를 삽입하지 않습니다**:
 - Use-after-free: 빌림이 존재하는 동안 소유자가 삭제됨 → 컴파일 오류
 - 데이터 경합: 다른 참조가 활성화된 동안 `&mut` 참조 → 컴파일 오류
 - 댕글링 참조: 범위를 벗어난 값에 대한 참조 → 컴파일 오류
+
+이 보장은 safe Rust와 올바른 `Send`/`Sync` 구현 범위입니다. `unsafe`, FFI, 원시 포인터, `RefCell` 같은 동적 검사와 교착·논리 경쟁은 별도 검토가 필요하고, `Drop` 실행 자체의 비용은 남습니다.
 
 ---
 
@@ -161,8 +171,8 @@ sequenceDiagram
 flowchart TD
     subgraph "Thread Implementation: Linux"
         PTHREAD["pthread_create()\n→ clone() syscall:\n  CLONE_VM: share address space\n  CLONE_FS: share file system\n  CLONE_FILES: share file descriptors\n  CLONE_SIGHAND: share signal handlers"]
-        TASK["kernel: New task_struct\n(same process, new stack, new TID)\nShares mm_struct (page tables)\nScheduled independently by CFS"]
-        SCHED["CFS (Completely Fair Scheduler):\n  vruntime = actual_runtime × (weight_nice0 / weight_this)\n  Always run task with lowest vruntime\n  Red-black tree ordered by vruntime"]
+        TASK["Linux NPTL: new task_struct\n(shared resources per clone flags, new TID/stack)\nindependently schedulable task"]
+        SCHED["Linux fair scheduling class:\n  policy/data structures evolve by kernel version\n  CFS vruntime and newer EEVDF details differ\n  selection is not a POSIX guarantee"]
         PTHREAD --> TASK --> SCHED
     end
     subgraph "Thread-Local Storage (TLS)"
@@ -177,7 +187,7 @@ flowchart LR
     subgraph "Registers Saved on Context Switch"
         CALLEE["Callee-saved (compiler):\nrbx, rbp, r12-r15\n(caller responsible for rax, rcx, rdx, rsi, rdi, r8-r11)"]
         SPECIAL["Special registers:\nrip (instruction pointer)\nrsp (stack pointer)\nrflags (condition codes)"]
-        FPU["FPU/SIMD (lazy save):\nxmm0-xmm15, ymm0-ymm15\nOnly saved if FPU used since last switch\n(XSAVE instruction — slow, avoid if possible)"]
+        FPU["FPU/SIMD state:\nXSAVE-family mechanism where supported\neager/lazy policy and optimized state components\ndepend on kernel and CPU"]
         CALLEE --> SPECIAL --> FPU
     end
 ```
@@ -186,17 +196,19 @@ flowchart LR
 
 ## 6. 메모리 할당자 내부: glibc malloc
 
+다음 ptmalloc·TCMalloc 그림은 대표 개념도입니다. 현대 glibc의 tcache, safe-linking, bin 경계와 최신 TCMalloc의 per-CPU 캐시 등은 버전·빌드마다 다르므로 숫자를 ABI 계약으로 사용하지 않습니다.
+
 ```mermaid
 flowchart TD
     subgraph "glibc ptmalloc Heap Layout"
-        FASTBIN["Fastbins (8-160 bytes):\n  LIFO singly-linked list per size class\n  No coalescing — fastest path\n  Stays in CPU cache (recently freed)"]
-        SMALLBIN["Small bins (16-512 bytes):\n  Doubly-linked sorted by size\n  First-fit within size class"]
-        LARGEBIN["Large bins (>512 bytes):\n  Sorted by size + address\n  Best-fit with skip list for O(log N) search"]
+        FASTBIN["Fastbins / tcache for selected small sizes\n  linked free structures\n  boundaries and hardening are version-specific"]
+        SMALLBIN["Small bins\n  exact size range depends on word size/build\n  chunks in a bin share a size class"]
+        LARGEBIN["Large bins\n  size-ordered structures and searches\n  layout/complexity is implementation-specific"]
         TOPCHUNK["Top chunk:\n  Remainder at wilderness\n  Extended via sbrk()/mmap()\n  Coalesce freed chunks into top"]
         FASTBIN --> SMALLBIN --> LARGEBIN --> TOPCHUNK
     end
     subgraph "Chunk Header"
-        HEADER["Each allocation has 16-byte header:\n  size | PREV_INUSE | IS_MMAPPED | NON_MAIN_ARENA\n  prev_size (if previous chunk free)\nUser data starts here (returned pointer)\nFooter: size repeated (for backward coalescing)"]
+        HEADER["Chunk metadata (layout varies):\n  size and state flags\n  previous-size field when relevant\nReturned pointer addresses user area\nDo not assume every allocation has a fixed 16-byte header/footer"]
     end
 ```
 
@@ -205,9 +217,9 @@ flowchart TD
 ```mermaid
 flowchart LR
     subgraph "TCMalloc Levels"
-        THREAD_CACHE["Thread Cache:\n  Per-thread free lists (0-256KB)\n  No locks needed!\n  256 size classes (8B, 16B, 32B...)"]
+        THREAD_CACHE["Front-end cache:\n  per-thread or per-CPU by implementation/version\n  common fast path avoids central locks\n  size classes are configuration-specific"]
         CENTRAL_CACHE["Central Cache:\n  Spans of pages\n  Lock only when thread cache empty/full\n  Transfer batch of objects at once"]
-        PAGE_HEAP["Page Heap:\n  mmap() from OS\n  256KB+ allocations bypass thread cache\n  Pagemap: addr → span metadata"]
+        PAGE_HEAP["Page heap / backend:\n  obtains and manages spans from the OS\n  bypass thresholds vary\n  address-to-span metadata"]
         THREAD_CACHE --> CENTRAL_CACHE --> PAGE_HEAP
     end
 ```
@@ -242,10 +254,10 @@ sequenceDiagram
 ### O_DIRECT: 페이지 캐시 우회
 
 ```c
-// O_DIRECT: bypass page cache entirely
+// O_DIRECT: request direct-I/O semantics; exact cache interactions are FS/device-specific
 fd = open("data.bin", O_RDWR | O_DIRECT);
-// Requires aligned buffer (aligned to 512 or 4096 bytes)
-// Transfers directly: user_buf ↔ disk (via DMA)
+// Buffer/offset/length alignment requirements come from the filesystem/device
+// Avoids the normal buffered page-cache path; copies/DMA mapping still depend on the stack
 // Used by: databases (manage their own cache)
 //          backup tools (avoid evicting hot pages)
 ```
@@ -276,13 +288,13 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     subgraph "NUMA System (2-socket server)"
-        NODE0["NUMA Node 0\nCPU 0-15\nLocal RAM: 64GB\n(Access: ~70ns)"]
-        NODE1["NUMA Node 1\nCPU 16-31\nLocal RAM: 64GB\n(Access: ~70ns)"]
-        INTERCO["QPI/UPI Interconnect\n(Remote access: ~140ns\n= 2× penalty!)"]
+        NODE0["NUMA Node 0\nexample CPU/RAM topology\nlocal latency: measure on target"]
+        NODE1["NUMA Node 1\nexample CPU/RAM topology\nlocal latency: measure on target"]
+        INTERCO["Socket interconnect\nremote latency/bandwidth penalty\ndepends on platform and contention"]
         NODE0 <--> INTERCO <--> NODE1
     end
     subgraph "NUMA-Aware Allocation"
-        POLICY["numactl --membind=0 ./process\n  Allocate memory only on node 0\n  (process pinned to node 0 CPUs)\n→ Always local access, no cross-node\nnuma_alloc_local(): first-touch policy"]
+        POLICY["numactl --cpunodebind=0 --membind=0 ./process\n  constrain CPU and memory policy\n→ can improve locality; migration/fallback/faults still matter\nfirst-touch placement must be verified"]
     end
 ```
 
@@ -295,8 +307,8 @@ flowchart TD
 | 뮤텍스 잠금(비경합) | 사용자 공간의 CAS | 없음(빠른 경로) |
 | 뮤텍스 잠금(경합) | 퓨텍스(FUTEX_WAIT) | 예 — 프로세스가 차단되었습니다 |
 | 스레드 생성 | 클론(CLONE_VM\|...) | 예 — 새 task_struct |
-| 컨텍스트 전환 | 규정 저장, 규정 로드 | 예 — CFS 스케줄러 |
-| 메모리 할당(<256B) | 스레드 캐시 LIFO | 없음(tcmalloc) |
+| 컨텍스트 전환 | 필요한 CPU/커널 상태 저장·복원 | 예 — 대상 커널 스케줄러 |
+| 메모리 할당(캐시 적중) | 구현별 thread/per-CPU cache | 보통 없음(TCMalloc fast path 예) |
 | 메모리 할당(대형) | mmap(MAP_ANON) | 예 — 페이지 테이블 업데이트 |
 | 파일 읽기(캐시됨) | 페이지 캐시에서 복사 | 최소 |
 | 파일 읽기(캐시되지 않음) | 바이오 제출 + 수면 | 예 — I/O 스케줄러 |
@@ -310,12 +322,12 @@ flowchart TD
 
 ### 구조와 모델링
 
-시스템 프로그래밍의 근본 구조적 선택은 **추상화 계층 설계**다. POSIX의 "모든 것은 파일이다(Everything is a file)" 철학은 이 추상화의 정수를 보여준다. 일반 파일, 디렉토리, 디바이스, 소켓, 파이프, 프로세스 정보(`/proc`)까지 모두 파일 디스크립터(fd)로 접근한다.
+시스템 프로그래밍의 근본 구조적 선택은 **추상화 계층 설계**입니다. “모든 것은 파일이다”는 Unix 계열의 유용한 요약이지만 POSIX의 문자 그대로인 보장은 아닙니다. 일반 파일·디렉터리·여러 디바이스·소켓·파이프는 fd로 다뤄지며, `/proc`의 프로세스 정보는 Linux가 파일처럼 노출하는 의사 파일시스템입니다.
 
 이 단일 추상화의 **설계 가치**:
 
 1. **조합성(composability)**: 셋 프로그램이 fd를 통해 자유롭게 조합된다. `ls | grep | wc`가 가능한 이유.
-2. **통일 인터페이스**: `read()`/`write()`/`close()`/`ioctl()`로 모든 리소스를 조작. 새로운 API를 배울 필요 없다.
+2. **통일 인터페이스**: 많은 리소스가 `read()`/`write()`/`close()`를 공유하지만 `ioctl`, socket API와 장치별 계약은 여전히 배워야 합니다.
 3. **리다이렉션 투명성**: `2>&1`로 stderr를 stdout으로 보내는 것이 fd 수준에서 작동.
 
 그러나 이 추상화에는 **비용**이 있다. 네트워크 소켓은 파일처럼 `lseek()` 되지 않고, GPU는 `ioctl()` 지옥이 되며, 고성능 I/O는 `mmap()`이나 `io_uring` 같은 별도 경로를 요구한다.
@@ -354,7 +366,7 @@ flowchart TD
 - 단점: **경합(contention)** 시 스레드가 블로킹되어 처리량 급감. 우선순위 역전(priority inversion), 데드락 위험.
 
 **락-프리(CAS 기반)**:
-- 장점: 어떤 스레드도 차단하지 않음. 높은 경합에서도 진행 보장(progress guarantee).
+- 장점: mutex 소유자의 중단에 전체 진행이 묶이지 않도록 설계할 수 있습니다. lock-free는 시스템 전체에서 적어도 하나의 연산이 진행한다는 성질이며 개별 스레드의 무기아를 보장하지 않습니다.
 - 단점: ABA 문제, 메모리 순서(memory ordering), 검증의 어려움. **정확성 증명이 극도로 난해**.
 
 ```mermaid
@@ -374,23 +386,23 @@ flowchart TD
         CAS --> LOOP --> PROGRESS
     end
 
-    LOCK -->|"장점: 단순함\n단점: 경합 시 성능 붕괴"| CHOICE{"설계 선택"}
-    LOCKFREE -->|"장점: 성능\n단점: 복잡성 + 검증 난도"| CHOICE
+    LOCK -->|"장점: 비교적 단순\n단점: 경합 시 지연 증가 가능"| CHOICE{"설계 선택"}
+    LOCKFREE -->|"장점: 특정 진행 보장\n단점: 복잡성 + 검증 난도"| CHOICE
     CHOICE -->|"대부분 애플리케이션"| REC1["락 기반 + 경합 최소화\n(세분화된 락, RCU)"]
     CHOICE -->|"극한 성능 필요"| REC2["락-프리\n(커널 데이터 구조, DB 엔진)"]
 ```
 
-리눅스 커널의 **RCU(Read-Copy-Update)**는 이 트레이드오프의 훌륭한 타협점이다. 읽기는 락 없이 수행하고, 쓰기는 복사본을 수정한 후 모든 독자가 기존 버전 사용을 마칠 때까지 기다렸다가 교체한다. 읽기 많고 쓰기 적은 커널 데이터 구조(라우팅 테이블, 모듈 리스트)에 이상적이다.
+리눅스 커널의 **RCU(Read-Copy-Update)**는 읽기 측 비용을 낮추는 한 계열입니다. 갱신자는 새 버전을 게시한 뒤 grace period가 지나기 전 옛 객체를 회수하지 않습니다. 쓰기 직렬화와 메모리 순서는 별도로 필요하며, 읽기 위주 구조에 적합한지는 갱신 비용·회수 지연과 함께 평가합니다.
 
 #### Rust 소유권 모델: 컴파일 타임 안전성의 설계 가치
 
-Rust의 소유권(ownership) 시스템은 **런타임 비용 제로로 메모리 안전성을 보장**하는 설계 혁신이다. C/C++의 use-after-free, double-free, 데이터 레이스를 컴파일러가 원천 차단한다.
+safe Rust의 소유권 시스템은 별도 추적 GC 없이 많은 use-after-free, double-free와 데이터 경쟁을 컴파일 단계에서 배제합니다. 그러나 `unsafe`/FFI, 누수, 교착과 논리 오류까지 원천 차단하지 않으며 동적 디스패치·할당·참조 카운팅·drop의 실행 비용은 프로그램 선택에 따라 남습니다.
 
 - **소유권 규칙**: 각 값은 정확히 하나의 소유자를 가진다. 소유자가 스코프를 벗어나면 자동 `drop()`.
 - **참조 규칙**: `&T`(불변 참조) 여러 개 OR `&mut T`(가변 참조) 단 하나. 동시 불가.
 - **라이프타임**: 참조의 유효 범위를 정적으로 추적하여 dangling 참조 방지.
 
-이 설계의 **트레이드오프**는 학습 곡선과 컴파일 시간 증가다. 그러나 시스템 프로그래밍에서 메모리 버그는 디버깅에 수일~수주가 소요되므로, 컴파일 타임 검증의 ROI는 압도적이다.
+이 설계의 트레이드오프에는 학습·컴파일 비용과 일부 자료구조 표현 제약이 있습니다. 투자 대비 효과는 결함 종류, FFI 비중과 팀 경험에 따라 다르므로 수정 시간·메모리 안전 결함·빌드 시간을 도입 전후로 측정합니다.
 
 #### tcmalloc vs jemalloc vs glibc malloc: 단편화 vs 속도
 
@@ -398,11 +410,11 @@ Rust의 소유권(ownership) 시스템은 **런타임 비용 제로로 메모리
 
 | 할당자 | 핵심 전략 | 장점 | 단점 |
 |---------|------------|--------|--------|
-| glibc malloc | arena + bin (크기별 분류) | 범용성, 외부 의존 없음 | 높은 경합에서 느림 |
-| tcmalloc | 스레드별 캠시 + 중앙 힙 | 소형 할당 초고속 | 메모리 사용량 증가 |
-| jemalloc | arena 다중화 + slab | 단편화 최소화 | 소형 할당 tcmalloc보다 느림 |
+| glibc malloc | arena + tcache/bin | 기본 통합과 범용성 | 워크로드에 따라 경합·단편화 |
+| TCMalloc | 구현별 per-thread/per-CPU cache + 중앙 구조 | 소형 할당 fast path | 캐시·메모리 회수 특성 확인 필요 |
+| jemalloc | arena + size class/slab 계열 | 조정·관측 기능과 단편화 관리 | 설정과 워크로드별 비용 |
 
-tcmalloc의 스레드 로컬 캠시는 `malloc()`/`free()`에서 락을 완전히 회피한다. 256B 미만 할당은 스레드 로컬 캠시의 프리리스트에서 즉시 반환되므로 커널 개입이 전혀 없다.
+TCMalloc의 front-end cache 적중 경로는 중앙 잠금과 커널 호출을 피할 수 있습니다. 캐시가 per-thread인지 per-CPU인지, 대상 크기와 refill/reclaim 경로는 버전에 따라 달라지므로 고정된 256B 경계나 “항상 무잠금”으로 가정하지 않습니다.
 
 ### 리팩토링과 설계 원칙
 
@@ -413,7 +425,7 @@ C에서 Rust로의 전환은 단순한 언어 교체가 아니라 **시스템 �
 - C: "프로그래머가 모든 것을 책임진다" → Valgrind, AddressSanitizer로 런타임 검증
 - Rust: "컴파일러가 정적으로 증명한다" → borrow checker가 컴파일 시점에 검증
 
-이는 소프트웨어 공학의 **"오류를 나중에 발견할수록 비용이 기하급수적으로 증가"** 원칙의 언어 수준 적용이다. 컴파일 타임 검증은 런타임 버그보다 10~100배 저렴하다.
+검증을 앞당기면 일부 결함의 피드백 시간을 줄일 수 있지만 비용이 항상 기하급수적으로 증가하거나 컴파일 오류가 런타임 결함보다 10~100배 저렴하다는 보편 법칙은 없습니다. 이 문서의 비교는 방향성 가설이며 실제 수정 리드타임과 escaped defect로 확인합니다.
 
 ```mermaid
 flowchart LR
@@ -444,7 +456,7 @@ flowchart LR
 
 #### 메모리 할당자의 스트래티지 패턴
 
-메모리 할당자들은 **Strategy 패턴**의 전형적 적용이다. 동일한 인터페이스(`malloc`/`free`)를 유지하면서 내부 할당 전략만 교체한다. 애플리케이션은 `LD_PRELOAD=libtcmalloc.so` 한 줄로 할당자를 교체할 수 있다 — 코드 변경 제로.
+메모리 할당자는 같은 `malloc`/`free` 인터페이스 뒤의 전략을 교체하는 예로 볼 수 있습니다. ELF 동적 링크 환경에서는 `LD_PRELOAD`로 바꿀 수 있는 경우도 있지만 정적 링크, setuid 보안, 컨테이너·플랫폼 ABI, 라이브러리의 자체 할당자와 할당/해제 경계 때문에 코드·빌드 변경 없이 항상 교체되는 것은 아닙니다.
 
 ```mermaid
 flowchart TD
@@ -471,7 +483,7 @@ flowchart TD
 
 #### RAII 패턴: 리소스 수명을 스코프에 바인딩
 
-**RAII(Resource Acquisition Is Initialization)**는 C++/Rust의 핵심 리소스 관리 패턴이다. 리소스(파일 핸들, 락, 메모리) 획득을 객체 생성에, 해제를 소멸자에 바인딩한다. 예외가 발생해도 스택 언와인딩이 소멸자를 보장하므로 리소스 누수가 구조적으로 불가능하다.
+**RAII(Resource Acquisition Is Initialization)**는 C++/Rust의 핵심 리소스 관리 패턴입니다. 리소스 획득과 해제를 객체 수명에 묶어 정상 반환과 언와인딩 경로의 정리를 돕습니다. 프로세스 중단, 의도적 leak/forget, 참조 순환, 소멸자 오류와 외부 리소스 계약까지 제거하지 않으므로 “누수 불가능”을 보장하지 않습니다.
 
 Rust의 `Drop` 트레이트, C++의 스마트 포인터(`unique_ptr`, `shared_ptr`), Go의 `defer`, Python의 컨텍스트 매니저(`with`)는 모두 RAII의 변형이다. 시스템 프로그래밍에서 리소스 누수는 공격 벡터이자 장애 원인이므로, 이 패턴의 적용은 선택이 아니라 필수다.
 
@@ -486,12 +498,12 @@ Rust의 `Drop` 트레이트, C++의 스마트 포인터(`unique_ptr`, `shared_pt
 Nginx는 단일 워커 프로세스로 수만 개의 동시 연결을 처리한다. 이 시스템의 핵심인 `epoll` 기반 이벤트 루프의 동작을 분석하라.
 
 - `epoll_create()` → `epoll_ctl(EPOLL_CTL_ADD)` → `epoll_wait()` → 이벤트 처리의 전체 순환 흐름을 서술하고, 각 단계에서 커널 내부에서 무슨 일이 일어나는지 설명하라.
-- `select()`/`poll()`과 비교하여 `epoll`이 O(1) 이벤트 알림을 달성하는 **내부 구조(ready list + 콜백)**를 설명하라.
-- **Level-Triggered** vs **Edge-Triggered** 모드의 차이와, Edge-Triggered에서 부분적 읽기(partial read) 시 발생할 수 있는 **데이터 손실 위험**을 설명하라.
+- `select()`/`poll()`과 비교하여 `epoll`이 등록 집합 전체의 반복 스캔을 피하는 **내부 구조(관심 집합 + ready list + 콜백)**를 설명하고, 반환 비용이 준비된 이벤트 수에 의존함을 논하라.
+- **Level-Triggered** vs **Edge-Triggered** 모드의 차이와, Edge-Triggered에서 `EAGAIN`까지 읽지 않을 때 새 edge가 없어 처리가 정체될 위험을 설명하라. 커널이 남은 바이트를 즉시 버리는 “데이터 손실”과는 구분하라.
 
 <details><summary>힌트 보기</summary>
 
-`epoll_create()`는 커널에 레드-블랙 트리(eventpoll 구조체)를 생성한다. `epoll_ctl(ADD)`로 fd를 등록하면 해당 fd의 wait queue에 콜백을 등록한다. fd에 이벤트가 발생하면 콜백이 실행되어 ready list에 추가된다. `epoll_wait()`는 ready list만 반환하므로 O(1)이다(select/poll은 매번 전체 fd를 스캔하므로 O(n)). Level-Triggered는 데이터가 있는 한 계속 알리지만, Edge-Triggered는 상태 변화 시에만 알리므로 데이터를 완전히 읽지 않으면(EAGAIN까지 읽지 않으면) 남은 데이터에 대한 알림이 다시 오지 않는다.
+`epoll_create1()`은 커널 eventpoll 인스턴스를 만들고 `epoll_ctl(ADD)`는 관심 fd와 wait-queue 콜백을 등록합니다. 준비된 fd는 ready list에 연결되고 `epoll_wait()`는 최대 요청 개수만큼 반환합니다. 따라서 전체 등록 집합을 매번 선형 복사·스캔하는 비용을 피하지만 등록·준비 이벤트·wake-up 비용까지 보편적인 O(1)이라고 부르지는 않습니다. Edge-Triggered에서는 nonblocking fd를 `EAGAIN`까지 처리해야 하며, 그렇지 않으면 데이터가 남아도 새 전이가 없어 대기할 수 있습니다.
 
 </details>
 
@@ -529,7 +541,7 @@ Data race의 3조건: ① 두 이상의 스레드가 동시 접근 ② 최소 �
 
 <details><summary>힌트 보기</summary>
 
-x86-64 `syscall` 명령: ① RCX에 리턴 주소 저장 ② R11에 RFLAGS 저장 ③ MSR(IA32_LSTAR)에서 커널 엔트리 포인트를 RIP에 로드 ④ CPL 3→0(유저→커널 모드) 전환 ⑤ 커널 스택으로 전환. vDSO는 커널이 유저 주소 공간에 매핑한 공유 라이브러리로, `gettimeofday()` 등을 커널 전환 없이 유저 공간에서 직접 읽는다. syscall 오버헤드는 약 100ns~1µs이므로 100K req/s에서 하나의 요청당 10회 syscall이면 초당 1M회, 총 ~100ms의 CPU 시간을 소비한다.
+x86-64 `syscall`은 RCX/R11에 반환 상태를 두고 MSR의 엔트리와 선택자 정보를 사용해 권한을 전환합니다. 하드웨어가 일반 인터럽트처럼 전체 프레임이나 커널 RSP를 자동 저장하는 것은 아니며 Linux 진입 코드가 안전한 스택으로 전환합니다. vDSO 경로는 지원 조건에서 전환을 피하지만 폴백할 수 있습니다. 고정된 100ns~1µs를 곱하지 말고 대상 커널에서 tracing 자체의 오버헤드를 분리해 syscall별 지연 분포와 CPU 시간을 측정합니다.
 
 </details>
 
@@ -558,7 +570,7 @@ x86-64 `syscall` 명령: ① RCX에 리턴 주소 저장 ② R11에 RFLAGS 저�
 - **데이터베이스(Redis)**: 다양한 크기의 키/값 저장, 장시간 운영으로 단편화 축적
 - **단기 스크립트**: 실행 후 즉시 종료, 대량 할당 후 프로세스 종료로 OS가 회수
 
-각 워크로드에 glibc malloc, jemalloc, tcmalloc 중 어떤 할당자가 최적인지 근거를 제시하라. 특히 각 할당자의 **내부 설계(arena, thread-local cache, slab)**와 워크로드 특성의 매칭을 분석하라.
+각 워크로드에 glibc malloc, jemalloc, TCMalloc 중 어떤 후보가 적합한지 가설을 세우고 벤치마크 계획을 제시하라. “최적”은 처리량뿐 아니라 p99 지연, RSS, 단편화, 메모리 반환과 운영 관측성을 같은 부하에서 비교해 결정한다.
 
 <details><summary>힌트 보기</summary>
 
@@ -577,7 +589,7 @@ glibc malloc은 arena별 bins 구조로 다양한 크기를 처리하지만 aren
 
 <details><summary>힌트 보기</summary>
 
-동기식은 10,000번의 `pread` syscall + 각각 커널에서의 I/O 대기로 컨텍스트 스위칭이 빈번하다. `io_uring`은 SQ에 10,000개를 넣고 `io_uring_enter()` 1회로 제출, 커널이 배치로 처리하므로 디스크 I/O 스케줄러가 요청을 엘리베이터 알고리즘으로 최적 순서로 처리할 수 있다. 다만 순차적으로 읽어야 하는 의존성 있는 I/O(예: B-tree 트래버스)에서는 동기식이 더 간단하고 예측 가능하다.
+단순 동기 구현은 최대 10,000회의 `pread`와 대기/스케줄링 비용을 만들 수 있습니다. `io_uring`은 여러 SQE를 배치해 진입 횟수를 줄일 수 있지만 링 용량, SQPOLL, 커널 버전과 제출/완료 방식에 따라 한 번의 syscall로 모두 처리된다고 보장할 수 없습니다. 장치·파일시스템 스케줄링도 “엘리베이터 최적 순서”로 단정하지 말고 queue depth, IOPS, latency와 CPU를 측정합니다.
 
 </details>
 
@@ -601,7 +613,7 @@ printf("%s\n", buf);  // use-after-free!
 
 <details><summary>힌트 보기</summary>
 
-`free()` 후 메모리는 할당자의 free list에 반환되지만 물리 주소는 유효하다. 다음 `malloc()`이 같은 영역을 할당하면 공격자가 함수 포인터 등을 주입해 임의 코드 실행(heap spray)이 가능하다. Rust에서는 `free(buf)` 후 `buf`의 소유권이 소멸되어 이후 사용이 컴파일 오류이다. C에서는 `free()` 후 `buf = NULL`로 설정하는 방어적 패턴이 있지만 모든 복사본을 널로 설정할 수는 없다. AddressSanitizer는 테스트 시에만 동작하며 2x 성능 오버헤드가 있다.
+`free()` 후 포인터 값은 남아 있어도 그 저장 영역의 객체 수명은 끝나며 접근은 정의되지 않은 동작입니다. 같은 가상 주소가 재할당되어 공격자 입력이 놓이면 제어 데이터 손상으로 이어질 수 있지만 악용 가능성은 배치와 완화책에 달립니다. Rust에서는 소유 값을 `drop(buf)`한 뒤 사용하면 컴파일 오류가 납니다. C의 NULL 대입은 해당 별칭만 보호합니다. AddressSanitizer는 계측된 실행 경로에서 탐지하며 운영 적용 여부와 오버헤드는 빌드·워크로드별로 다릅니다.
 
 </details>
 
@@ -635,7 +647,7 @@ printf("%s\n", buf);  // use-after-free!
 
 <details><summary>힌트 보기</summary>
 
-`definitely lost`는 할당된 메모리를 가리키는 포인터가 프로그램 어디에도 없는 경우, `possibly lost`는 포인터가 블록 내부를 가리키는 경우(할당자가 추적 불가). 흔한 누수 패턴: `if (error) return;`에서 `free()` 누락, 루프 내 매 반복 `malloc` 후 마지막 반복만 `free`. C++ RAII는 스코프 종료 시 자동 해제로 구조적 방지. Rust는 소유권 이동/드롭으로 누수가 구조적으로 불가능(순환 참조 제외). Go의 GC는 도달 불가능한 객체를 자동 회수하지만 GC pause와 메모리 오버헤드가 있다.
+`definitely lost`는 Valgrind가 블록 시작을 가리키는 도달 가능한 포인터를 찾지 못한 경우이고, `possibly lost`는 내부 포인터 등 때문에 확정하지 못한 분류입니다. early return과 소유권 이전 실패를 단일 cleanup 경로, RAII 또는 소유 타입으로 다룹니다. C++/Rust도 순환 소유, `mem::forget`, 전역 캐시, FFI로 자원을 누수할 수 있고 Go GC도 도달 가능한 논리적 누수와 외부 핸들을 회수하지 못하므로 RSS와 자원 수명 테스트가 필요합니다.
 
 </details>
 
@@ -673,7 +685,7 @@ Node.js는 단일 스레드 이벤트 루프로 동작하지만, 파일 I/O는 �
 
 <details><summary>힌트 보기</summary>
 
-ABA: 스레드1이 A를 읽고 CAS 전에 선점되는 동안, 스레드2가 A를 빛고 B를 빝고 A를 다시 넣는다. 스레드1의 CAS(top, A, B)는 top이 여전히 A이므로 성공하지만, B는 이미 해제된 노드이다. Tagged pointer는 포인터에 단조 증가하는 버전 카운터를 붙여 CAS가 주소+버전을 함께 비교하므로 A가 같아도 버전이 다르면 실패한다. Memory ordering 없이는 CPU가 store/load를 재정렬하여 스레드1이 B의 next를 읽을 때 이전 값(C)이 아닌 쓰레기 값을 보는 것이 가능하다.
+ABA: 스레드 1이 A와 next=B를 읽은 사이 스레드 2가 A와 B를 pop하고 A를 다시 push하면 주소만 비교하는 CAS는 중간 변화를 놓칠 수 있습니다. Tagged pointer는 주소와 충분히 넓은 세대 값을 함께 비교하지만 wraparound와 원자 폭을 검토해야 합니다. acquire/release는 게시된 노드의 초기화 가시성과 연산 순서를 세우는 문제이고, 해제된 B를 안전하게 만드는 메모리 회수 기법은 아닙니다. Hazard pointer나 epoch reclamation으로 수명을 별도로 보장해야 합니다.
 
 </details>
 
@@ -681,12 +693,12 @@ ABA: 스레드1이 A를 읽고 CAS 전에 선점되는 동안, 스레드2가 A�
 
 Rust는 “제로 코스트 추상화(zero-cost abstractions)”를 핵심 철학으로 한다. 다음 시나리오를 분석하라:
 
-- Rust의 `Iterator` 체이닝(`.filter().map().collect()`)이 C의 수동 for 루프와 **동일한 머신 코드**를 생성하는 원리를 모노모픽화(monomorphization)와 인라이닝 관점에서 설명하라.
-- `Box<dyn Trait>`를 사용하면 제로 코스트가 깨지는 이유를 vtable 동적 디스패치와 연결하여 설명하라.
-- 시스템 프로그래밍 컨텍스트에서 Rust의 소유권 시스템이 C에 비해 **런타임 오버헤드 없이 안전성을 보장**하는 이유를 드롭(자동 해제)과 빌림 검사기의 컴파일 타임 검증 관점에서 설명하라.
+- Rust의 `Iterator` 체이닝이 모노모픽화와 인라이닝으로 수동 루프와 유사하게 최적화될 수 있는 조건을 설명하고, 실제 머신 코드·벤치마크로 확인하는 방법을 제시하라.
+- `Box<dyn Trait>`가 보통 vtable 간접 디스패치와 힙 할당을 도입하는 이유와, 탈가상화·기존 박싱으로 비용이 달라질 수 있는 조건을 설명하라.
+- safe Rust의 소유권 검사가 별도 런타임 borrow checker 없이 안전 속성을 제공하는 범위와, `Drop`·할당·동기화 비용이 여전히 남는 이유를 설명하라.
 
 <details><summary>힌트 보기</summary>
 
-제네릭 `Iterator` 체이닝은 모노모피화로 치환되어 각 클로저/콜백이 콜 사이트에서 인라인된다. LLVM이 이를 C의 for 루프와 동일한 머신 코드로 최적화한다. `dyn Trait`는 모노모피화 대신 vtable을 통한 동적 디스패치를 사용하므로 간접 함수 호출 오버헤드와 인라이닝 실패가 발생한다. Rust의 소유권/Drop은 C의 `free()`와 동일한 코드를 생성하되(런타임 오버헤드 제로), 빌림 검사기가 컴파일 타임에 라이프타임 유효성을 검증하여 use-after-free/double-free를 방지한다.
+제네릭 iterator adaptor는 모노모픽화되고 최적화기가 루프 융합·인라이닝을 할 수 있지만 최적화 수준, panic/alias 조건과 adaptor에 따라 수동 C 루프와 동일한 코드를 보장하지 않습니다. `dyn Trait` 호출도 구체 타입이 증명되면 탈가상화될 수 있습니다. 소유권 검사는 정적이지만 `Drop`은 실제 정리 코드를 실행하고 `Box`, `Arc`, 락 등 선택한 추상화의 비용은 남습니다. 결론은 생성된 어셈블리와 동일 입력의 분포 측정으로 뒷받침합니다.
 
 </details>

@@ -1,5 +1,11 @@
 # Sourcebot 설정 가이드
 
+## 적용 범위와 보안 검증 기준
+
+Sourcebot, MCP, provider API와 GitHub token의 version·scope·network boundary를 기록합니다. repository content와 tool output은 untrusted input으로 취급하고 prompt injection, secret exfiltration, excessive repository access와 outbound request를 제한합니다. 최소 권한 test token으로 연결·검색·agent 호출·revocation을 시험하고 log redaction, exposed ports, persistent data와 rollback을 확인해야 완료입니다.
+
+---
+
 ## 1. 환경 변수 설정
 
 1. `env.example` 파일을 `.env`로 복사:
@@ -7,7 +13,7 @@
    cp env.example .env
    ```
 
-2. `.env` 파일을 편집하여 실제 API 키들을 입력:
+2. `.env`에 development용 최소 권한 token을 설정하고 production secret store·rotation 정책을 별도로 적용:
    - `GITHUB_TOKEN`: GitHub Personal Access Token
    - `OPENROUTER_API_KEY`: OpenRouter API 키
    - `GEMINI_API_KEY`: Google Gemini API 키

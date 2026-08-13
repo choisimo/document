@@ -1,5 +1,12 @@
 # Module 3: Proxmox VE 고급 스토리지 서브시스템
 
+## 데이터 보호와 측정 계약
+
+- storage backend와 기능 지원은 Proxmox VE, kernel/ZFS/Ceph/NFS 버전, guest 유형과 volume format에 따라 달라집니다.
+- `pvesm`, LVM, ZFS, Ceph 변경 전 실제 storage ID, device serial, mount, guest 사용 관계와 복원 가능한 backup을 확인합니다.
+- snapshot, thin provisioning, replication, RAID/Ceph redundancy와 backup을 구분합니다. 어느 하나도 단독으로 삭제·침해·사이트 장애 전체를 막지 않습니다.
+- 완료 증거는 capacity 표시뿐 아니라 guest fsync/latency 분포, failure 상태, 재부팅, backup restore와 경보 임곗값 검증입니다.
+
 ## 학습 목표
 이 모듈을 완료하면 다음을 이해할 수 있습니다:
 - Proxmox VE 스토리지 계층 구조와 각 타입의 특징
@@ -383,7 +390,7 @@ zfspool: local-zfs
 │  │  nvme0  │           │  nvme0  │           │  nvme0  │          │
 │  └─────────┘           └─────────┘           └─────────┘          │
 │                                                                     │
-│  데이터 복제: 3중 복제 (기본) - 모든 데이터가 3개 OSD에 저장         │
+│  데이터 복제: 예시 size=3 - pool 설정과 placement 상태를 확인        │
 │                                                                     │
 │  ┌───────────────────────────────────────────────────────────────┐ │
 │  │  MON (Monitor)     MGR (Manager)     MDS (Metadata Server)    │ │
@@ -457,7 +464,7 @@ pvesm add nfs shared-nfs --server 192.168.1.100 --export /export/pve --content i
 #         path /mnt/pve/shared-nfs
 #         server 192.168.1.100
 #         content backup,images,iso,rootdir
-#         options vers=4.2,soft
+#         options vers=4.2,hard  # 실제 timeout/recovery 정책과 서버 지원 확인
 ```
 
 ---

@@ -1,6 +1,15 @@
 # 🎨 KDE Plasma 데스크톱 환경 테마 및 커스터마이징 가이드
 
-> **✨ KDE Plasma의 매력**: KDE Plasma는 리눅스에서 가장 커스터마이징이 자유로운 데스크톱 환경입니다. 마치 자신만의 운영체제를 만드는 듯한 즐거움을 선사합니다!
+> **✨ KDE Plasma의 매력**: KDE Plasma는 폭넓은 커스터마이징 기능을 제공하는 Linux desktop 환경 중 하나입니다. 마치 자신만의 운영체제를 만드는 듯한 즐거움을 선사합니다!
+
+## 적용 범위와 복구 기준
+
+- **범위:** KDE Plasma·Frameworks·Qt 버전, Arch package snapshot, Wayland/X11 session, display manager, GPU driver와 theme source/version을 기록합니다.
+- **전제:** global theme, color, icon, font, window decoration, panel, widget와 SDDM은 서로 다른 구성 범위입니다. 한 항목의 변경이 desktop 전체에 동일하게 적용된다고 가정하지 않습니다.
+- **사실과 추론:** 적용된 package·설정 파일과 session log는 사실이고, theme 호환성·성능·오류 원인은 재현 전까지 추론입니다. 인기·미관·“최고” 평가는 사용자와 시점에 종속됩니다.
+- **실패·완료:** 깨진 login, unreadable text, missing widget, shortcut·locale·accessibility 회귀를 확인하고, 기존 설정 backup에서 복구할 수 있으며 재로그인 후 선택한 구성 요소만 의도대로 적용될 때 완료입니다.
+
+---
 
 ## 📚 목차
 
@@ -18,7 +27,7 @@
 
 ## 🎯 KDE Plasma 개요
 
-KDE Plasma는 강력한 커스터마이징 기능으로 유명한 데스크톱 환경으로, 사용자가 거의 모든 것을 원하는 대로 변경할 수 있습니다.
+KDE Plasma는 강력한 커스터마이징 기능으로 유명한 데스크톱 환경으로, 사용자가 지원되는 component와 권한 범위에서 appearance와 workflow를 폭넓게 변경할 수 있습니다.
 
 ### KDE Plasma의 주요 특징
 
@@ -170,7 +179,7 @@ graph TD
 
 ### 방법 1: 시스템 설정 통합 스토어 (권장)
 
-KDE의 가장 큰 장점 중 하나는 시스템 설정에서 바로 테마를 다운로드할 수 있다는 것입니다.
+KDE System Settings의 theme download 기능은 편리하지만, source·license·compatibility·update 상태를 확인한 뒤 설치합니다.
 
 #### 단계별 설치 과정
 
@@ -306,7 +315,7 @@ graph LR
 ```
 
 - **특징**: 분홍색 포인트가 돋보이는 현대적 다크 테마
-- **구성**: 완전한 테마 패키지 (글로벌 테마 + 아이콘 + SDDM)
+- **구성 예시**: global theme, icon과 SDDM을 함께 제공할 수 있으나 실제 포함 항목은 package version에서 확인
 - **설치**:
   ```bash
   yay -S sweet-kde-git sweet-folders-icons-git

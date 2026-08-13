@@ -3,10 +3,19 @@
 ## 문서 목적
 - 원본 템플릿 `08-sliding-window/01-sliding-window.md` 의 내부 동작을 GitHub Markdown에서 바로 읽을 수 있게 설명합니다.
 - 코드 레이어(초기화/루프/조건/갱신/종료)를 분해하고, Mermaid로 제어 흐름을 시각화합니다.
-- 실전 문제에 붙일 때 반드시 수정해야 하는 지점을 체크리스트로 제공합니다.
+- 실전 문제에 적용할 때 input domain과 invariant에 맞춰 검토·수정할 지점을 checklist로 제공합니다.
 
 ## 원본 템플릿
 - Source: [08-sliding-window/01-sliding-window.md](../../08-sliding-window/01-sliding-window.md)
+
+## 적용 범위와 검증 기준
+
+- **범위:** 이 페이지는 linked source template의 특정 revision을 해설합니다. Mermaid와 layer 설명은 code를 이해하기 위한 모델이며 source가 바뀌면 함께 갱신해야 합니다.
+- **알고리즘 전제:** contiguous range, 단조롭게 이동하는 left/right와 constant 또는 amortized-constant window update가 있을 때 `O(N)`을 기대할 수 있습니다. 음수 값은 일부 sum-based shrink 조건을 깨뜨립니다.
+- **실패 조건:** empty target, duplicate frequency, stale aggregate, pointer 미진행, Unicode 단위와 invalid window를 포함합니다.
+- **완료 증거:** exhaustive small-range reference와 결과를 비교하고 window invariant, minimal/maximal 조건, boundary와 반례를 input domain에 맞게 검증합니다.
+
+---
 
 ## 내부 메커니즘 (Flow)
 ```mermaid
@@ -71,4 +80,4 @@ def sliding_window_fixed(arr, k):
 - 입력 자료구조 형식(인접 리스트, 간선 리스트, 정렬 여부, 1-index/0-index)을 먼저 고정한다.
 - 시간 복잡도 한계에 맞게 자료구조를 교체한다 (`list.pop(0)` -> `deque.popleft` 등).
 - 실패/예외 경로를 명시한다 (도달 불가, 음수 사이클, 빈 결과, 사이클 존재).
-- 테스트는 최소 3개: 정상 케이스, 경계 케이스, 반례 케이스를 포함한다.
+- test 수를 고정하지 말고 normal·boundary·counterexample와 exhaustive/reference 비교가 위험 범위를 덮도록 구성한다.

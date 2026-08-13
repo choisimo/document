@@ -1,5 +1,7 @@
 # BST - Java Implementation
 
+> Runtime scope: object layout, compressed references, GC timing, JIT compilation, and I/O performance depend on JDK distribution/version, VM flags, heap, architecture, and workload. Diagrams and byte counts are one possible model, not Java guarantees.
+
 > **Focus:** JVM 메모리 모델, GC 생애 주기, Young/Old Generation
 
 ---
@@ -124,6 +126,8 @@ BST에서 Node 삭제 시 GC 흐름:
 
 ### Object Header Overhead
 
+The estimate below assumes a 64-bit HotSpot-style JVM with compressed class and ordinary object pointers. Confirm the layout under the same runtime flags before capacity planning.
+
 ```
 Java Object Memory Layout (64-bit JVM, Compressed OOPs)
 
@@ -141,7 +145,7 @@ Java Object Memory Layout (64-bit JVM, Compressed OOPs)
 └─────────────────────────────────────────────────────────────────┘
 
 + Integer(key) 자체도 16 bytes (header 12 + int 4)
-= Node 하나당 실제 메모리: ~40 bytes
+= 이 가정에서 Node와 별도 Integer를 합친 단순 추정: 약 40 bytes
 
 비교: C의 struct node { int key; node* left; node* right; }
 = 24 bytes (64-bit) - Java보다 40% 적음
@@ -216,10 +220,10 @@ public void insertIterative(T key) {
 ### 3. 빠른 I/O (경쟁 프로그래밍)
 
 ```java
-// ❌ 느림
+// 큰 token 입력에서 상대적으로 느릴 수 있음; benchmark로 선택
 Scanner sc = new Scanner(System.in);
 
-// ✅ 빠름
+// parsing과 buffer 처리를 직접 제어하는 대안
 BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
 StringTokenizer st = new StringTokenizer(br.readLine());
 int n = Integer.parseInt(st.nextToken());

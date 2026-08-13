@@ -2,6 +2,13 @@
 
 > Sources: *Mastering Kafka Streams and ksqlDB* (Mitch Seymour, O'Reilly 2021) · *Designing Event-Driven Systems* (Ben Stopford, O'Reilly 2018)
 
+## Scope and verification
+
+- Examples reflect the cited 2018-2021 material. Kafka Streams, ksqlDB, RocksDB defaults, EOS, and deployment modes must be checked against the deployed versions.
+- SQL statements describe logical semantics; generated topics, partitions, stores, and tasks are physical evidence to inspect with topology and server metadata.
+- Recovery claims include restore bytes, changelog lag, standby freshness, rebalance time, query routing, and what clients observe while a store is unavailable.
+- Kafka transactions cover Kafka records and offsets, not external sinks unless their connector and target provide a compatible contract.
+
 ---
 
 ## 1. Processor Topology: Depth-First DAG Execution
@@ -222,7 +229,7 @@ stateDiagram-v2
         REVOKE --> REASSIGN: coordinator issues new assignment
         REASSIGN --> RESTORE: each member rebuilds state from changelog
         RESTORE --> [*]: resume processing
-        note right of RESTORE: O(state_size) downtime — catastrophic for large state
+        note right of RESTORE: restore work scales with missing state/changelog; downtime depends on bandwidth and assignment
     }
 
     state CooperativeStickyRebalance {
@@ -230,7 +237,7 @@ stateDiagram-v2
         PARTIAL_REVOKE --> PARTIAL_ASSIGN: migrating tasks reassigned
         PARTIAL_ASSIGN --> DELTA_RESTORE: only new tasks restore state
         DELTA_RESTORE --> [*]: unaffected tasks continue processing throughout
-        note right of DELTA_RESTORE: O(migrated_state_size) — minimal disruption
+        note right of DELTA_RESTORE: standby may reduce missing bytes; freshness and promotion delay still require measurement
     }
 ```
 
@@ -313,7 +320,7 @@ sequenceDiagram
     Note over Store: Changelog rolled back too — state consistent
 ```
 
-**EOS_V2** (`processing.guarantee=exactly_once_v2`): Uses a single transactional producer per stream thread (rather than per task in v1). Reduces the number of open transactions from `O(tasks)` to `O(threads)`, significantly reducing broker-side load.
+**EOS_V2** (`processing.guarantee=exactly_once_v2` in supporting versions) uses a thread-scoped transactional producer rather than the older task-scoped approach. This can reduce open producer and transaction state, but the broker-load improvement depends on task count, commit cadence, throughput and failure rate and must be measured.
 
 ---
 

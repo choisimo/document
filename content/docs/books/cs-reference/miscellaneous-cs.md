@@ -4,6 +4,18 @@
 
 ---
 
+## Scope and Evidence Across Topics
+
+This is a cross-domain reference. Each chapter has its own system model, units, and verification method; a number or trade-off from one chapter must not be transferred to another without new evidence.
+
+- **Scope:** GPU pipelines, game engines, IoT, infrastructure automation, SRE, testing, databases, engineering process, and schedulers are independent examples rather than one unified architecture.
+- **Assumptions:** Identify hardware and driver, engine or tool version, topology, workload, latency deadline, consistency model, and failure mode for the chapter being applied.
+- **Evidence:** Separate specification or algorithm facts from vendor implementation details, illustrative diagrams, empirical ranges, and design recommendations.
+- **Uncertainty:** Throughput, latency, utilization, coverage, error budget effects, and memory overhead depend on inputs and measurement boundaries. Report distributions and sample sizes instead of treating a single range as a guarantee.
+- **Failure and completion:** Define domain-specific failure first, such as a missed frame or control deadline, unsafe infrastructure diff, SLO burn, surviving mutant, or scheduling inversion. Completion requires a reproducible test and an observable pass condition for that failure.
+
+---
+
 ## 1. Real-Time Graphics: GPU Rendering Pipeline Internals
 
 ### Rasterization Pipeline
@@ -42,7 +54,7 @@ sequenceDiagram
     end
 ```
 
-**Early-Z** rejects fragments before shader execution — massive perf win. Broken if shader writes depth or calls `discard`.
+**Early-Z** can reject fragments before shader execution and reduce shading work; the benefit depends on overdraw, depth ordering, GPU architecture, and shader behavior. Broken if shader writes depth or calls `discard`.
 
 ### Deferred Rendering vs Forward Rendering
 
@@ -75,7 +87,7 @@ flowchart TD
     MollerTrumbore -->|t > 0| Hit["Record hit: (t, u, v, tri_id)"]
 ```
 
-NVIDIA RTX uses **RT Cores** for hardware BVH traversal — a fixed-function unit offloading tree walks from shader processors. BVH build is O(N log N) via Surface Area Heuristic (SAH).
+Some NVIDIA RTX architectures use **RT Cores** to accelerate portions of BVH traversal and ray intersection. The builder, heuristic, scene dynamics, driver, and hardware determine build complexity and speed; SAH-based construction is not a universal `O(N log N)` guarantee.
 
 ---
 
@@ -160,7 +172,7 @@ flowchart TD
     EdgeCompute -->|low-latency control| Actuator["Actuators\n(motors, valves)"]
 ```
 
-**Local loop latency**: edge-to-actuator < 10ms. Cloud round-trip: 50–200ms — too slow for real-time control.
+**Latency example**: a control loop might require edge-to-actuator latency below 10ms while a measured cloud path might be 50–200ms. Those values are workload and topology examples; the cloud path is unacceptable only when it violates the system’s stated deadline and failure policy.
 
 ### TLS on Constrained Devices
 
@@ -376,7 +388,7 @@ flowchart TD
     Survived --> Coverage["Mutation score = killed / (killed + survived)"]
 ```
 
-Mutation testing reveals **false confidence** — 100% line coverage can still have high survived-mutation rate if assertions don't verify exact values.
+Mutation testing reveals **false confidence** — even 100% line coverage can coexist with a high survived-mutation rate if assertions don't verify exact values.
 
 ---
 
@@ -410,7 +422,7 @@ block-beta
     end
 ```
 
-**Warp divergence**: if threads in a warp take different branches (`if (threadId % 2)`), both paths execute sequentially with inactive lanes masked — worst case 50% utilization.
+**Warp divergence** can serialize paths taken by different active lanes, but utilization is not universally 50%. It depends on branch shape, active-lane masks, compiler transformations, reconvergence, and GPU architecture, and should be measured with hardware counters.
 
 ---
 
@@ -529,7 +541,7 @@ flowchart LR
     CPU1 -->|local| RAM1
 ```
 
-`numactl --membind=0` pins allocations to local NUMA node. Java GC overhead increases 40–60% with cross-NUMA allocations — JVM's NUMA-aware allocator (`-XX:+UseNUMAInterleaving`) mitigates this.
+`numactl --membind=0` restricts allocations to the selected NUMA node subject to OS policy and availability. A reported 40–60% Java GC overhead under cross-NUMA allocation is an environment-specific example, not a JVM constant; validate placement, collector behavior, throughput, pauses, and failure under memory pressure before enabling a NUMA option.
 
 ---
 

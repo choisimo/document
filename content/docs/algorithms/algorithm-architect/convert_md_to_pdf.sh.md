@@ -1,5 +1,9 @@
 # convert_md_to_pdf.sh - GitHub Pages 해설
 
+## 실제 실행 계약과 문서상 불일치
+
+입력은 존재하고 읽을 수 있는 directory이며, 결과 PDF는 각 Markdown 옆의 같은 basename으로 생성돼 기존 파일을 덮어쓸 수 있다. 필요한 도구는 `pandoc`, `xelatex`, `NanumGothic` font이고 병렬 실행기는 GNU parallel 또는 xargs다. 현재 코드는 변환 stderr를 버리고 `set -euo pipefail` 아래에서 병렬 명령 실패를 집계하지 않으므로, flow의 “실패를 기록하고 계속”과 마지막 실패 목록 checklist를 구현했다고 볼 수 없다. 완료는 발견한 Markdown 수, 생성된 PDF 수, 실패 파일과 실제 진단, 최종 종료 상태를 대조한 경우로 판정한다.
+
 ## 문서 목적
 - `convert_md_to_pdf.sh` 스크립트의 실행 경로와 변환 파이프라인을 문서화합니다.
 - Markdown 파일을 PDF로 배치 변환할 때의 내부 메커니즘과 실패 지점을 시각화합니다.

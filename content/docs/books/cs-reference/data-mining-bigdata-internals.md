@@ -2,6 +2,10 @@
 
 > Source synthesis: Data mining and big data reference books (comp 234–240, 268–290, 310, 436–438, 441, 446, 448, 453–454, 488) covering Hadoop MapReduce internals, Spark RDD/DAG execution, Flink streaming, column store compression, LSM trees, and data mining algorithms.
 
+## Version and evidence scope
+
+Framework defaults and file formats vary across Hadoop, Spark, Flink, RocksDB, Parquet, and deployment versions. Values such as block size, spill threshold, task startup, checkpoint mode, SSTable size, compression ratio, and throughput are examples until tied to an exact release and configuration. Algorithmic bounds are facts under their stated assumptions; system performance is a hypothesis to measure on the target data and cluster.
+
 ---
 
 ## 1. Hadoop MapReduce — Execution Internals
@@ -29,6 +33,8 @@ flowchart TD
 ```
 
 ### MapReduce Shuffle Deep Dive
+
+An `InputSplit` is a logical scheduling unit and may cross or cover only part of an HDFS block; one map per split is typical, while node-local execution is a scheduling preference rather than a guarantee. Combiners are optional and valid only for operations whose semantics tolerate zero or multiple local applications.
 
 ```mermaid
 sequenceDiagram
@@ -91,6 +97,8 @@ flowchart LR
 ```
 
 ### Shuffle Internals (Sort-based)
+
+The filenames in the diagram are conceptual. In common sort-shuffle implementations a map output uses a data file plus an index whose offsets delimit reduce partitions; exact naming, push-based shuffle, bypass paths, and remote transport depend on Spark version and shuffle manager.
 
 ```mermaid
 flowchart TD
@@ -157,6 +165,8 @@ flowchart TD
 
 ### Flink Checkpoint — Chandy-Lamport Algorithm
 
+A completed checkpoint provides recoverable operator state. End-to-end exactly-once results additionally require replayable sources, checkpoint-aware or transactional sinks, stable operator identity, and compatible state serialization. Unaligned checkpoints do not wait for the same barrier alignment shown below.
+
 ```mermaid
 sequenceDiagram
     participant CC as CheckpointCoordinator (JM)
@@ -208,6 +218,8 @@ flowchart TD
 ```
 
 ### SSTable Bloom Filter + Index
+
+Memtable type, level sizes, compaction trigger, block size, Bloom-filter bits, compression, and tombstone removal are engine/configuration choices. Tombstones can be dropped only after the engine's safety horizon ensures older replicas or snapshots no longer need them.
 
 ```mermaid
 flowchart LR
@@ -305,6 +317,8 @@ flowchart TD
 ---
 
 ## 9. Association Rule Mining — Confidence & Lift
+
+Rule-generation pruning must follow the confidence relation for the chosen consequent expansion. A failed rule does not generally imply that every subset of its antecedent also has lower confidence; state the lattice direction being pruned and prove the monotonic relation used.
 
 ```mermaid
 flowchart LR
@@ -420,6 +434,8 @@ flowchart TD
 ---
 
 ## 14. Performance Numbers
+
+The following values are illustrative ranges, not a cross-system benchmark. Before treating one as evidence, record dataset size and distribution, partition count, executor/host resources, storage and network, warm-up/cache state, software flags, failures/retries, repetitions, and p50/p95/p99 or confidence interval.
 
 ```mermaid
 block-beta

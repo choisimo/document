@@ -1,13 +1,22 @@
 # Module 8: Proxmox VE User Management
 
 ## 학습 목표
-이 모듈을 완료하면 다음을 이해할 수 있습니다:
+이 모듈의 설명과 실습을 완료하면 다음 항목을 설명하고 effective privilege 및 실패 test로 검증할 수 있어야 합니다:
 - PVE 인증 시스템 아키텍처
 - 다양한 인증 영역(PAM, PVE, LDAP, AD, OpenID Connect)
 - 사용자, 그룹, API 토큰 관리
 - 역할 기반 접근 제어(RBAC)와 권한 시스템
 - 2단계 인증(TFA) 구성
 - pveum 명령어 활용
+
+---
+
+## 적용 범위와 학습 검증 기준
+
+- **범위:** Proxmox VE 버전, cluster 상태, PAM·PVE·LDAP·AD·OIDC realm과 provider, TLS·DNS·clock, user/group sync, TFA 방식과 API token 유형을 기록합니다.
+- **권한 전제:** subject, path, role, propagation, group, pool과 token privilege separation을 모두 포함한 effective privilege로 판단합니다. UI에 보이는 role 이름만으로 접근 결과를 단정하지 않습니다.
+- **사실과 추론:** realm 설정, authentication log, `pveum` 결과와 audit event는 근거이고, login·authorization 실패 원인은 provider와 PVE 양쪽 증거가 맞기 전까지 가설입니다.
+- **실패·완료:** IdP·DNS·clock 장애, disabled user, expired token, TFA 분실, group sync 제거, privilege escalation과 emergency access를 시험합니다. least privilege, 독립된 break-glass 계정, revocation과 audit가 검증될 때 완료입니다.
 
 ---
 

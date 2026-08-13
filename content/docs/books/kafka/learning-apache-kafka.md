@@ -3,6 +3,13 @@
 > **Source**: Nishant Garg, Packt Publishing, 2015 (Kafka 0.8.x era)  
 > **Focus**: Internal broker architecture, ZooKeeper coordination, partition log mechanics, ISR replication pipeline, producer/consumer offset state machines
 
+## Historical boundary
+
+- This document is an explicit Kafka 0.8.x study guide. ZooKeeper paths, high-level consumer APIs, offset storage, message formats, defaults, and controller behavior are historical unless a section says otherwise.
+- Do not apply commands or sizing advice to a current cluster without mapping the concept to the deployed Kafka version and KRaft/ZooKeeper mode.
+- Performance ratios are illustrative. Reproduce them with named storage, batching, compression, page-cache state, payload and percentile.
+- For migration, record which invariant remains, which API or component was replaced, and how current logs and metrics prove the equivalent behavior.
+
 ---
 
 ## 1. Kafka's Architectural DNA: Why It Was Built This Way
@@ -14,9 +21,9 @@ The core design principles that shape every internal decision:
 ```mermaid
 flowchart TD
     subgraph Design["Kafka Design Axioms"]
-        A["Messages are log segments<br/>on OS page cache"] -->|immutable append| B["Sequential I/O<br/>100x faster than random"]
+        A["Messages are stored in<br/>partition log segments"] -->|append-oriented path| B["Sequential I/O can outperform<br/>random I/O; measure on target storage"]
         B --> C["Consumers pull, never push<br/>State held by consumer, not broker"]
-        C --> D["Broker is stateless<br/>Time-based SLA for retention"]
+        C --> D["Broker stores logs and metadata<br/>consumer position is decoupled from fetch"]
         D --> E["Partitions are the unit<br/>of parallelism and replication"]
     end
 ```
@@ -27,7 +34,7 @@ These axioms cascade into every subsystem: the log format, ZooKeeper schema, ISR
 
 ## 2. Broker Internal Architecture: Log Segments and Page Cache
 
-Each Kafka broker maps every topic-partition to a sequence of **segment files** on disk. The broker never loads these into heap — it relies entirely on the OS kernel's page cache (mmap-style zero-copy).
+Each Kafka broker maps every topic-partition to segment files. Kafka relies heavily on the OS page cache and transfer paths, but requests, indexes, buffers and metadata can still consume JVM heap or native memory. The exact use of mmap, `sendfile`, TLS fallbacks and copying is implementation- and platform-dependent.
 
 ```mermaid
 block-beta
@@ -423,7 +430,7 @@ flowchart TD
 
 ---
 
-## 9. Broker Cluster Topology: Peer-to-Peer Without a Master
+## 9. Kafka 0.8 cluster topology: partition leaders and a controller
 
 Unlike traditional databases with primary/secondary, Kafka uses a **controller** broker (elected via ZooKeeper) for administrative operations only — not for data paths.
 

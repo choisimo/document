@@ -1,4 +1,6 @@
-## Proxmox VE(PVE) OS를 새 SSD로 마이그레이션하는 방법**중요한 사전 준비:**
+# Proxmox VE(PVE) OS를 새 SSD로 마이그레이션하는 방법
+
+## 중요한 사전 준비
 
   * **데이터 백업:** 마이그레이션 과정 중 예기치 않은 문제가 발생할 수 있으니, **모든 VM과 CT의 백업을 반드시 받아두시기 바랍니다.**
   * **새 SSD 준비:** 새로운 SSD를 Proxmox 서버에 물리적으로 연결합니다.
@@ -6,19 +8,28 @@
 
 -----
 
+## 적용 범위와 마이그레이션 증거
+
+- **범위:** Proxmox VE version, standalone·cluster 상태, boot mode, partition table, EFI, storage stack(LVM/ZFS/directory/Ceph), source/target sector size·capacity와 VM/CT storage 위치를 기록합니다.
+- **안전 전제:** 외부 저장소의 VM/CT backup과 host·network·storage 구성을 만들고 별도 환경에서 restore를 시험합니다. device serial을 대조한 뒤 target의 기존 데이터가 삭제됨을 승인합니다.
+- **방법 선택:** raw clone, filesystem-aware clone, 새 설치 후 restore는 downtime, consistency, target 크기, boot repair와 cluster identity가 다릅니다. 어느 방법도 모든 환경에서 가장 안전하거나 추가 설정이 없다고 보장하지 않습니다.
+- **실패·완료:** source 오기입, live-write 불일치, boot·EFI 실패, storage 미인식, quorum·network 변경과 VM/CT 복원 실패를 포함합니다. source를 보존한 상태에서 host boot, storage, network, cluster health와 각 workload가 검증될 때 완료입니다.
+
+---
+
 ### 방법 1: 디스크 전체 복제 (Clonezilla 또는 dd 사용)
 
-기존 드라이브의 모든 데이터를 새 드라이브로 비트 단위로 복사하는 가장 확실한 방법입니다. 기존 드라이브와 새 드라이브의 용량이 같거나, 새 드라이브가 더 큰 경우에 적합합니다.
+source를 offline 또는 일관된 snapshot 상태로 만든 경우 block을 그대로 복제하는 방법입니다. live write, read error와 boot·device identity 차이까지 해결해 주는 보장은 아닙니다. 기존 드라이브와 새 드라이브의 용량이 같거나, 새 드라이브가 더 큰 경우에 적합합니다.
 
 **장점:**
 
-  * 가장 간단하고 직관적인 방법입니다.
-  * OS 설정, VM/CT 구성 등 모든 환경이 그대로 이전됩니다.
+  * partition과 storage layout이 호환될 때 단계가 단순할 수 있지만 device 선택과 boot 복구 위험이 있습니다.
+  * 복제 범위 안의 block은 이전되지만 EFI entry, NIC 이름, cluster·storage 외부 상태와 hardware 의존 설정은 별도 확인합니다.
 
 **단점:**
 
   * 복제하는 동안 Proxmox 서버를 중지해야 합니다.
-  * 새 SSD의 용량이 기존 SSD보다 작으면 사용할 수 없습니다.
+  * raw whole-disk clone은 target이 source의 복제 범위를 수용해야 합니다. filesystem 축소 또는 backup/restore 방식은 사용량과 지원 여부에 따라 더 작은 target도 가능할 수 있습니다.
 
 #### **Clonezilla 사용 단계 (권장):**
 
@@ -108,7 +119,7 @@ Clonezilla는 디스크 복제를 위한 강력하고 사용하기 쉬운 무료
 
 ### 결론
 
-특별한 이유가 없다면 **Clonezilla를 이용한 방법 1**이 가장 안전하고 확실하게 OS를 마이그레이션하는 방법으로 추천됩니다. 시스템을 처음부터 다시 구성하고 싶을 때에만 방법 2를 고려하는 것이 좋습니다.
+Clonezilla raw/filesystem-aware clone과 새 설치 후 restore 중 선택은 storage layout, target 크기, downtime, cluster와 복구 경험에 따라 달라집니다. 검증된 backup과 rollback이 있는 방법을 선택합니다. 시스템을 처음부터 다시 구성하고 싶을 때에만 방법 2를 고려하는 것이 좋습니다.
 
 ## Proxmox VE(PVE) OS를 새 SSD로 마이그레이션하는 방법
 
@@ -128,7 +139,7 @@ Proxmox VE(PVE)의 OS가 설치된 기존 드라이브를 더 빠르거나 용�
 
 ### 방법 1: 디스크 전체 복제 (Disk Cloning)
 
-기존 드라이브의 모든 데이터를 새 SSD에 그대로 복제하는 방법입니다. **기존 드라이브와 새 SSD의 물리적 섹터 크기가 동일할 때 가장 안정적**이며, 일반적으로 가장 많이 사용되는 방법입니다.
+기존 드라이브의 모든 데이터를 새 SSD에 그대로 복제하는 방법입니다. sector 크기, partition 정렬과 storage metadata의 호환성을 확인해야 하며 사용 빈도나 안정성을 보편화하지 않습니다.
 
 **장점:**
 
@@ -143,7 +154,7 @@ Proxmox VE(PVE)의 OS가 설치된 기존 드라이브를 더 빠르거나 용�
 
 #### **작업 절차 (Clonezilla 사용 권장)**
 
-가장 안전하고 널리 사용되는 `Clonezilla` Live USB를 이용하는 방법입니다.
+`Clonezilla` Live USB를 사용하는 한 가지 offline clone 방법입니다. source 일관성, 지원 filesystem과 target 식별을 검증합니다.
 
 1.  **준비물:**
 
@@ -204,7 +215,7 @@ Proxmox VE(PVE)의 OS가 설치된 기존 드라이브를 더 빠르거나 용�
 
 ### 방법 2: Proxmox 재설치 및 설정 복원
 
-새 SSD에 Proxmox를 새로 설치한 뒤, 미리 백업해 둔 설정 파일을 복원하는 방법입니다. **가장 안전하고 깔끔한 방법**으로 권장됩니다.
+새 SSD에 Proxmox를 새로 설치한 뒤, 미리 백업해 둔 설정 파일을 복원하는 방법입니다. 새 설치 후 restore는 clean layout에 유리할 수 있지만 누락된 host·cluster 설정과 더 긴 복구 시간이 생길 수 있습니다.
 
 **장점:**
 

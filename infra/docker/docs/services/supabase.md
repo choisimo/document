@@ -1,3 +1,11 @@
+# n8n + pgvector/PostgREST 연동 예시
+
+## 적용 범위와 API 검증 기준
+
+이 문서는 n8n에서 PostgreSQL/pgvector와 PostgREST 계열 endpoint를 호출하는 예시입니다. 실제 Supabase 또는 self-hosted service version, schema, REST path, JWT issuer/audience/role, RLS policy와 network name을 확인합니다. native node와 HTTP Request 중 선택은 설치된 n8n node의 지원 범위에 따라 달라집니다. unauthorized·expired token, RLS deny, malformed embedding, duplicate write와 backup/restore를 시험하고 최소 권한 request가 의도한 row만 처리할 때 완료입니다.
+
+---
+
  n8n에서 벡터 DB로 활용하는 방법
   1. Supabase API 노드 대신 HTTP Request 노드 사용
 
@@ -33,7 +41,7 @@
 
       n8n의 Supabase API 노드는 self-hosted PostgREST와 바로 호환되지
   않으니,
-      반드시 "HTTP Request" 노드로 직접 REST 엔드포인트(/테이블명 또는
+      설치된 n8n version에 필요한 native integration이 없다면 "HTTP Request" node로 REST endpoint(/table name 또는
   /rpc/함수명)를 호출해야 합니다.
 
       Supabase(PostgreSQL)에서 벡터 DB를 쓰려면 pgvector 확장 설치,

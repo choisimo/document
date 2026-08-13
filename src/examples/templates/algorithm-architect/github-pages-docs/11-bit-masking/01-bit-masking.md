@@ -3,10 +3,19 @@
 ## 문서 목적
 - 원본 템플릿 `11-bit-masking/01-bit-masking.md` 의 내부 동작을 GitHub Markdown에서 바로 읽을 수 있게 설명합니다.
 - 코드 레이어(초기화/루프/조건/갱신/종료)를 분해하고, Mermaid로 제어 흐름을 시각화합니다.
-- 실전 문제에 붙일 때 반드시 수정해야 하는 지점을 체크리스트로 제공합니다.
+- 실전 문제에 적용할 때 bit width·signedness·state bound와 language semantics를 검토할 checklist를 제공합니다.
 
 ## 원본 템플릿
 - Source: [11-bit-masking/01-bit-masking.md](../../11-bit-masking/01-bit-masking.md)
+
+## 적용 범위와 검증 기준
+
+- **범위:** 이 페이지는 fixed-width integer를 set/state 표현으로 사용하는 linked template의 해설입니다. bit width, signedness, language shift semantics와 표현할 element 수를 먼저 정합니다.
+- **복잡도 전제:** 한 machine-word mask operation은 보통 constant-time으로 모델링할 수 있지만 multiword bitset과 `2^N` subset enumeration은 state 수에 비례합니다.
+- **실패 조건:** out-of-range shift, signed overflow·sign bit, precedence, duplicate toggle, complement의 unused high bits와 state-space overflow를 포함합니다.
+- **완료 증거:** set 기반 reference와 add/remove/test/toggle 결과를 비교하고 zero/full mask, maximum bit와 subset count를 input bound에 맞게 확인합니다.
+
+---
 
 ## 내부 메커니즘 (Flow)
 ```mermaid
@@ -85,4 +94,4 @@ def bit_operations():
 - 입력 자료구조 형식(인접 리스트, 간선 리스트, 정렬 여부, 1-index/0-index)을 먼저 고정한다.
 - 시간 복잡도 한계에 맞게 자료구조를 교체한다 (`list.pop(0)` -> `deque.popleft` 등).
 - 실패/예외 경로를 명시한다 (도달 불가, 음수 사이클, 빈 결과, 사이클 존재).
-- 테스트는 최소 3개: 정상 케이스, 경계 케이스, 반례 케이스를 포함한다.
+- zero/full mask, highest valid bit, out-of-range shift와 reference set 비교를 포함해 risk-based test를 구성한다.

@@ -1,10 +1,16 @@
 # docs-validator-rs
 
-Rust CLI binary for strict documentation validation:
+Rust CLI binary for the repository-configured documentation checks:
 
-- strict Mermaid parsing (`merman_core::ParseOptions::strict()`)
-- strict markdown/html document link resolution + anchor validation
+- Mermaid parsing using the pinned `merman_core::ParseOptions::strict()` behavior
+- configured Markdown/HTML link resolution and anchor validation within the selected scope
 - markdown format convention analysis (headings, blank lines, tabs, fenced code blocks)
+
+## Validation Scope and Evidence
+
+This tool enforces the configured Mermaid parser, link/anchor resolver and Markdown convention rules for a recorded binary version and root paths. A zero exit status proves only that the scanned files passed those checks; it does not prove factual correctness, source freshness, accessibility, security, or compatibility with every Markdown renderer. Completion requires known-good and known-bad fixtures for each rule, deterministic diagnostics, the intended scan manifest, CI exit-code handling and documented exclusions.
+
+---
 
 ## Run
 

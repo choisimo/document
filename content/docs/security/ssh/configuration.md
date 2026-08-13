@@ -1,5 +1,18 @@
 # SSH 구성 파일 상세 설명 및 옵션 치트 시트
 
+
+## 적용 범위와 판정 기준
+
+이 치트 시트는 OpenSSH 서버 설정 예시입니다. 클라이언트용 ssh_config 옵션과 서버용 sshd_config 옵션은 서로 바꿔 쓸 수 없고, 허용되는 Match 키워드와 폐기된 지시어는 OpenSSH 버전에 따라 달라집니다.
+
+- **사전 확인**: sshd -V 또는 패키지 정보, 포함 파일, 서비스 이름, 실제 리슨 주소와 포트, 기존 관리 경로를 기록합니다.
+- **평가 규칙**: OpenSSH는 많은 옵션에서 처음 결정된 값을 사용하므로 Match 블록의 순서와 Match all로 전역 문맥을 복원했는지 확인합니다.
+- **검증 명령**: 변경 전후에 sudo sshd -t로 구문을 검사하고, sudo sshd -T -C user=USER,addr=CLIENT_IP,laddr=SERVER_IP,lport=PORT로 대표 조건의 유효 값을 비교합니다.
+- **안전한 적용**: 기존 관리자 세션을 유지한 채 reload를 사용하고 두 번째 세션에서 인증, 셸 또는 SFTP, 포워딩 거부 조건을 시험합니다. 실패하면 백업 설정으로 되돌린 뒤 다시 검사합니다.
+- **완료 조건**: 의도한 사용자와 주소 조합별 유효 설정, 성공 및 거부 로그, chroot 경로의 소유권과 쓰기 가능 하위 경로를 증거로 남깁니다.
+
+ChrootDirectory 자체와 모든 상위 경로는 일반적으로 root 소유이며 대상 사용자가 쓸 수 없어야 합니다. 업로드가 필요하면 chroot 아래에 별도의 사용자 소유 디렉토리를 둡니다. X11, 에이전트, TCP 포워딩은 필요한 경우에만 최소 범위로 허용합니다.
+
 ## 구성 파일 섹션별 의미 설명
 
 ### Subsystem sftp internal-sftp
@@ -18,7 +31,7 @@
 ### Match LocalPort 2723
 이 블록은 포트 2723으로 들어오는 모든 연결에 적용됩니다:
 - `ForceCommand internal-sftp`: 모든 접속을 SFTP 프로토콜로 강제합니다[5][6]
-- `ChrootDirectory /workspace`: 사용자를 /workspace 디렉토리로 제한(jail)합니다[1][5]
+- ChrootDirectory /workspace: 사용자를 제한하는 예시입니다. 경로와 상위 경로는 root 소유이며 사용자가 쓸 수 없어야 하고, 쓰기 작업은 별도 하위 경로에 허용합니다[1][5]
 - `AllowTcpForwarding no`: 보안을 위해 TCP 포워딩을 비활성화합니다[5]
 - `X11Forwarding no`: 보안을 위해 X11 포워딩을 비활성화합니다[5]
 
@@ -32,7 +45,7 @@
 | ListenAddress | SSH 데몬이 리스닝할 IP 주소 |
 | Protocol | 사용할 SSH 프로토콜 버전 (2 권장) |
 | HostKey | 호스트 키 파일 경로 |
-| ServerKeyBits | 서버 키 비트 수 |
+| ServerKeyBits | SSH protocol 1용 폐기 옵션이며 현대 OpenSSH에서는 사용하지 않음 |
 | LoginGraceTime | 로그인 유예 시간(초) |
 | PermitRootLogin | root 계정 로그인 허용 여부 (yes/no/prohibit-password) |
 | StrictModes | 사용자 파일 권한 검사 여부 |

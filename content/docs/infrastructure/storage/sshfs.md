@@ -1,10 +1,10 @@
 # 우분투 24.04 LTS에서 원격 디렉토리 마운팅 설정하기
 
-원격 서버의 디렉토리를 로컬 시스템의 특정 폴더에 마운트하여 작업할 수 있는 방법은 크게 SSHFS와 NFS 두 가지가 있습니다. 두 방법 모두 우분투 24.04 LTS에서 사용 가능하며, SSH 연결을 기반으로 하는 SSHFS가 설정이 더 간단합니다.
+Ubuntu 24.04 LTS에서 SSHFS 또는 NFS로 원격 디렉터리를 마운트하는 예시입니다. 패키지·FUSE·OpenSSH·NFS 버전과 서버 정책을 확인하고 네트워크 단절·캐시 의미를 허용하는 워크로드에만 사용하세요. 데이터베이스나 VM 디스크는 별도 지원 여부가 필요합니다.
 
 ## SSHFS를 이용한 원격 디렉토리 마운팅
 
-SSHFS(SSH Filesystem)는 SSH를 통해 원격 디렉토리를 로컬 시스템에 마운트할 수 있게 해주는 파일시스템 클라이언트입니다. 기존 SSH 연결을 활용하므로 추가 서버 구성 없이 사용할 수 있습니다.
+SSHFS는 SSH의 SFTP 기능과 로컬 FUSE를 사용합니다. SSH 로그인만으로 충분하지 않으며 서버 SFTP subsystem, 사용자 권한, FUSE 정책이 허용되어야 합니다. `allow_other`는 `user_allow_other`와 로컬 접근 범위를 함께 검토합니다.
 
 ### 설치 및 기본 설정
 
@@ -101,8 +101,8 @@ NFS(Network File System)는 네트워크를 통해 디렉토리를 공유하는 
 2. 공유 디렉토리 생성 및 권한 설정:
    ```
    sudo mkdir -p /mnt/nfs_share
-   sudo chown nobody:nogroup /mnt/nfs_share
-   sudo chmod 777 /mnt/nfs_share
+   sudo chown <service-user>:<service-group> /mnt/nfs_share
+   sudo chmod 0750 /mnt/nfs_share
    ```
 
 3. `/etc/exports` 파일 편집:
@@ -153,7 +153,7 @@ NFS(Network File System)는 네트워크를 통해 디렉토리를 공유하는 
    서버IP:/mnt/nfs_share /mnt/external/rasp nfs defaults 0 0
    ```
 
-NFS는 특히 로컬 네트워크에서 SSHFS보다 속도가 빠를 수 있지만, 추가 보안 구성이 필요합니다[6][7][9].
+NFS가 더 높은 처리량을 보일 수 있지만 파일 크기, RTT, 암호화, 캐시, NFS 버전과 스토리지에 따라 달라집니다. 동일 부하로 측정하고 export 제한, ID mapping, root squashing을 검토합니다.
 
 ## 마운트 확인
 
@@ -162,7 +162,7 @@ NFS는 특히 로컬 네트워크에서 SSHFS보다 속도가 빠를 수 있지�
 df -h
 ```
 
-이 명령은 마운트된 모든 파일시스템을 보여주며, 원격 디렉토리가 목록에 표시되어야 합니다[3][5].
+`df` 목록만으로 읽기·쓰기 성공을 증명할 수 없습니다. `findmnt`와 서비스 계정의 테스트 파일, 원격 측 확인, 연결 단절 후 복구를 시험합니다.
 
 적절한 설정을 통해 원격 서버의 디렉토리를 로컬 시스템의 `/mnt/external/rasp`와 같은 경로에 마운트하여 로컬 디렉토리처럼 사용할 수 있습니다.
 
@@ -263,4 +263,8 @@ fstab 대신 systemd 마운트 유닛을 사용하는 방법도 있습니다:
    sudo systemctl enable --now mnt-external-nano_pi.mount
    ```
 
-이 방법은 네트워크 의존성을 더 효과적으로 처리하고 문제 진단에 유리합니다.
+systemd 단위는 의존성과 journal을 명시할 수 있지만 원격 준비 상태를 자동 보장하지 않습니다.
+
+## 완료 및 롤백 기준
+
+SSH/SFTP 또는 NFS export 접근, `findmnt`의 소스·타입·옵션, 서비스 계정 읽기·쓰기, 단절 중 오류와 재연결 뒤 일관성을 확인합니다. 자동 마운트는 재부팅 후 첫 접근 제한 시간도 시험합니다. 실패하면 해당 단위를 중지하고 fstab/AutoFS 항목을 복원한 뒤 사용 프로세스를 확인하고 안전하게 unmount합니다.

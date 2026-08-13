@@ -1,6 +1,8 @@
-리눅스 설정 파일 완벽 가이드: .profile, .bashrc, .zshrc 등
+# 리눅스 셸 설정 파일 가이드: `.profile`, `.bashrc`, `.zshrc`
 
-리눅스 시스템에서는 사용자의 환경을 설정하기 위해 여러 스크립트 파일이 사용됩니다. 이 파일들은 쉘(Shell)이 시작될 때 특정 순서에 따라 실행되며, 환경 변수, 별칭(alias), 함수 등을 정의하는 데 사용됩니다. 어떤 파일을 수정해야 하는지는 쉘의 종류(Login vs. Non-Login, Interactive vs. Non-Interactive)와 사용 목적에 따라 달라집니다.
+> **범위:** 아래 실행 순서는 Bash와 Zsh의 일반 동작을 설명합니다. 디스플레이 매니저와 배포판이 로그인 파일을 추가로 불러올 수 있으므로 현재 셸은 `ps -p $$ -o args=`, 로그인 셸 여부는 `shopt -q login_shell`(Bash) 또는 `[[ -o login ]]`(Zsh)로 확인하십시오.
+
+리눅스 시스템은 여러 시작 파일에서 환경 변수, 별칭(alias), 함수 등을 읽습니다. 수정할 파일은 셸 종류, 로그인 여부, 대화형 여부, 값을 사용할 프로세스 범위에 따라 결정합니다.
 1. 핵심 개념: Login Shell vs. Non-Login Shell
 
 이 두 가지 개념을 이해하는 것이 가장 중요합니다.
@@ -150,4 +152,3 @@ GUI 환경 로그인 (X11 Session)
         콘솔/SSH 로그인이라면 ~/.bash_profile 또는 ~/.profile
 
         GUI 로그인이라면 ~/.xprofile
-

@@ -1,6 +1,7 @@
 # BST - Rust Implementation
 
 > **Focus:** Ownership, Borrowing, Zero-cost Abstraction, Memory Safety without GC
+> Target scope: sizes and emitted assembly depend on architecture, compiler, flags, generic types, and surrounding code. Safe Rust prevents defined memory bugs; it does not prove algorithm correctness, absence of leaks, or thread safety for every design.
 
 ---
 
@@ -135,6 +136,8 @@ where
 
 ### 컴파일 후 어셈블리 비교
 
+아래 assembly는 설명용 스케치입니다. C와의 동등성을 주장하려면 동일 ABI·최적화 옵션의 실제 assembly와 benchmark를 보존합니다.
+
 ```rust
 // Rust 코드
 if key < node.key {
@@ -142,7 +145,7 @@ if key < node.key {
 }
 
 // 컴파일된 어셈블리 (최적화 후)
-// C의 포인터 연산과 거의 동일!
+// 설명용 예시이며 실제 출력은 rustc/target/flags에 따라 달라짐
 cmp     rdi, [rsi]
 jge     .else_branch
 mov     rax, [rsi+8]    ; node.left 로드
@@ -180,8 +183,8 @@ Option<Box<T>>는 null 포인터로 None을 표현!
 ## Phase 4: Unsafe Alternative (Advanced)
 
 ```rust
-// 성능이 극도로 중요한 경우, raw pointer 사용 가능
-// ⚠️ 권장하지 않음 - unsafe 블록 필요
+// raw pointer가 필요하다는 profile과 safety invariant를 먼저 문서화해야 함
+// unsafe 자체는 성능 개선을 보장하지 않으며 별도 검토와 Miri/테스트가 필요
 
 struct UnsafeNode<T> {
     key: T,
@@ -202,7 +205,7 @@ impl<T> UnsafeNode<T> {
 ## 실행
 
 ```bash
-cd 04_rust
+cd src/examples/data-structures/tree/binary-search-tree/rust
 cargo run
 ```
 

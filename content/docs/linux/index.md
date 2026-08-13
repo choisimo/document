@@ -4,6 +4,12 @@ Linux 시스템 관리, 배포판별 가이드, 멀티미디어 도구에 관한
 
 ---
 
+## 이 페이지의 적용 범위
+
+이 페이지는 Linux 문서 탐색용 색인입니다. FHS, package 관리, service·permission 명령과 배포판 비교는 배포판·release·init system·desktop에 따라 달라집니다. 표의 분류와 추천은 선택을 돕는 요약이며, 실제 적용은 연결된 문서와 해당 배포판의 현재 공식 문서에서 version·권한·backup·rollback 조건을 확인한 뒤 수행합니다.
+
+---
+
 ## :material-penguin: 문서 목록
 
 <div class="grid cards" markdown>
@@ -12,7 +18,7 @@ Linux 시스템 관리, 배포판별 가이드, 멀티미디어 도구에 관한
 
     ---
 
-    필수 명령어와 파일시스템 구조
+    주요 명령어와 파일시스템 구조
 
     - [명령어 가이드](commands.md)
     - [파일시스템](filesystem.md)
@@ -100,7 +106,7 @@ flowchart TD
 
 ---
 
-## :material-terminal: 필수 명령어 카테고리
+## :material-terminal: 주요 명령어 카테고리
 
 ### 파일 관리
 
@@ -211,7 +217,7 @@ UUID=xxx-xxx      /data      ext4    defaults        0      2
 
 ## :material-book-open-page-variant: 참고 자료
 
-- [Arch Wiki](https://wiki.archlinux.org/) - 최고의 Linux 문서
+- [Arch Wiki](https://wiki.archlinux.org/) - Arch Linux의 권위 있는 공식 커뮤니티 문서
 - [Linux Documentation Project](https://tldp.org/)
 - [Proxmox Wiki](https://pve.proxmox.com/wiki/Main_Page)
 - [Linux Journey](https://linuxjourney.com/) - 초보자용 튜토리얼

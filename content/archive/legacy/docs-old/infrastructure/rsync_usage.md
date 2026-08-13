@@ -1,48 +1,37 @@
-# How to Use Rsync with a Custom SSH Port
+# Rsync over a non-default SSH port
 
-The error message you're seeing occurs because rsync is attempting to connect to the default SSH port (22) rather than your specified port (2722). The `--port` option is not used correctly in your command, as it doesn't apply to the SSH connection that rsync establishes.
+Use this procedure when the source and destination are already identified and SSH listens on a known non-default port. The example values are placeholders.
 
-## The Issue with Your Command
+## Preview
 
-Your current command:
-```
-sudo rsync -avz /mnt/nas/backup/* --port 2722 nodove@30.30.30.3:/mnt/nas/files/백업/040825/
-```
-
-This command is trying to use `--port 2722` as an rsync option, but rsync doesn't use this syntax for specifying SSH ports. Instead, rsync is still attempting to connect to the default SSH port (22), resulting in the "Connection refused" error.
-
-## The Correct Syntax
-
-To specify a custom SSH port with rsync, you need to use the `-e` option, which allows you to specify the remote shell command and its parameters. The correct syntax is:
-
-```
-sudo rsync -avz -e "ssh -p 2722" /mnt/nas/backup/* nodove@30.30.30.3:/mnt/nas/files/백업/040825/
+```bash
+rsync -a --dry-run --itemize-changes \
+  -e 'ssh -p <SSH_PORT>' \
+  /mnt/nas/backup/ \
+  <USER>@<HOST>:/mnt/nas/files/backup/040825/
 ```
 
-This command tells rsync to use SSH with port 2722 for the connection. The `-e` option stands for "specify the remote shell to use," and in this case, we're telling it to use SSH with a specific port option.
+- `-a` preserves the archive-mode attributes that rsync can represent at the destination.
+- `--dry-run` computes changes without writing them.
+- `--itemize-changes` exposes what rsync intends to create, update, or delete.
+- `-e` supplies the SSH command and port.
+- The source trailing slash means “copy this directory's contents.”
 
-### Understanding the Parameters
+Add `-z` only after measuring whether compression helps; it can waste CPU on already compressed media. Do not add `--delete` until the destination scope and a recoverable backup are confirmed.
 
-- `-a`: Archive mode, which preserves permissions, ownership, timestamps, etc.
-- `-v`: Verbose output to show the transfer progress
-- `-z`: Compress the data during transfer to speed up the process
-- `-e "ssh -p 2722"`: Use SSH as the remote shell with port 2722
+## Execute and record the result
 
-## Alternative Methods
+After reviewing the preview, remove only `--dry-run`:
 
-If you frequently connect to this server using the same port, you can configure the SSH client to always use this port for a specific host. Add the following to your `~/.ssh/config` file:
-
-```
-Host 30.30.30.3
-    Port 2722
-```
-
-With this configuration, you can simplify your rsync command to:
-
-```
-sudo rsync -avz /mnt/nas/backup/* nodove@30.30.30.3:/mnt/nas/files/백업/040825/
+```bash
+rsync -a --itemize-changes \
+  -e 'ssh -p <SSH_PORT>' \
+  /mnt/nas/backup/ \
+  <USER>@<HOST>:/mnt/nas/files/backup/040825/
+status=$?
+printf 'rsync_exit=%s\n' "$status"
 ```
 
-## Conclusion
+An exit status of zero is transfer evidence, not destination-content evidence. Check the destination file count, expected sentinel files, ownership, and checksums required by the backup policy.
 
-The key to using rsync with a non-standard SSH port is to use the `-e` option to specify SSH with the correct port number. This allows rsync to establish a secure connection over your preferred port. By implementing this change, your file synchronization should proceed without connection errors, as long as the destination server is configured to accept SSH connections on port 2722.
+For repeated use, put `HostName`, `User`, `Port`, and `IdentityFile` under a named host in `~/.ssh/config`; then use that host alias in rsync. Test the alias with `ssh -G <ALIAS>` and a direct connection before running the transfer.

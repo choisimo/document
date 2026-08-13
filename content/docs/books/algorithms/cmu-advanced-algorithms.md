@@ -5,11 +5,13 @@
 
 ---
 
+> **Reading contract:** Scope is the cited CMU 15-850 Fall 2020 notes and the chapter mapping recorded at the end. Theorems here depend on graph properties, randomness model, field size, approximation parameter, and success probability that abbreviated diagrams may omit. Identify those parameters and the cited theorem before treating a result as proved; label intuitive explanations as sketches. A result is complete only when assumptions, probability or approximation guarantee, failure event, and asymptotic model are all recoverable. If not, use it as a study prompt rather than an implementation contract.
+
 ## 1. Minimum Spanning Trees: From O(m log n) to O(m α(n))
 
 ### 1.1 The Cut and Cycle Rules — Correctness Foundation
 
-All MST algorithms are instances of the **blue rule** (cut rule) and **red rule** (cycle rule). The key invariant: color an edge blue if it is the min-weight edge crossing any cut; color it red if it is the max-weight edge on any cycle.
+The MST algorithms discussed in these notes can be analyzed through **blue-rule** (cut) and **red-rule** (cycle) arguments. With tied weights, "minimum" and "maximum" edges need the theorem's safe-edge conditions; a chosen edge need not belong to every MST. Record whether the conclusion is existence in some MST or membership in all MSTs.
 
 ```mermaid
 stateDiagram-v2

@@ -2,6 +2,13 @@
 
 > **⚠️ 주의사항**: 이 가이드는 UEFI 모드에서의 Arch Linux 설치를 다룹니다. 기존 운영체제가 삭제될 수 있으므로 중요한 데이터는 사전에 백업하세요.
 
+## 적용 범위와 중단 조건
+
+- 단일 x86-64 UEFI 장치의 학습용 예시입니다. 듀얼 부트, 암호화, RAID/LVM, Secure Boot와 특수 스토리지는 별도 설계가 필요합니다.
+- 실행 당일 Arch Installation Guide와 ISO 서명·checksum을 확인하고, 네트워크·firmware·bootloader package 변경 사항을 반영합니다.
+- partition/format 전 disk model, serial, 용량과 기존 partition을 두 번 확인합니다. 식별이 불확실하거나 복원 가능한 백업이 없으면 중단합니다.
+- 완료 기준은 설치 환경 명령 성공이 아니라 재부팅, UEFI boot entry, 일반 사용자·sudo, 네트워크, 시간, update와 복구 USB 부팅 확인입니다.
+
 ## 📋 설치 과정 개요
 
 ```mermaid
@@ -36,7 +43,7 @@ flowchart TD
 
 🔗 **공식 다운로드 페이지**: [https://archlinux.org/download/](https://archlinux.org/download/)
 
-> 💡 **권장사항**: 항상 최신 ISO 이미지를 다운로드하여 최신 패키지와 보안 업데이트를 적용받으세요.
+> 💡 **권장사항**: 공식 mirror에서 지원 중인 ISO를 받고 서명과 checksum을 검증하세요. 설치 절차는 해당 ISO 날짜의 공식 가이드와 맞춥니다.
 
 ### 1.2 부팅 가능한 USB 드라이브 제작
 
@@ -58,7 +65,7 @@ sudo dd bs=4M if=/path/to/archlinux.iso of=/dev/sdX status=progress oflag=sync
 
 | 설정 항목 | 권장 값 | 설명 |
 |----------|---------|------|
-| **Secure Boot** | `Disabled` | 보안 부팅 비활성화 (필수) |
+| **Secure Boot** | 설치 방식에 따라 결정 | 공식 ISO 직접 부팅 또는 사용자 키·서명 boot chain의 지원 절차 확인 |
 | **Boot Mode** | `UEFI` | UEFI 모드 활성화 |
 | **Boot Order** | `USB First` | USB 드라이브 우선 부팅 |
 
@@ -170,7 +177,7 @@ cfdisk /dev/sdX  # sdX를 실제 디스크 이름으로 변경
 
 ```mermaid
 graph LR
-    A[EFI System<br/>1GB<br/>FAT32] --> B[Swap<br/>RAM 크기<br/>swap] --> C[Root /<br/>나머지 공간<br/>ext4]
+    A[EFI System<br/>예시 1GiB<br/>FAT32] --> B[Swap<br/>hibernation·workload 기준<br/>optional] --> C[Root /<br/>계획한 여유 공간<br/>선택한 filesystem]
 ```
 
 #### UEFI 시스템 권장 파티션 구성

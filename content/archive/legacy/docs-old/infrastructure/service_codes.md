@@ -1,107 +1,68 @@
-### **1. Spring Boot 프로젝트 서비스**
+# systemd units for a Spring Boot backend and static frontend
 
-#### **서비스 파일 생성**
-서비스 파일 경로: `/etc/systemd/system/backend.service`
+These archived units assume a dedicated host and fixed paths. Replace every placeholder after confirming the artifact names, runtime users, ports, and rollback artifact. Do not run an application as a personal login account in production unless that ownership decision is explicit.
 
-```bash
-sudo nano /etc/systemd/system/backend.service
-```
+## Backend unit
 
-#### **서비스 파일 내용**
+`/etc/systemd/system/backend.service`:
+
 ```ini
 [Unit]
-Description=Spring Boot Backend Service
-After=network.target
+Description=Spring Boot backend
+Wants=network-online.target
+After=network-online.target
 
 [Service]
-User=nodove
+Type=simple
+User=backend
+Group=backend
 WorkingDirectory=/server/backend
-ExecStart=/usr/bin/java -jar /server/backend/career_note_web-0.0.1-SNAPSHO
-T.jar
-Restart=always
-RestartSec=5
-
-StandardOutput=append:/server/log/backend.log
-StandardError=append:/server/log/backend.log
+EnvironmentFile=-/etc/backend/backend.env
+ExecStart=/usr/bin/java -jar /server/backend/app.jar
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+SuccessExitStatus=143
+NoNewPrivileges=true
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
 ```
 
----
+## Frontend unit
 
-### **2. React 프로젝트 서비스**
+Use a supported static-file server. The binary and build path below are explicit placeholders, not discovered defaults.
 
-#### **서비스 파일 생성**
-서비스 파일 경로: `/etc/systemd/system/frontend.service`
-
-```bash
-sudo nano /etc/systemd/system/frontend.service
-```
-
-#### **서비스 파일 내용**
 ```ini
 [Unit]
-Description=React Frontend Service
-After=network.target
+Description=Static frontend
+After=network-online.target
 
 [Service]
-User=nodove
-WorkingDirectory=/server/frontend/build
-ExecStart=/usr/node-v21.6.1/bin/serve -s /server/frontend/build -l 3000
-Restart=always
-RestartSec=5
-
-# 로그 설정 (필요하면 주석 제거)
-StandardOutput=append:/server/log/front.log
-StandardError=append:/server/log/front.log
+Type=simple
+User=frontend
+Group=frontend
+WorkingDirectory=/server/frontend
+ExecStart=/usr/bin/caddy file-server --root /server/frontend/dist --listen :3000
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
 ```
 
----
+## Apply with a rollback path
 
-### **3. 서비스 설정 적용 및 실행**
-
-1. **서비스 파일 권한 설정**:
-   ```bash
-   sudo chmod 644 /etc/systemd/system/backend.service
-   sudo chmod 644 /etc/systemd/system/frontend.service
-   ```
-
-2. **데몬 재로드**:
-   ```bash
-   sudo systemctl daemon-reload
-   ```
-
-3. **서비스 활성화** (부팅 시 자동 시작):
-   ```bash
-   sudo systemctl enable backend.service
-   sudo systemctl enable frontend.service
-   ```
-
-4. **서비스 시작**:
-   ```bash
-   sudo systemctl start backend.service
-   sudo systemctl start frontend.service
-   ```
-
-5. **서비스 상태 확인**:
-   ```bash
-   sudo systemctl status backend.service
-   sudo systemctl status frontend.service
-   ```
-
----
-
-### **4. 서비스 로그 확인**
-서비스 로그는 지정된 파일에 저장됩니다:
-- Spring Boot 로그: `/server/log/backend.log`
-- React 로그: `/server/log/front.log`
-
-실시간으로 확인하려면:
 ```bash
-tail -f /server/log/backend.log
-tail -f /server/log/front.log
+sudo systemd-analyze verify /etc/systemd/system/backend.service
+sudo systemd-analyze verify /etc/systemd/system/frontend.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now backend.service frontend.service
+sudo systemctl status backend.service frontend.service
+sudo journalctl -u backend.service -u frontend.service -n 100 --no-pager
 ```
+
+Keep the previous unit files and application artifacts until both services restart successfully and their HTTP readiness checks return the expected status and content. If either check fails, restore the previous artifact and unit, reload systemd, and record the first failing log line.

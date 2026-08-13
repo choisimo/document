@@ -2,11 +2,15 @@
 
 > **Under the Hood** — How instructions flow through pipeline stages, how caches exploit spatial/temporal locality, how memory hierarchies hide latency, and how multiprocessors maintain coherence. Sources: *Computer Organization and Architecture* (Stallings, 9th ed.), *The Architecture of Computer Hardware, System Software, and Networking* (Englander), *Digital Logic and Computer Design* (Mano), *PC Hardware: A Beginner's Guide*, *Code: The Hidden Language of Computer Hardware and Software* (Petzold).
 
+## Model assumptions
+
+Sections 1–4 use a pedagogical five-stage, 32-bit-address RISC machine unless stated otherwise. Cache sizes, address-bit slices, latency, branch accuracy, TLB shape, reorder-buffer entries, and bandwidth are parameters of a specific microarchitecture, not architectural invariants. A numeric comparison is complete only with CPU SKU/stepping, clock policy, memory configuration, benchmark, counter names, sample count, and percentile or dispersion.
+
 ---
 
 ## 1. Instruction Pipeline: The 5-Stage RISC Model
 
-The fundamental insight of pipelining: while one instruction executes, the next is being decoded, and the one after is being fetched. Throughput approaches 1 instruction/cycle asymptotically.
+The fundamental insight of pipelining is overlap: while one instruction executes, later instructions can be decoded or fetched. The idealized single-issue model approaches one retired instruction per cycle only after fill and in the absence of hazards, cache misses, exceptions, and multi-cycle operations.
 
 ```mermaid
 flowchart LR
@@ -175,6 +179,8 @@ flowchart LR
 
 ### DRAM Timing Internals: Why Access is 100+ Cycles
 
+The diagram is one timing example. Row hits omit activate/precharge, controller queues can overlap requests, refresh and contention add delay, and CPU cycles depend on frequency; therefore `tRCD + tCL + tRP` is not a universal end-to-end load latency.
+
 ```mermaid
 sequenceDiagram
     participant CPU
@@ -218,6 +224,8 @@ flowchart TD
 ```
 
 ### Page Fault Handler Flow
+
+The sequence represents a major file/swap-backed fault. Anonymous zero-fill, copy-on-write, protection violations, and already-resident file pages follow different paths; frame allocation and I/O ordering are kernel-specific. “Page fault” alone does not imply disk access.
 
 ```mermaid
 sequenceDiagram
@@ -294,6 +302,8 @@ stateDiagram-v2
 
 ### Cache Coherence Bus Snooping
 
+The MESI state diagram contains two edges for a read observed while in `Modified`. In the ordinary read-sharing case the owner supplies or writes back the data and moves to `Shared`; invalidation is associated with another agent obtaining write ownership. Modern systems may use directory protocols and MOESI variants rather than a shared bus.
+
 ```mermaid
 sequenceDiagram
     participant CPU0
@@ -319,6 +329,8 @@ sequenceDiagram
 ---
 
 ## 7. I/O Architecture: DMA, Interrupts, and Bus Protocols
+
+The northbridge/southbridge topology is historical. Many current CPUs integrate the memory controller and PCIe root complex, while DMA may pass through an IOMMU; use the platform's actual block diagram before reasoning about paths or trust boundaries.
 
 ```mermaid
 flowchart TD
@@ -371,6 +383,8 @@ flowchart LR
 ---
 
 ## 9. Floating Point: IEEE 754 Internal Representation
+
+The implied leading `1` applies only to normal finite values. Subnormal values use an effective leading `0`; infinities and NaNs do not represent an ordinary significand.
 
 ```mermaid
 flowchart LR
@@ -458,4 +472,4 @@ mindmap
 | L1-D latency | 5 cycles | 4 cycles |
 | DRAM latency | ~70ns | ~70ns |
 
-The relentless improvement in out-of-order window size (ROB, RS, physical registers) is the primary lever for extracting ILP from sequential code — every doubling of ROB size exposes more parallelism across loop iterations, function calls, and independent statement sequences.
+Larger out-of-order windows can expose more instruction-level parallelism, but they are one trade-off among branch prediction, front-end width, execution ports, cache/memory latency, power, and workload dependency structure. Doubling a ROB does not guarantee a proportional performance gain.

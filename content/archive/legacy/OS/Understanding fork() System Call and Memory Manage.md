@@ -2,7 +2,9 @@
 
 # Understanding fork() System Call and Memory Management in Unix/Linux
 
-When a Unix/Linux process creates a new process using the fork() system call, a complex but elegant memory management mechanism takes place. This explanation will demonstrate how parent and child processes interact with memory during and after a fork() operation.
+> **Scope:** This document describes POSIX `fork()` semantics and the copy-on-write strategy commonly used by modern Unix-like kernels. Copy-on-write is an implementation strategy, not the API contract that programs should depend on.
+
+When a Unix/Linux process calls `fork()`, the kernel creates a child process with a logically separate address space. The sections below distinguish the observable process semantics from the physical-page optimization used by typical kernels.
 
 ## The fork() System Call Explained
 
@@ -187,13 +189,13 @@ int main() {
 }
 ```
 
-In this example, both parent and child initially see the same value of x (5), and the memory addresses reported will appear the same (though they refer to different physical memory after fork()). When either process modifies x, the copy-on-write mechanism creates a separate physical copy of that memory page, allowing each process to maintain its own independent value (10 for the child, 20 for the parent).
+In this example, both parent and child initially see the value 5. Their printed virtual addresses will usually match because each process has its own virtual address space; matching addresses do not prove that the same physical page remains mapped. After either process writes to the page, the processes observe independent values. The scheduler may print the parent and child lines in either order.
 
 ## Key Insights About fork() and Memory
 
-1. fork() creates an almost exact duplicate of the parent process
+1. `fork()` creates a child with duplicated process state and a logically separate address space; some resources, such as open file descriptions, remain shared according to POSIX rules
 2. Both processes continue execution from the point after fork()
-3. Modern systems use copy-on-write to optimize memory usage, only creating copies of memory pages when they are modified
+3. Modern Unix-like kernels commonly use copy-on-write so that writable pages are copied when a process first modifies them
 4. This mechanism allows for efficient process creation while maintaining memory isolation between processes
 
 This memory management strategy makes fork() both powerful and efficient, enabling the creation of new processes without excessive memory overhead.
@@ -269,4 +271,3 @@ This memory management strategy makes fork() both powerful and efficient, enabli
 [^34]: https://velog.io/@junttang/OS-2.2-MV-2-Memory-System-Calls
 
 [^35]: https://www.cis.upenn.edu/~jms/cw-fork.pdf
-

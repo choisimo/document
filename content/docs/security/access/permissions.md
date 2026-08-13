@@ -2,11 +2,20 @@
 
 SSHFS로 원격 서버의 nodove 유저 디렉토리(권한 700)에 접근할 수 없는 문제는 여러 가지 원인이 있을 수 있습니다.
 
+## 적용 범위와 권한 검증 기준
+
+- **범위:** SSHFS·libfuse·kernel·SSH client/server 버전, mount 실행 사용자와 namespace, local/remote UID·GID·supplementary groups, remote filesystem ACL과 mount options를 기록합니다.
+- **권한 전제:** remote SSH authorization, SSHFS의 attribute mapping, `default_permissions`의 local kernel check, parent directory execute 권한과 application access를 분리해 확인합니다.
+- **사실과 추론:** 양쪽 `id`, path component 권한·ACL, mount table, SSHFS debug와 실제 open error는 근거이고, 동일 username이나 한 번의 permission denied만으로 UID mismatch를 원인으로 확정하지 않습니다.
+- **실패·완료:** 다른 사용자 노출, 예상 밖 root credential, read/write 차이, stale mount, reconnect와 unmount 실패를 시험합니다. 최소 권한으로 필요한 operation만 성공하고 금지 사용자는 거부되며 reboot/reconnect 뒤에도 mapping이 유지될 때 완료입니다.
+
+---
+
 ## 주요 원인
 
 ### 1. UID/GID 불일치 문제
 
-가장 흔한 원인은 로컬과 원격 시스템에서 동일한 사용자 이름(nodove)을 사용하더라도 실제 내부 사용자 ID(UID)와 그룹 ID(GID)가 다를 수 있기 때문입니다[1].
+UID/GID 또는 group mapping 차이는 가능한 원인 중 하나입니다. 동일 username은 숫자 ID·supplementary group·ACL의 일치를 보장하지 않으므로 양쪽 상태와 mount option을 함께 확인합니다[1].
 
 ```bash
 # 로컬과 원격 시스템에서 각각 실행하여 ID 확인
@@ -26,7 +35,7 @@ sshfs -o idmap=user nodove@원격서버:/경로 /마운트지점
 
 ### 3. sudo 사용 관련 문제
 
-SSHFS는 사용자 공간 프로세스이므로 `sudo`로 실행할 필요가 없습니다. `sudo`로 실행하면 SSH 키 인증 시 `/home/nodove/.ssh`가 아닌 `/root/.ssh`에서 키를 찾게 됩니다[3].
+일반적인 per-user mount는 해당 사용자로 실행할 수 있습니다. system-wide mount나 service에는 별도 권한이 필요할 수 있으며, `sudo`로 실행하면 기본 credential·HOME·mount owner가 root context로 바뀔 수 있습니다. 실제 `IdentityFile`, environment와 service 설정을 확인합니다[3].
 
 또한 `sudo`로 마운트된 디렉토리에 접근하려면 `allow_other` 옵션이 필요합니다:
 ```bash
@@ -35,7 +44,7 @@ sudo sshfs -o allow_other nodove@원격서버:/경로 /마운트지점
 
 ### 4. 부모 디렉토리 권한 문제
 
-마운트하려는 디렉토리의 상위 디렉토리들도 적절한 접근 권한이 있어야 합니다. 경로 중간에 권한이 700인 디렉토리가 있으면, 그 안의 디렉토리에 권한이 777이더라도 접근할 수 없습니다[2].
+마운트하려는 디렉토리의 상위 디렉토리들도 적절한 접근 권한이 있어야 합니다. 호출 사용자가 소유자도 아니고 ACL·capability 등 별도 허용도 없다면, 경로 중간 directory에 execute 권한이 없어 하위 directory mode와 무관하게 traversal이 거부됩니다[2].
 
 ## 해결 방법
 
@@ -48,7 +57,7 @@ sudo sshfs -o allow_other nodove@원격서버:/경로 /마운트지점
    ssh nodove@원격서버 "id"
    ```
    
-   불일치하는 경우, 원격 서버의 UID를 로컬과 일치시키는 것이 가장 확실한 해결책입니다[1].
+   UID 변경은 file ownership과 다른 service에 광범위한 영향을 줄 수 있습니다. SSHFS mapping option, local access policy, group·ACL 또는 관리된 identity 정렬 중 영향이 가장 작은 방법을 선택하고 기존 file ownership을 검증합니다[1].
 
 2. **적절한 마운트 옵션 사용**:
    ```bash

@@ -1,5 +1,12 @@
 # Kafka 개념 및 아키텍처
 
+## 적용 범위와 보장 경계
+
+- 이 문서는 Kafka의 논리 개념을 설명합니다. controller 모드, group protocol, 기본 설정과 도구 명령은 배포 버전에서 다시 확인합니다.
+- 순서는 partition 안에서 기록된 순서이며, key가 같은 partition에 남는지는 partitioner와 partition 수가 유지되는 동안의 계약입니다.
+- producer acknowledgement, 복제 commit, consumer visibility, 애플리케이션 처리와 offset commit은 서로 다른 완료 상태입니다.
+- 전달 보장은 재시도, transaction, isolation level과 외부 부작용의 멱등성까지 고정하고 장애 시험으로 확인합니다.
+
 ## 📖 개요
 
 Apache Kafka는 LinkedIn에서 개발한 분산 이벤트 스트리밍 플랫폼으로, 실시간 데이터 파이프라인과 스트리밍 애플리케이션을 구축하는 데 사용됩니다.
@@ -71,7 +78,7 @@ Partition 2: [msg2] [msg5] [msg8] [msg11]
 **특징:**
 - 각 Partition은 순서를 보장 (Partition 내에서만)
 - Partition 번호는 0부터 시작
-- Key 기반 라우팅으로 같은 Key는 항상 같은 Partition으로
+- 같은 partitioner와 partition 수가 유지되는 동안 key 기반 라우팅으로 같은 key를 같은 partition에 배치 가능
 - Partition 수는 병렬 처리의 최대 단위
 
 **Partition 선택 알고리즘:**
@@ -145,7 +152,7 @@ producer.send(record);
 **전송 보장 수준 (acks):**
 - `acks=0`: 전송만 하고 확인 안함 (빠르지만 손실 가능)
 - `acks=1`: Leader가 저장하면 확인 (기본값)
-- `acks=all`: 모든 ISR이 저장하면 확인 (가장 안전)
+- `acks=all`: ISR과 `min.insync.replicas` 조건에 따라 확인하며 가용성과 내구성의 설정 경계를 함께 검토
 
 ### 6. Consumer (컨슈머)
 
@@ -241,7 +248,7 @@ Consumer는 마지막 읽은 offset을 __consumer_offsets 토픽에 커밋
 **Offset 커밋 전략:**
 - **Auto Commit**: 자동으로 주기적 커밋 (간단하지만 중복/손실 가능)
 - **Manual Commit Sync**: 처리 완료 후 동기 커밋 (안전하지만 느림)
-- **Manual Commit Async**: 비동기 커밋 (빠르지만 순서 보장 안됨)
+- **Manual Commit Async**: 커밋 응답을 기다리지 않아 처리 경로를 줄일 수 있지만, 콜백 순서와 실패 재시도 시 이전 offset으로 덮어쓰지 않도록 관리 필요
 
 ## 🔄 데이터 흐름
 

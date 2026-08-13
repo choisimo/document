@@ -1,6 +1,18 @@
 # Android & Mobile Internals: Binder IPC, ART Runtime & Rendering Pipeline
 
-> Under the Hood: How Android's Binder IPC transports method calls through kernel memory, how ART compiles DEX to native code, how the SurfaceFlinger compositor orchestrates frame production, how Jetpack Compose's recomposition engine tracks state changes — the exact kernel interfaces, JIT pipelines, and rendering data flows.
+> Under the Hood: How Android's Binder IPC transports method calls through kernel memory, how ART compiles DEX to native code, how the SurfaceFlinger compositor orchestrates frame production, how Jetpack Compose's recomposition engine tracks state changes — representative kernel interfaces, version-specific JIT pipelines, and rendering data flows.
+
+---
+
+## Scope, Platform Assumptions, and Validation
+
+This document describes representative Android platform internals. Android API behavior, AOSP implementation details, vendor kernels, HALs, and device-specific performance are different layers of evidence.
+
+- **Scope:** Record Android release and AOSP branch, device and SoC, kernel, ART mode, graphics stack, app build, refresh rate, and vendor modifications before applying an internal path.
+- **Implementation limits:** Binder is the primary Android RPC mechanism for many framework services, but sockets, shared memory, files, and device-specific IPC also exist. Terms such as zero-copy describe a reduced-copy design, not the absence of every copy.
+- **Numeric assumptions:** Frame budgets, IPC latency, heap thresholds, zRAM ratios, JIT thresholds, and camera timing depend on device, build, load, thermal state, and configuration.
+- **Evidence and uncertainty:** Treat a framework contract as stable only for its documented API level; treat an internal call path or performance explanation as a version-specific hypothesis until traced.
+- **Failure and completion:** Validate cold and warm startup, jank and missed frames, Binder errors, process death, memory pressure, configuration changes, and lifecycle restoration with Perfetto, system traces, logs, and reproducible device conditions.
 
 ---
 
@@ -23,7 +35,7 @@ flowchart TD
 
 ## 2. Binder IPC: Kernel-Level Message Passing
 
-Binder is Android's primary IPC mechanism — all cross-process calls (Activity→Service, App→System Services) go through the Binder kernel driver.
+Binder is Android's primary RPC mechanism for many framework and application-service interactions. Not every cross-process transfer uses Binder: sockets, shared memory, files, device nodes, and vendor-specific paths also exist, sometimes with Binder used only for control.
 
 ```mermaid
 sequenceDiagram
@@ -43,7 +55,7 @@ sequenceDiagram
     Note over APP: Return from startActivity()
 ```
 
-### Binder Memory Mapping (Zero-Copy Design)
+### Binder Memory Mapping (Reduced-Copy Design)
 
 ```mermaid
 flowchart LR

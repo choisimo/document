@@ -1,6 +1,18 @@
 # Security Internals: Cryptography, Authentication & Exploit Mechanics
 
-> Under the Hood: How TLS handshakes negotiate keys, how hash functions avalanche, how buffer overflows corrupt control flow, how OAuth tokens prove identity — the exact memory layouts, state machines, and mathematical operations behind security mechanisms.
+> Under the Hood: How TLS handshakes negotiate keys, how hash functions avalanche, how buffer overflows corrupt control flow, how OAuth tokens authorize access and how OIDC assertions convey identity claims — representative memory layouts, protocol state machines, and mathematical operations behind security mechanisms.
+
+---
+
+## Scope, Threat Model, and Security Evidence
+
+This document explains security mechanisms, not a complete deployment standard. A cryptographic property is meaningful only with a named algorithm and version, key and nonce policy, implementation assumptions, protocol context, and adversary model.
+
+- **Scope:** Record protocol and standard versions, cipher suite, library and build, key sizes, randomness source, token profile, trust anchors, deployment boundaries, and relevant platform mitigations.
+- **Guarantee boundary:** Mathematical resistance, protocol authentication, authorization, memory safety, and side-channel resistance are separate properties. None implies that configuration, key management, parsing, or surrounding application code is secure.
+- **Numeric and asymptotic claims:** Round counts fixed by a standard may be exact; attack cost, avalanche observations, password-hash parameters, proof size, verification work, and timing leakage depend on the construction, security parameter, inputs, and implementation.
+- **Evidence and uncertainty:** Prefer the governing standard and library documentation, then test vectors, negative tests, dependency and configuration review, constant-time analysis, and independent security assessment. A passing happy-path test is not evidence that abuse paths are closed.
+- **Failure and completion:** Define replay, downgrade, nonce reuse, key compromise, token confusion, injection, memory corruption, and side-channel leakage. Completion requires explicit rejection tests, rotation and revocation behavior, monitored failure signals, and a documented residual risk.
 
 ---
 
@@ -29,8 +41,8 @@ flowchart TD
 ### SubBytes: S-Box as GF(2⁸) Multiplicative Inverse
 
 The S-box is not arbitrary — each byte `b` is mapped to `b⁻¹ mod (x⁸+x⁴+x³+x+1)` (multiplicative inverse in GF(2⁸)), then an affine transform is applied. This provides:
-- **Non-linearity**: breaks any linear algebraic attack
-- **Avalanche**: 1 bit change in input changes ~50% of output bits after several rounds
+- **Non-linearity**: contributes resistance to linear and algebraic analysis; it does not by itself rule out every algebraic attack
+- **Avalanche observation**: across suitable input samples, a one-bit input change is expected to change roughly half the output bits; this is a statistical design property, not a per-input guarantee
 
 ### AES-GCM: Authenticated Encryption
 
@@ -166,7 +178,7 @@ flowchart TD
 - `Ch(e,f,g) = (e AND f) XOR (NOT_e AND g)` — "choose" function
 - `Maj(a,b,c) = (a AND b) XOR (a AND c) XOR (b AND c)` — "majority" function
 
-These bitwise operations create the **avalanche effect**: flipping 1 input bit changes ~50% of output bits.
+Together these operations are designed to produce an **avalanche effect**: over suitable samples, flipping one input bit changes roughly half the output bits on average. This is not guaranteed for every individual input pair and is not by itself a proof of collision resistance.
 
 ---
 
@@ -195,7 +207,7 @@ flowchart TD
 
 ### Argon2 Memory Access Pattern
 
-Argon2 allocates a matrix of memory blocks (1KB each). Each block computation depends on pseudo-random previous blocks — impossible to parallelize without the full matrix in memory.
+Argon2 uses a parameterized matrix of memory blocks whose layout and dependencies vary by variant and version. It is designed to make parallel and reduced-memory attacks costly, not impossible; time-memory trade-offs and hardware parallelism remain and must be evaluated using current recommended parameters and the deployment’s latency budget.
 
 ---
 
@@ -324,7 +336,7 @@ flowchart TD
     end
 ```
 
-The key: parameterized queries **separate code from data** at the parser level. The SQL engine builds the parse tree from the template, then substitutes values as data literals — the value can never alter the tree structure.
+Parameterized queries separate supported value parameters from SQL syntax so a bound value cannot become syntax in that prepared statement. Identifiers, keywords, sort directions, and dynamically concatenated SQL are not protected by value binding; allowlists and safe query construction are still required.
 
 ---
 
@@ -421,11 +433,11 @@ sequenceDiagram
     Note over P,V: Repeat 100 times → soundness: 2^(-100)\nVerifier learns nothing about x\n(any r,s,c triple is simulatable)
 ```
 
-**zk-SNARKs** (used in ZCash, Ethereum): The prover knows a witness `w` satisfying a circuit `C(x, w) = 1`. The proof size is O(1) (a few hundred bytes) and verification is O(1) regardless of circuit complexity. This enables verifying blockchain transactions without revealing amounts.
+**zk-SNARKs** are a family of constructions, not one universal complexity bound. Some schemes have succinct proofs and verification work that is largely independent of witness size, but proof size and verification still depend on the scheme, security parameter, public inputs, circuit encoding, and setup assumptions. State the construction before claiming `O(1)` proof or verification cost.
 
 ---
 
-## 13. Key Exchange Summary: What Actually Happens in Every HTTPS Connection
+## 13. Key Exchange Summary: A Representative TLS 1.3 HTTPS Connection
 
 ```mermaid
 flowchart LR

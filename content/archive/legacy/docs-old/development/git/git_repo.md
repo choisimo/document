@@ -45,6 +45,10 @@ sudo git clone --single-branch --branch server2 git@github.com:choisimo/nginx-se
 - 다른 브랜치의 정보는 가져오지 않습니다[5]
 - 저장소 크기가 작아지고 클론 속도가 빨라집니다[3]
 
+## 문서 상태와 실행 순서
+
+이 보관 문서는 서버별 브랜치, sparse checkout, cron pull, GitHub Actions, NGINX Instance Manager 배포라는 대안을 한 파일에 누적한 자료다. 이들은 순차 실행 절차가 아니므로 배포 주체와 서버별 정본을 먼저 하나로 선택한다. `/etc/nginx` 삭제나 덮어쓰기는 백업, 후보 설정의 `nginx -t`, 복구 명령과 담당자가 정해진 뒤에만 수행한다. 저장소 작업은 전용 배포 사용자 소유로 두고, 활성 경로 변경·reload처럼 필요한 단계에만 제한적으로 `sudo`를 사용한다.
+
 ## 서버별 설정 업데이트 방법
 
 각 서버에서 구성을 업데이트하는 경우:
@@ -77,7 +81,7 @@ sudo git fetch origin another-branch:another-branch
 
 1. 단일 브랜치 클론 시 해당 브랜치만 존재하므로 다른 브랜치로 전환하려면 추가 설정이 필요합니다[3]
 2. SSH 키가 각 서버에 올바르게 설정되어 있어야 GitHub 저장소에 접근할 수 있습니다
-3. `/etc/nginx` 디렉토리의 권한 문제를 피하기 위해 모든 Git 명령에 `sudo`를 사용해야 합니다
+3. 저장소는 전용 배포 사용자가 소유하게 하고, 활성 Nginx 경로 변경과 reload처럼 필요한 단계에만 제한적으로 `sudo`를 사용합니다
 
 이 방식을 사용하면 각 서버가 자신의 구성 브랜치만 관리하면서도 중앙 저장소를 통해 모든 서버의 구성을 효율적으로 관리할 수 있습니다.
 

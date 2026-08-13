@@ -2,9 +2,18 @@
 
 Deploy Keys를 사용하여 특정 저장소에 안전하게 접근하는 방법을 설명합니다.
 
+## 적용 범위와 보안 검증 기준
+
+- **범위:** Deploy Key의 재사용·쓰기 권한·소유 모델은 GitHub, GitLab과 hosting 버전에 따라 다릅니다. 이 문서의 예제를 공급자 공통 보장으로 해석하지 않습니다.
+- **권한 전제:** repository와 작업별로 read/write 필요성을 분리하고 key algorithm, host key 검증, secret 저장소, 실행 사용자와 CI log redaction을 정합니다.
+- **불확실성:** 고정 rotation 주기만으로 안전을 보장하지 않습니다. 노출 징후, 인력·시스템 변경, algorithm 정책과 공급자 감사 기록에 따라 즉시 폐기할 수 있어야 합니다.
+- **실패·완료:** 잘못된 저장소 접근, 과도한 쓰기 권한, host key 오류, secret 유출과 key 폐기 뒤 잔존 접근을 시험합니다. fingerprint·최소 권한·감사 log·revocation을 확인해야 완료입니다.
+
+---
+
 ## 개요
 
-Deploy Keys는 단일 GitHub/GitLab 저장소에 대한 읽기 전용(또는 쓰기 가능) SSH 접근을 제공합니다. 서버 배포나 CI/CD 파이프라인에서 전체 계정 접근 권한 없이 특정 저장소만 접근할 때 유용합니다.
+Deploy Key의 scope와 재사용 정책은 hosting provider에 따라 다릅니다. GitHub의 repository deploy key와 GitLab의 project deploy key를 같은 제약으로 가정하지 말고 현재 공급자 문서를 확인합니다. 서버 배포나 CI/CD 파이프라인에서 전체 계정 접근 권한 없이 특정 저장소만 접근할 때 유용합니다.
 
 ```mermaid
 graph LR
@@ -32,7 +41,7 @@ graph LR
 
 | 특성 | Deploy Key | 개인 SSH Key |
 |------|------------|--------------|
-| 접근 범위 | 단일 저장소 | 계정의 모든 저장소 |
+| 접근 범위 | 공급자 정책에 따른 repository/project | 해당 계정에 실제 부여된 저장소 권한 |
 | 보안 | 제한된 권한 | 전체 계정 권한 |
 | 사용 사례 | 서버, CI/CD | 개발 환경 |
 | 키 소유 | 저장소 | 사용자 계정 |
@@ -253,7 +262,7 @@ Hi username/repo-name! You've successfully authenticated, but GitHub does not pr
 !!! danger "비공개 키 보호"
     - 비공개 키를 절대 공유하거나 커밋하지 마세요
     - 키 파일 권한: `chmod 600 ~/.ssh/id_*`
-    - 정기적으로 키 교체 (6-12개월)
+    - rotation 주기는 조직 정책과 위험에 맞추고, 노출 의심·소유자 변경·권한 축소 시에는 기간과 무관하게 즉시 폐기
 
 !!! tip "최소 권한 원칙"
     - 읽기 전용이 충분한 경우 쓰기 권한 부여 금지

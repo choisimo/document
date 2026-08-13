@@ -1,5 +1,8 @@
 # Algorithm Study Repository
 
+> Scope: this README is a learning catalog, not a test report. A check mark means an implementation is listed; confirm its entrypoint, runtime version, duplicate/error policy, and current test result before treating it as working.
+> Model boundary: memory diagrams show conceptual reachability and control flow. They are not exact addresses, object sizes, JIT decisions, or measurements unless runtime, flags, hardware, and command are stated.
+
 > 알고리즘과 자료구조를 **First Principles** 관점에서 학습하는 리포지토리입니다.  
 > 단순한 코드 암기가 아닌, 시스템 내부의 작동 원리를 이해하는 것을 목표로 합니다.
 

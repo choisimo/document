@@ -1,6 +1,15 @@
 # VS Code Plugins & Extensions
 
-> Essential VS Code plugins for enhanced development experience
+> Example VS Code extensions to evaluate for a specific development workflow
+
+---
+
+## Scope and Selection Criteria
+
+- **Scope:** Extension availability, identifiers, pricing, licenses, trust, telemetry, and compatibility depend on the VS Code and Marketplace versions. This is a curated example list, not a universal required set.
+- **Assumptions:** Select extensions for a named language, repository, remote environment, formatter and linter policy. Avoid overlapping formatters or language servers unless precedence is explicit.
+- **Evidence and uncertainty:** Popularity and a short description do not establish security, maintenance quality, or productivity benefit. Review publisher identity, permissions, release history, workspace trust, and measured startup or CPU impact.
+- **Failure and completion:** Test conflicts, untrusted-workspace behavior, remote support, formatting output, uninstall and settings rollback. A selection is complete when the repository workflow works without duplicated diagnostics or unacceptable resource use.
 
 ---
 
@@ -19,7 +28,7 @@ ext install PKief.material-icon-theme
 
 ---
 
-## Recommended Extensions
+## Candidate Extensions
 
 ### Development Essentials
 

@@ -1,74 +1,47 @@
-# Understanding Rsync Port Configuration: Why --port=2722 Is Not Working
+# Diagnose an rsync connection that uses the wrong SSH port
 
-The terminal output shown in the query displays an rsync connection issue when attempting to use a custom port (2722). Despite specifying this port parameter, the connection attempts are still targeting the default SSH port (22) and failing with "Connection refused" errors. This report explains why the port specification isn't working as expected and how to correctly configure rsync to use a custom SSH port.
+This note applies to the remote-shell form `user@host:path`. In that form rsync launches SSH, so rsync's `--port` option does not select the SSH port. `--port` belongs to the rsync daemon protocol, such as `rsync://host/module`.
 
-## The Core Issue: Misunderstanding Rsync Port Parameters
+## Expected and observed states
 
-The primary issue in the command being executed is a misunderstanding of how rsync handles port specifications when using SSH as the transfer protocol. Looking at the terminal output, we can see multiple failed attempts to connect using commands like:
+- **Expected:** SSH connects to the target host on port `2722`, then rsync starts on the remote side.
+- **Observed example:** the error says `ssh: connect to host ... port 22`, so the custom port never reached SSH.
 
-```
-sudo rsync -avz ./* nodove@30.30.30.3:/mnt/nas/files/backup/040825 --port=2722
-```
+## Test the transport first
 
-These commands consistently result in:
-
-```
-ssh: connect to host 30.30.30.3 port 22: Connection refused
-rsync: connection unexpectedly closed (0 bytes received so far) [sender]
-rsync error: unexplained error (code 255) at io.c(232) [sender=3.2.7]
+```bash
+ssh -vv -p 2722 user@example-host
 ```
 
-### Why --port Doesn't Work for SSH Connections
+Interpret the failure before changing rsync:
 
-The `--port` option in rsync is intended for use with the rsync daemon protocol (when using `rsync://` URLs), not for SSH connections. When rsync is used with an SSH transport (which is the default when specifying a remote location as `user@host:path`), it establishes the connection using SSH's default mechanisms, which means port 22 unless specified otherwise.
+- `Connection refused`: the address responded but no service accepted that port, or a firewall rejected it.
+- `Connection timed out`: routing or a firewall silently dropped the connection.
+- `Permission denied`: transport works; inspect the SSH user, key, and server authentication policy.
+- Successful shell or forced-command response: proceed to rsync.
 
-## The Correct Approach: Using the -e Option
+Use the SSH port through rsync's remote-shell option:
 
-To specify a custom SSH port for rsync, you need to use the `-e` option to provide an alternate remote shell command that includes the port specification. This instructs rsync about how to establish the SSH connection.
-
-The correct command format should be:
-
+```bash
+rsync -a --dry-run --itemize-changes \
+  -e 'ssh -p 2722' \
+  ./ user@example-host:/srv/backup/040825/
 ```
-rsync -avz -e 'ssh -p 2722' ./* nodove@30.30.30.3:/mnt/nas/files/backup/040825
+
+The trailing slash on `./` copies the directory contents, including dotfiles considered by rsync; a shell glob such as `./*` omits ordinary hidden entries. Review the dry-run before removing `--dry-run`.
+
+## Persistent SSH configuration
+
+```sshconfig
+Host backup-host
+    HostName example-host
+    User user
+    Port 2722
+    IdentityFile ~/.ssh/backup_ed25519
 ```
 
-This command tells rsync to use SSH with port 2722 when connecting to the remote server.
+```bash
+rsync -a --dry-run --itemize-changes ./ backup-host:/srv/backup/040825/
+```
 
-## Common Causes of Connection Refused Errors
-
-Even with correct port specification, "Connection refused" errors can occur for several reasons:
-
-1. **SSH service not running** on the remote server at the specified port
-2. **Firewall blocking** the connection to the specified port
-3. **Incorrect SSH configuration** on the remote server
-4. **Network routing issues** between local and remote machines
-
-## Troubleshooting Steps
-
-If connection issues persist after correcting the port specification method, consider these troubleshooting steps:
-
-1. **Verify SSH service status** on the remote server:
-   ```
-   sudo systemctl status sshd
-   ```
-
-2. **Check listening ports** on the remote server:
-   ```
-   sudo netstat -tuln | grep 2722
-   ```
-
-3. **Test direct SSH connection** to verify SSH accessibility:
-   ```
-   ssh -p 2722 nodove@30.30.30.3
-   ```
-
-4. **Check firewall rules** to ensure the port is open:
-   ```
-   sudo iptables -L -n
-   ```
-
-5. **Examine SSH configuration** on the remote server to confirm it's listening on port 2722
-
-## Conclusion
-
-The rsync command in the example fails because the `--port` parameter doesn't affect the SSH connection's port. For rsync transfers over SSH, the correct approach is to use the `-e` option to specify the SSH command with the desired port. This ensures that rsync will connect to the remote server using the specified port rather than defaulting to port 22.
+Completion requires a successful SSH transport test, an rsync exit status of zero, and a destination-side listing or checksum check for the intended file set. A connection succeeding does not prove that every expected file transferred.

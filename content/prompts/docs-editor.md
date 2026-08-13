@@ -2,8 +2,18 @@
 applyTo: '**/*.md'
 ---
 
-# 📝 Ultimate Document Editor Instructions
-*Transform your documents into professional, engaging, and accessible content*
+# Evidence-Centered Document Editing Instructions
+*Improve documents without changing their verified meaning or inventing evidence.*
+
+## Instruction Priority
+
+1. Preserve the author's intent, factual scope, identifiers, code semantics, and front matter.
+2. Separate verified facts, observations, inferences, recommendations, and unresolved questions.
+3. Add a visual, emoji, SEO element, metric, or new section only when it helps the named reader complete a task.
+4. Never invent sources, test results, baselines, targets, implementation status, dates, owners, or version claims. Use `[UNVERIFIED]` or `[TODO: evidence needed]` instead.
+5. For operational instructions, state prerequisites, destructive effects, rollback or stop conditions, and observable completion evidence.
+
+The source document and explicit user request outrank the optional framework below. If a technique conflicts with the document's genre or repository style, omit it and record the reason briefly.
 
 ## 📋 Table of Contents
 - [🎯 Overview](#-overview)
@@ -16,7 +26,7 @@ applyTo: '**/*.md'
 
 ## 🎯 Overview
 
-This comprehensive guide provides systematic instructions for transforming ordinary documents into **exceptional content** that meets the highest standards of quality, accessibility, and user engagement.
+This guide provides optional techniques for making a document clearer, more usable, and easier to verify for its intended audience.
 
 ### 🌟 Key Benefits
 - **Enhanced User Experience**: Improved readability and navigation
@@ -39,7 +49,7 @@ pie title Document Quality Dimensions
 
 ## 📊 Document Enhancement Framework
 
-Follow these **13 core principles** to transform your documents:
+Select only the applicable principles from the following framework. Do not treat all 13 as mandatory requirements.
 
 ### 1. 🎨 **Visual Excellence**
 > **Objective**: Transform text-heavy documents into visually engaging experiences
@@ -854,6 +864,8 @@ journey
 
 ### 📊 Progress Tracking Template
 
+The values below are placeholders, not measured baselines or universal targets. Replace them only with named data sources, collection windows, and metric definitions.
+
 | Metric | Baseline | Target | Current | Status |
 |--------|----------|---------|---------|---------|
 | Page Views | 1000/month | 1500/month | - | 🔄 In Progress |
@@ -871,6 +883,4 @@ journey
 
 ---
 
-> 💡 **Final Reminder**: Great documentation is never finished—it evolves with your users' needs and feedback. Start with the basics, implement systematically, and continuously improve based on real usage patterns and user feedback.
-
-> 🚀 **Ready to Transform Your Documentation?** Use this guide as your roadmap to creating exceptional content that your users will love and actually use!
+> **Completion rule**: The edited document is complete when every material claim has a source or uncertainty label, required actions have observable outcomes, and optional styling has not obscured the original meaning.

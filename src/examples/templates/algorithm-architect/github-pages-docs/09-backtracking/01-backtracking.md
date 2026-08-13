@@ -3,10 +3,19 @@
 ## 문서 목적
 - 원본 템플릿 `09-backtracking/01-backtracking.md` 의 내부 동작을 GitHub Markdown에서 바로 읽을 수 있게 설명합니다.
 - 코드 레이어(초기화/루프/조건/갱신/종료)를 분해하고, Mermaid로 제어 흐름을 시각화합니다.
-- 실전 문제에 붙일 때 반드시 수정해야 하는 지점을 체크리스트로 제공합니다.
+- 실전 문제에 적용할 때 choice·constraint·restore·pruning 근거를 검토할 checklist를 제공합니다.
 
 ## 원본 템플릿
 - Source: [09-backtracking/01-backtracking.md](../../09-backtracking/01-backtracking.md)
+
+## 적용 범위와 검증 기준
+
+- **범위:** 이 해설은 linked backtracking template의 control-flow model입니다. 실제 search tree의 branching, depth, output 수와 source revision에 따라 설명과 복잡도가 달라집니다.
+- **알고리즘 전제:** choice, constraint, goal, mutable state와 restore 순서를 정의합니다. pruning은 valid solution을 제거하지 않는다는 completeness 근거가 있을 때만 적용합니다.
+- **실패 조건:** state restore 누락, duplicate result, invalid prune, recursion depth, unbounded search와 output-memory 폭증을 포함합니다.
+- **완료 증거:** 작은 domain의 exhaustive generator와 solution set을 비교하고 validity, uniqueness, prune count와 source link 동기화를 확인합니다.
+
+---
 
 ## 내부 메커니즘 (Flow)
 ```mermaid
@@ -86,4 +95,4 @@ def backtrack_template(candidates, target):
 - 입력 자료구조 형식(인접 리스트, 간선 리스트, 정렬 여부, 1-index/0-index)을 먼저 고정한다.
 - 시간 복잡도 한계에 맞게 자료구조를 교체한다 (`list.pop(0)` -> `deque.popleft` 등).
 - 실패/예외 경로를 명시한다 (도달 불가, 음수 사이클, 빈 결과, 사이클 존재).
-- 테스트는 최소 3개: 정상 케이스, 경계 케이스, 반례 케이스를 포함한다.
+- test 수보다 empty·duplicate·invalid-prune·deep-search와 exhaustive reference coverage를 기준으로 삼는다.

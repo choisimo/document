@@ -1,6 +1,12 @@
 # Nginx Documentation
 
-> Nginx web server configuration, optimization, and proxy management
+> Entry point for version-specific Nginx configuration, measurement, and proxy management
+
+---
+
+## Scope of This Index
+
+This page is a navigation and quick-reference entry point. Nginx directives, process behavior, package paths, TLS options, and deployment commands depend on the Nginx or OpenResty build, modules, OS or image, and topology. Treat summaries as pointers; verify syntax, security assumptions, failure behavior, and rollback in the linked guide and the documentation for the deployed version.
 
 ---
 
@@ -128,7 +134,7 @@ server {
 
 ---
 
-## Essential Commands
+## Common Commands
 
 ```bash
 # Test configuration

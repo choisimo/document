@@ -1,5 +1,18 @@
 # MCP (Model Context Protocol)
 
+
+## 적용 범위와 신뢰 경계
+
+이 문서는 n8n의 MCP 관련 기능을 설명하는 개념 가이드입니다. 노드 이름, 전송 방식, 인증 옵션, 패키지 이름과 클라이언트 설정은 n8n, MCP 명세 및 각 클라이언트 버전에 따라 달라지므로 현재 공식 문서에서 실제 지원 여부를 먼저 확인합니다.
+
+- **증거 상태**: 통합 수, 템플릿 수와 예상 시간은 시점과 숙련도에 따른 참고값이며 기능 보장이나 일정 약속이 아닙니다. 예제 엔드포인트는 이 문서에서 실행 검증되지 않았습니다.
+- **신뢰 경계**: MCP 연결은 모델 출력이 외부 작업으로 이어지는 경로입니다. 인증만으로 충분하지 않으며 도구 allowlist, 입력 스키마, 최소 권한 자격 증명, 대상 및 작업 범위 제한, 고위험 쓰기 작업의 사람 승인을 둡니다.
+- **공급망과 비밀**: npx -y와 고정되지 않은 컨테이너 이미지는 임의의 새 코드를 실행할 수 있습니다. 패키지 버전, lockfile, 이미지 digest를 고정하고 API 키를 workflow export, 로그와 클라이언트 설정에 남기지 않습니다.
+- **실패와 재시도**: 메일 발송과 데이터 쓰기는 idempotency key, 중복 억제, timeout, 재시도 상한과 보상 절차가 있어야 합니다. 읽기와 쓰기 도구를 분리하고 부분 성공을 감사 로그에 기록합니다.
+- **완료 조건**: 무인증 거부, 허용 및 비허용 도구 호출, 잘못된 스키마, timeout, 중복 요청, 자격 증명 회수와 감사 로그 조회를 시험합니다.
+
+None 인증은 격리된 일회성 개발 환경 외에는 사용하지 않습니다. 인터넷 공개 전에 reverse proxy TLS, 사용자 또는 서비스 단위 인증, 속도 제한과 경보를 구성합니다.
+
 n8n 기반 MCP 통합 서버 관리 가이드입니다.
 
 ---
@@ -12,10 +25,10 @@ n8n 기반 MCP 통합 서버 관리 가이드입니다.
 
 | 특징 | 설명 |
 |------|------|
-| **통합** | 400개 이상의 사전 구축된 통합 지원 |
+| **통합** | 제공 범위는 설치 버전과 라이선스에서 확인 |
 | **유연성** | JavaScript/Python 코드 또는 드래그-앤-드롭 |
 | **배포** | 셀프 호스팅 또는 클라우드 |
-| **템플릿** | 600개 이상의 워크플로우 템플릿 |
+| **템플릿** | 제공 범위와 신뢰성은 현재 카탈로그에서 확인 |
 
 ### MCP란?
 
@@ -55,15 +68,15 @@ docker volume create n8n_data
 # 컨테이너 실행
 docker run -it --rm \
   --name n8n \
-  -p 5678:5678 \
+  -p 127.0.0.1:5678:5678 \
   -v n8n_data:/home/node/.n8n \
-  docker.n8n.io/n8nio/n8n
+  docker.n8n.io/n8nio/n8n:<approved-version>@sha256:<approved-digest>
 ```
 
 ### npm 설치
 
 ```bash
-npm install n8n -g && n8n start
+npm install --global n8n@<approved-version> && n8n start
 ```
 
 설치 후 `http://localhost:5678`에서 접속 가능합니다.
@@ -88,7 +101,7 @@ flowchart TD
 | 옵션 | 설명 | 예시 |
 |------|------|------|
 | **MCP URL 경로** | 트리거 엔드포인트 | `/mcp/abc123` (자동 생성) |
-| **인증** | 접근 제어 | Bearer, Header, None |
+| **인증** | 접근 제어 | Bearer 또는 Header; None은 격리된 개발 환경만 |
 
 ### 워크플로우 구조
 
@@ -118,7 +131,7 @@ flowchart TD
       "command": "npx",
       "args": [
         "-y",
-        "supergateway",
+        "supergateway@<approved-version>",
         "--sse",
         "https://your-n8n-instance.com/mcp/abc123"
       ]
@@ -144,7 +157,7 @@ export N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true
 version: '3.8'
 services:
   n8n:
-    image: n8nio/n8n
+    image: n8nio/n8n:<approved-version>@sha256:<approved-digest>
     environment:
       # MCP 서버 API 키
       - MCP_BRAVE_API_KEY=${BRAVE_API_KEY}

@@ -1,11 +1,18 @@
 # Module 1: Proxmox VE 코어 아키텍처 & 시스템 내부 구조
 
+## 버전·근거·완료 계약
+
+- 대상은 Proxmox VE 8.x입니다. pmxcfs, Corosync, daemon, systemd unit과 API 세부는 설치된 패키지 버전과 공식 소스로 확인합니다.
+- 개념도는 정상 경로를 단순화합니다. quorum 상실, node partition, local mode, certificate·time 오류와 service 재시작 실패를 별도 상태로 추적합니다.
+- `/etc/pve` 변경은 cluster 전체에 전파될 수 있습니다. 현재 quorum, 변경 대상, backup과 console/rollback 경로를 확인한 뒤 실행합니다.
+- 모듈 완료 증거는 명령 암기가 아니라 node별 quorum·mount·daemon 상태와 의도한 config 수렴, 실패 주입 후 복구 결과입니다.
+
 ## 학습 목표
 이 모듈을 완료하면 다음을 이해할 수 있습니다:
 - Proxmox VE의 핵심 철학과 아키텍처 설계 원리
 - pmxcfs(Proxmox Cluster File System)의 동작 원리와 Corosync와의 관계
 - 주요 데몬 프로세스들의 역할과 상호작용
-- 베어메탈에서 Web GUI까지의 전체 부팅 프로세스
+- 베어메탈에서 Web GUI까지의 대표 부팅 경로와 주요 실패 지점
 
 ---
 

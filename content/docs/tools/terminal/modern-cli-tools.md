@@ -1,9 +1,18 @@
-# 모던 터미널 에뮬레이터 & CLI 도구 완벽 가이드
+# 모던 터미널 에뮬레이터 & CLI 도구 비교 가이드
 
-2024-2026년 Reddit 커뮤니티(r/unixporn, r/commandline, r/archlinux)에서 가장 많이 추천되는 터미널 에뮬레이터와 CLI 도구를 정리한 Power User 가이드입니다. Arch Linux와 Fedora 환경을 기준으로 설치, 설정, 활용법을 다룹니다.
+2024-2026년 Reddit community 표본과 project 자료에서 자주 언급된 terminal emulator와 CLI 도구를 정리한 시점별 Power User 가이드입니다. popularity 순위나 현재 지원 상태를 보장하지 않습니다. Arch Linux와 Fedora 환경을 기준으로 설치, 설정, 활용법을 다룹니다.
 
 !!! info "대상 독자"
     GPU 가속 터미널, Lua/TOML 기반 설정, 모던 Rust CLI 도구에 관심 있는 리눅스 사용자를 대상으로 합니다. 기본적인 터미널 사용 경험이 있다고 가정합니다.
+
+---
+
+## 적용 범위와 비교 기준
+
+- **범위:** 추천과 기능 설명은 조사 시점의 source 표본입니다. 배포판·package source, tool version, shell, terminal protocol, font, Wayland/X11, GPU driver와 remote 환경을 기록합니다.
+- **비교 전제:** “빠름·가벼움·최고”는 같은 font·window size·scrollback·workload·warmup·측정 도구에서 latency, throughput, RSS와 기능 요구를 비교할 때만 의미가 있습니다. 표의 MB 값은 보편 상한이 아닙니다.
+- **사실과 추론:** installed version의 help·config schema와 재현된 측정은 사실이고, community 인기·생산성·도구 조합의 우위는 사용자 workflow에 대한 가설입니다.
+- **실패·완료:** config parse, key conflict, font/IME, clipboard, SSH/tmux, rendering, package update와 uninstall rollback을 시험합니다. 필요한 기능과 측정 기준을 만족하고 기존 workflow를 복구할 수 있을 때 채택 완료입니다.
 
 ---
 
@@ -21,7 +30,7 @@
 | **내장 멀티플렉서** | 없음 | 없음 | 있음 | 있음 | 없음 |
 | **Wayland 지원** | 네이티브 | 네이티브 | 네이티브 | 네이티브 | 전용 |
 | **X11 지원** | 지원 | 지원 | 지원 | 지원 | 미지원 |
-| **메모리 사용량** | ~30MB | ~15MB | ~40MB | ~50MB | ~10MB |
+| **메모리 사용량 예시** | ~30MB | ~15MB | ~40MB | ~50MB | ~10MB |
 | **폰트 합자** | 지원 | 미지원 | 지원 | 지원 | 미지원 |
 | **라이선스** | MIT | Apache 2.0 | GPL 3.0 | MIT | MIT |
 | **출시 연도** | 2024 | 2017 | 2018 | 2020 | 2020 |
@@ -154,7 +163,7 @@ adjust-cell-height = 0
 
 #### 개요
 
-Alacritty는 "가장 빠른 터미널 에뮬레이터"를 표방하는 Rust 기반 프로젝트입니다. 탭, 창 분할, 스크롤바 등의 기능을 의도적으로 배제하고 순수한 터미널 에뮬레이션에만 집중합니다. 이러한 미니멀리즘 철학 때문에 Tmux나 Zellij 같은 멀티플렉서와 함께 사용하는 것이 일반적입니다.
+Alacritty는 rendering 성능과 minimalism을 강조하는 Rust 기반 project입니다. “가장 빠름”은 project positioning이며 동일 workload benchmark 없이는 비교 결론이 아닙니다. 탭, 창 분할, 스크롤바 등의 기능을 의도적으로 배제하고 순수한 터미널 에뮬레이션에만 집중합니다. 이러한 미니멀리즘 철학 때문에 Tmux나 Zellij 같은 멀티플렉서와 함께 사용하는 것이 일반적입니다.
 
 **핵심 특징:**
 
@@ -804,7 +813,7 @@ return config
 
 #### Lua 스크립팅 고급 활용
 
-WezTerm의 가장 강력한 기능은 Lua로 동적 설정을 작성할 수 있다는 점입니다.
+WezTerm의 주요 차별점 중 하나는 Lua로 동적 설정을 작성할 수 있다는 점이며, 복잡성과 장점은 필요한 automation 범위에 따라 달라집니다.
 
 **시간대별 자동 테마 전환:**
 
@@ -1982,7 +1991,7 @@ help() {
 ```
 
 !!! tip "fzf 프리뷰에서 bat 사용"
-    fzf 섹션의 환경 변수 설정에서 이미 bat을 프리뷰로 설정하는 방법을 다루고 있습니다. bat은 fzf의 파일 프리뷰를 위한 최고의 도구입니다.
+    fzf 섹션의 환경 변수 설정에서 이미 bat을 프리뷰로 설정하는 방법을 다루고 있습니다. bat은 fzf file preview에 사용할 수 있는 한 가지 도구이며, startup cost·syntax highlighting·dependency 요구를 다른 preview 방식과 비교합니다.
 
 ---
 
@@ -2364,7 +2373,7 @@ sudo dnf install ueberzugpp
 
 ### 조합 1: 미니멀 스피드 (Alacritty + Tmux + Starship)
 
-가장 가볍고 빠른 조합입니다. Alacritty가 GPU 가속 렌더링을 담당하고, Tmux가 세션/창 관리를 담당합니다.
+기능을 줄이고 rendering과 session 관리를 분리한 조합입니다. 실제 memory와 latency는 위 비교 기준으로 측정합니다. Alacritty가 GPU 가속 렌더링을 담당하고, Tmux가 세션/창 관리를 담당합니다.
 
 ```toml
 # ~/.config/alacritty/alacritty.toml (핵심 설정만)
@@ -2455,7 +2464,7 @@ allow_remote_control yes
 
 ### 조합 3: 최신 트렌드 (Ghostty + Zellij + Starship)
 
-2024년 이후 가장 주목받는 조합입니다. 두 프로젝트 모두 최신 기술과 모던한 설계를 채택하고 있습니다.
+조사한 2024년 이후 community 표본에서 자주 언급된 조합입니다. 두 프로젝트 모두 최신 기술과 모던한 설계를 채택하고 있습니다.
 
 ```ini
 # ~/.config/ghostty/config (핵심 설정만)
@@ -2683,7 +2692,7 @@ fdo() {
 
 ---
 
-## 원클릭 설치 스크립트
+## 일괄 설치 스크립트 예시
 
 ### Arch Linux
 
@@ -2878,7 +2887,7 @@ echo "  Ripgrep:  ~/.config/ripgrep/config"
 ```
 
 !!! danger "스크립트 실행 전 주의"
-    위 스크립트는 모든 에뮬레이터를 한꺼번에 설치합니다. 필요한 에뮬레이터만 선택하여 설치하려면 해당 줄의 주석을 해제/추가하세요.
+    위 script는 명시된 package·build 단계를 순서대로 시도합니다. 실행 전 source, version, 권한과 각 배포판 지원 여부를 검토합니다. 필요한 에뮬레이터만 선택하여 설치하려면 해당 줄의 주석을 해제/추가하세요.
 
 ---
 

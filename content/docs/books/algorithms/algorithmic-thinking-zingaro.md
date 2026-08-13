@@ -5,6 +5,8 @@
 
 ---
 
+> **Reading contract:** Scope is the named 2021 Zingaro text and the problem variants summarized here. Diagrams and memory layouts are reconstructions, while load-factor thresholds, byte counts, and cache statements are implementation assumptions rather than book-independent facts. For each result, record the input constraints, graph or weight model, data-structure variant, and whether the bound is worst-case, expected, or amortized. A technique is ready to reuse only when its invariant and failure case are explicit; otherwise revert to the stated provisional model and measure the target implementation.
+
 ## 1. Hash Table Internals: Chaining, Load Factor, and Collision Mechanics
 
 ### Memory Layout of a Chained Hash Table
@@ -205,7 +207,7 @@ flowchart LR
     loop -->|"i > t"| done["dp[t] = answer"]
 ```
 
-**Access pattern**: strictly left-to-right through the array. Cache-friendly — every access hits L1/L2 cache in sequence.
+**Access pattern**: strictly left-to-right through the array. This usually improves spatial locality, but it does not guarantee an L1/L2 hit; table size, competing accesses, alignment, and hardware determine the observed cache behavior.
 
 ### Space Optimization: Rolling Window
 
@@ -659,4 +661,4 @@ flowchart TD
 | DP table | O(1) after build | O(states) build | N/A | O(states) | Optimal substructure |
 | Binary Search | O(log n) | N/A | N/A | O(1) | Sorted/monotone spaces |
 
-**Key insight from Zingaro's approach**: The data structure choice is the algorithm. The "Unique Snowflakes" problem is trivially O(n) with a hash table but O(n²) without it. The knight chess problem is trivially solvable with BFS but intractable with brute force recursion. Every competitive programming problem has a canonical data structure that unlocks the efficient solution — recognizing that pattern is the meta-skill the book teaches.
+**Key insight from this reading of Zingaro's approach**: Data-structure choice can determine the feasible complexity class. Under expected constant-time hashing, "Unique Snowflakes" can be O(n); a direct pairwise comparison is O(n²). On an unweighted finite board, BFS yields a minimum-move route. These are problem-specific mappings, not evidence that every competitive-programming problem has one canonical structure.

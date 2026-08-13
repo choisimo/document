@@ -2,6 +2,13 @@
 
 이 문서는 리눅스 운영체제에서 **GUI(Graphical User Interface)** 환경을 **CLI(Command Line Interface)**로 전환하는 과정을 설명합니다. 추상적인 사용자 레벨에서 하드웨어 레벨로 내려가는 **Top-Down** 방식으로 작동 원리를 이해하고, 주요 배포판(Distro)별 구체적인 적용 방법을 다룹니다.
 
+## 전환 종류와 복구 경계
+
+- `Ctrl+Alt+Fn` 가상 콘솔 전환, display manager 일시 중지, 기본 systemd target 변경, GUI package 제거는 영향과 복구가 다른 작업입니다.
+- 이 문서의 지속 설정은 systemd 기반 배포판을 대상으로 합니다. init system, display manager, 원격 세션과 Wayland/X11 구성을 먼저 확인합니다.
+- 원격 SSH 또는 물리 콘솔과 원래 target 복구 명령을 확보한 뒤 실행하며, 그래픽 세션의 저장되지 않은 작업이 종료될 수 있음을 알립니다.
+- 완료 기준은 재부팅 후 의도한 target, TTY/SSH 로그인, 필수 서비스와 원래 GUI target으로의 복귀가 모두 동작하는 것입니다.
+
 ---
 
 ## 1. Top-Down 개요: 리눅스의 계층 구조
@@ -13,7 +20,7 @@ GUI에서 CLI로 전환될 때 일어나는 일을 위에서 아래로 내려가
 1.  **사용자 레벨:** 데스크탑 환경(GNOME, KDE 등)이 종료됩니다.
 2.  **서비스 레벨 (Systemd):** 그래픽 서비스를 관리하는 'Target'이 비활성화됩니다.
 3.  **디스플레이 레벨:** 디스플레이 매니저(GDM, LightDM 등)와 X Server(또는 Wayland)가 프로세스에서 제거됩니다.
-4.  **커널 레벨:** 비디오 출력이 그래픽 모드에서 텍스트 모드(TTY)로 전환됩니다.
+4.  **커널·장치 레벨:** 가상 콘솔, framebuffer/DRM과 display server의 관계는 드라이버·세션 구성에 따라 달라지며 단순한 하드웨어 "텍스트 모드" 전환으로 일반화하지 않습니다.
 
 ---
 
@@ -50,11 +57,11 @@ GUI가 실행 중일 때는 백그라운드에서 **Display Manager**(예: `gdm3
 
 ## 3. 배포판(Distro)별 상세 가이드
 
-대부분의 최신 리눅스 배포판은 **systemd**를 채택하고 있어 핵심 명령어(`systemctl`)는 동일합니다. 하지만 **디스플레이 매니저(DM)**의 이름이나 패키지 관리 방식에 차이가 있습니다.
+많은 현재 배포판이 **systemd**를 사용하지만 다른 init system도 있습니다. systemd 환경에서도 display manager unit, 세션과 package 관리 방식이 다르므로 실제 unit을 확인합니다.
 
 ### 공통 명령어 (Systemd 기반)
 
-모든 systemd 기반 배포판에서 통용되는 명령어입니다.
+다음은 일반적인 systemd 명령 형태이며 배포판의 unit 관계와 현재 세션에서 결과를 확인해야 합니다.
 
 *   **즉시 전환 (현재 세션만):**
     ```bash

@@ -1,6 +1,13 @@
-# Docker 및 Kubernetes 내부: 내부
+# Docker와 Kubernetes 내부: 런타임, 제어 루프와 운영 경계
 
 > 소스 합성: Docker 엔진 아키텍처, 컨테이너 런타임 내부, Kubernetes 제어 플레인 역학 및 네트워크/스토리지 하위 시스템을 다루는 컨테이너 오케스트레이션 참고서(comp 244, 380, 398–417).
+
+## 적용 범위와 확인 순서
+
+- 아래 흐름은 Linux, OCI 런타임, containerd와 Kubernetes의 대표 구성을 설명한다. Docker Engine, Kubernetes, 커널, CNI·CSI 플러그인의 버전과 배포판에 따라 프로세스와 플래그가 달라진다.
+- API 명세로 보장되는 동작과 runc, kube-proxy, 스케줄러 같은 구현 세부를 구분한다. 구현 주장은 사용 중인 릴리스의 공식 문서와 실제 설정으로 확인한다.
+- 성능 수치는 기준값이 아니라 예시다. 노드 사양, 이미지 캐시, 서비스·엔드포인트 수, 네트워크 플러그인과 측정 구간을 기록한 뒤 다시 측정한다.
+- 운영 완료는 오브젝트 생성으로 끝나지 않는다. `status`, Events, 컨트롤러 지표, 데이터 경로와 롤백 동작까지 확인한다.
 
 ---
 
@@ -308,7 +315,7 @@ flowchart TD
 
 ## 8. kube-proxy — 서비스 → 포드 패킷 라우팅
 
-### iptables 모드(기본값)
+### iptables 모드 예시
 
 ```mermaid
 flowchart TD
@@ -534,8 +541,8 @@ block-beta
 
 - **runc**는 6개의 네임스페이스 플래그로 `clone()`을 호출하는 OCI 런타임입니다. Containerd-shim은 runc 종료 후에도 유지되어 컨테이너 프로세스 수명 주기를 소유합니다.
 - **OverlayFS** 쓰기 중 복사는 하위 계층의 모든 파일에 먼저 쓰기를 수행하면 전체 inode가 `upperdir`에 복사됨을 의미합니다. 대용량 파일에는 일회성 복사 패널티가 발생합니다.
-- **etcd Raft**에는 모든 쓰기에 대해 쿼럼(⌊n/2⌋+1)이 필요합니다. 3노드 클러스터는 1개의 오류를 허용합니다. 모든 k8s 상태는 이 경로를 통해 직렬화됩니다.
-- **kube-scheduler filter/score**는 노드당 병렬 고루틴으로 플러그인 체인을 실행합니다. 바인딩은 유일한 직렬 단계입니다.
+- **etcd Raft**에서 합의가 필요한 쓰기는 과반 승인을 거친다. 3멤버 클러스터는 과반을 유지하는 한 1멤버 장애를 견딘다. Kubernetes API의 영속 오브젝트와 각 컴포넌트의 메모리·캐시·외부 시스템 상태를 같은 것으로 보지 않는다.
+- **kube-scheduler filter/score**는 플러그인과 스케줄링 사이클의 계약으로 이해한다. 병렬 실행 범위와 바인딩 경로는 Kubernetes 버전과 플러그인 구현에 따라 달라지므로 프로파일과 스케줄러 지표로 확인한다.
 - **kube-proxy iptables 모드** 확장성이 좋지 않음: n 서비스에 대한 O(n) 체인 순회; IPVS는 O(1) 조회를 위해 커널 해시 테이블을 사용합니다.
 - **CSI 볼륨**에는 포드당 3개의 RPC가 필요합니다. ControllerPublishVolume(연결), NodeStageVolume(스테이징으로 포맷/마운트), NodePublishVolume(포드에 바인딩 마운트)
 - **HPA**는 원하는 = ceil(현재 × 실제/목표)를 계산합니다. 안정화 창은 폭증하는 측정항목의 스래싱을 방지합니다.
@@ -553,11 +560,11 @@ block-beta
 
 컨테이너와 VM은 모두 워크로드 격리를 제공하지만 근본적으로 다른 추상화 수준에서 동작한다. VM은 하드웨어 수준 격리(Hypervisor)를 제공하여 강력한 보안 경계를 만들지만, 부팅 시간과 리소스 오버헤드가 크다. 컨테이너는 커널 수준 격리(cgroup + namespace)로 경량화되지만, 커널을 공유하므로 격리 수준이 낮다.
 
-설계 결정 기준:
-- **멀티 테넌트**: VM 필수 (커널 익스플로잇 격리)
+설계 결정의 출발점:
+- **상호 불신 멀티 테넌트**: VM, 샌드박스 런타임, 전용 노드 등 커널 공유 범위를 줄이는 선택지를 위협 모델과 함께 비교
 - **마이크로서비스**: 컨테이너 선호 (빠른 스케일링)
 - **레거시 애플리케이션**: VM 선호 (게스트 OS 독립성)
-- **CI/CD 파이프라인**: 컨테이너 필수 (매 빌드마다 환경 재현)
+- **CI/CD 파이프라인**: 컨테이너, VM 이미지, hermetic build 중 재현성과 격리 요구에 맞는 실행 환경 선택
 
 ```mermaid
 flowchart TD
@@ -785,7 +792,7 @@ Helm은 Go 템플릿 기반으로 `{{ .Values.replicas }}`처럼 변수를 치�
 
 <details><summary>힌트 보기</summary>
 
-CPU `limits`는 CFS(Completely Fair Scheduler) 기반 quota를 설정하여, 500m = 100ms 주기 중 50ms만 CPU를 사용할 수 있다. 트래픽 급증 시 이 quota를 초과하면 throttling이 발생한다. 메모리는 압축 불가능 리소스이므로 limit 초과 시 OOMKilled된다. JVM은 힙 외에도 메타스페이스, 스레드 스택, NIO 버퍼 등을 사용하므로 `MaxRAMPercentage`를 75% 정도로 설정하여 비힙 메모리 여유를 확보해야 한다. Guaranteed QoS(requests == limits)는 축출 우선순위가 가장 낮아 프로덕션에 권장된다.
+CPU `limits`는 Linux CPU 대역폭 제어와 연결되며 구체적인 period·quota는 런타임 설정에서 확인한다. 메모리 한도를 넘기면 cgroup OOM 경로가 발생할 수 있지만 종료 원인은 Pod 상태와 노드 로그로 판정한다. JVM은 힙 외에도 메타스페이스, 코드 캐시, 스레드 스택, 직접 버퍼를 사용하므로 고정된 `MaxRAMPercentage` 대신 실제 native memory와 피크 사용량으로 여유를 계산한다. Guaranteed QoS는 축출 우선순위에는 유리하지만 CPU 제한과 낮은 밀도라는 비용이 있어 프로덕션의 보편적 정답은 아니다.
 
 </details>
 
@@ -857,11 +864,11 @@ HPA는 기본적으로 CPU/메모리 메트릭으로 동작하지만, `metrics.k
 
 (1) Istio의 Envoy 사이드카가 앱 컨테이너보다 늦게 준비되거나 먼저 종료될 때 발생하는 트래픽 유실 문제를 설명하고, `holdApplicationUntilProxyStarts`와 `EXIT_ON_ZERO_ACTIVE_CONNECTIONS` 설정의 역할을 서술하라.
 (2) mTLS(mutual TLS)가 활성화된 환경에서 롤링 업데이트 중 새 Pod와 기존 Pod 간의 인증서 교환이 어떻게 이루어지는지, 그리고 Citadel(istiod)의 인증서 발급 지연이 트래픽에 미치는 영향을 분석하라.
-(3) PodDisruptionBudget(`minAvailable: 80%`)과 Deployment의 `maxUnavailable`, `maxSurge` 설정이 어떻게 상호작용하여 무중단을 보장하는지, 그리고 `preStop` 훅에서 `sleep 5`를 넣는 패턴이 왜 필요한지 설명하라.
+(3) PodDisruptionBudget(`minAvailable: 80%`)과 Deployment의 `maxUnavailable`, `maxSurge`가 각각 어떤 종류의 중단을 제어하는지 구분하라. 이 설정만으로 무중단을 보장할 수 없는 이유와, 종료 유예를 고정 `sleep 5`가 아니라 실제 연결 드레이닝 시간에 맞추는 방법을 설명하라.
 
 <details><summary>힌트 보기</summary>
 
-503 에러의 주요 원인은 사이드카 라이프사이클과 앱 컨테이너 라이프사이클의 불일치다. Pod 종료 시 Kubernetes는 Service의 Endpoints에서 Pod를 제거하고 SIGTERM을 동시에 보내는데, Endpoints 전파에 시간이 걸려 이미 종료 중인 Pod로 트래픽이 라우팅될 수 있다. `preStop: sleep 5`는 이 전파 지연 동안 Pod가 트래픽을 계속 처리하게 한다. PDB는 voluntary disruption(롤링 업데이트 포함)에서 동시에 종료되는 Pod 수를 제한하여, `maxUnavailable`과 함께 최소 가용 Pod 수를 보장한다. Istio의 mTLS 인증서는 istiod가 자동 발급하며, 새 Pod 시작 시 인증서 발급까지 약간의 지연이 있을 수 있다.
+503의 가능한 원인으로 readiness 전파, 애플리케이션과 사이드카의 종료 순서, 연결 드레이닝 부족을 각각 확인한다. Pod 종료와 엔드포인트 갱신은 여러 컴포넌트를 거치므로 고정된 `sleep 5`가 충분하다고 가정하지 말고 요청 지속 시간과 프록시 지표로 유예 시간을 정한다. Deployment의 `maxUnavailable`·`maxSurge`는 롤링 업데이트 전략을 제어한다. PDB는 Eviction API를 거치는 자발적 중단을 제한하지만 일반적인 Deployment 롤아웃의 가용성을 대신 보장하지 않는다. 인증서 발급·전달 지연 여부는 새 Pod의 readiness, istiod와 프록시 로그로 확인한다.
 
 </details>
 
@@ -875,6 +882,6 @@ HPA는 기본적으로 CPU/메모리 메트릭으로 동작하지만, `metrics.k
 
 <details><summary>힌트 보기</summary>
 
-멀티스테이지 빌드에서 `FROM golang:1.21 AS builder` → `FROM gcr.io/distroless/static` 패턴으로 빌드 의존성을 제거한다. distroless 이미지는 셸조차 없어 `kubectl exec`으로 침투해도 할 수 있는 것이 극히 제한된다. `readOnlyRootFilesystem`은 컨테이너 내 악성 파일 쓰기를 방지하고(임시 파일은 emptyDir 볼륨 마운트로 해결), `allowPrivilegeEscalation: false`는 setuid 바이너리를 통한 권한 상승을 막는다. NetworkPolicy는 기본적으로 아무것도 없으면 전체 허용이므로, `spec.podSelector: {}` + `policyTypes: [Ingress, Egress]`로 default deny를 먼저 설정한 후 필요한 트래픽만 허용한다. 기본 kubenet CNI는 NetworkPolicy를 지원하지 않으므로 Calico나 Cilium이 필요하다.
+멀티스테이지 빌드와 최소 런타임 이미지는 빌드 도구와 셸 같은 공격 표면을 줄이지만 침해 후 행위를 차단한다고 보장하지는 않는다. `readOnlyRootFilesystem`은 루트 파일시스템 쓰기를 제한하고, 필요한 임시 경로는 최소 범위의 볼륨으로 제공한다. `allowPrivilegeEscalation: false`와 capability 제거도 다른 격리 설정과 함께 검증한다. NetworkPolicy 오브젝트이 없으면 기본적으로 트래픽이 격리되지 않으므로 ingress와 egress의 default-deny를 각각 만들고 DNS 등 필수 경로를 명시적으로 허용한다. Calico나 Cilium에 한정하지 말고, 선택한 네트워크 구현이 필요한 NetworkPolicy 의미를 실제로 집행하는지 확인한다.
 
 </details>

@@ -3,10 +3,19 @@
 ## 문서 목적
 - 원본 템플릿 `10-topological-sort/01-topological-sort.md` 의 내부 동작을 GitHub Markdown에서 바로 읽을 수 있게 설명합니다.
 - 코드 레이어(초기화/루프/조건/갱신/종료)를 분해하고, Mermaid로 제어 흐름을 시각화합니다.
-- 실전 문제에 붙일 때 반드시 수정해야 하는 지점을 체크리스트로 제공합니다.
+- 실전 문제에 적용할 때 graph representation, cycle failure와 tie-order 요구를 검토할 checklist를 제공합니다.
 
 ## 원본 템플릿
 - Source: [10-topological-sort/01-topological-sort.md](../../10-topological-sort/01-topological-sort.md)
+
+## 적용 범위와 검증 기준
+
+- **범위:** directed graph가 DAG일 때의 ordering template 해설입니다. adjacency list에서 vertex·edge를 제한된 횟수 처리할 때 `O(V+E)`이며 유효 order는 여러 개일 수 있습니다.
+- **전제:** Kahn 방식은 indegree와 processed count, DFS 방식은 visiting/visited state로 cycle을 검출해야 합니다. cycle이 있으면 full order 대신 명시적 failure를 반환합니다.
+- **실패 조건:** duplicate edge, disconnected component, cycle, recursion depth와 tie order의 비결정성을 포함합니다.
+- **완료 증거:** 모든 edge `u→v`에서 `u`가 먼저인지, 각 vertex가 한 번 있는지와 cycle fixture의 실패 판정을 reference와 비교합니다.
+
+---
 
 ## 내부 메커니즘 (Flow)
 ```mermaid
@@ -91,4 +100,4 @@ def topological_sort_bfs(n, edges):
 - 입력 자료구조 형식(인접 리스트, 간선 리스트, 정렬 여부, 1-index/0-index)을 먼저 고정한다.
 - 시간 복잡도 한계에 맞게 자료구조를 교체한다 (`list.pop(0)` -> `deque.popleft` 등).
 - 실패/예외 경로를 명시한다 (도달 불가, 음수 사이클, 빈 결과, 사이클 존재).
-- 테스트는 최소 3개: 정상 케이스, 경계 케이스, 반례 케이스를 포함한다.
+- DAG의 여러 valid order, disconnected graph, duplicate edge와 cycle을 포함해 invariant coverage로 test를 정한다.

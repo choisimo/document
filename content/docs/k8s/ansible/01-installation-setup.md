@@ -1,5 +1,12 @@
 # Ansible 설치 및 초기 설정
 
+## 실습 범위와 실행 계약
+
+- 이 문서는 격리된 학습 노드에서 첫 inventory와 ad-hoc 작업을 실행하는 범위입니다. 운영 서버 전체 자동화 완료를 뜻하지 않습니다.
+- 제어 노드 OS, Ansible core/collection, 대상 Python과 SSH 서버 버전을 기록하고 inventory 그룹을 시험 환경으로 제한합니다.
+- 명령 전 `--list-hosts`, check mode 지원 여부, `--limit`와 권한 상승 범위를 확인합니다. `all` 대상 실행은 명시적으로 승인된 경우에만 사용합니다.
+- 완료 증거는 SSH host key 검증, idempotent 재실행, 변경·실패 host 요약과 되돌리기 결과입니다.
+
 ## 📖 개요
 
 Ansible은 에이전트가 필요 없는 자동화 도구로, SSH를 통해 원격 서버를 관리합니다. Python으로 작성되었으며 YAML 문법을 사용합니다.
@@ -151,7 +158,7 @@ vagrant up
 ### 1. SSH 키 생성
 
 ```bash
-# 키 생성 (비밀번호 없이)
+# 학습 환경 예시: 운영 키는 passphrase + agent 또는 관리형 비밀 저장소 사용
 ssh-keygen -t rsa -b 4096 -f ~/.ssh/ansible_key -N ""
 ```
 

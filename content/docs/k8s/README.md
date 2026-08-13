@@ -1,6 +1,6 @@
 # DevOps 도구 실습 가이드
 
-이 가이드는 Terraform, Ansible, Kafka, Kubernetes의 핵심 개념과 실습을 통해 현대적인 DevOps 파이프라인을 이해하는 것을 목표로 합니다.
+Terraform, Ansible, Kafka, Kubernetes의 기본 흐름을 로컬 또는 격리된 학습 환경에서 실습하기 위한 인덱스입니다. 프로덕션 보안·가용성 기준을 보장하지 않습니다. OS, 아키텍처, 런타임, kubectl, 클러스터, Terraform provider, Ansible, Kafka 버전을 먼저 기록하세요.
 
 ## 📚 학습 목차
 
@@ -55,8 +55,8 @@
 ## 💡 실습 환경 요구사항
 
 ### 필수 설치 도구
-- Docker Desktop (최신 버전)
-- kubectl (Kubernetes CLI)
+- Docker Desktop 또는 로컬 클러스터가 지원하는 컨테이너 런타임의 검증된 버전
+- 클러스터 minor version과 호환되는 kubectl
 - minikube 또는 kind (로컬 K8s 클러스터)
 - Terraform CLI
 - Ansible
@@ -65,10 +65,9 @@
 - AWS Free Tier 계정
 - Azure 또는 GCP 계정
 
-### 시스템 요구사항
-- CPU: 4코어 이상
-- RAM: 8GB 이상
-- 디스크: 20GB 여유 공간
+### 시스템 요구사항 예시
+- 소규모 로컬 실습 시작점: CPU 4코어, RAM 8GB, 여유 디스크 20GB
+- 실제 요구량은 동시 VM·Pod·Kafka broker, 이미지와 보존 데이터에 따라 달라짐
 
 ## 📖 각 도구의 역할
 
@@ -81,13 +80,13 @@
 
 ## 🎯 학습 목표
 
-이 가이드를 완료하면 다음을 할 수 있게 됩니다:
+각 실습은 다음 동작을 관측 증거와 함께 설명하는 것을 완료 목표로 합니다:
 
 - ✅ 코드로 인프라스트럭처를 정의하고 관리
 - ✅ 서버 설정을 자동화하여 일관성 유지
-- ✅ 컨테이너 기반 애플리케이션을 안정적으로 배포
-- ✅ 이벤트 기반 아키텍처로 확장 가능한 시스템 구축
-- ✅ 네 가지 도구를 조합하여 완전한 DevOps 파이프라인 구성
+- Kubernetes rollout, readiness 실패와 rollback 결과 확인
+- Kafka 메시지 키·offset·중복 가능성 설명
+- 네 도구를 연결한 학습 파이프라인과 프로덕션 전 추가 요구사항 식별
 
 ## 📝 학습 방법
 
@@ -97,6 +96,10 @@
 2. **실습 예제**: 직접 실행해볼 수 있는 코드
 3. **패턴 분석**: 실무에서 사용되는 베스트 프랙티스
 4. **트러블슈팅**: 자주 발생하는 문제와 해결 방법
+
+## 실습 완료 및 실패 증거
+
+Kubernetes는 rollout과 이벤트, Terraform은 plan/state, Ansible은 두 번째 실행 recap, Kafka는 생산·소비 offset을 기록합니다. 명령 성공만으로 서비스 정상이나 데이터 정합성을 단정하지 않습니다. 실패 시 부분 생성 리소스와 외부 비용, 재실행의 멱등성을 확인하고 마지막에 클라우드 리소스, 로컬 volume과 자격 증명을 정리합니다.
 
 ## 🤝 기여하기
 

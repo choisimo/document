@@ -1,8 +1,10 @@
-# 기계 학습 및 AI 내부: 내부
+# 기계 학습 및 AI 내부
 
 > 소스 합성: 신경망 역전파 역학, 경사하강법 최적화 프로그램, 변환기 주의 내부, 컨볼루셔널 네트워크 계산을 다루는 ML/AI 참고서(comp 8, 195–196, 224–225, 233, 254–255, 263, 280, 371, 434, 444, 449–450, 458, 469) 그래프 및 GPU 메모리 관리.
 
 ---
+
+> **읽기 계약:** 이 문서는 신경망·Transformer·고전 ML·GPU 실행을 연결한 개념 노트입니다. 수식은 명시된 텐서 형상과 알고리즘에 대한 **유도**, A100·PyTorch·CUDA·모델명은 특정 **구현 예**, 처리량·배율·메모리는 구성 의존 **예시 수치**입니다. 재사용 시 모델·커널·프레임워크·CUDA와 GPU 버전, dtype, 배치·시퀀스 길이, 측정 방법을 식별합니다. 정확도·속도·메모리 결론은 기준선과 데이터셋, 허용 오차, 재현 측정이 모두 있을 때 완료됩니다. 어느 조건이 빠지면 가설로 유지하고 모델 품질 또는 자원 한계가 깨질 때 이전 구성으로 되돌릴 수 있어야 합니다.
 
 ## 1. 신경망 정방향 전달 — 계산 그래프
 
@@ -35,7 +37,7 @@ flowchart LR
 flowchart TD
     subgraph "A100 GPU GEMM"
         Global["Global Memory\n(HBM2: 2TB/s)\nMatrices A, B, C"]
-        Shared["Shared Memory (SRAM)\n(19 MB L1/shared per SM)\nA tile (16×16) + B tile (16×16)\n→ loaded once, reused K times"]
+        Shared["Shared Memory (SRAM)\ncapacity depends on GPU and SM configuration\nA/B tiles must fit the configured budget\n→ loaded once, reused across operations"]
         TensorCore["Tensor Core\nD = A×B + C\n(16×16×16 matrix op in 1 cycle)\nFP16 inputs → FP32 accumulate"]
         Registers["Register File\nOutput tile accumulated here"]
         WriteBack["Write C tile back to Global Memory"]
@@ -169,7 +171,7 @@ flowchart LR
     subgraph "FlashAttention"
         Tiles["Tile Q into blocks of Br rows\nTile K,V into blocks of Bc cols\nBr×Bc fits in SRAM"]
         Online["Online softmax:\ntrack max(score) per row\nupdate running sum\n→ exact softmax without storing S"]
-        SRAM["All computation in SRAM\n(1.5MB vs O(N²) HBM)\n→ 5–10× faster for long sequences"]
+        SRAM["Tiled score computation in on-chip memory\navoids materializing the O(N²) score matrix in HBM\nspeedup depends on shape, dtype, GPU, and implementation"]
         Tiles --> Online --> SRAM
     end
 ```
@@ -215,7 +217,7 @@ flowchart TD
         Allocator["PyTorch caching allocator\n(cudaMalloc reserved pool)"]
         Block["Block sizes: power-of-2 bins\n(512B → 1KB → ... → 1GB)\nreuse without cudaMalloc overhead"]
         Frag["Fragmentation: large allocations\nsplit from pool; small blocks recycled"]
-        GC["torch.cuda.empty_cache()\nreturns pool blocks to CUDA\n(doesn't free reserved memory)"]
+        GC["torch.cuda.empty_cache()\nreleases unoccupied cached blocks for other CUDA users\ncannot free memory held by live tensors"]
     end
 ```
 
@@ -247,7 +249,7 @@ flowchart TD
         Prompt["Prompt tokens [t1, t2, t3, t4]"]
         Prefill["Prefill phase:\nall prompt tokens processed together\n→ K,V matrices computed and cached\nfor all prompt positions"]
         KVCache["KV Cache (per layer, per head):\nK_cache: (seq_len, n_heads, d_k)\nV_cache: (seq_len, n_heads, d_v)\nGPU memory: ~2×seq×layers×heads×d_k×2B"]
-        Decode["Decode phase (token by token):\nnew token t5 → compute Q5\nattend to cached K[1..4] + K5\n→ only 1 new K,V per step\n→ O(1) compute per new token"]
+        Decode["Decode phase (token by token):\nnew token t5 → compute Q5,K5,V5\nattend to cached K[1..4] + K5\n→ avoids recomputing prior K,V\n→ attention work still grows with cached sequence length"]
         Next["Generate t5, t6, t7... autoregressively"]
     end
     Prompt --> Prefill --> KVCache --> Decode --> Next
@@ -298,7 +300,7 @@ flowchart TD
     subgraph "Random Forest Ensemble"
         Bootstrap["Bootstrap sampling:\nn_estimators=100 trees\neach trained on random sample\nwith replacement (63.2% unique)"]
         FeatureSample["Feature sampling per split:\nmax_features = √p (classification)\nmax_features = p/3 (regression)\n→ decorrelates trees"]
-        Aggregate["Aggregation:\nclassification: majority vote\nregression: mean\n→ variance reduction (Var[mean] = Var[X]/n)"]
+        Aggregate["Aggregation:\nclassification: majority vote\nregression: mean\n→ variance usually decreases\nVar[mean] = Var[X]/n only for independent equal-variance trees"]
         Bootstrap --> FeatureSample --> Aggregate
     end
 ```
@@ -318,7 +320,7 @@ flowchart LR
     subgraph "Kernel Trick"
         Linear["K(x,z) = x·z\n(linear SVM)"]
         Poly["K(x,z) = (x·z + c)^d\n(polynomial: implicit degree-d features)"]
-        RBF["K(x,z) = exp(-γ‖x-z‖²)\n(RBF: infinite-dim feature space\n→ always linearly separable)"]
+        RBF["K(x,z) = exp(-γ‖x-z‖²)\n(RBF: infinite-dimensional feature space\nseparability still depends on data, labels, γ, and regularization)"]
         Note1["Replace x_i·x_j → K(x_i,x_j)\nNever compute Φ(x) explicitly\n→ dual uses only pairwise kernel evaluations"]
     end
 
@@ -345,7 +347,7 @@ flowchart TD
     Center --> WIn --> Hidden --> Scores --> Softmax2 --> Loss2
 
     subgraph "Negative Sampling Optimization"
-        NS["Full softmax: 50000 outputs per step\nNegative sampling:\n- 1 positive context word (gradient push)\n- k=5 negative samples (random noise distribution)\n- objective: maximize P(positive) - P(negatives)\n→ 50000× speedup"]
+        NS["Full softmax: score all vocabulary items per step\nNegative sampling:\n- positive context pair\n- k sampled negative pairs\n- logistic objectives distinguish positive/negative pairs\n→ work scales with k instead of vocabulary size"]
         Dist["Noise distribution: P^(3/4)(w)\n(unigram^0.75 smooths frequency)"]
     end
 ```
@@ -368,7 +370,7 @@ flowchart TD
     subgraph "GPTQ (Layer-wise Quantization)"
         Hessian["Compute Hessian H = 2XX^T\n(second-order info about weight sensitivity)"]
         OBQ["Optimal Brain Quantization:\nquantize one weight at a time\ncompensate remaining weights:\nδW = -q_err / H_ii × H_{i,:}\n→ minimize quantization error row by row"]
-        INT4["INT4 weights (2 bits saved vs INT8)\n16× memory reduction vs FP32\nGPTQ 4-bit LLM: 70B model fits in 2×A100 40GB"]
+        INT4["INT4 weights use 4 fewer bits/value than INT8\nraw weight storage is about 8× smaller than FP32\nscales, metadata, runtime buffers, and KV cache add overhead"]
     end
 ```
 
@@ -401,6 +403,8 @@ sequenceDiagram
 ---
 
 ## 14. 성능 수치
+
+> 아래 값은 정밀도 모드, 희소성, 클록, 소프트웨어 버전, 배치와 모델 형상이 명시되지 않은 예시입니다. 이론 최고치와 실측 처리량을 구분하고, 채택 판단에는 동일 환경의 재현 벤치마크를 사용합니다.
 
 ```mermaid
 block-beta
@@ -438,10 +442,10 @@ block-beta
 - **Autograd 테이프**는 정방향 전달 중에 `grad_fn` 노드의 DAG를 구축합니다. `.backward()`은 저장된 텐서를 사용하여 각 노드에 체인 규칙을 적용하여 역순으로 탐색합니다.
 - **Adam은 매개변수(m, v)당 2개의 순간 버퍼를 유지합니다** — 메모리 비용은 가중치(가중치 + m + v)의 3배이고 SGD는 1배입니다. AdamW는 모멘트 추정의 오염을 방지하기 위해 L2 붕괴를 분리합니다.
 - **FlashAttention**은 온라인 소프트맥스를 타일링하고 실행하여 HBM에서 O(N²) 어텐션 매트릭스를 구체화하는 것을 방지합니다. 이는 긴 시퀀스(>2K 토큰)에 중요합니다.
-- **KV 캐시**는 O(1) 디코드 단계를 가능하게 합니다. 메모리는 시퀀스 길이에 따라 선형적으로 증가합니다. GQA는 KV 헤드를 줄여 추론 시 캐시 메모리를 절약합니다.
+- **KV 캐시**는 이전 토큰의 K/V 재계산을 피하지만, 새 토큰의 어텐션은 캐시된 시퀀스를 읽으므로 문맥 길이에 따라 계산·메모리 대역폭이 증가합니다. 캐시 메모리는 시퀀스 길이에 선형이고, GQA는 KV 헤드 수를 줄입니다.
 - **INT8 GEMM**은 오버플로를 방지하기 위해 INT32에 누적된 다음 역양자화됩니다. 스케일/영점은 텐서당보다 더 나은 정확도를 위해 채널별로 계산됩니다.
-- **im2col + GEMM**은 컨볼루션이 실제로 구현되는 방식입니다. 슬라이딩 윈도우 작업을 대규모 행렬 곱셈으로 변환하여 Tensor Core 가속을 활성화합니다.
-- Word2Vec의 **음수 샘플링**은 O(vocab) 소프트맥스를 O(k) 시그모이드 평가로 대체합니다. 한계는 수학적으로 동일하지만 훈련 속도는 10,000배 더 빠릅니다.
+- **im2col + GEMM**은 컨볼루션 구현 방식 중 하나입니다. 직접 컨볼루션, Winograd, FFT와 라이브러리별 커널도 있으므로 형상·하드웨어·작업공간에 따라 선택됩니다.
+- Word2Vec의 **음수 샘플링**은 전체 어휘 소프트맥스 대신 O(k)개의 표본화된 로지스틱 항을 최적화합니다. 목적함수는 전체 소프트맥스와 동일하지 않으며, 속도 향상은 어휘 크기·k·표본화·구현에 따라 측정해야 합니다.
 
 
 ---
@@ -531,7 +535,7 @@ flowchart LR
 
 ### 리팩토링과 설계 원칙
 
-**MLOps 파이프라인 설계 원칙**: ML 시스템의 기술 부채는 전통 소프트웨어보다 훨씬 빠르게 축적된다. 코드는 전체 시스템의 5%에 불과하고, 데이터 수집, 검증, 특성 저장소, 모니터링이 나머지 95%를 차지한다. MLOps의 핵심은 이 전체 파이프라인을 **재현 가능하고 자동화**하는 것이다.
+**MLOps 파이프라인 설계 원칙**: ML 시스템의 기술 부채에는 코드뿐 아니라 데이터 수집, 검증, 특성 저장소, 모니터링이 포함됩니다. 이를 고정된 5% 대 95% 비율로 보지 말고 시스템별 소유권·비용·장애 이력으로 측정합니다. MLOps의 목표는 이 전체 파이프라인의 재현성과 통제 가능한 자동화입니다.
 
 Google의 MLOps 성숙도 모델에서 Level 0(수동)은 노트북에서 모델을 학습하고 수동으로 배포한다. Level 1(ML 파이프라인 자동화)은 학습-검증-배포 파이프라인을 자동화한다. Level 2(CI/CD + CT)는 코드 변경뿐 아니라 데이터 변경과 모델 성능 저하에도 자동으로 재학습을 트리거한다.
 

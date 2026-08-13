@@ -1,5 +1,11 @@
 # Documentation Hub
 
+## 허브 유지 계약
+
+- 이 페이지의 문서 수와 카테고리 수는 게시 시점의 탐색용 스냅샷이며 자동으로 최신 상태를 보장하지 않습니다.
+- 운영 절차를 실행하기 전에 대상 문서의 OS·제품 버전, 권한, 비밀, 데이터 손실 위험과 완료 증거를 확인합니다.
+- 새 문서를 추가하거나 경로를 바꾸면 카드 링크, 통계 문구와 관련 문서를 같은 변경에서 갱신합니다.
+
 <div class="compose-hero home-hero" markdown>
 <span class="compose-kicker">Documentation Hub</span>
 

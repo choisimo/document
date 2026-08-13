@@ -2,11 +2,18 @@
 
 > **Source**: *Designing Event-Driven Systems* — Ben Stopford (O'Reilly, 2018). Focus: not how to use Kafka topics, but how event-driven architectures restructure data ownership, how the log becomes a shared source of truth, and how services collaborate through immutable event streams without tight coupling.
 
+## Reading boundary
+
+- This is an architectural interpretation of a 2018 source, not a current Kafka configuration reference.
+- Treat log-centric ownership, CQRS, and choreography as design options. State the authoritative record for each aggregate rather than assuming the log is authoritative everywhere.
+- Separate Kafka's transactional boundary from database writes, HTTP calls, and other external effects. Those paths still require idempotency, reconciliation, and observable failure states.
+- Validate a proposed design with schema evolution, replay time, consumer lag, duplicate delivery, and recovery-point objectives before calling it complete.
+
 ---
 
 ## 1. The Core Insight: The Database Inside Out
 
-Traditional architectures place a shared database at the center — services query and mutate a single authoritative store. Stopford's key insight is **inverting** this: make the event log the system of record, and derive all views (databases, caches, indexes) from it.
+Traditional architectures can place a shared database at the center, while a log-centric design can make selected domain events authoritative and derive particular views from them. The choice is per domain boundary: not every database, cache, or external side effect is necessarily reconstructable from one log.
 
 ```mermaid
 flowchart LR
@@ -23,7 +30,7 @@ flowchart LR
     end
 ```
 
-The log is **not** a messaging bus — it is the **persistent, replayable system of record**. Every insert/update is an event. The downstream databases are caches derived from the stream.
+In the design modeled here, the log is more than transient transport: retained events are replayable inputs for named projections. Calling it a system of record requires retention, schema, ordering, access-control, and restoration contracts. Inserts or updates outside that contract remain authoritative in their owning systems.
 
 ---
 
@@ -237,9 +244,11 @@ sequenceDiagram
     Consumer->>Broker: commit offset only after processing success
 ```
 
-**Exactly-once** requires both:
+**Kafka read-process-write exactly-once behavior** requires both within the configured Kafka boundary:
 1. **Idempotent producer**: `enable.idempotence=true` — PID + sequence number deduplication per partition
 2. **Transactional API**: atomic multi-partition produce + offset commit in one Kafka transaction
+
+This does not make an external database update or API call exactly once. Consumers must use an idempotency key, transactional outbox/inbox, or reconciliation process for effects outside Kafka.
 
 ---
 

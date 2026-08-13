@@ -4,9 +4,11 @@
 
 ---
 
+> **Reading contract:** This document combines Erickson 2019 and Zingaro 2021, whose examples and notation are not interchangeable by default. Recurrence trees assume a particular recurrence and base case; graph and DP bounds assume a finite representation and named edge or dependency conditions. Tag statements as theorem, proof sketch, implementation model, or heuristic. A section is complete only when its state definition, invariant, input domain, termination or failure condition, complexity measure, and source are explicit; otherwise do not generalize the diagram beyond its example.
+
 ## 1. Recursion Tree Arithmetic — Where Time Complexity Lives
 
-Every divide-and-conquer recurrence T(n) = r·T(n/c) + f(n) decomposes into a **recursion tree** whose total node-value sum is the running time.
+A recurrence of the form T(n) = r·T(n/c) + f(n), with a specified rounding rule and base case, can be represented by a **recursion tree** whose node costs sum to the modeled running time. Unequal subproblem sizes or input-dependent work require the corresponding recurrence rather than this uniform template.
 
 ```mermaid
 graph TD
@@ -147,7 +149,7 @@ sequenceDiagram
 
 ## 4. Dynamic Programming — Dependency Graph as DAG
 
-Every DP algorithm is **topological order evaluation of a DAG** where:
+A finite acyclic DP dependency system can be viewed as **topological-order evaluation of a DAG** where:
 - Node = subproblem
 - Edge u → v = "solving u requires solving v first"
 - Node value = optimal subproblem answer
@@ -645,8 +647,8 @@ graph LR
 The **memo table** is the DFS "visited" array; **computing the answer** is the PostVisit action; **returning the cached value** is the behavior when a node is re-visited (already finished = BLACK in DFS color model).
 
 This unification means:
-- Every DP can be implemented as memoized DFS
-- Every memoized DFS can be implemented as bottom-up DP (if topological order is known)
+- A finite acyclic DP can often be implemented as memoized DFS when recursion depth and state storage are safe
+- The same dependency DAG can be evaluated bottom-up when a valid topological order and reachable state set are known
 - The dependency DAG structure determines both the space complexity (# subproblems) and the time complexity (# edges = work per subproblem × # subproblems)
 
 ---

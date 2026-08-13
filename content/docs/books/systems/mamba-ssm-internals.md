@@ -1,15 +1,22 @@
 # Mamba: Linear-Time Sequence Modeling with Selective State Spaces — Under the Hood
 > Source: *Mamba: Linear-Time Sequence Modeling with Selective State Spaces* — Albert Gu & Tri Dao (arXiv:2312.00752v2, CMU + Princeton)
 
+## Paper and measurement boundary
+
+- This document explains arXiv:2312.00752v2, not every later Mamba-family architecture or implementation.
+- Complexity is stated in sequence length while holding model dimensions and batch shape explicit; linear asymptotics do not guarantee lower latency for every length or device.
+- GPU SRAM/HBM capacity and bandwidth figures are hardware examples. Record GPU model, precision, kernel, batch, sequence length and warm-up for performance claims.
+- Distinguish equations derived from the paper, implementation observations, and empirical quality results. Reproduce the named benchmark before generalizing a result.
+
 ## Overview
 
-Mamba is an architecture that replaces the Transformer's quadratic-scaling self-attention with a **selective state space model (S6)** that runs in linear time. The key insight is that classical SSMs are fast but dumb (they can't select what to remember), while Transformers are smart but slow (O(L²) memory in the sequence length). Mamba breaks this tradeoff through a hardware-aware algorithm that materializes expanded states only in fast GPU SRAM rather than slow HBM.
+Mamba replaces self-attention blocks with input-dependent selective state-space layers and presents algorithms whose work scales linearly with sequence length for fixed dimensions. Standard full attention has quadratic score computation in sequence length, while actual memory and latency depend on training versus autoregressive inference, kernels and model shape. The paper's hardware-aware scan reduces selected HBM traffic; it does not imply that all expanded state lives only in SRAM throughout every implementation.
 
 ---
 
 ## 1. The Fundamental Tradeoff: Context Compression
 
-All sequence models trade off between two forces:
+The following diagram contrasts simplified representatives; hybrids and optimized attention variants need separate analysis.
 
 ```mermaid
 flowchart LR

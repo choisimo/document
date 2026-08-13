@@ -4,9 +4,11 @@
 
 ---
 
+> **읽기 계약:** 이 문서는 Linux 중심 운영체제 학습 노트이며, 인용 서적의 출간 시점과 현재 커널의 자료구조가 다를 수 있습니다. `task_struct`, 스케줄러, VMA, 페이지 폴트, SLUB와 `io_uring` 설명에는 커널 버전·아키텍처·설정이 필요합니다. 교과서 모델, 특정 소스 트리의 구현 사실, 나노초·크기 예시를 분리합니다. 호출 경로는 대상 커널 태그의 소스 또는 추적으로 확인하고, 전제·상태 전이·오류 반환·복구 조건과 측정 환경이 기록된 뒤 완료합니다. 업그레이드로 심볼이나 불변식이 바뀌면 기존 도식을 미확정으로 돌립니다.
+
 ## 1. Linux 커널 프로세스 모델: task_struct
 
-Linux의 모든 프로세스/스레드는 `task_struct`(`include/linux/sched.h`의 ~1000 필드 구조)로 표시됩니다.
+Linux의 각 태스크는 `task_struct`로 표현되지만 필드 수와 배치는 커널 구성과 버전에 따라 달라집니다. 사용자 관점의 프로세스와 스레드는 태스크가 공유하는 `mm_struct`·파일·시그널·thread-group 관계로 구분합니다.
 
 ```mermaid
 flowchart TD
@@ -41,9 +43,13 @@ stateDiagram-v2
     ZOMBIE --> [*]: parent calls wait()
 ```
 
+> **상태 해석:** Linux의 `TASK_RUNNING`은 실행 중과 실행 가능 큐 대기를 모두 포함하므로, 위의 RUNNING과 READY 구분은 설명용 상태이지 서로 다른 `task_struct` 상태값이 아닙니다. 종료·정지·수면 상태와 전이는 대상 커널의 상태 비트와 대기 API를 기준으로 확인합니다.
+
 ---
 
 ## 2. CFS 스케줄러: 완전히 공정한 스케줄러 내부
+
+> **버전 주의:** 아래 red-black tree와 고정 튜너블 값은 특정 CFS 세대의 단순화입니다. 최신 Linux는 EEVDF 선택 로직 등으로 변경되었고 기본 지연·최소 단위도 커널 설정과 CPU 수에 따라 달라질 수 있습니다.
 
 ```mermaid
 flowchart TD
@@ -255,7 +261,7 @@ flowchart LR
     GETTIMEOFDAY["gettimeofday() in user code"]
     VDSO_PAGE["VDSO page\n(mapped by kernel into every process)\nContains: clock_gettime, gettimeofday, vgettimeofday\nReads directly from kernel-exported vsyscall page"]
     CLOCKSOURCE["Kernel clocksource\n(TSC, HPET)\nUpdated by kernel, mapped read-only to user"]
-    NO_SYSCALL["No kernel mode transition!\nDirect memory read from vsyscall area\n~20 cycles vs 1000 cycles for real syscall"]
+    NO_SYSCALL["Eligible clock reads avoid a kernel-mode transition\nusing kernel-maintained user mappings\ncycle cost depends on CPU, clocksource, and mitigation settings"]
     GETTIMEOFDAY --> VDSO_PAGE --> CLOCKSOURCE --> NO_SYSCALL
 ```
 
@@ -492,7 +498,7 @@ CFS가 Linux의 기본 스케줄러가 된 이유는 서버 워크로드에서�
 1. **동기 블로킹 I/O**: `read()`/`write()` — 가장 단순하지만 스레드가 블로킹되어 자원 낭비
 2. **select/poll/epoll**: 이벤트 기반 멀티플렉싱 — 블로킹은 해결했지만 여전히 매 I/O마다 시스템 콜
 3. **AIO(POSIX)**: 커널 비동기 I/O — 제한적이고 일관성 없는 API
-4. **io_uring**: 커널-사용자 공간 공유 링 버퍼로 **시스템 콜 없이** I/O 제출/완료 가능
+4. **io_uring**: 공유 링과 배치 제출로 시스템 콜 수를 줄입니다. 일반 모드에는 `io_uring_enter()` 등이 필요할 수 있고, 조건을 갖춘 SQPOLL·등록 리소스 경로에서 제출 호출을 더 줄일 수 있습니다.
 
 ```mermaid
 flowchart TD
@@ -510,7 +516,7 @@ flowchart TD
     IOURING --> RESULT["설계 교훈:\n커널-사용자 경계의\n공유 메모리 통신이\n궁극의 최적화"]
 ```
 
-io_uring의 핵심 통찰은 **커널과 사용자 공간이 메모리를 공유하면 시스템 콜 자체가 불필요**하다는 것이다. Submission Queue(SQ)에 I/O 요청을 쓰고, Completion Queue(CQ)에서 결과를 읽는다. `SQPOLL` 모드에서는 커널 스레드가 SQ를 폴링하므로 사용자 공간에서 단 한 번의 시스템 콜도 호출하지 않는다.
+`io_uring`은 Submission Queue와 Completion Queue를 공유해 여러 작업의 제출·완료 비용을 상각합니다. `SQPOLL`도 초기 설정, 깨우기, 등록되지 않은 자원과 일부 작업에서 시스템 콜이 필요할 수 있으므로 "단 한 번도 호출하지 않는다"는 보장이 아닙니다. 완료 조건은 지원 opcode, 권한, 폴링 상태와 실제 시스템 콜 추적으로 확인합니다.
 
 ### 디자인 패턴 적용
 
@@ -698,7 +704,7 @@ Out of memory: Kill process 12345 (postgres) score 850 or sacrifice child
 
 리눅스에서 `fork()`를 호출하면 자식 프로세스는 부모의 전체 주소 공간을 복사하는 것처럼 보이지만, 실제로는 **Copy-on-Write(CoW)** 기법을 사용한다. 다음 시나리오를 분석하라:
 
-- 부모 프로세스가 1GB의 데이터를 `mmap()`으로 매핑한 상태에서 `fork()`를 호출했다. fork 직후 실제 물리 메모리 사용량은 어떻게 되는가?
+- 부모 프로세스가 1GB를 `MAP_PRIVATE`로 매핑하고 실제 페이지가 상주한 상태에서 `fork()`를 호출했다고 가정한다. fork 직후 공유 가능한 데이터 페이지와 새로 필요한 페이지 테이블·커널 메타데이터를 구분해 물리 메모리 변화를 설명하라. `MAP_SHARED` 또는 아직 fault되지 않은 매핑이면 결론이 어떻게 달라지는지도 적어라.
 - 자식 프로세스가 매핑된 영역의 한 페이지(4KB)를 수정하면, 커널 내부에서 어떤 일이 순서대로 발생하는가? (페이지 폴트 → CoW 처리 흐름)
 - `fork()` + `exec()` 패턴에서 CoW가 성능상 **결정적으로 중요한 이유**를 exec()의 동작과 연결하여 설명하라.
 

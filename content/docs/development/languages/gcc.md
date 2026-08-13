@@ -1,6 +1,15 @@
 # GCC Installation Guide
 
-> GNU Compiler Collection setup for C/C++ development
+> Version-aware GNU Compiler Collection setup examples for C/C++ development
+
+---
+
+## Scope and Verification Contract
+
+- **Scope:** Pin the GCC release, target triple, host OS and distribution, C/C++ language standard, linker, libc, build type, and package source. Installation commands and available flags vary across those inputs.
+- **Assumptions:** Warnings, optimization, debug information, ABI, sanitizer behavior, and generated code depend on flags and source language. A successful compile does not establish program correctness or portability.
+- **Facts and inference:** Compiler diagnostics and generated artifacts are evidence; a performance or undefined-behavior explanation remains a hypothesis until tests, sanitizers, profiles, and assembly support it.
+- **Failure and completion:** Treat warnings selected by policy, link errors, sanitizer findings, test failures, ABI mismatch, and target runtime failure explicitly. Completion requires the pinned compiler, clean policy checks, passing tests, and a reproducible build command.
 
 ---
 
@@ -84,7 +93,7 @@ g++ -Wall -Wextra -o program program.cpp
 | Flag | Description |
 |------|-------------|
 | `-o <file>` | Output filename |
-| `-Wall` | Enable all warnings |
+| `-Wall` | Enable a broad, documented warning set; it does not enable every GCC warning |
 | `-Wextra` | Extra warnings |
 | `-g` | Include debug info |
 | `-O0/O1/O2/O3` | Optimization levels |

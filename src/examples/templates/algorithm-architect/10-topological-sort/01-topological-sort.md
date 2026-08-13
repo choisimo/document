@@ -6,8 +6,17 @@
 |------|------|
 | **Use Case** | DAG(방향 비순환 그래프)의 선후 관계 정렬 |
 | **Components** | Indegree Array, Queue |
-| **Constraint** | 사이클이 있으면 불가능 |
-| **시간 복잡도** | O(V + E) |
+| **Constraint** | cycle이면 모든 vertex의 topological order가 없으며 명시적으로 검출 |
+| **시간 복잡도** | adjacency list 기준 O(V + E) |
+
+---
+
+## 적용 범위와 검증 기준
+
+- **범위:** directed graph가 DAG일 때 모든 vertex를 포함하는 topological order가 존재합니다. cycle이 있으면 완전한 order 대신 cycle/processed-count failure를 보고합니다.
+- **복잡도 전제:** adjacency list에서 vertex·edge를 제한된 횟수 처리할 때 `O(V+E)`이며 matrix 표현은 달라집니다. 유효 order는 여러 개일 수 있습니다.
+- **실패 조건:** duplicate edge의 indegree, disconnected component, cycle, DFS color 처리, recursion depth와 비결정적 tie order를 포함합니다.
+- **완료 증거:** 결과의 모든 edge `u→v`에서 `u`가 앞서는지, vertex가 정확히 한 번 있는지와 cycle fixture의 실패 판정을 reference와 비교합니다.
 
 ---
 

@@ -1,6 +1,8 @@
 # Disk Mounting Guide
 
-> Permanent disk mounting configuration for Linux systems
+> Persistent local and network mounts using `/etc/fstab` and, where present, systemd mount generation.
+
+The filesystem must already exist and the device identity, ownership, backup, filesystem and init-system versions must be verified.
 
 ---
 
@@ -75,11 +77,7 @@ Add entry:
 UUID=a1b2c3d4-5678-90ab-cdef-1234567890ab /mnt/data ext4 defaults 0 2
 ```
 
-**One-liner:**
-
-```bash
-echo "UUID=a1b2c3d4-5678-90ab-cdef-1234567890ab /mnt/data ext4 defaults 0 2" | sudo tee -a /etc/fstab
-```
+Back up `/etc/fstab` and edit the intended entry deliberately. Blind `tee -a` use can create duplicate mount points or conflicting UUID entries.
 
 ### 5. Test the Configuration
 
@@ -142,14 +140,19 @@ journalctl -b | grep mount
 ### Permission Issues
 
 ```bash
-# Set ownership
-sudo chown -R $USER:$USER /mnt/data
+# Inspect before changing ownership
+namei -l /mnt/data
+findmnt --target /mnt/data
 
-# Or set permissions
-sudo chmod 755 /mnt/data
+# Change only the mount root when policy requires it
+sudo chown "$USER:$USER" /mnt/data
 ```
 
 ---
+
+## Completion and rollback evidence
+
+Run `findmnt --verify`, mount only the target, and confirm source/type/options plus service-account read/write behavior. Network mounts also require server-loss and recovery tests. If validation fails, unmount safely, restore the backed-up `fstab`, and verify again. A bad boot entry must be corrected in rescue mode, not by formatting the device.
 
 ## Related Documentation
 

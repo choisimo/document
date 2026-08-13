@@ -2,6 +2,14 @@
 
 > 소스 합성: 디자인 패턴 내부, 동시성 모델, 테스트 프레임워크, 빌드 시스템 및 소프트웨어 아키텍처 메커니즘을 다루는 소프트웨어 엔지니어링 참고서(comp 13, 15, 17, 67–68, 69, 76, 79, 105, 293, 323, 329, 331, 334–335, 337).
 
+## 문서 범위와 검증 계약
+
+- **범위**: 패턴과 아키텍처의 대표 메커니즘을 설명하는 설계 참고서입니다. 예시의 Spring, Gradle, Bazel, Git, JUnit과 Java 동시성 동작은 대상 버전·설정에 따라 달라지며 모든 팀에 적용할 처방이 아닙니다.
+- **전제**: 팀 규모, 코드 줄 수, 복잡도 점수와 파이프라인 시간은 결정을 대신하는 임계값이 아니라 질문을 시작하는 휴리스틱입니다. 품질은 도메인 위험, 변경 빈도, 배포 단위와 운영 역량을 함께 봅니다.
+- **근거 상태**: 도구 내부는 해당 릴리스의 공식 문서·소스·실행 로그로 확인하고, 설계 주장은 ADR과 실제 지표로 검증합니다. 예시 수치나 “항상/필수/제로” 표현은 별도 근거가 없으면 보장으로 읽지 않습니다.
+- **실패/재시도**: 빌드·배포·이벤트 처리가 실패하면 단계, 입력 버전, 부작용과 재시도 가능 상태를 기록합니다. 비멱등 작업은 중복 억제나 보상 없이 자동 재시도하지 않고, 복구 불가능한 이벤트는 격리해 운영자가 판단합니다.
+- **완료 증거**: 변경은 계약 테스트, 핵심 불변식 테스트, 관측 가능한 배포 결과와 롤백/복구 연습을 갖춰야 완료입니다. 성능·생산성 주장은 기준선, 동일 조건의 전후 분포와 실패율을 남깁니다.
+
 ---
 
 ## 1. 디자인 패턴 - 내부 메커니즘
@@ -34,14 +42,14 @@ flowchart TD
 flowchart LR
     subgraph "Strategy (Function Pointer / Interface)"
         Context["Context\nstrategy: SortStrategy\nsort(data):\n  strategy.execute(data)  ← virtual dispatch"]
-        S1["QuickSortStrategy\nexecute(data): quicksort in-place\nO(n log n) avg, O(1) space"]
+        S1["QuickSortStrategy\nexecute(data): quicksort in-place\nO(n log n) average; stack depends on implementation"]
         S2["MergeSortStrategy\nexecute(data): merge sort\nO(n log n), O(n) space, stable"]
-        S3["TimSortStrategy\nexecute(data): timsort\n(runs + merge, Python/Java default)"]
+        S3["TimSortStrategy\nexecute(data): timsort\n(runs + merge; used by selected Python/Java sorts)"]
         Context -->|"polymorphic call\nvtable lookup"| S1 & S2 & S3
     end
 
     subgraph "vs Switch Statement"
-        Switch["switch(strategy_type) {\n  case QUICK: quicksort(data); break;\n  case MERGE: mergesort(data); break;\n}\n→ Open/Closed Principle violated:\n  adding sort requires modifying switch\nStrategy: add new class, no existing code changes"]
+        Switch["switch(strategy_type) {\n  case QUICK: quicksort(data); break;\n  case MERGE: mergesort(data); break;\n}\n→ modification point grows with variants\nStrategy can move dispatch behind an interface\nbut registration/composition may still change"]
     end
 ```
 
@@ -59,7 +67,7 @@ flowchart TD
     end
 
     subgraph "Circular Dependency"
-        Circ["A depends on B, B depends on A\n→ Detection: currently-being-created set\n→ Resolution: setter injection (A created first,\n  B injected, then A.setB(B))\n→ Constructor injection: CANNOT resolve circles\n  (A constructor needs B, B constructor needs A)\n→ Fail-fast on circular constructor deps"]
+        Circ["A depends on B, B depends on A\n→ container detects creation cycle\n→ setter/lazy/provider indirection may break timing\n→ direct constructor cycle has no complete instance\n→ default policy is framework/version specific\nPrefer redesigning the ownership boundary"]
     end
 ```
 
@@ -83,7 +91,7 @@ flowchart TD
     RUNNABLE --> TERMINATED
 
     subgraph "Thread Pool Internals (ThreadPoolExecutor)"
-        TPE["ThreadPoolExecutor:\ncorePoolSize=10, maxPoolSize=20\nworkQueue=LinkedBlockingQueue(1000)\nrejectedExecutionHandler\n\nLogic:\n1. tasks < corePoolSize → create new thread\n2. queue not full → enqueue task\n3. threads < maxPoolSize → create thread\n4. all full → reject (CallerRunsPolicy/AbortPolicy)"]
+        TPE["ThreadPoolExecutor example:\ncorePoolSize=10, maxPoolSize=20\nbounded workQueue=1000\nrejectedExecutionHandler\n\nexecute() decision:\n1. workers below core → try add worker\n2. otherwise try queue\n3. if queue rejects → try non-core worker\n4. if that fails → rejection policy\nRaces and queue type affect the path"]
     end
 ```
 
@@ -131,14 +139,14 @@ flowchart TD
 flowchart LR
     subgraph "Gradle Build Internals"
         Config["Configuration phase:\nevaluate build.gradle scripts\nbuild Task DAG\n(task dependencies: A → B means B runs before A)"]
-        Exec["Execution phase:\ntopological sort of DAG\nexecute tasks in order\n→ parallel execution (--parallel):\n  independent tasks run concurrently\n  max workers = CPU cores"]
+        Exec["Execution phase:\nexecute ready tasks respecting dependencies\n→ --parallel can run eligible project tasks concurrently\n→ worker limit comes from Gradle settings/defaults\nnot a universal CPU-core equality"]
         Incr["Incremental build:\ntask inputs/outputs declared\nfingerprint: hash(inputs)\nif fingerprint unchanged: UP-TO-DATE (skip)\n→ avoids recompiling unchanged modules"]
         BuildCache["Build cache:\noutput keyed by input fingerprint\nremote cache (S3/GCS) for CI sharing\n→ team members share cache hits"]
     end
 
     subgraph "Bazel Remote Build Execution"
-        Hermetic["Hermetic builds:\nall inputs explicitly declared\n→ sandbox: no access to filesystem outside declared inputs\n→ reproducible: same inputs → same outputs (bit-for-bit)\n→ cache key = hash(all transitive deps + flags)"]
-        Remote["Remote execution:\nactions sent to remote workers\noutputs cached by action hash\n→ 100-core parallelism without local CPU cost"]
+        Hermetic["Hermetic build goal:\ndeclare and isolate action inputs\n→ sandbox reduces undeclared access\n→ bit-for-bit output also needs deterministic tools, time and env\n→ action key covers declared inputs and command metadata"]
+        Remote["Remote execution:\nactions may run on remote workers\noutputs cached by action key\n→ parallelism depends on quotas and action graph\nnetwork/scheduler cost remains"]
     end
 ```
 
@@ -149,15 +157,15 @@ flowchart LR
 ```mermaid
 flowchart TD
     subgraph "Git Object Model"
-        Blob["Blob:\ncontent-addressed: SHA1(blob-len-content)\nStores file content only (no filename)\nDeduplication: same content = same SHA1 = stored once"]
-        Tree["Tree:\ncontent-addressed\nList of {mode, name, SHA1} entries\n040000 tree abc123  src/\n100644 blob def456  README.md"]
-        Commit["Commit:\ntree SHA1\nparent SHA1 (chain = history)\nauthor, committer, timestamp, message\n→ parent chain = immutable linked list"]
+        Blob["Blob:\nobject ID hashes 'blob <len>\\0' + content\nStores file content only (no filename)\nidentical object bytes share an ID"]
+        Tree["Tree:\ncontent-addressed\nList of {mode, name, object ID} entries\n040000 tree abc123  src/\n100644 blob def456  README.md"]
+        Commit["Commit:\ntree object ID\nzero or more parent IDs\nauthor, committer, timestamp, message\n→ immutable DAG, not always a single linked list"]
         Tag["Annotated Tag:\ntag object SHA1\npoints to commit SHA1\nmessage, tagger"]
     end
 
     subgraph "Pack File (gc optimization)"
         Loose["Loose objects: .git/objects/{2-char}/{38-char}\n(one file per object)"]
-        Pack["Pack file: .git/objects/pack/pack-{sha1}.pack\n+ index: pack-{sha1}.idx\n→ delta compression: base object + binary diff\n→ 10–100× smaller than loose objects\n→ git gc: repack loose → pack"]
+        Pack["Pack file: .git/objects/pack/pack-{hash}.pack\n+ index: pack-{hash}.idx\n→ may store deltas against base objects\n→ compression ratio depends on repository contents\n→ git gc/repack manages packs"]
     end
 
     subgraph "Merge Internals"
@@ -193,15 +201,15 @@ flowchart LR
 flowchart TD
     subgraph "Cyclomatic Complexity"
         Formula["Complexity M = E - N + 2P\n(E=edges, N=nodes, P=connected components)\n= number of linearly independent paths through code\n= number of if/else/for/while/case/catch + 1"]
-        Thresholds["M=1-10: simple, low risk\nM=11-20: more complex\nM=21-50: difficult to test\nM>50: untestable, refactor immediately"]
-        Test["Minimum test cases = M\n(each independent path needs at least 1 test\nto achieve 100% branch coverage)"]
+        Thresholds["Higher M suggests more control-flow paths\nthresholds are team/domain heuristics\nreview with churn, defects and readability"]
+        Test["M is not a required test count\nbranch coverage and feasible paths differ\nassert invariants and failure modes"]
     end
 
     subgraph "Code Smell Metrics"
-        LongMethod["Long method: >20 lines\n→ extract smaller functions\n(each function = one level of abstraction)"]
-        LargeClass["Large class: >300 lines\n→ split by responsibility (SRP)"]
-        LongParam["Long parameter list: >3 params\n→ introduce Parameter Object\n→ reduces coupling"]
-        DeepNest["Deep nesting: >3 levels\n→ early return (guard clauses)\n→ extract method"]
+        LongMethod["Long method\n→ inspect mixed responsibilities and change history\nextract only when names/boundaries improve clarity"]
+        LargeClass["Large class\n→ inspect cohesion and independent reasons to change"]
+        LongParam["Long parameter list\n→ consider Parameter Object when parameters form a concept"]
+        DeepNest["Deep nesting\n→ consider guards or extraction\nwithout hiding essential control flow"]
     end
 ```
 
@@ -307,7 +315,7 @@ flowchart TD
 
     subgraph "Append-Only Event Store"
         WAL2["event_store table:\n(aggregate_id, version, event_type, payload, created_at)\nINSERT only (no UPDATE, no DELETE)\nOptimistic locking: WHERE version = expected_version"]
-        Concurrency["Optimistic concurrency:\nIF conflicting version: retry or fail\n→ no distributed locks needed\n→ events = immutable facts"]
+        Concurrency["Optimistic concurrency:\nIF conflicting version: retry, merge or fail by policy\n→ avoids some lock use, not all coordination needs\n→ persisted events are treated as immutable facts"]
     end
 ```
 
@@ -319,9 +327,9 @@ flowchart TD
 - **DI 컨테이너 빈 라이프사이클**은 프록시를 위해 반사 + CGLIB 바이트코드 생성을 사용합니다. — `@Transactional` 메소드는 실제 인스턴스가 아닌 프록시가 호출을 가로채기 때문에 작동합니다.
 - **ThreadPoolExecutor**는 코어 스레드를 먼저 채운 다음 대기열에 넣은 다음 최대 스레드까지 생성합니다. 일반적인 실수는 대기열 용량을 `Integer.MAX_VALUE`로 설정하여 최대 풀 확장을 방지하는 것입니다.
 - **Git 객체**는 콘텐츠 주소가 지정됩니다(콘텐츠의 SHA-1). 커밋 전체에서 동일한 파일이 동일한 blob을 공유합니다. 팩 파일 델타 압축은 유사한 blob을 찾아 바이너리 diff만 저장합니다.
-- **육각형 아키텍처**는 포트를 통해 종속성을 반전시켜 프레임워크에서 비즈니스 로직을 분리합니다. 도메인은 Spring/JPA/HTTP를 가져오지 않으므로 마이크로초 단위로 단위 테스트가 가능합니다.
-- **반응성 배압**은 풀 모델입니다. 가입자는 `request(n)`을 호출하여 유량을 제어합니다. 게시자는 요청한 것보다 더 많이 내보내서는 안 됩니다(무한한 버퍼 증가 방지).
-- **순환 복잡도**는 전체 분기 적용에 필요한 최소 테스트 케이스 수와 직접적으로 동일합니다. M=15인 함수는 모든 경로를 포괄하려면 최소 15개의 테스트가 필요합니다.
+- **육각형 아키텍처**는 포트를 통해 의존성을 역전시켜 도메인과 외부 기술의 결합을 낮출 수 있습니다. 테스트 시간은 프레임워크 격리뿐 아니라 픽스처·I/O·실행 환경에 따라 측정해야 합니다.
+- **Reactive Streams 배압**에서 구독자는 `request(n)`으로 수요를 알리고 Publisher는 계약상 그 수요를 넘겨 `onNext`하지 않아야 합니다. 연산자 경계의 prefetch·buffer 정책과 실패/취소 처리는 별도로 확인합니다.
+- **순환 복잡도**는 제어 흐름 검토 신호이지 필요한 테스트 수나 100% branch coverage와 직접 동일하지 않습니다. 도달 불가능 경로, 복합 조건과 데이터 상태를 함께 모델링합니다.
 
 
 ---
@@ -332,17 +340,17 @@ flowchart TD
 
 #### 모놀리스 vs 마이크로서비스: 팀 규모와 복잡도 기준
 
-시스템 아키텍처 선택은 **기술적 문제가 아니라 조직적 문제**다. Conway's Law에 따르면 시스템 구조는 조직 구조를 반영한다. 작은 팀(5-10명)이 하나의 코드베이스를 관리할 때는 모놀리스가 효율적이고, 수십 개 팀이 독립적으로 배포해야 할 때는 마이크로서비스가 필수적이다.
+시스템 아키텍처 선택은 기술과 조직이 함께 얽힌 문제입니다. Conway's Law는 조직의 소통 구조가 시스템 경계에 영향을 준다는 관찰이지 팀 인원수만으로 답을 정하는 법칙이 아닙니다. 작은 팀에도 규제·격리 요구가 있을 수 있고 큰 팀도 모듈러 모놀리스를 효과적으로 운영할 수 있으므로 독립 변경·배포 필요성과 운영 비용을 증거로 선택합니다.
 
 **모놀리스의 장점**:
-- 함수 호출로 모듈 간 통신 → 네트워크 오버헤드 제로
+- 프로세스 내부 호출로 모듈 간 통신 → 원격 호출의 직렬화·네트워크 비용을 피함
 - 데이터 일관성 유지 용이 (단일 DB 트랜잭션)
 - 디버깅과 트레이싱이 단순
 
 **마이크로서비스의 장점**:
 - 독립 배포와 스케일링
 - 팀별 기술 스택 독립 선택
-- 장애 격리(blast radius 최소화)
+- 경계와 자원 제한을 올바르게 설계했을 때 장애 격리 가능
 
 ```mermaid
 flowchart TD
@@ -390,7 +398,7 @@ flowchart TD
     CORE -.-|"프레임워크 무관\nSpring/JPA import 없음\n단위 테스트: ~μs"| TEST["테스트 용이성"]
 ```
 
-이 구조의 핵심 가치는 **도메인 코어가 어떤 프레임워크도 import하지 않는다**는 점이다. Spring을 Quarkus로, PostgreSQL을 MongoDB로 교체해도 도메인 코어는 변경 없다. 단위 테스트가 마이크로초 단위로 실행되므로 TDD가 자연스러워진다.
+이 구조의 핵심 목표는 **도메인 코어가 프레임워크 세부에 의존하지 않도록 하는 것**입니다. 프레임워크 교체는 어댑터 영향에 국한될 수 있지만 PostgreSQL과 MongoDB처럼 트랜잭션·쿼리 의미가 다른 저장소로 바꾸면 포트 계약이나 도메인 가정도 바뀔 수 있습니다. 테스트 속도와 TDD 적합성은 실제 테스트 구성으로 확인합니다.
 
 ### 트레이드오프와 의사결정
 
@@ -565,7 +573,7 @@ flowchart TD
 
 <details><summary>힌트 보기</summary>
 
-동기 호출은 강한 일관성을 보장하지만, 재고 서비스 장애 시 주문도 실패한다(가용성 저하). 비동기 이벤트는 느슨한 결합과 높은 가용성을 제공하지만 최종 일관성(eventual consistency)만 보장한다. 바운디드 컨텍스트마다 같은 이름의 개념이라도 의미가 다르다(주문의 Product는 가격·수량, 재고의 Product는 SKU·위치·재고량). Anti-Corruption Layer(ACL)로 변환한다. Saga 보상: 주문확정→재고차감 실패 시 "주문취소" 보상 이벤트를 발행하여 주문 상태를 롤백한다.
+동기 호출은 즉시 성공/실패를 조정하기 쉽지만 서비스 간 호출만으로 강한 일관성이 자동 보장되지는 않으며 timeout 뒤 결과 불명 상태도 다뤄야 합니다. 비동기 이벤트는 시간 결합을 낮추지만 중복·순서·유실과 최종 일관성 상태를 명시해야 합니다. 바운디드 컨텍스트의 서로 다른 Product 모델은 ACL로 변환합니다. Saga는 주문확정→재고차감 실패 시 주문 취소 같은 보상 상태를 기록하되, 보상도 실패할 수 있으므로 멱등 키, 제한 재시도, DLQ/수동 복구와 완료 이벤트를 정의합니다.
 
 </details>
 
@@ -587,7 +595,7 @@ flowchart TD
 
 **문제 2-2. TDD의 속도 트레이드오프와 기술 부채**
 
-팀 B는 신규 프로젝트에서 TDD를 도입하려 한다. PM은 "테스트를 먼저 작성하면 초기 개발 속도가 30% 느려진다"며 반대하고, 시니어 개발자는 "TDD 없이 6개월 후 리팩토링이 불가능해진다"고 주장한다.
+팀 B는 신규 프로젝트에서 TDD를 도입하려 한다. PM은 “초기 개발 속도가 30% 느려진다”, 시니어 개발자는 “6개월 후 리팩토링이 불가능해진다”고 주장하지만 둘 다 아직 이 팀에서 검증되지 않은 가설이다.
 
 - TDD가 초기 속도를 늦추는 **구체적인 원인**은 무엇인가? (테스트 작성 시간 외에 설계 사고 강제, 테스트 가능한 구조로의 리팩토링 등)
 - TDD를 하지 않았을 때 발생하는 기술 부채의 **복리 효과**를 시간축으로 설명하라. 어느 시점에서 TDD 팀이 비-TDD 팀의 누적 속도를 추월하는가?
@@ -595,7 +603,7 @@ flowchart TD
 
 <details><summary>힌트 보기</summary>
 
-TDD는 테스트 코드 작성 자체보다 **테스트 가능한 설계를 강제**하는 데 시간이 든다(의존성 주입, 인터페이스 분리 등). 이 설계 투자가 장기적으로 변경 용이성을 보장한다. 기술 부채는 선형이 아닌 복리로 증가한다. 초기에는 빠르지만, 6개월 후 모든 변경이 예상치 못한 버그를 유발하고 회귀 테스트 비용이 기하급수적으로 증가한다. 프로토타입이나 한 번 쓰고 버릴 코드, 요구사항이 극도로 불확실한 탐색 단계에서는 TDD의 ROI가 낮다.
+TDD에는 테스트 작성과 테스트 가능한 경계를 찾는 시간이 들 수 있지만 의존성 주입·인터페이스가 항상 필요한 것은 아닙니다. 장기 효과도 자동 보장되지 않으므로 작은 파일럿에서 cycle time, escaped defects, flaky rate와 변경 실패율을 같은 기간 비교합니다. 기술 부채가 반드시 기하급수적으로 늘거나 정확히 6개월에 전환점이 온다는 근거는 없습니다. 탐색 코드도 위험이 큰 계산·변환에는 예제 기반 테스트가 유용할 수 있으므로 코드 수명과 실패 비용으로 범위를 정합니다.
 
 </details>
 
@@ -714,7 +722,7 @@ Aggregate의 불변식은 커맨드 핸들러 내에서 도메인 로직으로 �
 
 <details><summary>힌트 보기</summary>
 
-역피라미드 문제: E2E는 느리고(브라우저/네트워크 의존), 실패 원인 특정이 어렵고("어딘가 깨짐"), 환경 의존성으로 flaky하다. 피라미드 파이프라인: ①단위 테스트(PR마다, 병렬, 2분 이내, 실패 시 즉시 피드백) → ②통합 테스트(머지 시, 컨테이너 기반 DB/캐시, 10분 이내) → ③E2E 테스트(배포 전, 핵심 시나리오만, 20분 이내). CDC(Pact 등)는 각 서비스가 독립적으로 테스트하되, 소비자가 기대하는 API 계약을 제공자가 충족하는지 검증한다. 모든 서비스를 동시에 띄울 필요 없이 계약만 검증하므로 빠르고 안정적이다.
+역피라미드에서는 E2E의 외부 의존성 때문에 실행이 느리고 실패 원인 격리와 유지보수가 어려울 수 있습니다. 파이프라인은 ①PR의 빠른 단위 검사, ②변경 경계의 통합 검사, ③배포 후보의 핵심 E2E로 나누되 2/10/20분 같은 값은 현재 기준선과 피드백 SLO에서 정합니다. 각 단계의 timeout, 재시도 금지/허용 조건, flaky 격리와 실패 증거 보존을 명시합니다. CDC는 소비자 기대와 제공자 구현을 독립 검증하는 데 유리하지만 브로커·네트워크·배포 설정의 실제 통합 검사를 완전히 대체하지 않습니다.
 
 </details>
 

@@ -2,6 +2,10 @@
 
 > Under the Hood: How closures capture environments in memory, how Haskell's lazy evaluation builds thunk chains, how monads thread state without mutation, how the Hindley-Milner type inference algorithm works — the exact heap layouts, reduction strategies, and denotational semantics behind functional programming.
 
+## Semantic and runtime boundary
+
+The chapter combines mathematical calculi, Haskell semantics, JavaScript/JVM implementation examples, and compiler optimizations. A semantic law does not prescribe one heap layout, and a runtime optimization does not change the language meaning. Claims below should therefore be read under the named language, compiler, evaluation strategy, and version.
+
 ---
 
 ## 1. Lambda Calculus: The Foundation
@@ -33,13 +37,13 @@ flowchart TD
     end
 ```
 
-**Confluence (Church-Rosser theorem)**: Regardless of reduction order, if an expression has a normal form, all reduction paths reach the same normal form. This justifies lazy evaluation — reduce only when needed, always get the same result.
+**Confluence (Church-Rosser theorem)**: If two reduction sequences from one term reach results, those results can be joined; a normal form, when it exists, is unique up to renaming. This does not mean every strategy terminates. Normal-order reduction has the separate standardization property that it finds a normal form when one exists, which motivates non-strict evaluation.
 
 ---
 
 ## 2. Closure Representation in Memory
 
-A closure = function code pointer + captured environment (heap-allocated).
+A closure can be modeled as a function code reference plus a captured environment. Heap allocation is common when the closure escapes, but compilers may stack-allocate, scalar-replace, inline, or eliminate non-escaping closures.
 
 ```mermaid
 flowchart TD
@@ -55,6 +59,8 @@ flowchart TD
 ```
 
 ### Stack vs Heap: Escape Analysis
+
+HotSpot escape analysis most visibly enables scalar replacement and allocation elimination; it does not promise that every non-escaping Java object is materialized on the native stack. JavaScript closure layout likewise depends on the engine and optimization tier.
 
 ```mermaid
 flowchart LR
@@ -150,6 +156,8 @@ flowchart TD
 ```
 
 ### Polymorphic Type Inference
+
+The Algorithm W diagram incorrectly fixes `\x -> x + 1` to `Int -> Int`. With the shown overloaded Haskell `(+)` and numeric literal, the principal type is `Num a => a -> a`; it becomes `Int -> Int` only when an annotation or surrounding/defaulting context selects `Int`. Constraint solving for type classes is an extension around the HM core.
 
 ```haskell
 -- id :: a -> a  (inferred, not annotated)
@@ -291,6 +299,8 @@ flowchart LR
 
 ## 9. STM: Software Transactional Memory Internals
 
+The Applicative interface expresses a computation whose later structure does not depend on earlier values, which permits some implementations to run effects in parallel. It does not guarantee parallel execution: an `Applicative` instance such as `IO` may sequence effects according to its definition.
+
 Haskell's STM provides composable atomic blocks without locks:
 
 ```mermaid
@@ -318,7 +328,7 @@ sequenceDiagram
     Note over T1: Transaction rolled back\nlog cleared\nre-execute atomically block
 ```
 
-**No deadlocks possible**: STM uses optimistic concurrency — no locks acquired during transaction execution, only at commit. Retry is safe because transactions are **pure** (no observable side effects until commit).
+**Progress limits**: STM avoids conventional user-managed lock-order deadlocks inside transactions, but a transaction can retry forever, starve, or livelock under contention or an unsatisfiable condition. Implementations may lock/version TVars during commit. Haskell's `STM` type restricts arbitrary `IO`, which makes rollback safe for STM effects; completion still requires a satisfiable wake-up condition and a contention policy.
 
 ---
 
@@ -393,9 +403,9 @@ flowchart TD
 |---|---|---|
 | Closure | Heap-allocated environment record | Captures variables beyond stack lifetime |
 | Lazy thunk | Heap pointer + update-in-place | Evaluate once, memoize, enable infinite structures |
-| HM type inference | Unification + substitution | O(n log n) inference, no annotations needed |
+| HM type inference | Unification + substitution | Principal types for the HM subset; complexity and annotations depend on language extensions |
 | Persistent data structure | Path copying + structural sharing | O(log N) updates, old versions preserved |
 | Monad | Function composition over wrapped types | Sequencing with effects, composable |
-| STM | Optimistic concurrency + transaction log | No deadlocks, composable atomic blocks |
+| STM | Versioned reads/writes + retry/validation | Composable atomic blocks; starvation/livelock still possible |
 | TCO | Replace current stack frame (goto) | O(1) stack for tail-recursive algorithms |
 | Pattern matching | Tag check + field extraction + guards | Compiled to efficient decision tree |

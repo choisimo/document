@@ -4,9 +4,18 @@
 
 ---
 
+## Scope, Ownership, and Verification
+
+- **Scope:** Pin the Proxmox VE, QEMU and guest versions, host storage stack, disk transport, controller type, firmware, and the exact stable device identity. This guide covers block-device attachment, not every form of PCI or controller passthrough.
+- **Ownership assumptions:** A disk assigned for guest writes must not also be mounted or written by the host or another guest. Define backup ownership, SMART monitoring, cache and discard policy, and behavior when the device disappears.
+- **Facts and inference:** `by-id` links, QEMU configuration and guest-visible identifiers are evidence; performance or compatibility rankings require the target filesystem and workload.
+- **Failure and completion:** Test wrong-device selection, reboot renumbering, I/O error, guest crash, host migration, backup exclusion and rollback. Completion requires matched serials, exclusive ownership, intact data after reboot, and a documented detach or recovery path.
+
+---
+
 ## Overview
 
-Disk passthrough allows VMs to access physical disks directly, bypassing the Proxmox storage layer. Useful for:
+Raw block-device attachment lets a VM access a host disk through the configured QEMU controller without a Proxmox-managed virtual volume; QEMU, host block and device layers still participate. Useful for:
 
 - NAS/storage VMs
 - Database servers requiring direct disk access
@@ -38,7 +47,7 @@ sda      8:0    0 931.5G  0 disk              /dev/disk/by-id/ata-WDC_WD10EZEX-0
 sdb      8:16   0   1.8T  0 disk              /dev/disk/by-id/ata-ST2000DM008-2FR102_ZFL12345
 ```
 
-> **Important:** Always use `/dev/disk/by-id/` paths, not `/dev/sdX` which can change between reboots.
+> **Important:** Prefer a verified unique persistent identifier such as `/dev/disk/by-id/` in persistent VM configuration. Do not rely on `/dev/sdX`, which can change after reboot; multipath and duplicate identifiers require their own stable mapping.
 
 ### 2. Passthrough to VM
 
@@ -65,7 +74,7 @@ qm config 100 | grep -E "sata|scsi|virtio"
 
 | Interface | Use Case | Performance |
 |-----------|----------|-------------|
-| `virtio` | Linux guests | Best |
+| `virtio` | Linux guests with matching drivers | Often low overhead; benchmark against virtio-scsi when SCSI features, discard, queues or migration matter |
 | `scsi` | General purpose | Good |
 | `sata` | Compatibility | Moderate |
 | `ide` | Legacy systems | Slowest |

@@ -1,24 +1,31 @@
 # 클라우드 및 AWS 내부: 하이퍼바이저, 가상 네트워크 및 관리형 서비스
 
-> 내부 내용: 베어 메탈에서 EC2 인스턴스를 부팅하는 방법, S3가 오류 도메인 전체에 객체를 저장하는 방법, VPC가 가상 스위치를 통해 패킷을 라우팅하는 방법, Lambda 콜드 스타트 작동 방법 등 클라우드 인프라 이면의 정확한 하드웨어, 네트워크 및 스토리지 메커니즘을 설명합니다.
+> 내부 내용: 공개된 AWS 자료와 일반적인 분산 시스템 모델을 바탕으로 EC2, S3, VPC, Lambda의 동작을 설명합니다. 공개되지 않은 구현 세부는 확정된 사실처럼 다루지 않습니다.
+
+## 적용 범위와 확인 항목
+
+- 서비스 한도, 가격, 할인율, 지원 기능은 리전과 계정, 구매 옵션, 확인 날짜에 따라 달라진다. 설계 승인 전 AWS 공식 문서와 Service Quotas에서 다시 확인한다.
+- `최대`, `무제한`, `최적` 대신 요구 처리량, 지연시간 백분위, 내구성 목표, RTO/RPO, 월 비용 상한을 수치로 적는다.
+- 아키텍처 선택에는 정상 경로뿐 아니라 재시도, 중복 이벤트, 부분 실패, 리전 장애, 할당량 초과 시 동작을 포함한다.
+- 성능·비용 예시는 비교 출발점이다. 같은 리전과 워크로드로 부하 시험하고 Cost Explorer 또는 CUR의 실제 사용량으로 결론을 갱신한다.
 
 ---
 
 ## 1. 하이퍼바이저 아키텍처: Nitro의 EC2
 
-AWS Nitro는 호스트 OS가 아닌 전용 하드웨어 카드에 I/O 및 보안을 오프로드하는 맞춤형 하이퍼바이저입니다.
+AWS Nitro System은 경량 하이퍼바이저와 전용 카드 등 여러 구성 요소로 가상화, I/O, 보안 기능을 분리한다. 카드 구성과 제공 기능은 인스턴스 세대에 따라 달라지므로 아래 그림은 개념 모델로 읽는다.
 
 ```mermaid
 flowchart TD
     subgraph "Traditional Hypervisor (Xen)"
-        DOM0["Dom0 (privileged VM)\nRuns host OS\nHandles all I/O\nConsumes 10-20% CPU"]
+        DOM0["Dom0 (privileged VM)\nRuns host OS\nHandles I/O\nHost overhead depends on workload"]
         DOMX["DomX (guest VM)\nEC2 instance"]
         NET["Network I/O via Dom0\n→ latency + CPU overhead"]
         DOM0 --> DOMX
         DOM0 --> NET
     end
     subgraph "Nitro Hypervisor"
-        NH["Nitro Hypervisor\n(bare metal, <2% overhead)\nOnly CPU + memory virtualization"]
+        NH["Nitro Hypervisor\nlightweight role\nCPU and memory virtualization"]
         NIC["Nitro Card: Network\nDedicated FPGA/ASIC\nSR-IOV: guest accesses NIC directly"]
         EBS["Nitro Card: EBS\nNVMe over PCIe to storage\nEncryption in hardware"]
         SEC["Nitro Security Chip\nBoot attestation\nTPM-based instance identity"]
@@ -474,7 +481,7 @@ AWS 아키텍처 설계의 출발점은 **컴퓨팅 모델 선택**이다. 서�
 
 **서버리스(Lambda) vs 컨테이너(ECS/EKS) vs VM(EC2)**: Lambda는 운영 복잡도가 거의 없지만, 실행 시간 15분 제한, 메모리 10GB 제한, 콜드 스타트(125ms~수초) 등의 제약이 있다. ECS/EKS는 컨테이너 수준의 제어를 제공하면서 인프라 관리를 추상화하고, EC2는 완전한 제어를 제공하지만 OS 패치, 스케일링, 장애 복구 모두 사용자 책임이다.
 
-설계 판단의 핵심은 **워크로드의 특성**이다. 이벤트 기반의 간헐적 호출(API Gateway 트리거, S3 이벤트)은 Lambda가 최적이다. 장시간 실행되는 상태 유지 서비스(웹소켓, 배치 처리)는 ECS/EKS가 적합하고, GPU 워크로드나 특수 커널 설정이 필요한 경우는 EC2가 유일한 선택지다.
+설계 판단의 핵심은 **워크로드의 특성**이다. 이벤트 기반의 간헐적 호출에는 Lambda를 우선 비교할 수 있다. 장시간 실행되거나 상태를 유지하는 서비스에는 ECS/EKS 같은 컨테이너 선택지를 함께 평가한다. GPU, 특수 커널, 호스트 수준 제어가 필요한 워크로드에서는 해당 요구를 지원하는 EC2 인스턴스와 다른 관리형 서비스의 지원 범위를 비교한다.
 
 ```mermaid
 flowchart TD
@@ -517,7 +524,7 @@ flowchart TD
 
 **S3 vs EBS vs EFS 스토리지 선택**: AWS의 세 가지 스토리지 서비스는 각각 오브젝트, 블록, 파일 스토리지로 근본적인 데이터 접근 패턴이 다르다. 잘못된 선택은 성능 병목이나 비용 폭증으로 직결된다.
 
-S3는 **오브젝트 스토리지**로 HTTP API를 통해 접근한다. 무제한 용량, 11-9 내구성(99.999999999%), 강력한 일관성을 제공하며, 비정형 데이터(이미지, 로그, 백업)에 최적이다. EBS는 **블록 스토리지**로 EC2에 마운트하여 파일시스템으로 사용한다. io2 Block Express는 최대 256,000 IOPS를 제공하여 데이터베이스 워크로드에 적합하다. EFS는 **NFS 파일 스토리지**로 여러 EC2에서 동시 마운트가 가능하여 공유 파일시스템이 필요한 경우에 사용한다.
+S3는 **오브젝트 스토리지**로 HTTP API를 통해 접근한다. AWS가 공개한 내구성 설계 목표와 일관성 모델을 제공하지만, 요청률·객체 크기·계정별 할당량은 별도로 확인해야 한다. EBS는 **블록 스토리지**로 EC2에 연결해 파일시스템이나 원시 블록 장치로 사용한다. io2 Block Express의 IOPS 한도는 볼륨 크기, 인스턴스, 리전과 현재 서비스 사양을 함께 확인한다. EFS는 여러 컴퓨팅 자원에서 마운트할 수 있는 관리형 파일 스토리지이며, 공유 파일 의미론과 지연시간 요구가 맞을 때 후보가 된다.
 
 ```mermaid
 flowchart TD
@@ -529,7 +536,7 @@ flowchart TD
     Q2 -->|"아니오, POSIX 필요"| EFS["EFS\n- NFS v4.1 프로토콜\n- 자동 확장/축소\n- $0.30/GB/월\n- Bursting / Provisioned 처리량"]
 ```
 
-**RDS vs DynamoDB 데이터베이스 선택**: 관계형 vs NoSQL의 선택은 **데이터 접근 패턴**에 의해 결정되어야 한다. RDS(PostgreSQL/MySQL)는 복잡한 JOIN, 트랜잭션, 유연한 쿼리가 필요한 경우에 적합하다. DynamoDB는 키-값 또는 단순 쿼리 패턴으로 밀리초 단위 지연시간과 무한 스케일이 필요한 경우에 선택한다.
+**RDS vs DynamoDB 데이터베이스 선택**: 관계형 vs NoSQL의 선택은 **데이터 접근 패턴**에 의해 결정되어야 한다. RDS(PostgreSQL/MySQL)는 JOIN, 관계형 트랜잭션, 유연한 쿼리가 중요한 경우의 후보다. DynamoDB는 파티션 키와 접근 패턴을 사전에 설계할 수 있고 관리형 수평 확장이 필요할 때 후보가 되며, 처리량·파티션·계정 할당량과 핫 키 위험을 함께 검토한다.
 
 DynamoDB의 핵심 제약은 **파티션 키 설계**이다. 핫 파티션이 발생하면 프로비저닝된 용량이 남아도 쓰로틀링이 발생한다. 반면 RDS는 읽기 레플리카로 수평 확장이 가능하지만, 쓰기는 단일 마스터로 제한된다(Aurora는 Multi-Writer 옵션 제공).
 
@@ -538,15 +545,15 @@ DynamoDB의 핵심 제약은 **파티션 키 설계**이다. 핫 파티션이 �
 | 데이터 모델 | 정규화된 관계형 | 비정규화 키-값/문서 |
 | 쿼리 유연성 | SQL (임의 JOIN, 서브쿼리) | PK/SK 기반 제한적 쿼리 |
 | 지연시간 | ~5-20ms | ~1-5ms (DAX: <1ms) |
-| 확장성 | 수직 확장 + 읽기 레플리카 | 무한 수평 확장 |
+| 확장성 | 수직 확장 + 읽기 레플리카 | 관리형 수평 확장, 할당량과 파티션 제약 존재 |
 | 비용 모델 | 인스턴스 시간 기반 | 요청 + 스토리지 기반 |
 | 트랜잭션 | 완전한 ACID | 제한적 (25개 항목) |
 
 ### 리팩토링과 설계 원칙
 
-**비용 최적화 설계 원칙**: AWS 비용의 80%는 일반적으로 EC2, RDS, 데이터 전송 세 가지에서 발생한다. Reserved Instance(RI), Savings Plans, Spot Instance를 적재적소에 배치하는 것이 핵심이다.
+**비용 최적화 설계 원칙**: 비용 상위 항목은 계정과 워크로드마다 다르므로 CUR 또는 Cost Explorer에서 서비스·리전·태그별 지출을 먼저 확인한다. 그 결과를 바탕으로 Reserved Instances, Savings Plans, Spot Instance와 아키텍처 변경의 절감액 및 제약을 비교한다.
 
-**Reserved vs On-Demand vs Spot 인스턴스 전략**: 기본(baseline) 워크로드는 Reserved Instance(1년/3년 약정, 최대 72% 할인)로, 예측 가능한 추가 수요는 On-Demand로, 중단 가능한 배치 워크로드는 Spot Instance(최대 90% 할인)로 구성하는 **혼합 전략**이 최적이다.
+**Reserved vs On-Demand vs Spot 인스턴스 전략**: 안정적인 기본 수요에는 약정형 할인, 변동 수요에는 On-Demand, 중단을 견디는 작업에는 Spot을 조합할 수 있다. 할인율과 손익분기점은 계약 기간, 선결제, 인스턴스 유연성, 리전의 현재 가격으로 계산하며 혼합 비율은 수요 예측 오차와 중단 복구 시간을 포함해 결정한다.
 
 Spot Instance의 핵심 설계 원칙은 **중단 내성(Interruption Tolerance)**이다. 2분 전 경고에 대비하여 체크포인팅, 상태 외부화, 다중 인스턴스 타입/AZ 분산이 필수적이다.
 
@@ -567,7 +574,7 @@ flowchart LR
     end
 ```
 
-**리소스 태깅 원칙**: 비용 가시성의 첫 번째 단계는 일관된 태깅이다. 최소한 `Environment`(prod/staging/dev), `Team`(소유 팀), `Service`(서비스명), `CostCenter`(비용 센터) 태그를 모든 리소스에 적용해야 한다. AWS Organizations의 SCP(Service Control Policy)로 태그 없는 리소스 생성을 차단하는 것이 가장 효과적인 거버넌스 패턴이다.
+**리소스 태깅 원칙**: 비용 가시성을 위해 조직이 소유하는 태그 스키마와 예외 목록을 정의한다. 예를 들어 `Environment`, `Team`, `Service`, `CostCenter`를 요구하되 태깅을 지원하지 않는 리소스와 AWS가 생성하는 리소스를 구분한다. SCP로 생성을 차단하기 전에는 서비스별 태그 지원, 초기 생성 요청의 태그 전달, 비상 운영 경로를 시험한다.
 
 ### 디자인 패턴 적용
 
@@ -591,7 +598,7 @@ flowchart TD
     SHARED --> |"Transit Gateway"| DEV
 ```
 
-**이벤트 기반 아키텍처(Event-Driven Architecture)**: AWS에서 마이크로서비스 간 결합도를 낮추는 핵심 패턴이다. SNS(Fan-out) + SQS(Buffering) + EventBridge(Routing)를 조합하여 생산자와 소비자를 완전히 분리한다.
+**이벤트 기반 아키텍처(Event-Driven Architecture)**: SNS(Fan-out), SQS(Buffering), EventBridge(Routing)는 생산자와 소비자의 시간적·배포 결합도를 낮출 수 있다. 이벤트 스키마, 순서, 중복 처리, 재시도와 장애 복구 계약은 여전히 공유되므로 완전한 분리를 전제하지 않는다.
 
 이 패턴의 핵심 원칙은 **최소 한 번 전달(At-Least-Once Delivery)**과 **멱등성(Idempotency)**이다. SQS는 메시지를 최소 한 번 전달하므로, 소비자는 중복 메시지를 안전하게 처리할 수 있어야 한다. DynamoDB의 조건부 쓰기(conditional write)나 S3의 `If-None-Match` 헤더를 활용한 멱등성 구현이 필수적이다.
 
@@ -620,7 +627,7 @@ flowchart LR
 
 <details><summary>힌트 보기</summary>
 
-NAT Gateway는 Public Subnet에 배치하고, Private Subnet의 라우팅 테이블에 `0.0.0.0/0 → NAT GW` 규칙을 추가한다. EC2 → NAT GW → IGW → 인터넷 경로로 나간다. Security Group은 ALB(80/443 인바운드), EC2(오직 ALB SG에서 오는 트래픽만 허용), RDS(오직 EC2 SG에서 오는 3306/5432만 허용)로 체이닝한다. Isolated Subnet은 NAT Gateway도 없으므로 외부 접근이 완전히 차단된다.
+NAT Gateway는 Public Subnet에 배치하고, Private Subnet의 라우팅 테이블에 `0.0.0.0/0 → NAT GW` 규칙을 추가한다. EC2 → NAT GW → IGW → 인터넷 경로로 나간다. Security Group은 ALB(80/443 인바운드), EC2(ALB 보안 그룹에서 오는 필요한 포트), RDS(애플리케이션 보안 그룹에서 오는 DB 포트)처럼 최소 권한으로 연결한다. Isolated Subnet은 기본 인터넷 경로가 없다는 뜻이다. VPC 엔드포인트, 피어링, Transit Gateway, 관리 채널과 DNS 경로가 있으면 외부 서비스와 통신할 수 있으므로 라우팅 테이블과 네트워크 정책을 함께 점검한다.
 
 </details>
 

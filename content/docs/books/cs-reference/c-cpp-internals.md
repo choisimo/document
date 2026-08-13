@@ -4,6 +4,8 @@
 
 ---
 
+> **Reading contract:** This document mixes ISO C/C++ rules with System V AMD64, Itanium C++ ABI, compiler, glibc, and CPU implementation examples. A language guarantee must not be inferred from an illustrated layout or timing. For every low-level claim, identify standard version, ABI, compiler and flags, library/runtime version, CPU, and measurement method; classify it as normative rule, observed implementation, or estimate. A section is complete only when those identifiers, the success invariant, and failure or undefined-behavior boundary are explicit. If the target changes, invalidate the measurement or layout until it is reproduced.
+
 ## 1. Memory Model — Object Layout in Memory
 
 Understanding exactly where C++ objects live in memory — stack frames, heap, data segment — is the foundation of everything from performance analysis to debugging.
@@ -118,7 +120,7 @@ call [rax + 0]        ; indirect call through vtable slot 0
 ; call Dog::speak     ; direct, no indirection, inlinable
 ```
 
-Virtual call overhead: 1 memory load (vptr) + 1 indirect jump + branch predictor miss (if polymorphic call site). ~5-10 ns vs ~0-1 ns for inlined non-virtual call.
+A typical virtual call performs a vptr load and an indirect branch, but a branch-predictor miss is not mandatory and devirtualization may remove the call. Nanosecond costs require a named CPU, compiler, flags, call-site distribution, and benchmark; the values below are illustrative estimates only.
 
 ### Multiple Inheritance Layout
 
@@ -158,7 +160,7 @@ public:
 };
 ```
 
-`unique_ptr<T>` has **identical machine code** to raw `T*` (when default deleter, optimizer sees through `del(ptr)` = `delete ptr`). Zero runtime overhead.
+`unique_ptr<T>` is designed as a zero-overhead ownership abstraction with a stateless default deleter, but identical object size or machine code is not a language guarantee. Confirm layout and generated code for the selected deleter, ABI, compiler, and optimization level.
 
 ### shared_ptr — Control Block Layout
 
@@ -178,7 +180,7 @@ flowchart LR
     CTRL --> OBJ
 ```
 
-`make_shared<T>(args...)` allocates **one contiguous block** for both T and control block → 1 allocation instead of 2, better cache locality. Trade-off: T not freed until last `weak_ptr` released (use_count=0 but weak_count>0 keeps control block alive).
+`make_shared<T>(args...)` commonly uses one allocation for the object and control block, though the standard does not prescribe their physical layout. When the strong count reaches zero, `T` is destroyed; outstanding `weak_ptr` instances can keep the combined allocation and control block alive until the weak count reaches zero.
 
 **Atomic ref-counting cost**: `use_count` uses `std::atomic<int>`. Increment/decrement = `LOCK XADD` on x86 (atomic read-modify-write). ~5-10 ns per copy/destruction. Avoid in tight loops: prefer passing `const shared_ptr&` over copying.
 
@@ -345,7 +347,7 @@ flowchart TD
     G --> D
 ```
 
-**Zero-cost**: No overhead on the happy path (no try). Exception tables stored in `.eh_frame`/`.gcc_except_table` read-only sections. Cost paid only when exception thrown — ~10,000 ns (extremely slow, appropriate only for truly exceptional paths).
+**Table-based exception handling:** Under the illustrated ABI, normal control flow usually avoids per-`try` dynamic bookkeeping, but tables increase binary size and can affect optimization and instruction-cache behavior. Throw cost depends on stack depth, cleanup work, ABI, and runtime; no fixed nanosecond value is portable.
 
 **RAII + exceptions**: Every destructor called during stack unwinding. This is why RAII is critical — `std::unique_ptr`, `std::lock_guard` destructors guaranteed to run even during exception propagation.
 
@@ -425,7 +427,7 @@ flowchart LR
     D -->|"push_back(E)"| E["capacity=8, size=5\n[A,B,C,D,E,_,_,_]"]
 ```
 
-Amortized O(1) push_back. Growth factor: 2× (GCC) or 1.5× (MSVC). `reserve(n)` prevents reallocation if n ≤ capacity.
+`push_back` is amortized O(1) when the implementation grows capacity geometrically. The C++ standard does not mandate a 2× or 1.5× factor; inspect the selected library version. After `reserve(n)` succeeds, insertion does not reallocate while the resulting size remains at most `capacity()`.
 
 ### std::unordered_map — Hash Table Layout
 
@@ -485,7 +487,7 @@ flowchart LR
     B -.->|"happens-before\nsynchronizes-with"| C
 ```
 
-**x86 memory model** is already strongly ordered (Total Store Order): `seq_cst`/`acquire`/`release` are free on x86 (compiler barriers only, no hardware fences). On ARM/POWER (weak ordering): actual `DMB ISH` fence instructions emitted for acquire/release.
+**x86 memory model:** Acquire loads and release stores commonly compile to ordinary loads and stores on x86-64, with compiler ordering constraints; the `SFENCE`/`LFENCE` labels above are conceptual and should not be read as emitted instructions. `seq_cst` operations are not universally free, and ARM/POWER instruction sequences depend on operation, compiler, and architecture version.
 
 ---
 
@@ -511,7 +513,9 @@ flowchart TD
 
 ---
 
-## Key Performance Numbers (C++)
+## Illustrative Performance Numbers (C++)
+
+> These figures are hypotheses for an unspecified benchmark environment, not portable bounds. Record CPU, OS, compiler, flags, allocator, data size, contention, warm-up, and percentile before using or comparing any row.
 
 | Operation | Cost | Notes |
 |-----------|------|-------|

@@ -2,6 +2,13 @@
 
 > Source: *Kafka Streams in Action* — William P. Bejeck Jr. (Manning, 2018)
 
+## Scope and evidence
+
+- This document explains a Kafka Streams client-library model from a 2018 source. APIs, defaults, state-store implementations, EOS modes, and rebalance behavior are version-sensitive.
+- The processor graph is synchronous within a task's call path, but end-to-end flow control also includes consumer fetch, thread capacity, buffering, broker retention, and lag.
+- Local store contents, changelog records, committed offsets, and query availability are separate states during crash and restoration.
+- Completion evidence includes topology description, effective configuration, task/state transitions, lag and restore metrics, and crash/rebalance results.
+
 ---
 
 ## 1. The Processor Topology: A DAG of Transforms
@@ -28,7 +35,7 @@ flowchart TD
   purchases --> purSink
 ```
 
-**Depth-first traversal**: each record entering the source node is fully processed through all connected processors before the next record is dequeued. This eliminates backpressure — there is no inter-node buffering, no async queue between processors in the same topology. The record traverses the entire DAG synchronously on a single thread before the next record begins.
+**Depth-first traversal**: processors on a task's synchronous call path can forward a record through connected nodes without an asynchronous queue between each node. This does not eliminate end-to-end backpressure: slow processing appears as lower poll throughput and growing consumer lag, and scheduling across tasks or punctuators can interleave work.
 
 **Consequence**: if one processor branch is slow (e.g., state store lookup), the entire DAG slows proportionally. There is no independent parallelism across branches within one task.
 
@@ -132,7 +139,7 @@ flowchart TD
 
 **RocksDB** (embedded LSM-tree key-value store) is the default persistent state store. Key properties:
 - Data stored in `state.dir` on local disk (default `/tmp/kafka-streams/`)
-- Bloom filters + SST file compaction enable O(1) average reads
+- Bloom filters can avoid some absent-key disk lookups, while a RocksDB read may still inspect memtables, cache, indexes and multiple SST levels; latency is workload and configuration dependent
 - Write path: MemTable → WAL → SSTable flush → compaction
 - Kafka Streams calls RocksDB's `put()` synchronously; changelog write is async
 
@@ -301,7 +308,7 @@ sequenceDiagram
 
 - Uses Kafka transactions internally
 - Each task wraps its processing in a transaction: state store writes + changelog writes + output topic writes + offset commits are all atomic
-- Requires Kafka broker 2.5+ and at least 3 replicas for internal topics
+- Requires compatible clients and brokers; internal-topic replication and `min.insync.replicas` must be configured to meet the chosen failure tolerance rather than assumed to be three
 
 ```mermaid
 flowchart TD

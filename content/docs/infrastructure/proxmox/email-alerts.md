@@ -1,6 +1,6 @@
 # Proxmox 이메일 알림 설정 가이드
 
-Proxmox VE에서는 백업 완료/실패, 디스크 상태, 시스템 이벤트 등에 대한 알림을 이메일로 받을 수 있어 시스템 관리에 매우 유용합니다. 이 가이드에서는 Proxmox에서 이메일 알림을 설정하는 방법을 단계별로 자세히 살펴보겠습니다.
+Proxmox VE 이벤트를 SMTP 릴레이로 제출하는 방법입니다. Proxmox VE 8.1 이후 알림 대상 방식과 레거시 sendmail/Postfix 방식은 다르므로 `pveversion -v`를 기록하고 한 방식의 공식 절차를 선택하세요. 메뉴 이름과 Gmail 앱 비밀번호 제공 여부는 버전·계정·조직 정책에 좌우됩니다.
 
 ## 개요 및 중요성
 
@@ -52,7 +52,7 @@ nano /etc/postfix/sasl_passwd
 파일에 다음 내용을 입력합니다:
 
 ```
-smtp.gmail.com [이메일주소]@gmail.com:[앱비밀번호]
+[smtp.gmail.com]:587 [이메일주소]@gmail.com:[앱비밀번호]
 ```
 
 예: `smtp.gmail.com example@gmail.com:htlumtimtpuoxhil`
@@ -60,8 +60,11 @@ smtp.gmail.com [이메일주소]@gmail.com:[앱비밀번호]
 파일을 저장한 후 다음 명령어를 실행하여 계정 정보를 해시 처리하고 권한을 변경합니다:
 
 ```bash
-postmap hash:/etc/postfix/sasl_passwd
+chown root:root /etc/postfix/sasl_passwd
 chmod 600 /etc/postfix/sasl_passwd
+postmap hash:/etc/postfix/sasl_passwd
+chown root:root /etc/postfix/sasl_passwd.db
+chmod 600 /etc/postfix/sasl_passwd.db
 ```
 
 #### 2.3 Postfix 설정 변경
@@ -80,8 +83,8 @@ nano /etc/postfix/main.cf
 
 ```
 inet_protocols = all
-relayhost = smtp.gmail.com:587
-smtp_use_tls = yes
+relayhost = [smtp.gmail.com]:587
+smtp_tls_security_level = encrypt
 smtp_sasl_auth_enable = yes
 smtp_sasl_security_options =
 smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd
@@ -206,10 +209,14 @@ Proxmox VE 8.1부터는 새로운 알림 시스템이 도입되었습니다:
 3. 백업 작업에는 알림 모드가 있어, 새 알림 시스템과 레거시 모드 중 선택할 수 있습니다
 4. 설정은 `/etc/pve/notifications.cfg` 및 `/etc/pve/priv/notifications.cfg`에 저장됩니다
 
+## 완료, 실패 및 롤백 증거
+
+내장 테스트와 실제 백업 성공·실패 이벤트를 각각 발생시켜 이벤트 ID, Postfix 큐 ID, 제공자 응답, 실제 수신 시각을 연결합니다. `mail` 종료 성공은 큐 접수일 수 있으며 전달 완료가 아닙니다. 실패 시 이전 `main.cf`와 알림 구성을 복원하고 노출 가능한 앱 비밀번호나 webhook을 폐기합니다.
+
 ## 문제 해결 팁
 
 1. 이메일이 전송되지 않는 경우 `/var/log/mail.log`를 확인하여 오류를 분석합니다
 2. 앱 비밀번호가 올바르게 입력되었는지 확인합니다
-3. Gmail 보안 설정에서 '보안 수준이 낮은 앱'에 대한 액세스가 허용되어 있는지 확인합니다(일부 계정에서 필요할 수 있음)
+3. 계정 정책에서 앱 비밀번호 또는 조직 SMTP 릴레이가 허용되는지 확인합니다
 4. Postfix 설정 파일에서 오타나 잘못된 경로가 없는지 확인합니다
 5. 필요한 패키지가 모두 설치되어 있는지 확인합니다

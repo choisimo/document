@@ -4,10 +4,19 @@
 
 | 항목 | 설명 |
 |------|------|
-| **Use Case** | 모든 경우의 수 탐색, 조합, 순열 |
+| **Use Case** | valid pruning 아래 search tree의 해 후보 열거, 조합, 순열 |
 | **Components** | Recursive DFS, Choice, Constraint |
-| **Constraint** | 가지치기(Pruning)로 최적화 |
-| **시간 복잡도** | 문제에 따라 다름 (지수적) |
+| **Constraint** | pruning이 valid solution을 제거하지 않음을 증명하고 state를 정확히 복원 |
+| **시간 복잡도** | branching·depth·output에 따라 exponential/factorial 등 문제별 산정 |
+
+---
+
+## 적용 범위와 검증 기준
+
+- **범위:** search tree를 열거하는 pattern이며 worst-case time은 branching factor, depth와 output 수에 따라 exponential 또는 factorial일 수 있습니다. “모든 경우”는 pruning이 valid solution을 제거하지 않을 때만 성립합니다.
+- **전제:** choice, constraint, goal, state mutation·restore와 duplicate 제거 규칙을 명시합니다. pruning에는 admissibility 또는 completeness 근거가 필요합니다.
+- **실패 조건:** state 복원 누락, duplicate result, invalid prune, recursion depth, unbounded search와 excessive output memory를 포함합니다.
+- **완료 증거:** 작은 domain의 exhaustive generator와 solution set을 비교하고 각 result validity·uniqueness와 node/prune count를 확인합니다.
 
 ---
 

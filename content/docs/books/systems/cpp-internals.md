@@ -1,6 +1,13 @@
 # C++ Programming Language — Under the Hood
 > Source: *The C++ Programming Language*, 3rd Edition — Bjarne Stroustrup (AT&T Labs)
 
+## Scope and verification
+
+- The source predates modern C++ revisions. Separate language-standard guarantees from compiler, ABI, standard-library, allocator, and operating-system behavior.
+- Object diagrams show one plausible ABI layout. Confirm target triple, compiler version, flags, packing and generated layout before using an offset.
+- Complexity guarantees do not fix growth factors, node layouts, instruction counts, or wall-clock cost.
+- A claim is complete when the relevant standard rule is named and implementation claims are supported by `sizeof`, compiler layout output, assembly, or a reproducible benchmark.
+
 ## Overview
 
 C++ is not simply "C with classes." It is a multi-paradigm language whose runtime behavior emerges from a carefully designed set of memory layouts, virtual dispatch mechanisms, template instantiation engines, and exception propagation protocols. This document maps the internal machinery: how objects occupy memory, how virtual calls route through vtables, how templates generate code at compile time, and how exceptions unwind the call stack.
@@ -11,7 +18,7 @@ C++ is not simply "C with classes." It is a multi-paradigm language whose runtim
 
 ### 1.1 Plain Object Layout
 
-A C++ object's memory is a contiguous block determined at compile time. Member variables are laid out in declaration order, subject to alignment padding.
+An object occupies a region of storage, but the standard and ABI determine which layout properties are guaranteed for its class category. Non-static data-member order, base subobjects, virtual machinery, tail padding, packing and alignment require the applicable standard and target ABI; the following `Foo` is an illustrative common layout.
 
 ```
 struct Foo {
@@ -207,7 +214,7 @@ stateDiagram-v2
 
 ### 4.1 Exception Flow
 
-When `throw` executes, the C++ runtime performs **stack unwinding**: it walks up the call stack, calling destructors for all objects with automatic storage duration, until it finds a matching `catch` handler.
+When an exception propagates, the implementation unwinds scopes and destroys fully constructed automatic objects whose lifetimes are exited until a matching handler is found. Unwinding does not cover objects whose construction never completed, leaked dynamic storage, `std::terminate`, or abrupt process termination.
 
 ```mermaid
 sequenceDiagram
@@ -385,11 +392,11 @@ flowchart TD
     check -->|yes| realloc --> copy --> free --> newappend
 ```
 
-**Amortized cost**: O(1) per push_back. The doubling strategy ensures total reallocation work ≤ 2N for N insertions.
+**Amortized cost**: `push_back` is amortized O(1), but the standard does not require a doubling factor. A geometric-growth illustration can bound total relocation work; use the selected standard-library implementation to state a concrete factor.
 
 ### 7.2 Iterator Architecture
 
-Iterators form an abstraction layer between algorithms and containers. They're value types (not polymorphic), so the compiler can inline all operations.
+Iterators form an abstraction layer between algorithms and containers and are commonly value types. Inlining is an optimizer decision affected by visibility, build mode, debug iterators and ABI boundaries, not a guarantee of the iterator abstraction.
 
 ```mermaid
 flowchart LR

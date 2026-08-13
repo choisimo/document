@@ -1,5 +1,12 @@
 # Module 2: Network & Software-Defined Network (SDN)
 
+## 네트워크 변경 계약
+
+- 대상 Proxmox VE·ifupdown2·kernel·SDN plugin 버전과 switch/router 구성을 고정합니다.
+- 관리 IP, Corosync, storage, migration과 guest traffic을 분리해 영향 경로를 표시합니다. 하나의 bridge 변경이 여러 경로를 동시에 끊을 수 있습니다.
+- 물리 console 또는 별도 out-of-band 경로, 현재 설정 backup, 자동 rollback 시간을 확보한 뒤 적용합니다.
+- 완료 증거는 config 저장이 아니라 host·guest·cluster·storage 경로, MTU/VLAN, failover와 재부팅 후 상태가 모두 의도와 일치하는 것입니다.
+
 ## 학습 목표
 이 모듈을 완료하면 다음을 이해하게 됩니다:
 - Linux Bridge의 동작 원리와 Proxmox VE에서의 역할
@@ -13,7 +20,7 @@
 
 ### 1.1 Proxmox VE 네트워크 스택
 
-Proxmox VE는 표준 Linux 네트워크 스택을 사용합니다. 이는 최대한의 유연성과 안정성을 제공합니다.
+Proxmox VE는 Linux networking primitives를 사용하므로 bridge, bond, VLAN과 routing을 조합할 수 있습니다. 유연성은 높지만 안정성은 구성·switch·failure-domain 검증에 달려 있습니다.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -163,7 +170,7 @@ vmbr0           8000.001a2b3c4d5e       no              eno1
 
 #### 2.4.1 Bridged Model (기본)
 
-가장 일반적인 구성. 모든 Guest가 물리 네트워크와 동일한 L2 도메인에 위치합니다.
+대표적인 bridged 구성 예시입니다. 해당 bridge와 VLAN에 연결된 guest만 의도한 물리 L2 도메인에 놓이며 filtering과 switch 설정에 따라 범위가 달라집니다.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -593,7 +600,7 @@ SDN은 클러스터 전체에서 가상 네트워크를 중앙 집중적으로 �
 | **VLAN** | 802.1Q Tag | ✅ L2 | 외부 라우터 | 기존 VLAN 인프라 |
 | **QinQ** | Double Tag | ✅ L2 | 외부 라우터 | 대규모 VLAN |
 | **VXLAN** | UDP Tunnel | ✅ L2 Overlay | 외부 라우터 | 다중 사이트 |
-| **EVPN** | VXLAN+BGP | ✅ L2/L3 | 내장 BGP | 완전한 SDN |
+| **EVPN** | VXLAN+BGP | L2/L3 기능은 버전·구성별 확인 | BGP 제어면 | 다중 노드 overlay 후보 |
 
 ### 5.4 SDN 설치 및 활성화
 
@@ -1084,4 +1091,3 @@ vtysh -c "show bgp summary"    # EVPN
 
 - **Module 6**: Backup & Restore - vzdump를 이용한 백업 전략
 - **Module 7**: Firewall - 네트워크 보안 설정
-

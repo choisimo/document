@@ -1,9 +1,15 @@
 # Algorithm Architect - GitHub Pages Visual Docs
 
-이 디렉토리는 `code/templates/algorithm-architect`의 모든 템플릿 코드 파일을 GitHub Markdown 친화적으로 재문서화한 결과물입니다.
+이 디렉토리는 현재 index에 연결된 algorithm template의 visual explanation 모음입니다. source coverage와 동기화 여부는 validation 결과로 확인합니다.
+
+## Documentation Scope and Validation
+
+This index describes the currently linked visual explanations, not an automatic guarantee that every source template is represented or synchronized. Record the source revision and validate links, heading structure, Mermaid syntax and rendered output in the target GitHub Pages stack. Parser success does not establish algorithm correctness, accessibility or layout across every renderer; completion requires source-to-page coverage and representative browser review.
+
+---
 
 ## 렌더링 원칙
-- 모든 페이지는 `mermaid` 코드 블록을 포함합니다.
+- 현재 visual page는 Mermaid block을 포함하도록 설계되며 validator와 target renderer에서 확인합니다.
 - 각 페이지는 Flow + Sequence 시각화와 핵심 코드, 레이어 해설을 제공합니다.
 - 원본 파일 링크를 포함해 원문과 해설을 왕복할 수 있습니다.
 
@@ -35,7 +41,7 @@
 - 실행 시 동작:
   - 임시 런타임(`.pw-runtime`)에 Playwright/Marked/Mermaid 의존성을 준비
   - 로컬 HTTP 서버로 문서를 렌더링
-  - 모든 문서를 순회하며 Mermaid 렌더링/헤딩 구조/레이아웃을 체크
+  - configured scope의 문서를 순회해 Mermaid parse, heading rule과 대표 rendered layout을 각각 확인
   - `validation-artifacts/playwright-validation-summary.json` 및 스크린샷 생성
 
 ```bash

@@ -2,6 +2,10 @@
 
 > Under the Hood: How distributed systems achieve agreement, tolerate failures, and maintain consistency across unreliable networks — the exact data flows, message protocols, state machines, and mathematical guarantees.
 
+## System-model boundary
+
+A distributed guarantee is meaningful only under a stated model: crash or Byzantine failures, synchrony assumptions, quorum membership, durable-storage behavior, retry/idempotency rules, and the consistency property being claimed. Product names and fixed timings below are examples; verify the product/version configuration before treating an algorithmic property as an operational guarantee.
+
 ---
 
 ## 1. The Fundamental Problem: Partial Failures
@@ -52,9 +56,9 @@ sequenceDiagram
 ## 2. CAP Theorem: What You Must Sacrifice
 
 Brewer's CAP theorem (proven formally by Gilbert & Lynch): a distributed system cannot simultaneously guarantee all three of:
-- **C** — Consistency: every read sees the most recent write
-- **A** — Availability: every request receives a response
-- **P** — Partition tolerance: system works despite network splits
+- **C** — Consistency: the CAP proof uses atomic/linearizable register semantics, not every meaning of “consistent”
+- **A** — Availability: every request received by a non-failing node eventually returns a non-error response
+- **P** — Partition tolerance: the model permits loss or arbitrary delay of messages between components
 
 ```mermaid
 graph TD
@@ -115,10 +119,10 @@ sequenceDiagram
 
 ### Paxos Ballot Number Invariant
 
-Each Acceptor stores `(maxPromised, acceptedBallot, acceptedValue)`. The invariant:
-- An acceptor **never** promises to a ballot ≤ its maxPromised
-- An acceptor **never** accepts a ballot ≤ its maxPromised
-- If any value was accepted in a previous round, the proposer **must** propose that value
+Each acceptor persists `(maxPromised, acceptedBallot, acceptedValue)`. The safety-relevant rules are:
+- It rejects a prepare numbered lower than a promise it has already made; handling an equal ballot must be idempotent.
+- It may accept ballot `n` when `n >= maxPromised`, then persists the accepted ballot and value.
+- After a prepare quorum, the proposer selects the value attached to the highest-numbered accepted proposal reported by that quorum; if none is reported, it may choose a new value.
 
 This ensures: once a value is chosen by a quorum, no future Paxos round can choose a different value.
 
@@ -169,6 +173,8 @@ Two invariants make Raft safe:
 2. **Log Matching**: If two logs contain an entry with same (index, term), all preceding entries are identical
 
 The **prevIndex/prevTerm** check in AppendEntries enforces Log Matching — a follower rejects if it doesn't have a matching entry at prevIndex with prevTerm.
+
+The following “diverged” diagram shows two different commands at the same `(index, term)`. That state cannot arise in a correct Raft history because a term has at most one leader and a leader creates at most one entry per index. A realistic conflict uses a different term at the conflicting index; the backtracking/overwrite explanation then applies.
 
 ```mermaid
 flowchart LR
@@ -263,6 +269,8 @@ flowchart TD
 ### MVCC Read Path
 
 Each transaction receives a **snapshot** at start: `(xmin, xmax, active_xids[])`. A row version is visible if:
+
+The bullets below are an intuition, not PostgreSQL's complete visibility predicate. Transaction status, the reader's own XID/command ID, aborted creators/deleters, subtransactions, wraparound, and the isolation level all affect visibility; use the engine's snapshot rules rather than implementing these inequalities directly.
 - `row.xmin <= snapshot.xmax` (created before snapshot)
 - `row.xmin` not in `active_xids[]` (creator committed)
 - `row.xmax > snapshot.xmin` OR `row.xmax` is in `active_xids[]` (not yet deleted)
@@ -312,7 +320,7 @@ flowchart LR
 **Conflict detection**: Two events are concurrent (neither happened-before the other) if neither vector clock dominates the other:
 - `A=[2,1,0]` vs `B=[1,2,0]` → concurrent → conflict → need merge
 
-**DynamoDB** uses vector clocks (called "version vectors") to detect write conflicts and return multiple conflicting versions to the application for resolution.
+Classic Dynamo-style systems use version vectors to expose concurrent siblings. Do not attribute that client-visible conflict model to current Amazon DynamoDB without an API-specific source; DynamoDB conditional writes, transactions, and global-table conflict behavior are separate contracts.
 
 ---
 
@@ -432,7 +440,7 @@ sequenceDiagram
     Note over Client,DB: Async: spans exported to\nJaeger/Zipkin via OTLP\n(batched, out-of-band)
 ```
 
-**Sampling Decision Propagation**: The `traceparent` flag byte encodes the sampling decision. If the root span decides to sample (probabilistic, 1%), all downstream services **inherit** that decision — this ensures complete traces, not partial traces.
+**Sampling Decision Propagation**: The W3C `trace-flags` sampled bit carries an upstream recording recommendation. SDKs and collectors may apply parent-based, remote, or tail-sampling policies, and broken propagation still yields partial traces. Verify propagation on every synchronous and asynchronous boundary instead of assuming a sampled root guarantees completeness.
 
 ---
 
@@ -524,7 +532,7 @@ sequenceDiagram
     Note over App,S: Any future transaction that starts\nafter receiving this ACK will have\nstart_timestamp > T_commit\n→ guaranteed to see this write\n(external consistency)
 ```
 
-The **commit wait** is the price of external consistency: Spanner deliberately delays COMMIT acknowledgment by the TrueTime uncertainty interval to ensure no future transaction starts with a timestamp before the current commit.
+Spanner chooses a commit timestamp no earlier than the relevant `TT.now().latest`, then waits until `TT.after(commit_timestamp)` before acknowledging. The diagram's `T.late + ε` expression double-counts uncertainty as a general formula. Actual wait is bounded by the current uncertainty and processing/replication timing, not a fixed 10–14 ms floor.
 
 ---
 
@@ -600,6 +608,8 @@ sequenceDiagram
 ---
 
 ## Summary: Key Distributed Systems Properties
+
+The costs below are order-of-operation sketches, not universal RTT or latency guarantees. Leader leases, read consistency, batching, replication distance, durable fsync, failures, and quorum topology determine the actual message and time cost.
 
 | Property | Mechanism | Cost |
 |---|---|---|

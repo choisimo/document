@@ -1,10 +1,19 @@
-# Nginx 설정 마스터 가이드: 기본부터 대규모 시스템 운영까지 코드 중심으로
+# Nginx 설정 가이드: 기본 구성부터 운영 검증까지
 
 ## 서론
 
 Nginx는 고성능 웹 서버, 리버스 프록시, 로드 밸런서, HTTP 캐시 등으로 널리 사용되는 오픈소스 소프트웨어입니다. 이벤트 기반 아키텍처를 통해 적은 리소스로 많은 동시 연결을 효율적으로 처리할 수 있어, 소규모 웹사이트부터 대규모 분산 시스템에 이르기까지 다양한 환경에서 핵심적인 역할을 수행합니다.
 
-본 보고서는 Nginx의 다양한 설정 방법을 코드 예제 중심으로 심층적으로 다룹니다. 정적 파일 제공, 가상 호스트 설정, 리버스 프록시 구현, SSL/TLS 암호화와 같은 기본적인 구성부터 시작하여, 대규모 시스템 운영에 필수적인 로드 밸런싱 전략, 업스트림 서버 헬스 체크, 프록시 캐싱, 성능 최적화 기법을 상세히 설명합니다. 또한, 고급 기능인 로깅 시스템 커스터마이징, HTTP 헤더 및 본문 수정 방법(Lua 스크립트 활용 포함), 다양한 보안 설정(WAF 연동 포함)을 다룹니다. 마지막으로 Ansible을 이용한 Nginx 자동화 관리, Kafka와 같은 메시징 시스템과의 연동, 그리고 대규모 환경에서의 Nginx 운영 전략 및 모니터링 방안까지 포괄적으로 제시하여 Nginx를 효과적으로 활용하고자 하는 개발자와 시스템 관리자에게 실질적인 가이드라인을 제공하는 것을 목표로 합니다.
+본 보고서는 Nginx의 다양한 설정 방법을 코드 예제 중심으로 심층적으로 다룹니다. 정적 파일 제공, 가상 호스트 설정, 리버스 프록시 구현, SSL/TLS 암호화와 같은 기본적인 구성부터 시작하여, 대규모 시스템에서 요구사항에 따라 선택하는 load-balancing 전략, 업스트림 서버 헬스 체크, 프록시 캐싱, 성능 최적화 기법을 상세히 설명합니다. 또한, 고급 기능인 로깅 시스템 커스터마이징, HTTP 헤더 및 본문 수정 방법(Lua 스크립트 활용 포함), 다양한 보안 설정(WAF 연동 포함)을 다룹니다. 마지막으로 Ansible을 이용한 Nginx 자동화 관리, Kafka와 같은 메시징 시스템과의 연동, 그리고 대규모 환경에서의 Nginx 운영 전략 및 모니터링 방안까지 포괄적으로 제시하여 Nginx를 효과적으로 활용하고자 하는 개발자와 시스템 관리자에게 실질적인 가이드라인을 제공하는 것을 목표로 합니다.
+
+---
+
+## 적용 범위와 운영 검증 기준
+
+- **범위:** Nginx/OpenResty version과 build modules, OS 또는 image, worker·event model, TLS library, upstream protocol, DNS, cache storage와 deployment topology를 기록합니다.
+- **전제:** 예제의 path, user, certificate, timeout, buffer, connection 수와 load-balancing 동작은 환경별 설정입니다. 설정 문법 성공과 production 적합성을 같은 의미로 보지 않습니다.
+- **사실과 추론:** `nginx -T/-t`, access/error log, response·TLS 검사와 metrics는 근거이고, latency·resource 병목과 cache·load-balancer 효과는 부하 시험 전까지 가설입니다.
+- **실패·완료:** syntax 외에도 upstream 실패, reload 중 연결, certificate 갱신, cache 오류, header spoofing, timeout, overload와 rollback을 시험합니다. canary에서 response·TLS·log·SLO가 기준을 만족한 뒤 단계적으로 반영해야 완료입니다.
 
 ---
 
@@ -37,7 +46,7 @@ sudo yum install nginx
 *   `sudo systemctl reload nginx` 또는 `nginx -s reload`: 설정 파일 리로드 (무중단)
 *   `sudo nginx -t`: 설정 파일 문법 검사
 
-> **Tip**: `nginx -t` 명령어는 설정 변경 후 서비스를 재시작하거나 리로드하기 전에 반드시 실행하여 문법 오류를 확인하는 것이 중요합니다. 이는 서비스 중단을 방지하는 데 도움이 됩니다.
+> **Tip**: reload 전 `nginx -t`로 해당 binary와 include 경로의 문법을 검사합니다. 통과해도 upstream·certificate·권한·runtime 동작과 무중단 reload를 보장하지 않으므로 canary와 rollback을 함께 준비합니다.
 
 ### 1.2. Nginx 설정 파일 구조 및 주요 지시어
 
@@ -195,7 +204,7 @@ server {
 
 ### 1.6. SSL/TLS를 이용한 Nginx 보안 (HTTPS 설정)
 
-HTTPS는 HTTP 통신을 암호화하여 데이터의 기밀성과 무결성을 보장합니다. Let's Encrypt와 Certbot을 사용하여 쉽게 구현할 수 있습니다.
+올바르게 구성·검증된 HTTPS는 client와 TLS 종료 지점 사이 전송의 기밀성과 무결성을 제공합니다. endpoint compromise, 잘못된 certificate 검증과 종료 지점 이후 구간까지 보호하는 것은 아닙니다. Let's Encrypt와 Certbot을 사용하여 쉽게 구현할 수 있습니다.
 
 **기본 HTTPS 설정 및 HTTP → HTTPS 리디렉션 예제:**
 
@@ -276,7 +285,7 @@ upstream backend_servers {
 
 #### 2.1.3. 최소 연결 (least_conn)
 
-활성 연결 수가 가장 적은 서버로 새 요청을 보냅니다.
+`least_conn`은 선택 시점의 가중 active connection 수를 기준으로 upstream을 고르며, request 비용·queue·backend capacity가 같다는 보장은 없습니다.
 
 ```nginx
 upstream backend_servers {
@@ -289,7 +298,7 @@ upstream backend_servers {
 
 #### 2.1.4. IP 해시 (ip_hash)
 
-클라이언트 IP를 기반으로 항상 동일한 서버로 연결합니다(세션 고정).
+`ip_hash`는 관측된 client IP와 현재 upstream 집합을 기준으로 비교적 일관된 선택을 하지만 NAT, IPv6, upstream 변경과 failure 시 동일 backend를 보장하지 않습니다.
 
 ```nginx
 upstream backend_servers {

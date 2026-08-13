@@ -1,12 +1,25 @@
 # SSH Key Management
 
+
+## Scope and operational contract
+
+This guide targets OpenSSH clients and servers. Exact algorithms, service names, configuration paths, and certificate support depend on the operating system, OpenSSH release, cryptographic policy, and FIPS requirements.
+
+- **Evidence status**: Commands are illustrative and were not executed by this document. Record the installed versions and effective sshd configuration before relying on them.
+- **Key custody**: Never transmit or paste a private key. Prefer a passphrase, a constrained agent or hardware-backed key, protected backups, and verified host keys.
+- **Change sequence**: Inventory key owners and destinations, add a new key, test it in a second session, revoke the old key, then validate logs. Do not disable password access until a tested key or MFA path and a break-glass route exist.
+- **Failure handling**: Keep an existing administrator session open. Validate sshd syntax before reload; if a new connection fails, restore the previous configuration instead of repeatedly changing permissions.
+- **Completion evidence**: Capture fingerprints, accountable owners, expiry or review dates, successful and denied login tests, effective authorization restrictions, and revocation results.
+
+Public-key authentication reduces password guessing exposure, but it is not automatically safer: stolen unencrypted keys, over-broad authorized_keys entries, unverified host keys, and unmanaged copies remain material risks. Ed25519 is a strong default where the platform policy supports it; use an approved compatible algorithm otherwise.
+
 > Complete guide to SSH key-based authentication setup
 
 ---
 
 ## Overview
 
-SSH key authentication provides secure, password-less access to remote servers. It's more secure than password authentication and enables automation.
+SSH key authentication can reduce password-guessing exposure and support automation, but only when private keys, host verification, authorization scope, rotation, and revocation are managed.
 
 ```mermaid
 flowchart LR
@@ -22,7 +35,7 @@ flowchart LR
 ### Generate SSH Key Pair
 
 ```bash
-# Generate RSA key (default)
+# Generate RSA only when compatibility or policy requires it
 ssh-keygen -t rsa -b 4096 -C "your-email@example.com"
 
 # Generate Ed25519 key (recommended)
@@ -77,10 +90,10 @@ PermitRootLogin prohibit-password
 PermitEmptyPasswords no
 ```
 
-Restart SSH:
+Validate the configuration, keep the current session open, and reload before testing a second session:
 
 ```bash
-sudo systemctl restart sshd
+sudo sshd -t && sudo systemctl reload sshd
 ```
 
 ---

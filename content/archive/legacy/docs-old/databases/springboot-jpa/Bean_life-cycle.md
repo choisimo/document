@@ -1,4 +1,6 @@
-# Bean Lifecycle 관리의 중요점
+# Spring Bean 생명주기: 단계, 준비 상태, 종료 계약
+
+이 문서는 Spring 컨테이너가 관리하는 singleton bean의 일반적인 초기화·종료 훅을 설명합니다. prototype scope, 수동 생성 객체, 네이티브 이미지, Spring 버전에 따라 호출 경계가 달라질 수 있습니다. `@PostConstruct`와 `@PreDestroy`의 패키지는 사용하는 Spring·Jakarta 버전과 맞춰야 합니다.
 
 ## 생명주기 관리의 핵심 가치
 
@@ -108,7 +110,7 @@ public class ApplicationMonitor implements SmartLifecycle {
 
 | 방식 | 특징 | 사용 상황 |
 |------|------|----------|
-| **@PostConstruct/@PreDestroy** | 표준 JSR-250 어노테이션, 코드 직관성 | 대부분의 상황 (권장) |
+| **@PostConstruct/@PreDestroy** | 컨테이너 콜백을 어노테이션으로 선언 | 짧고 동기적인 초기화·정리 |
 | **InitializingBean/DisposableBean** | 인터페이스 기반, 스프링에 강하게 결합 | 레거시 코드 |
 | **@Bean(initMethod/destroyMethod)** | XML 구성에서 전환, 서드파티 클래스 관리 | 외부 라이브러리 통합 시 |
 
@@ -156,6 +158,8 @@ public class ApplicationMonitor implements SmartLifecycle {
    }
    ```
 
+   `@PostConstruct`가 작업을 제출하고 즉시 반환하면 bean 생성 완료와 외부 의존성 준비 완료가 달라집니다. 요청을 받기 전 준비 여부를 노출하거나, 실패를 애플리케이션 상태에 전달하는 별도 계약이 필요합니다.
+
 ## 자주 발생하는 실수
 
 ```java
@@ -163,7 +167,7 @@ public class ApplicationMonitor implements SmartLifecycle {
 @Component
 public class WrongService {
     @PostConstruct
-    private void init() {  // private은 작동하지만 권장되지 않음
+    private void init() {  // 컨테이너 콜백: 외부 호출 API가 아님
         // 초기화 코드
     }
     
@@ -181,18 +185,14 @@ public class CorrectService {
         // 초기화 코드
     }
     
-    // 외부에서 직접 호출
-    public void reset() {
-        cleanup();  // 내부 정리
-        init();     // 재초기화
-    }
-    
     @PreDestroy
     public void cleanup() {
         // 정리 코드
     }
 }
 ```
+
+생명주기 콜백을 일반 재설정 API처럼 직접 호출하면 컨테이너 상태와 자원 소유권이 어긋날 수 있습니다. 재초기화가 요구사항이면 멱등성, 동시 호출 차단, 실패 후 상태를 정의한 별도 메서드나 bean 재생성 경로를 설계합니다.
 
 ## 📝 점검 문제
 

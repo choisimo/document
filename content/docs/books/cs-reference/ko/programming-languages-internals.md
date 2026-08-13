@@ -2,11 +2,19 @@
 
 > **초점**: 구문이나 API 사용이 아니라 언어 런타임이 고루틴을 예약하는 방법, 컴파일러가 제네릭을 단일화하는 방법, CPS가 일시 중단 코루틴을 변환하는 방법, 유형 추론이 다형성 호출 사이트에 제약 조건을 전파하는 방법에 대해 설명합니다.
 
+## 문서 범위와 검증 계약
+
+- **범위**: Go, Rust, Kotlin/Scala 및 JVM의 대표 구현을 비교하는 학습용 개요다. 언어 명세가 보장하는 의미와 특정 런타임·컴파일러 버전의 구현 전략을 구분한다.
+- **전제**: 별도 표기가 없는 다이어그램과 의사 코드는 개념을 설명하기 위한 축약이다. 스택 크기, 스케줄링 주기, JIT 임계값, GC 일시 정지 및 메모리 배치는 버전·플래그·하드웨어·부하에 따라 달라진다.
+- **근거 상태**: 언어 규칙은 해당 버전의 명세, 구현 세부는 릴리스에 맞는 소스와 공식 문서, 성능 수치는 동일 조건의 벤치마크로 확인해야 한다. 이 문서의 수치는 크기 감각을 위한 예시이지 SLA나 보장이 아니다.
+- **실패/재시도**: 실험이 재현되지 않으면 오류와 버전·옵션을 먼저 기록하고 한 변수만 바꿔 재시도한다. 스케줄러·GC 동작을 추측으로 확정하거나 성공할 때까지 조건을 바꾸는 방식은 피한다.
+- **완료 증거**: 결론에는 언어/런타임 버전, 빌드 모드, 실행 명령, 하드웨어, 입력 부하, 반복 횟수와 원시 측정값을 남긴다. 비교 실습은 같은 의미와 같은 측정 조건을 확인해야 완료로 본다.
+
 ---
 
 ## 1. Go 런타임: 고루틴 스케줄러 내부
 
-Go의 런타임은 M:N 그린 스레드 스케줄링을 구현합니다. 즉, 작업 도용 스케줄러(GMP 모델)를 사용하여 M OS 스레드에 N개의 고루틴이 다중화됩니다.
+현재의 표준 Go 런타임은 GMP 모델과 작업 훔치기를 사용해 고루틴을 OS 스레드에 다중화합니다. 세부 큐 크기와 선택 순서는 공개 언어 계약이 아니라 런타임 버전별 구현 세부입니다.
 
 ```mermaid
 flowchart TD
@@ -26,7 +34,7 @@ flowchart TD
 
 ### 고루틴 스택 성장
 
-고루틴은 2KB 스택으로 시작합니다(OS 스레드 2MB 대비). 스택이 용량을 초과하면 런타임은 **스택 복사**를 수행합니다.
+많은 Go 릴리스에서 고루틴 스택은 약 2KiB로 작게 시작해 필요에 따라 복사·성장합니다. OS 스레드의 예약 스택 크기는 운영체제와 설정에 따라 달라지므로 2MiB와의 비교를 보편값으로 사용하지 않습니다.
 
 ```mermaid
 sequenceDiagram
@@ -51,7 +59,7 @@ sequenceDiagram
 stateDiagram-v2
     [*] --> Runnable: go func()
     Runnable --> Running: P picks up G
-    Running --> Runnable: preempted (10ms async signal)
+    Running --> Runnable: runtime preemption request / safe point
     Running --> Waiting: channel block / syscall / mutex
     Waiting --> Runnable: channel send / syscall return
     Running --> Dead: function returns
@@ -73,7 +81,7 @@ flowchart LR
     end
 ```
 
-도둑질은 피해자의 로컬 실행 대기열의 **절반**을 차지하므로 공정성을 보장하면서 경합을 줄입니다. 글로벌 실행 큐는 기아를 방지하기 위해 61번째 스케줄링 틱마다 확인됩니다.
+일부 Go 런타임 버전은 피해자 로컬 큐의 일부(흔히 절반)를 훔치고 주기적으로 글로벌 큐도 확인합니다. `61` 같은 주기와 선택 규칙은 구현 상수이며, 이 전략만으로 개별 고루틴의 공정성이나 기아 방지가 보장되지는 않습니다.
 
 ### 채널 내부: hchan 구조
 
@@ -94,7 +102,7 @@ block-beta
     end
 ```
 
-**직접 전송 최적화**: 수신자가 `recvq`에서 차단되면 발신자는 데이터를 **수신자의 스택에 직접** 복사한 다음(버퍼 우회) 수신자를 깨웁니다. 추가 복사본은 없습니다.
+**직접 전송 최적화**: 특정 Go 런타임에서는 수신자가 `recvq`에서 대기할 때 버퍼를 거치지 않고 수신 측 저장 위치로 값을 전달할 수 있습니다. 복사 횟수와 정확한 대상 위치는 값의 형태와 컴파일러·런타임 구현에 달려 있으므로 “추가 복사 없음”을 API 보장으로 가정하지 않습니다.
 
 ---
 
@@ -116,9 +124,9 @@ flowchart TD
     end
 ```
 
-**Dijkstra 쓰기 장벽**: 모든 포인터에 `*slot = ptr`을 씁니다. `*slot`이 검은색이고 `ptr`가 흰색이면 음영은 `ptr` 회색입니다. 이는 회색 중간 없이 흑색→백색 참조를 보장하지 않습니다.
+**쓰기 장벽**: 동시 마킹 중 포인터 갱신 전후에 관련 객체를 회색으로 표시해 수집기가 도달 가능한 흰 객체를 놓치지 않도록 합니다. 실제 Go 장벽은 릴리스별 혼합 장벽 규칙을 따르므로 단순한 “검은 슬롯” 조건만으로 설명할 수 없습니다.
 
-GOGC=100은 라이브 힙이 두 배가 될 때 GC가 트리거됨을 의미합니다. GC 타겟: `goal = live * (1 + GOGC/100)`.
+`GOGC=100`은 다음 힙 목표를 이전 라이브 힙과 루트 스캔 비용을 바탕으로 대략 한 배 더 허용하려는 조정값입니다. `goal ≈ live * (1 + GOGC/100)`은 개념식이며, 실제 목표에는 런타임 버전의 루트 비용 계산과 메모리 제한 등이 반영됩니다.
 
 ---
 
@@ -157,7 +165,7 @@ flowchart LR
     end
 ```
 
-단일화: **런타임 비용 제로**, 코드 팽창, 인라인. `dyn Trait`: 하나의 복사본, vtable을 통한 간접 참조, 인라인을 방지합니다.
+단일화는 타입별 코드를 생성해 정적 디스패치와 인라이닝 기회를 제공하는 대신 코드 크기를 늘릴 수 있습니다. `dyn Trait`는 보통 vtable 간접 호출을 사용하지만, 최적화기가 구체 타입을 증명하면 탈가상화·인라이닝할 수도 있습니다. 어느 쪽도 모든 빌드에서 “비용 제로”를 보장하지 않습니다.
 
 ### 메모리 레이아웃: 스택 대 힙
 
@@ -323,7 +331,7 @@ flowchart TD
     Cancel -->|notifies parent| Scope
 ```
 
-취소는 **협조적**입니다. 코루틴은 `isActive`을 확인하거나 취소를 인식하는 정지 함수를 호출해야 합니다. 상위 작업이 실패하면 모든 하위 항목이 취소됩니다(구조화된 동시성).
+취소는 **협조적**입니다. 코루틴은 `isActive`를 확인하거나 취소를 인식하는 정지 함수를 호출해야 합니다. 일반 `Job` 계층에서는 자식 실패가 부모와 형제를 취소할 수 있지만, `SupervisorJob`/supervisor scope에서는 실패 전파 규칙이 다릅니다.
 
 ---
 
@@ -333,15 +341,15 @@ flowchart TD
 flowchart TD
     Source[Java/Kotlin/Scala source] --> Bytecode[JVM Bytecode .class]
     Bytecode --> Interpreter[Interpreter: first execution]
-    Interpreter -->|profiling counters| C1[C1 Compiler: light optimization\n~1500 invocations]
-    C1 -->|profile-guided| C2[C2 Compiler: aggressive optimization\n~15000 invocations]
+    Interpreter -->|profiling counters| C1[C1 Compiler: light optimization\nthreshold depends on flags/profile]
+    C1 -->|profile-guided| C2[C2 Compiler: aggressive optimization\nthreshold depends on VM mode]
     C2 --> NativeCode[Optimized native code]
     NativeCode -->|deoptimize on wrong speculation| Interpreter
 ```
 
 C2의 **추측적 최적화**:
 - **인라이닝**: 프로필에 구현이 하나만 표시되는 경우 가상 호출이 탈가상화됨
-- **이스케이프 분석**: 개체가 이스케이프 방법을 사용하지 않으면 스택에 유지됩니다.
+- **이스케이프 분석**: 객체가 관찰 가능하게 이스케이프하지 않으면 할당 제거 또는 스칼라 치환이 가능할 수 있습니다. HotSpot이 모든 객체를 실제 스택 객체로 배치한다는 뜻은 아닙니다.
 - **루프 풀기 + 벡터화**: 배열 작업을 위한 SIMD 내장 함수
 - **Null 검사 제거**: 프로필이 Null이 아님을 확인한 후 중복된 Null 검사를 제거합니다.
 
@@ -371,8 +379,8 @@ block-beta
 ```mermaid
 flowchart LR
     subgraph "Memory Management"
-        Go_MM["Go: Concurrent GC\ntri-color mark-sweep\n~1ms STW pauses"]
-        Rust_MM["Rust: Compile-time\nownership + drop\nzero runtime overhead"]
+        Go_MM["Go: Concurrent GC\ntri-color mark-sweep\npause depends on heap and workload"]
+        Rust_MM["Rust: Ownership + drop\nno tracing GC; drop work remains"]
         JVM_MM["JVM: Generational GC\nG1/ZGC/Shenandoah\nconfigurable pauses"]
     end
     subgraph "Concurrency"
@@ -383,7 +391,7 @@ flowchart LR
     subgraph "Type System"
         Go_T["Go: structural interfaces\nno generics variance\ntype parameters (1.18+)"]
         Rust_T["Rust: traits + lifetimes\nhigher-ranked trait bounds\nno GC needed via ownership"]
-        JVM_T["JVM: nominal typing\ntype erasure (Java generics)\nreified generics (Kotlin)"]
+        JVM_T["JVM: nominal typing\ntype erasure (Java generics)\nKotlin inline reified parameters"]
     end
 ```
 
@@ -395,7 +403,7 @@ sequenceDiagram
     participant GoRoutine as Go Goroutine (Stackful)
 
     Note over RustFuture: poll() returns Poll::Pending
-    RustFuture->>RustFuture: stores state in Future struct (heap)
+    RustFuture->>RustFuture: stores state in Future value (placement varies)
     RustFuture->>RustFuture: registers Waker with reactor
     Note over RustFuture: Thread returns to event loop
 
@@ -405,7 +413,7 @@ sequenceDiagram
     Note over GoRoutine: OS thread may park or handle another G
 ```
 
-Rust 선물은 **폴링 기반, 제로 스택**입니다. 명시적으로 박스화하지 않는 한 정지 당 할당이 없습니다. Go 고루틴은 **스택에서 연속**됩니다. 작성이 더 간단하고(동기화되어 보임), 고루틴 기준이 더 높습니다.
+Rust `Future`는 스택리스 상태 머신으로 폴링되며 값은 호출자 프레임, 태스크 저장소 또는 `Box` 등 여러 위치에 놓일 수 있습니다. 정지 지점 자체가 매번 할당을 요구하지는 않지만 실행기와 조합 방식은 할당할 수 있습니다. Go 고루틴은 성장 가능한 스택을 보존하며, 상대 비용은 런타임과 워크로드로 측정해야 합니다.
 
 ---
 
@@ -447,7 +455,7 @@ GHC의 `par`/`seq` 스파크 풀은 추측적 병렬 처리를 가능하게 합�
 
 ## 9. 언어 기능: 패턴 매칭 컴파일
 
-모든 ML 계열 언어는 O(1) 디스패치를 위한 **의사결정 트리**에 일치하는 패턴을 컴파일합니다.
+많은 ML 계열 컴파일러는 패턴을 의사결정 트리나 유사한 분기 구조로 낮춥니다. 실행 시간은 패턴의 모양과 생성자 밀도에 따라 선형 체인, 트리 또는 점프 테이블이 될 수 있어 일반적으로 O(1)이라고 할 수 없습니다.
 
 ```mermaid
 flowchart TD
@@ -459,7 +467,7 @@ flowchart TD
     T2 -->|no| C["return C(x, y)"]
 ```
 
-컴파일러는 생성자 밀도에 따라 **스위치 디스패치**(정수 태그)와 **if-chain** 중에서 선택합니다. 열거형의 Rust `match`은 판별 태그로 색인이 지정된 점프 테이블로 컴파일됩니다.
+컴파일러는 생성자 밀도와 최적화 수준에 따라 스위치 디스패치, 비교 체인 또는 다른 형태를 선택할 수 있습니다. Rust `match`도 조밀한 판별값에서는 점프 테이블이 가능하지만 생성되는 머신 코드는 보장된 언어 의미가 아닙니다.
 
 ### 대수적 데이터 유형 메모리 레이아웃(Rust/Haskell)
 
@@ -589,7 +597,7 @@ mindmap
 
 #### 정적 타이핑 vs 동적 타이핑: 컴파일 타임 안전성 vs 개발 유연성
 
-타입 시스템은 언어 설계의 가장 근본적인 분기점이다. 정적 타이핑은 컴파일 타임에 타입 오류를 포착하여 런타임 안전성을 보장하지만, 개발 초기 프로토타이핑 속도를 저하시킬 수 있다. 반면 동적 타이핑은 빠른 반복 개발을 가능하게 하지만, 타입 오류가 런타임까지 지연된다.
+타입 시스템은 언어 설계의 중요한 분기점이다. 정적 검사는 다룰 수 있는 일부 타입 오류를 컴파일 타임에 포착하지만 논리 오류나 메모리·동시성 안전 전체를 보장하지는 않습니다. 동적 타이핑의 반복 속도와 오류 양상도 도구, 테스트, 팀 경험에 따라 달라집니다.
 
 현대 언어들은 이 이분법을 극복하려 한다. TypeScript의 점진적 타이핑(Gradual Typing), Python의 타입 힌트, Kotlin의 타입 추론 등은 두 세계의 장점을 결합하려는 시도다. 핵심 설계 질문은 "타입 검사의 비용을 **언제** 지불할 것인가"이다.
 
@@ -613,7 +621,7 @@ flowchart TD
 
 #### 값 타입 vs 참조 타입: 메모리 레이아웃과 성능 영향
 
-값 타입은 스택에 인라인 배치되어 캐시 지역성이 뛰어나고 GC 압력이 없다. 참조 타입은 힙 할당과 간접 참조를 수반하지만 다형성과 공유를 자연스럽게 지원한다. 이 선택은 데이터의 크기, 수명, 공유 패턴에 따라 결정된다.
+값/참조 의미론만으로 스택·힙 배치가 결정되지는 않습니다. 실제 배치는 이스케이프 분석, 박싱, JIT 최적화와 ABI에 달려 있으며, 값 타입도 캡처·박싱되면 힙에 놓일 수 있고 참조 객체의 할당이 제거될 수도 있습니다.
 
 ```mermaid
 flowchart LR
@@ -652,9 +660,9 @@ flowchart TD
     RC --> RC_Con["❌ 순환 참조 (weak ref 필요)\n❌ 원자적 카운터 오버헤드\n❌ 캐시라인 더티 빈번"]
 
     Tracing --> Tr_Pro["✅ 순환 참조 자동 처리\n✅ 할당 비용 낮음 (bump alloc)\n✅ 높은 처리량"]
-    Tracing --> Tr_Con["❌ STW 일시 정지\n❌ 메모리 오버헤드 (2배 힙)\n❌ 비결정적 해제 타이밍"]
+    Tracing --> Tr_Con["❌ 일부 단계의 STW 가능\n❌ 가용 여유 힙 필요(비율은 설정별)\n❌ 비결정적 해제 타이밍"]
 
-    Ownership --> Own_Pro["✅ 런타임 비용 제로\n✅ 데이터 경쟁 컴파일 타임 방지\n✅ 예측 가능한 성능"]
+    Ownership --> Own_Pro["✅ 추적 GC 불필요\n✅ safe Rust의 다수 데이터 경쟁 방지\n✅ 명시적 비용 모델"]
     Ownership --> Own_Con["❌ 학습 곡선 가파름\n❌ 자기참조 구조 구현 어려움\n❌ 컴파일 시간 ↑"]
 ```
 
@@ -687,7 +695,7 @@ flowchart TD
 
 #### 패턴 매칭 vs if-else 체인: 타입 안전 분기의 설계 가치
 
-패턴 매칭은 단순한 분기 문법이 아니라 **대수적 데이터 타입(ADT)과 결합된 타입 시스템 기능**이다. 컴파일러는 패턴의 완전성(exhaustiveness)을 검사하여 누락된 케이스를 컴파일 타임에 감지한다. 이는 if-else 체인에서는 불가능한 안전성 보장이다.
+패턴 매칭은 단순한 분기 문법이 아니라 **대수적 데이터 타입(ADT)과 결합된 타입 시스템 기능**이다. 닫힌 ADT에 대해 컴파일러가 완전성을 검사할 수 있지만, 가드·개방형 계층·언어별 규칙은 결과를 제한합니다. 같은 로직을 if-else로 구현할 수는 있어도 일반적으로 동일한 완전성 검사를 자동 제공하지 않습니다.
 
 패턴 매칭이 디자인 패턴에 미치는 영향:
 - **방문자 패턴 대체**: 봉인된 타입 + 패턴 매칭은 Visitor 패턴의 보일러플레이트를 제거한다
@@ -745,13 +753,13 @@ for (var i = 0; i < 3; i++) {
 
 Go 언어로 구현된 웹 서버가 동시에 10,000개의 요청을 처리하고 있다. 시스템의 CPU 코어는 8개이며, Go 런타임은 기본적으로 `GOMAXPROCS=8`로 설정되어 있다.
 
-(1) Go의 goroutine이 OS 스레드 위에서 스케줄링되는 M:N 모델(G-M-P 모델)에서 G, M, P 각각의 역할은 무엇이며, 10,000개의 goroutine이 8개의 OS 스레드 위에서 어떻게 효율적으로 실행되는가?  
-(2) 만약 goroutine 하나가 시스템 콜(예: 파일 I/O)로 블로킹되면, M:N 스케줄러는 해당 상황을 어떻게 처리해 나머지 goroutine의 진행을 보장하는가?  
+(1) Go의 goroutine이 OS 스레드 위에서 스케줄링되는 M:N 모델(G-M-P 모델)에서 G, M, P 각각의 역할은 무엇이며, 10,000개의 goroutine이 8개의 P를 통해 어떻게 실행되는가? 이때 M의 수가 반드시 8이라고 가정하지 마라.  
+(2) 만약 goroutine 하나가 시스템 콜(예: 파일 I/O)로 블로킹되면, M:N 스케줄러는 해당 상황을 어떻게 처리해 나머지 goroutine의 진행 가능성을 높이는가?  
 (3) Java의 Virtual Thread(Project Loom)와 Go의 goroutine 스케줄링 모델의 유사점과 차이점을 논하라.
 
 <details><summary>힌트 보기</summary>
 
-G(Goroutine)는 경량 실행 단위, M(Machine)은 OS 스레드, P(Processor)는 논리적 프로세서(실행 컨텍스트)이다. P는 로컬 런큐를 가지며 G를 M에 할당한다. 시스템 콜로 M이 블로킹되면 P는 해당 M에서 분리(handoff)되어 유휴 M이나 새로운 M에 붙어 다른 G를 계속 실행한다. Java Virtual Thread도 유사한 캐리어 스레드 개념을 사용하지만, JVM의 기존 `synchronized` 블록과의 호환성 문제(pinning)가 있다.
+G(Goroutine)는 경량 실행 단위, M(Machine)은 OS 스레드, P(Processor)는 논리적 실행 자원이다. `GOMAXPROCS=8`은 동시에 Go 코드를 실행할 P의 수를 뜻하며 전체 M 수를 고정하지 않습니다. 블로킹 syscall에서는 P를 다른 M에 넘길 수 있지만 외부 자원 고갈이나 런타임 제약까지 진행을 보장하지는 않습니다. Java Virtual Thread의 캐리어 스레드 고정 조건은 JDK 버전과 네이티브/FFM 호출, 모니터 구현에 따라 달라지므로 대상 JDK에서 확인해야 합니다.
 
 </details>
 
@@ -818,7 +826,7 @@ Rust: GC 없이 소유권 시스템으로 메모리 관리 → 예측 가능한 
 
 <details><summary>힌트 보기</summary>
 
-Python은 프로토타이핑 속도에서 우위이지만, 코드베이스가 커지면 타입 관련 런타임 오류가 기하급수적으로 증가한다. TypeScript는 초기 설정 비용이 있지만 팀이 커질 때 타입 시스템이 "자동 문서화"와 "리팩토링 안전망" 역할을 한다. 언어 전환은 기술 부채의 일시 상환이며, 실질적으로 재작성에 가깝다.
+Python과 TypeScript의 개발 속도 및 오류율은 코드 규모만으로 결정되지 않습니다. 타입 검사 범위, 테스트, 프레임워크와 팀 경험을 기준으로 현재 결함률과 변경 리드타임을 먼저 측정하세요. 언어 전환은 일부 위험을 줄이는 대신 상호운용·재작성·운영 비용을 만들므로 작은 경계에서 파일럿하고 동일 지표로 전후를 비교해야 합니다.
 
 </details>
 
@@ -871,7 +879,7 @@ print(len(points))  # 기대: 2, 실제: 3
 
 <details><summary>힌트 보기</summary>
 
-기본 `__hash__`는 `id()` (객체의 메모리 주소)를 기반으로 하므로 같은 내용이라도 다른 객체이면 다른 해시값을 가진다. Python 3에서 `__eq__`를 오버라이드하면 `__hash__`가 자동으로 `None`으로 설정되어 해시 불가능(unhashable)해진다. `@dataclass(frozen=True)`는 `__eq__`와 `__hash__`를 필드 기반으로 자동 생성하고, 불변성도 보장한다.
+`object`의 기본 동등성은 객체 정체성을 사용하고, 기본 해시는 같은 객체가 같은 해시를 갖도록 정체성과 연계됩니다. `id()`가 흔히 주소처럼 보이더라도 실제 메모리 주소라는 언어 보장은 아닙니다. Python 3에서 `__eq__`만 재정의하면 보통 `__hash__ = None`이 되어 해시 불가능해집니다. `@dataclass(frozen=True)`의 생성 규칙도 `eq`, `unsafe_hash`, 명시적 메서드 옵션에 따라 달라지므로 조합을 확인해야 합니다.
 
 </details>
 
@@ -920,11 +928,11 @@ Flutter 앱에서 리스트를 스크롤할 때 간헐적으로 프레임 드랍
 
 (1) Dart VM의 세대별 GC에서 young space(new space)와 old space의 구분 기준은 무엇이며, Flutter의 위젯 트리 재구성(rebuild)이 young space의 객체 할당과 어떤 관련이 있는가?  
 (2) "위젯은 불변(immutable)이고 매 프레임 재생성된다"라는 Flutter의 설계 철학이 GC에 유리한 이유를 설명하라. Young GC의 "살아있는 객체만 복사" 전략과의 관계를 논하라.  
-(3) 프레임 드랍을 줄이기 위해 `const` 위젯 사용, 불필요한 재빌드 방지(`RepaintBoundary`, `ValueListenableBuilder`), 그리고 `Isolate`를 활용한 무거운 연산 분리 전략을 각각 설명하고, 이들이 GC 부하와 어떻게 연결되는지 분석하라.
+(3) 프레임 드랍을 줄이기 위해 `const` 위젯 사용, 재빌드 범위 축소(`ValueListenableBuilder` 등), 페인트 경계 분리(`RepaintBoundary`), 그리고 `Isolate`를 활용한 무거운 연산 분리 전략을 각각 설명하고, 이들이 할당·빌드·페인트 비용과 어떻게 연결되는지 분석하라.
 
 <details><summary>힌트 보기</summary>
 
-Young space의 객체는 대부분 단명(short-lived)하여 minor GC로 빠르게 수거된다. Flutter의 불변 위젯은 매 프레임 생성되고 바로 폐기되므로 young space에서 효율적으로 처리된다("약한 세대 가설"). `const` 위젯은 컴파일 타임에 한 번만 생성되어 GC 대상이 아니다. `Isolate`는 별도의 힙을 가지므로 메인 Isolate의 GC에 영향을 주지 않는다.
+Young space는 단명 객체를 효율적으로 처리하도록 설계되지만 모든 위젯이 매 프레임 생성되는 것은 아닙니다. `const`는 동일 상수 객체의 정규화·재사용 기회를 주지만 객체가 힙과 GC 모델 밖에 있다는 뜻은 아닙니다. `RepaintBoundary`는 페인트 격리를 위한 도구이지 재빌드를 막지 않습니다. Isolate는 별도 힙을 사용해 메인 isolate의 작업을 줄일 수 있지만 메시지 복사·전송 비용과 전체 메모리 비용을 함께 측정해야 합니다.
 
 </details>
 
@@ -938,6 +946,6 @@ Rust로 멀티스레드 웹 서버를 구현하는 팀에서, 한 개발자가 `
 
 <details><summary>힌트 보기</summary>
 
-`Rc`의 참조 카운터는 비원자적(non-atomic) 연산으로 증감하므로 여러 스레드에서 동시에 접근하면 데이터 레이스가 발생한다. `Arc`는 원자적 연산(`AtomicUsize`)을 사용한다. `RefCell`은 런타임에 단일 스레드 내에서만 빌림 규칙을 검사하므로, 멀티스레드에서는 `Mutex`(배타적 접근)나 `RwLock`(읽기 공유/쓰기 배타)이 필요하다. Go/Java/Python은 런타임에 경쟁 상태를 감지하지만 Rust는 컴파일 타임에 방지한다.
+`Rc`의 참조 카운터는 비원자적(non-atomic) 연산으로 증감하므로 스레드 간 공유할 수 없고, `Arc`는 원자적 참조 카운팅을 사용합니다. `RefCell`은 단일 스레드의 동적 빌림 검사용이며 멀티스레드 공유에는 `Mutex`나 `RwLock` 같은 동기화가 필요합니다. Go·Java·Python이 일반적으로 모든 경쟁 상태를 런타임에 감지하는 것은 아닙니다. 별도 race detector, sanitizer, 테스트를 사용할 수 있고, Rust도 `unsafe` 코드와 논리적 경쟁까지 자동 제거하지는 않습니다.
 
 </details>

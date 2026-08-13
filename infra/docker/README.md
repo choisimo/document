@@ -1,6 +1,15 @@
 # Docker Repository
 
-Docker 컨테이너, 서비스 스택, 개발 환경 설정을 관리하는 저장소입니다.
+Docker container, service stack과 development environment의 versioned template을 관리하는 repository입니다. 실제 배포 상태와 secret은 별도 환경에서 관리합니다.
+
+## Repository Scope and Verification
+
+- **Scope:** This repository contains Compose, image and stack templates. Pin Docker Engine/Compose, host OS and architecture, image tags or digests, enabled profiles, and the exact revision before use.
+- **Assumptions:** Review `.env` values, secrets, published ports, networks, volumes, filesystem ownership and existing resource names. A template is not a production-ready deployment by itself.
+- **Evidence:** Rendered Compose configuration, pulled image digests, container health, logs, endpoint checks and persistent data are evidence; successful `up` output alone is not completion.
+- **Failure and completion:** Test missing secrets, port or subnet conflicts, unhealthy dependencies, restart, data restore and rollback. Completion requires intended services only, bounded exposure and a documented down/restore path.
+
+---
 
 ## Quick Start
 

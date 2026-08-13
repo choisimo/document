@@ -1,5 +1,13 @@
 # 제 9장: 주 메모리 (Main Memory) 💾
 
+## 문서 범위와 검증 기준
+
+- **범위**: 연속 할당, 단순 paging과 swapping을 설명하는 교과서형 모델입니다. 실제 x86-64/ARM MMU, Linux page reclaim, NUMA, huge page와 보안 완화의 전체 구현을 대신하지 않습니다.
+- **전제**: 주소·TLB 계산은 문제에 명시된 주소 폭, page/PTE 크기, page-walk 횟수와 cache 미적중 모델을 사용합니다. 의사 코드는 kernel code가 아니며 race, overflow와 오류 처리가 생략될 수 있습니다.
+- **근거 상태와 환경**: page table 형식, canonical virtual-address 폭, TLB와 swap 정책은 CPU·OS·커널 버전별 공식 문서로 확인합니다. ns, MB/s, hit ratio와 임계값은 예제 입력이지 현대 시스템의 기본값이 아닙니다.
+- **실패/재시도**: page fault, allocation 실패, swap I/O 오류와 OOM은 구분해 기록합니다. 재시도는 회수 가능한 page가 생길 조건과 상한을 두고, 무한 reclaim/thrashing은 실패 상태로 전환합니다.
+- **완료 증거**: 계산에는 bit 분할과 단위를, 실험에는 CPU/커널, page size, NUMA·huge-page 설정, workload와 page-fault/TLB/swap trace를 남깁니다. 보호는 허용 접근과 거부 접근을 모두 관측해야 완료입니다.
+
 ## 📖 목차 (Table of Contents)
 
 1. [개요](#개요)
@@ -82,7 +90,7 @@ graph TD
 
 ### 🔐 메모리 보호 (Memory Protection)
 
-메모리 보호는 프로세스가 자신의 주소 공간 내에서만 접근할 수 있도록 보장합니다.
+메모리 보호는 MMU 권한과 OS page-table 관리로 프로세스 접근을 제한합니다. 공유 mapping, kernel 권한, DMA/IOMMU, 하드웨어·커널 결함까지 포함한 완전한 격리를 이 한 메커니즘만으로 보장하지는 않습니다.
 
 ```mermaid
 graph LR
@@ -494,7 +502,7 @@ graph LR
     style F1 fill:#ffebee
 ```
 
-**50% 규칙**: First Fit을 사용할 때, N개의 블록이 할당되면 약 0.5N개의 블록이 단편화로 손실
+**50% 규칙**: 정상상태의 특정 무작위 할당/해제 모델에서 First Fit은 N개의 할당 블록 사이에 약 0.5N개의 hole이 생긴다는 경험적 결과입니다. “블록의 절반이 항상 손실”이라는 보장이 아니며 크기 분포와 allocator 정책에 따라 달라집니다.
 
 #### 내부 단편화 (Internal Fragmentation)
 
@@ -723,8 +731,8 @@ float calculate_effective_access_time(float hit_ratio,
     return eat;
 }
 
-// 예시 계산
-// 히트율 80%, TLB 접근 0ns, 메모리 접근 10ns
+// 산술 확인용 단순 모델: cache/page-walk overlap 없음
+// 히트율 80%, TLB 접근을 0ns로 둔 가상 입력, 메모리 접근 10ns
 float eat_80 = calculate_effective_access_time(0.8, 0, 10);  // 12ns
 
 // 히트율 99%, TLB 접근 0ns, 메모리 접근 10ns  
@@ -802,7 +810,7 @@ graph TD
 **공유 가능한 코드의 조건**:
 - **재진입 가능 (Reentrant)**: 실행 중 수정되지 않음
 - **읽기 전용**: 여러 프로세스가 동시 접근 가능
-- **위치 독립적**: 모든 프로세스에서 동일한 논리 주소
+- **위치 독립적 코드가 유리**: 같은 물리 page를 프로세스마다 서로 다른 가상 주소에 매핑할 수도 있음
 
 ---
 
@@ -873,10 +881,10 @@ int two_level_translation(int logical_address) {
 
 #### 64비트 시스템의 도전
 
-**문제점**:
-- 4KB 페이지 크기 가정
-- 페이지 테이블 항목: 2^52개
-- 외부 페이지 테이블만으로도 2^44 바이트 필요
+**이론적 flat table 문제**:
+- 64비트 가상 주소와 4KiB page를 그대로 가정하면 가상 page 수는 2^52개입니다.
+- PTE가 8바이트라면 완전히 채운 flat table은 2^55바이트가 필요합니다.
+- 실제 CPU는 더 좁은 canonical address 폭과 다단계·희소 page table을 사용하므로 이 이론값을 실제 프로세스 사용량으로 해석하지 않습니다.
 
 **해결책**:
 - 희소 주소 공간 활용
@@ -975,6 +983,8 @@ int inverted_table_lookup(int pid, int virtual_page) {
 
 **스와핑**은 메모리 공간 부족 시 프로세스를 일시적으로 보조 저장소로 이동시키는 기법입니다.
 
+이 절의 전체 프로세스 swap-in/out은 고전적 모델입니다. 현대 범용 OS는 익명 page 회수·압축·swap과 file-backed page drop을 혼합하며, 정책과 단위는 커널·설정에 따라 달라집니다.
+
 ```mermaid
 sequenceDiagram
     participant P as 프로세스
@@ -1063,7 +1073,7 @@ graph TD
 #### 현대 시스템의 스와핑
 
 ```c
-// Linux 스타일 스와핑 제어
+// 설명용 정책 의사 코드이며 Linux reclaim 구현이 아님
 typedef struct {
     int vm_swappiness;      // 스와핑 적극성 (0-100)
     long free_memory;       // 여유 메모리
@@ -1075,7 +1085,7 @@ bool should_start_swapping(memory_state_t state) {
     float memory_usage = (float)(state.total_memory - state.free_memory) 
                         / state.total_memory;
     
-    // 메모리 사용률이 90% 초과 시 스와핑 시작
+    // 예시 정책 임계값: 제품 요구사항과 측정으로 정해야 함
     if (memory_usage > 0.9) {
         return true;
     }
@@ -1123,7 +1133,7 @@ graph TD
 | **주소 공간** | 연속 | 비연속 | 논리적 단위 |
 | **단편화** | 외부 | 내부 | 외부 |
 | **하드웨어 지원** | 간단 | 페이지 테이블 | 세그먼트 테이블 |
-| **메모리 보호** | 제한적 | 우수 | 매우 우수 |
+| **메모리 보호** | 범위 검사 중심 | page별 권한과 OS 정책에 의존 | segment 권한과 구현에 의존 |
 | **공유 지원** | 어려움 | 가능 | 용이 |
 
 ### 💡 설계 고려사항
@@ -1278,7 +1288,7 @@ TLB 히트율    유효 접근 시간    성능 향상
 99%          103.0 ns         48.5%
 ```
 
-**결론**: TLB 히트율이 높을수록 성능이 크게 향상되며, 99% 히트율에서 약 48.5%의 성능 향상을 얻을 수 있습니다.
+**결론**: 이 단순한 2회 메모리 접근 모델과 주어진 2ns/100ns 입력에서는 99% hit ratio가 103ns, 기준 200ns 대비 48.5%로 계산됩니다. 실제 page walk cache, 다단계 table, out-of-order 실행과 측정 기준이 달라지면 이 비율도 달라집니다.
 
 ---
 

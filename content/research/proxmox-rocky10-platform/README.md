@@ -1,5 +1,9 @@
 # Proxmox Rocky 10 자동화 플랫폼 (Terraform + Ansible + Consul KV + Vault + Nginx + MinIO + Headscale)
 
+> 문서 상태: 연구용 자동화 템플릿이며 운영 검증 완료를 의미하지 않습니다. 적용 전 Proxmox/provider/Rocky image와 모든 container image 버전을 고정하고, `terraform plan`과 Ansible `--check --diff`의 한계를 포함해 변경 범위를 검토합니다.
+> 파괴 범위: VM 생성·재생성, 방화벽·SSH 변경, Vault 초기화와 Compose 재배포가 포함됩니다. 별도 실험 project/tenant, console 접근, state 백업, 중단 조건과 rollback 담당자 없이 실행하지 않습니다.
+> 비밀정보: Terraform state, inventory, shell history와 process 환경을 secret 저장소로 간주하지 않습니다. 장기 root token 대신 최소 권한·단기 자격 증명을 사용하고 로그에 값을 남기지 않습니다.
+
 이 문서는 아래 목표를 한 번에 수행하기 위한 코드와 실행 절차를 포함합니다.
 
 - Proxmox VM 8대 자동 생성 (Rocky Linux 10)
@@ -102,7 +106,7 @@ cp terraform.tfvars.example terraform.tfvars
 
 참고: Rocky 10 GenericCloud URL은 2026-02-13 기준 아래 경로가 동작 확인됨.
 
-- `https://dl.rockylinux.org/pub/rocky/10/images/x86_64/Rocky-10-GenericCloud-Base.latest.x86_64.qcow2`
+- Rocky Linux 10 GenericCloud image의 명시적 버전 URL과 배포자가 제공한 checksum을 선택해 작업 기록에 고정합니다. `latest` URL은 재현 가능한 입력으로 사용하지 않습니다.
 
 ## 5. 전체 실행 순서
 
@@ -244,6 +248,8 @@ curl -H "X-Vault-Token: $VAULT_TOKEN" "http://10.10.10.11:8200/v1/secret/data/pr
 
 ## 9. 한 번에 실행
 
+`full_pipeline.sh`는 편의 wrapper이지 안전한 transaction이 아닙니다. 각 단계의 plan·대상 host·secret 입력을 검토하고 중간 실패 시 이미 생성된 VM과 Vault 상태를 확인한 후에만 다음 단계로 진행합니다.
+
 초기 구축 시:
 
 ```bash
@@ -257,4 +263,3 @@ cd research/proxmox-rocky10-platform
 export VAULT_TOKEN='<token>'
 ./scripts/deploy_project.sh sample-app
 ```
-

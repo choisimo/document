@@ -1,10 +1,19 @@
 ### QueryDSL과 JPA 연동: 커스텀 리포지토리 구현 심층 분석
 
 #### 1. **기본 개념 및 용어 정의**
-- **QueryDSL**: 타입 안전한 SQL 쿼리를 생성하는 프레임워크. 컴파일 시점에 오류 검출 가능.
+- **QueryDSL**: 생성된 Q 타입과 Java 표현식의 타입 불일치를 컴파일 시점에 일부 검출할 수 있는 query builder입니다. 실제 SQL 문법·dialect·데이터와 cardinality 오류는 실행 시점에 확인됩니다.
 - **JPA (Java Persistence API)**: 자바 객체와 관계형 데이터베이스 매핑을 위한 표준 인터페이스.
 - **Spring Data JPA**: JPA를 추상화하여 CRUD 작업을 간소화하는 프레임워크.
 - **커스텀 리포지토리**: Spring Data JPA의 기본 메서드로 처리할 수 없는 복잡한 쿼리를 구현하기 위한 확장 패턴.
+
+---
+
+### 적용 범위와 검증 기준
+
+- **범위:** QueryDSL, Jakarta/JPA, Spring Data JPA, Hibernate와 데이터베이스 dialect의 버전을 함께 기록합니다. 예제 import와 생성된 Q 타입은 해당 조합에서만 그대로 적용됩니다.
+- **전제:** transaction 경계, association fetch 전략, nullability, pagination 정렬, 영속성 컨텍스트 상태와 데이터 규모를 명시합니다.
+- **사실과 추론:** 타입 검사와 생성 SQL은 관찰 가능한 사실이고, N+1·index 사용·성능 원인은 SQL log와 실행 계획을 보기 전까지 가설입니다.
+- **실패·완료:** compile, repository 통합 테스트, 경계값·빈 결과·동시 수정, 실제 SQL과 query count를 확인하고 rollback 및 bulk 연산 뒤의 entity 상태가 의도와 일치할 때 완료로 판정합니다.
 
 ---
 

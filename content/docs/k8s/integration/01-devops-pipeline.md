@@ -1,15 +1,22 @@
-# 통합 실습: 전체 DevOps 파이프라인
+# 통합 실습: DevOps 파이프라인의 최소 연결 경로
+
+## 실습 경계와 완료 조건
+
+- 이 예제는 Terraform, Ansible, Kubernetes와 Kafka의 연결 순서를 학습하기 위한 단일 환경 경로입니다. 프로덕션 참조 아키텍처나 완전 자동화가 아닙니다.
+- AWS 비용, IAM 최소 권한, 이미지 registry, DNS/TLS, 비밀, state backend, Kafka 보안·내구성, 애플리케이션 데이터 일관성은 별도 설계가 필요합니다.
+- 각 단계는 이전 단계의 출력값을 명시적으로 받아야 하며, 부분 실패 후 재실행·정리와 Terraform state 소유자를 정합니다.
+- 완료 증거는 인프라 상태, 노드 구성의 idempotency, Kubernetes readiness, Kafka produce/consume, 애플리케이션 결과와 전체 정리 후 잔여 비용 확인입니다.
 
 ## 📖 개요
 
-Terraform, Ansible, Kubernetes, Kafka를 통합하여 완전한 DevOps 파이프라인을 구축하는 실습입니다.
+Terraform, Ansible, Kubernetes, Kafka를 순서대로 연결해 최소 주문 이벤트 경로를 구성하는 실습입니다.
 
 ## 🎯 학습 목표
 
 - 4가지 도구의 연계 방법 이해
 - 이벤트 기반 마이크로서비스 구축
-- 전체 인프라스트럭처 자동화
-- 프로덕션 레벨 아키텍처 설계
+- 예제 인프라 프로비저닝과 구성 흐름 자동화
+- 프로덕션 전환 시 빠진 보안·복구·관측 요구 식별
 
 ## 🏗️ 전체 아키텍처
 
@@ -494,7 +501,7 @@ kubectl apply -f kubernetes/kafka/namespace.yaml
 # ZooKeeper 배포
 kubectl apply -f kubernetes/kafka/zookeeper-statefulset.yaml
 
-# 준비 확인 (3개 모두 Running)
+# 준비 확인 (Running만이 아니라 readiness와 로그 확인)
 kubectl get pods -n kafka -l app=zookeeper
 
 # Kafka 배포

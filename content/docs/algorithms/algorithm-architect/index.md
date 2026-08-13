@@ -4,6 +4,10 @@
 
 > Source bundle: `code/templates/algorithm-architect/github-pages-docs`
 
+## 문서 범위와 읽기 기준
+
+이 index의 범위는 빠른 이동 목록에 명시된 알고리즘 페이지다. “모든 페이지”라는 표현은 이 닫힌 목록에만 적용하며 저장소의 모든 알고리즘 문서를 뜻하지 않는다. diagram은 상태 흐름을 요약하고 핵심 code는 특정 입력 계약의 template이므로, 실제 문제 적용 전 각 페이지의 전제·복잡도·실패 상태를 확인한다. 페이지 완료는 source link, code, diagram, 적용 계약이 서로 같은 algorithm을 설명할 때 판정한다.
+
 ## 빠른 이동
 - [전체 색인](README.md)
 - [Graph](01-graph/01-bfs.md)

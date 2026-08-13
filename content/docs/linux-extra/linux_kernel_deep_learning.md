@@ -1,5 +1,12 @@
 # Linux 커널 심층 학습 자료: 이원 구조에서 네트워킹까지
 
+## 버전·안전·증거 경계
+
+- 커널 내부 구조, 함수 원형, netfilter hook, VFS와 메모리 동작은 release, architecture, config와 compiler에 따라 달라집니다. 예제마다 대상 kernel source commit을 고정합니다.
+- 커널 모듈 예제는 격리 VM과 snapshot에서만 빌드·삽입하고 Secure Boot, symbol versioning, taint, unload 실패와 crash 복구 콘솔을 준비합니다.
+- 그림의 주소·시간·처리량은 교육용 예시입니다. tracepoint, perf/BPF, packet generator와 동일 hardware의 분포 측정 없이 현재 성능으로 사용하지 않습니다.
+- 네트워크 parser는 header 길이, non-linear skb, fragment, checksum과 동시성을 검증해야 합니다. 단순 포인터 예제를 운영 필터로 사용하지 않습니다.
+
 ## 목차
 1. User Space vs Kernel Space: 이원 구조의 이해
 2. 커널 모듈(LKM)의 생애주기
@@ -81,8 +88,8 @@ Linux 커널의 가장 기초적인 보안 메커니즘은 **CPU 보호 링(Prot
 
 **핵심 특징:**
 - **syscall은 순수 레지스터 연산**: 메모리 접근이 없어 x86의 `sysenter`보다 빠름
-- **자동 권한 전환**: CPU가 하드웨어 수준에서 보장하므로, 중간에 특정 메모리 페이지에만 접근 가능한 상태가 될 수 없음
-- **원자적(Atomic) 전환**: 전환 중 인터럽트 불가능, 일관성 보장
+- **통제된 권한 전환**: CPU와 커널 entry 코드가 지정된 entry point와 저장 상태를 사용하며, page 권한과 SMAP/SMEP 같은 보호는 구성에 따라 적용
+- **entry 순서**: 모드 전환을 "인터럽트 불가능한 전체 syscall"로 보지 않으며 interrupt/preemption 가능 시점은 architecture와 커널 entry 코드로 확인
 
 ### 1.4 Context Switching의 하드웨어 비용
 
@@ -129,7 +136,7 @@ load_cr3(pgd_phys);
 ```
 
 **페이지 테이블 전환의 비용:**
-- CR3 로드 직후 **TLB 전체 플러시** (ASID 없는 경우): 수 μs 소비
+- CR3 변경의 TLB 영향은 PCID/ASID, global mapping과 architecture에 따라 전체 또는 선택적 무효화가 될 수 있으며 고정 마이크로초 비용이 아님
 - 새 프로세스의 첫 메모리 접근 시 **TLB 미스**: 수십 ns → 수백 ns로 증가
 - **L1/L2/L3 캐시 오염**: 이전 프로세스의 캐시 데이터가 쓸모없어짐
 
@@ -154,7 +161,7 @@ struct thread_info {
 
 **컨텍스트 스위칭의 실제 비용 측정:**
 
-Linux의 최신 시스템(Skylake 이상, 마이크로초 단위):
+특정 x86 세대의 예시 측정 항목:
 - **최소 비용**: ~2-3 μs (메모리 캐시에 있을 때)
 - **전형적인 경우**: ~5-10 μs
 - **최악의 경우**: ~20-50 μs (캐시 미스, TLB 재구성)
@@ -385,7 +392,7 @@ void *buf = kmalloc(1024 * 1024, GFP_KERNEL);
 
 - **CPU Ring 레벨**: 하드웨어 수준의 권한 분리, 소프트웨어로 우회 불가
 - **Virtual Memory**: 각 프로세스의 가상 주소 공간은 독립적, MMU가 권한 검증
-- **System Call**: 유일한 안전한 커널 진입점, syscall 명령어는 원자적 모드 전환 보장
+- **System Call**: 사용자 요청을 커널 서비스로 전달하는 주요 동기 진입 경로. exception·interrupt 등 다른 진입 경로와 entry 이후 실행 가능성을 구분
 - **Context Switching**: 매우 비싼 연산 (μs 단위), TLB/캐시 재구성 비용 포함
 - **Docker Container**: Namespace로 UI 격리, 하지만 커널 공유 → 가벼움
 
@@ -1906,7 +1913,7 @@ Zero-Copy 방식:
   - memcpy(20 bytes) → ~200 사이클
   - 합계: ~201 사이클
 
-성능 향상: 약 75배!
+관찰된 향상 배수는 packet 크기, NIC, offload, rule, CPU와 비교 구현에 따라 달라지므로 동일 조건의 측정 결과로만 제시합니다.
 ```
 
 ### 4.4 Netfilter Hook 모듈: IP 기반 필터링
@@ -2090,7 +2097,7 @@ Kernel-Space 필터링 비용:
 User-Space 프록시:
   - 동일 패킷 처리: ~10,000-100,000 ns
 
-성능 향상: 약 40-400배!
+위 나노초 값과 40-400배는 근거 없는 고정 예시로 사용하지 않습니다. 같은 packet corpus에서 drop 정확도, p50/p99 처리 시간, CPU, packet loss와 verifier/safety 비용을 함께 측정합니다.
 ```
 
 ### 4.6 Context Switch 최소화의 이점
@@ -2307,4 +2314,3 @@ A: 측정 기반:
 4. **보안 취약점을**  사전에 예방하게 합니다
 
 꾸준한 학습과 실험을 통해, 당신도 **리눅스 시스템의 마스터**가 될 수 있습니다. 화이팅!
-

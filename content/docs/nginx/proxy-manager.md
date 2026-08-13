@@ -2,9 +2,18 @@
 
 Nginx Proxy Manager를 사용한 리버스 프록시 설정 가이드입니다.
 
+## 적용 범위와 보안 검증 기준
+
+- **범위:** Nginx Proxy Manager image version/digest, database, Docker/Compose, proxy network, domain/DNS, certificate authority와 외부 노출 port를 기록합니다.
+- **보안 전제:** initial credential은 즉시 교체하고 UI 접근을 trusted network·SSO·firewall로 제한합니다. forwarded header 신뢰, admin 권한, secret 저장과 update policy를 명시합니다.
+- **사실과 추론:** container health, UI login과 certificate 표시만으로 proxy 경로 전체의 보안을 보장하지 않습니다. DNS·challenge·rate limit, upstream TLS, WebSocket와 header를 실제 요청으로 검증합니다.
+- **실패·완료:** certificate 발급·갱신 실패, database 손상, 잘못된 public host, redirect loop, upstream outage와 restore를 시험합니다. 독립 backup restore, 최소 권한, expected route·TLS와 rollback이 확인될 때 완료입니다.
+
+---
+
 ## 개요
 
-Nginx Proxy Manager는 웹 기반 UI를 통해 Nginx 리버스 프록시를 쉽게 관리할 수 있는 도구입니다. Let's Encrypt SSL 인증서 자동 발급을 지원합니다.
+Nginx Proxy Manager는 web UI로 Nginx reverse proxy 구성을 관리하는 도구입니다. Let's Encrypt certificate 발급·갱신은 지원하지만 DNS/HTTP challenge, domain reachability, clock, rate limit와 version 조건이 충족되어야 성공합니다.
 
 ```mermaid
 graph LR
@@ -344,7 +353,7 @@ docker compose up -d
 
 ## 보안 권장 사항
 
-!!! danger "필수 보안 조치"
+!!! danger "배포 전 보안 검증 항목"
     - 관리자 포트 (81) 외부 노출 금지
     - 강력한 관리자 비밀번호 설정
     - 정기적인 SSL 인증서 갱신 확인

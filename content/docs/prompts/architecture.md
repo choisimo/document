@@ -1,12 +1,19 @@
 # Architecture Design Prompts
 
-> AI prompts for comprehensive software architecture documentation
+> AI prompts for drafting software architecture documentation that must be checked against code, configuration, and runtime evidence
+
+## Prompt safety and evidence contract
+
+- AI output is a proposal, not evidence that a component, dependency, control, or data flow exists.
+- Supply repository paths, deployment topology, constraints, quality attributes, threat model, and known unknowns. Require the response to label fact, inference, option, and unresolved question.
+- Do not ask for every C4 level by default. Select the smallest views needed by the decision and name the audience and maintenance owner.
+- A draft is complete only after identifiers, boundaries, failure paths and operational claims are traced to source/config/runtime evidence and unsupported claims are removed.
 
 ---
 
 ## Overview
 
-This document provides structured prompts for generating comprehensive software architecture documentation using AI assistants.
+This document provides structured prompts for drafting architecture views with AI assistants. The prompts organize investigation; they do not replace repository exploration or design review.
 
 ---
 

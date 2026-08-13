@@ -1,6 +1,15 @@
 # Vim Guide
 
-> Essential Vim commands and workflows
+> Representative Vim commands and workflows; verify version, mappings, range, and buffer state
+
+---
+
+## Scope and Verification
+
+- **Scope:** Pin Vim rather than Neovim, its version and features, OS, terminal or GUI, mappings, plugins, file encoding, and current buffer state. Commands can be remapped or feature-dependent.
+- **Assumptions:** Distinguish buffers, windows, tabs, files on disk, registers, and undo history. “Close all” or substitute commands may fail, prompt, or affect a wider range when buffers are modified or patterns contain special characters.
+- **Facts and inference:** `:version`, `:verbose map`, messages, buffer list and resulting file diff are evidence; convenience or speed claims depend on the user workflow.
+- **Failure and completion:** Test unsaved buffers, read-only files, encoding, recovery files, mapping conflicts and undo. A workflow is complete when the intended range changed, the diff is correct, and recovery or undo remains available.
 
 ---
 
@@ -66,7 +75,7 @@ stateDiagram-v2
 | Command | Action |
 |---------|--------|
 | `:q` | Close current window |
-| `:qa` | Close all windows |
+| `:qa` | Quit all windows when no modified buffer blocks the operation; otherwise review the error or prompt |
 | `Ctrl+w c` | Close current window |
 | `Ctrl+w o` | Close all except current |
 
@@ -107,7 +116,7 @@ stateDiagram-v2
 | `/pattern` | Search forward |
 | `?pattern` | Search backward |
 | `n` / `N` | Next/previous match |
-| `:%s/old/new/g` | Replace all |
+| `:%s/old/new/g` | Replace all matches in the current buffer under the given pattern, delimiter, flags, and magic rules |
 | `:%s/old/new/gc` | Replace with confirmation |
 
 ## Command + Object Combinations

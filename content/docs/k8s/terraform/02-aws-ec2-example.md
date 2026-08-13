@@ -1,5 +1,12 @@
 # Terraform AWS EC2 실습
 
+## 비용·권한·정리 경계
+
+- 이 실습은 실제 AWS 비용과 quota를 사용합니다. 별도 sandbox 계정, 예산 알림, owner/expiry 태그와 실행 종료 시각을 먼저 정합니다.
+- 장기 access key를 코드·`tfvars`·셸 기록에 저장하지 말고 SSO 또는 단기 role 자격 증명과 최소 권한을 사용합니다.
+- provider와 module 버전, 원격 state 암호화·잠금, AMI와 region을 고정합니다. 예제 기본값이 현재 Free Tier임을 가정하지 않습니다.
+- 완료 기준은 plan 승인, 제한된 source IP의 SSH/HTTP, 인스턴스 초기화 로그, `destroy` 후 EC2·EBS·EIP·VPC와 비용 잔여 확인입니다.
+
 ## 📖 개요
 
 실제 클라우드 리소스를 Terraform으로 프로비저닝하는 실습입니다. AWS EC2 인스턴스, VPC, Security Group을 생성합니다.
@@ -64,7 +71,7 @@ variable "aws_region" {
 variable "instance_type" {
   description = "EC2 인스턴스 타입"
   type        = string
-  default     = "t2.micro"  # 프리티어
+  default     = "t2.micro"  # 예시일 뿐이며 계정·리전의 현재 가격과 지원 여부 확인
 }
 
 variable "instance_name" {
@@ -76,7 +83,7 @@ variable "instance_name" {
 variable "allowed_ssh_ips" {
   description = "SSH 접속 허용 IP (CIDR)"
   type        = list(string)
-  default     = ["0.0.0.0/0"]  # 모든 IP 허용 (테스트용)
+  default     = []  # terraform.tfvars에서 승인된 클라이언트 공인 IP /32만 지정
 }
 
 variable "key_name" {

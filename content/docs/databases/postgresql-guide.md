@@ -1,10 +1,19 @@
-# PostgreSQL 필수 명령어 및 활용 가이드
+# PostgreSQL 주요 명령어 및 활용 가이드
 
 PostgreSQL 사용 시 자주 사용하는 `psql` 메타 커맨드와 SQL 문법을 정리한 가이드입니다. 실무에서 유용한 고급 예제들을 포함하고 있습니다.
 
 ---
 
-## 1. psql 터미널 필수 명령어 (메타 커맨드)
+## 적용 범위와 검증 기준
+
+- **범위:** PostgreSQL 서버와 `psql`의 버전, 접속 데이터베이스, schema, role, locale와 extension을 기록합니다. 메타 명령과 SQL 기능은 버전에 따라 달라질 수 있습니다.
+- **전제:** 예제는 권한과 transaction 상태를 확인한 비프로덕션 환경에서 먼저 실행합니다. DDL·대량 DML 전에는 영향 행, lock, WAL, 복제 지연과 rollback 방법을 정합니다.
+- **사실과 추론:** 명령 결과와 `EXPLAIN (ANALYZE, BUFFERS)` 관측은 근거이고, index 선택이나 병목 설명은 계획과 통계 확인 전까지 추론입니다.
+- **실패·완료:** SQL 오류, lock timeout, 부분 적용, 제약 위반과 복제 지연을 실패 조건으로 두고, 기대 행 수·schema·권한·성능과 복구 절차를 확인해야 작업 완료로 판정합니다.
+
+---
+
+## 1. psql 터미널 주요 명령어 (메타 커맨드)
 
 `psql` 클라이언트 접속 상태에서 사용하는 명령어입니다. (세미콜론 `;` 불필요)
 
@@ -12,7 +21,7 @@ PostgreSQL 사용 시 자주 사용하는 `psql` 메타 커맨드와 SQL 문법�
 | :--- | :--- | :--- |
 | `\l` | 전체 데이터베이스 목록 조회 | List databases |
 | `\c [DB명]` | 특정 데이터베이스로 접속(이동) | Connect to DB |
-| `\dt` | 현재 DB의 테이블 목록 조회 | List tables (가장 많이 사용) |
+| `\dt` | 현재 DB의 테이블 목록 조회 | List tables (대표적인 조회 명령) |
 | `\dt+` | 테이블 목록과 **크기(Size)** 조회 | 상세 정보 포함 |
 | `\d [테이블명]` | 테이블 구조(컬럼, 인덱스) 상세 확인 | Describe table |
 | `\du` | 사용자(Role) 목록 및 권한 조회 | List users |
@@ -129,7 +138,7 @@ DROP TABLE IF EXISTS users CASCADE; -- CASCADE: 연관된 뷰/제약조건도 �
 ## 4. PostgreSQL 고급 기능
 
 ### 트랜잭션 (Transaction)
-데이터의 무결성을 보장하기 위해 여러 쿼리를 하나로 묶습니다.
+transaction은 여러 statement의 원자적 commit·rollback 경계를 제공하지만, 데이터 무결성은 constraint, isolation, application invariant와 오류 처리까지 함께 충족해야 합니다.
 ```sql
 BEGIN;
 

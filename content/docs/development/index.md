@@ -2,6 +2,12 @@
 
 Docker, Git, IDE 설정, 프로그래밍 언어 환경 구성에 관한 가이드입니다.
 
+## 이 페이지의 적용 범위
+
+이 페이지는 개발 문서의 탐색용 색인입니다. 표에 표시된 runtime 버전과 설치 명령은 작성 시점의 예시이므로 프로젝트의 지원 정책, OS, architecture와 공식 release 정보를 확인한 뒤 선택합니다. 연결된 가이드의 성공 조건은 설치 여부뿐 아니라 version 고정, 최소 권한, 재현 가능한 build와 rollback 가능 여부까지 포함합니다.
+
+---
+
 
 <div class="compose-hero" markdown>
 <span class="compose-kicker">Development</span>
@@ -226,7 +232,7 @@ git commit --amend
 
 ---
 
-## :material-microsoft-visual-studio-code: VS Code 필수 확장
+## :material-microsoft-visual-studio-code: VS Code 추천 확장
 
 ### 범용
 
@@ -267,6 +273,8 @@ git commit --amend
 ---
 
 ## :material-language-python: 개발 언어 환경
+
+> 아래 runtime 버전과 설치 명령은 고정된 최신 권장값이 아니라 문서 작성 시점의 예시입니다. 프로젝트 지원 범위와 공식 release를 기준으로 선택합니다.
 
 ### 버전 관리자
 

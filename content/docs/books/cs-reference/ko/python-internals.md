@@ -2,11 +2,19 @@
 
 > 다음에서 합성됨: Beazley *Python Essential Reference*, Ramalho *Fluent Python* 2nd ed, Martelli *Python in a Nutshell*, CPython 소스 내부 및 comp(19/20/32/44/46-47/55/61/64-65/75/77/192/202) Python 참조.
 
+## 문서 범위와 검증 계약
+
+- **범위**: Python 언어 일반이 아니라 주로 CPython의 객체·바이트코드·GC 구현을 설명합니다. PyPy 등 다른 구현에는 그대로 적용되지 않으며 CPython 내부 구조도 릴리스마다 바뀝니다.
+- **전제**: C 구조체와 평가 루프는 설명용 축약이며 특정 헤더와 ABI의 복사본이 아닙니다. 캐시 범위, GC 세대, opcode, 프레임 표현, 할당자 크기와 GIL 동작은 대상 버전을 먼저 고정해야 합니다.
+- **근거 상태**: 언어 의미는 Python Language Reference, CPython 세부는 해당 태그의 소스와 문서로 확인합니다. 시간·메모리·배수 값은 예시일 뿐이며 같은 인터프리터·빌드·하드웨어·입력에서 측정하지 않으면 비교 근거가 아닙니다.
+- **실패/재시도**: 실험이 다르면 예외·출력과 `sys.version`, 구현명, 빌드 옵션을 보존하고 한 조건만 바꿔 재시도합니다. `is`, 원자성, GC 시점 같은 구현 우연에 기대어 성공한 결과를 정답으로 취급하지 않습니다.
+- **완료 증거**: 실습에는 재현 코드, 실행 명령, Python/CPython 버전, 플랫폼, 반복·워밍업 조건과 원시 출력을 남깁니다. 성능 개선은 기준선과 동일 입력의 분포를 비교하고 의미가 유지됨을 확인해야 완료입니다.
+
 ---
 
 ## 1. CPython 개체 모델 - 모든 것이 PyObject입니다.
 
-정수부터 함수, 클래스까지 모든 Python 값은 힙에 할당된 `PyObject`입니다. 이것이 Python 런타임의 기초입니다.
+CPython의 런타임 값은 `PyObject` 계열 표현을 사용합니다. 다만 상수 공유, 불멸 객체, 프리리스트와 컴파일러 최적화가 있으므로 소스의 값 하나마다 새 힙 할당이 발생한다고 해석하면 안 됩니다.
 
 ### PyObject 구조
 
@@ -45,7 +53,7 @@ flowchart TD
 
 ### 작은 정수 캐시
 
-CPython은 **-5에서 256** 값에 대한 정수 객체를 미리 할당합니다. `x = 5`에 대한 모든 참조는 **동일한** PyLongObject를 가리킵니다.
+일반적인 CPython 빌드는 **-5에서 256** 범위의 정수 객체를 미리 준비하지만 이는 변경 가능한 구현 세부입니다. 정수의 의미를 객체 정체성에 의존시키지 말고 값 비교에는 `==`를 사용해야 합니다.
 
 ```python
 a = 256
@@ -53,7 +61,7 @@ b = 256
 a is b   # True — same object
 a = 257
 b = 257
-a is b   # False — separate objects (outside cache range)
+a is b   # implementation/context dependent — never rely on this
 ```
 
 ```mermaid
@@ -70,13 +78,13 @@ flowchart LR
     C["c = 0"] --> INT0
 ```
 
-문자열 인터닝: 짧은 식별자와 유사한 문자열(영숫자, 일반적으로 20자 이하)은 전역 dict `interned`에 인터닝됩니다. `'hello' is 'hello'` → 사실입니다. 임의 문자열: 보장되지 않습니다.
+문자열 리터럴과 식별자형 문자열의 자동 인터닝 여부는 컴파일 단위와 CPython 버전에 따라 달라집니다. `'hello' is 'hello'`가 참인 실행도 언어 보장이 아니며, 명시적으로 정체성을 공유해야 하는 특수 용도에는 `sys.intern()`을 사용합니다. 문자열 값 비교는 항상 `==`로 수행합니다.
 
 ---
 
 ## 2. 참조 카운팅과 가비지 컬렉션
 
-### Py_INCREF / Py_DECREF — 원자적 연산
+### Py_INCREF / Py_DECREF — 참조 카운트 연산
 
 ```c
 #define Py_INCREF(op) ((op)->ob_refcnt++)
@@ -87,7 +95,7 @@ flowchart LR
     } while(0)
 ```
 
-참조 증분을 생성하는 모든 Python 작업은 다음과 같습니다. 감소를 해제하는 모든 작업. `ob_refcnt == 0` → `_Py_Dealloc()`이 호출되면 → 객체의 `tp_dealloc` 슬롯이 호출되고 → 메모리가 `PyMalloc`으로 반환됩니다.
+전통적인 GIL 빌드에서 이 단순화된 증감은 GIL의 보호를 전제로 하며 그 자체가 원자 연산이라는 뜻이 아닙니다. 실제 매크로와 불멸 객체·free-threaded 빌드의 참조 카운팅은 다릅니다. 카운트가 0이 되면 타입별 해제가 시작되지만 메모리가 즉시 OS나 항상 PyMalloc로 반환된다고도 보장할 수 없습니다.
 
 ### 순환 가비지 수집기
 
@@ -97,15 +105,15 @@ flowchart LR
 a = []
 b = [a]
 a.append(b)   # a.ob_refcnt = 2, b.ob_refcnt = 2
-del a, del b  # both drop to 1 — NOT 0 — leak!
+del a, b      # external names disappear; the cycle remains until cyclic GC
 ```
 
 ```mermaid
 flowchart TD
     subgraph Generations["GC Generations (gc.collect)"]
-        G0["Generation 0\n~100 objects threshold\nmost recently created\ncollected frequently (~700µs)"]
-        G1["Generation 1\nsurvived 1 gen-0 collection\ncollected less often"]
-        G2["Generation 2\nlong-lived objects\ncollected rarely (~500ms)"]
+        G0["Generation 0\nrecent tracked objects\ncollection policy is version-specific"]
+        G1["Generation 1\nhistorical three-generation model"]
+        G2["Old generation\nlong-lived tracked objects"]
     end
 
     G0 -->|"survived"| G1
@@ -118,7 +126,7 @@ flowchart TD
     end
 ```
 
-**GIL 상호작용**: 순환 GC는 GIL이 유지된 상태에서 실행됩니다(월드 스톱). CPython의 대규모 2세대 컬렉션은 10~50ms 동안 일시 중지될 수 있으며 지연 시간에 민감한 앱에서 볼 수 있습니다. 완화 방법: `gc.disable()` + 수동 `gc.collect()` 예약 또는 참조 순환 방지.
+**GC 상호작용**: 추적 객체를 검사하는 동안 애플리케이션 실행이 지연될 수 있지만 시간은 객체 그래프·버전·빌드에 따라 달라집니다. 아래의 3세대 설명과 `(700, 10, 10)` 임계값은 역사적 CPython 버전의 모델이며 최신 릴리스는 세대와 임계값 의미가 다를 수 있습니다. `gc.disable()`은 순환 객체를 누적시킬 수 있으므로 먼저 `gc.get_stats()`, 지연 분포와 순환 원인을 측정하고, 명시적 수집은 메모리 상한과 실패 조건을 둔 뒤 적용합니다.
 
 ---
 
@@ -164,6 +172,8 @@ typedef struct _frame {
 ```
 
 ### 바이트코드 — 디스어셈블리 예시
+
+다음 출력과 `BINARY_ADD` 기반 의사 코드는 구형 CPython 바이트코드의 대표 예입니다. 최신 CPython은 `BINARY_OP`, 적응형 특수화와 다른 프레임 내부 표현을 사용할 수 있으므로 실제 결과는 대상 버전의 `dis.dis()`로 확인합니다.
 
 ```python
 def add(a, b):
@@ -247,9 +257,9 @@ sequenceDiagram
     T1->>GIL: reacquire → continue
 ```
 
-**GIL 프리 작업**: I/O(읽기/쓰기/소켓), numpy C 확장, ctypes 호출 — 모두 C 코드에서 GIL을 릴리스합니다. CPU 바인딩된 C 확장(hashlib, zlib 등)도 GIL을 릴리스합니다. 순수 Python 바이트코드 실행만이 GIL을 지속적으로 보유합니다.
+**GIL을 놓을 수 있는 작업**: 표준 라이브러리와 C 확장 중 일부는 블로킹 I/O나 긴 계산 구간에서 GIL을 명시적으로 해제합니다. 모든 I/O·NumPy·ctypes·해시 호출이 항상 해제하는 것은 아니며 입력 크기와 구현에 따라 달라집니다. 확장 코드가 Python 객체를 다루는 구간에는 적절한 런타임 동기화가 필요합니다.
 
-**진정한 병렬성**: `multiprocessing` 모듈 — 별도의 프로세스, 별도의 GIL, 파이프/공유 메모리를 통해 통신합니다. PEP 703(CPython 3.13 실험적): 객체별 세분화된 잠금 및 편향된 참조 카운팅을 사용하는 GIL 없는 빌드입니다.
+CPU 병렬성이 필요하면 프로세스, GIL을 해제하는 네이티브 코드 또는 지원되는 free-threaded CPython 빌드를 검토합니다. PEP 703 계열 free-threaded 빌드의 지원 수준, 확장 모듈 호환성과 성능 특성은 대상 릴리스에서 확인해야 합니다.
 
 ---
 
@@ -260,7 +270,7 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     subgraph "PyMalloc"
-        ARENAS["Arenas: 256KB each\nallocated with mmap/VirtualAlloc\naligned to 256KB boundary"]
+        ARENAS["Arenas: size depends on build/platform\nallocated from the platform allocator"]
         POOLS["Pools: 4KB each within arena\neach pool holds one size class\n(8, 16, 24, ... 512 bytes)"]
         BLOCKS["Blocks: fixed-size within pool\nfreeblock linked list"]
     end
@@ -271,7 +281,7 @@ flowchart TD
 ```
 
 ```
-Arena (256KB):
+Arena (illustrative layout; size is version/platform dependent):
 +--[pool 0: 4KB]--+--[pool 1: 4KB]--+-- ... --+--[pool 63: 4KB]--+
 
 Pool for 32-byte size class:
@@ -309,7 +319,7 @@ class Property:
     def __set__(self, obj, val): raise AttributeError  # data descriptor (blocks instance __dict__)
 ```
 
-**함수 → 바인딩된 메서드**: `function.__get__(instance, cls)`은 `(self, func)`을 래핑하는 `PyMethodObject`을 반환합니다. 모든 `obj.method` 호출은 동적으로 메소드 객체를 생성합니다(`functools.cached_property`에 의해 캐시되지 않는 한).
+**함수 → 바인딩된 메서드**: 일반 속성 접근에서 `function.__get__(instance, cls)`는 함수와 인스턴스를 묶은 메서드 객체를 만들 수 있습니다. 그러나 CPython의 호출 특수화(`LOAD_METHOD`/vectorcall 등)는 즉시 호출되는 `obj.method()`에서 별도 바운드 메서드 할당을 피할 수 있습니다.
 
 ---
 
@@ -419,7 +429,7 @@ slot 2: {hash=0x..., key="region", value="US"}
 `d["age"]` 조회:
 1. `h = hash("age")` → 예: `0x7f3a...`
 2. `i = h % len(indices)` → 인덱스 배열의 인덱스
-3. `slot = indices[i]` → 1(충돌 시 또는 충돌 시 LINEAR_PROBE)
+3. `slot = indices[i]` → 후보 엔트리(충돌 시 perturb 기반 탐사)
 4. `entries[1].hash == h` 및 `entries[1].key == "age"` → `entries[1].value` 반환
 
 ```mermaid
@@ -431,7 +441,7 @@ flowchart LR
     E["Collision: indices[3] already occupied"] --> F["linear probe: i = (i*5+1+H>>5) % 8\ntry next slot until empty or match"]
 ```
 
-**딕셔너리 크기 조정**: `size / capacity > 2/3`일 때 `capacity * 2`로 크기를 조정합니다. 전체 인덱스 배열이 재구축되었습니다. 모든 항목이 다시 해시되었습니다. Dict는 삽입 순서를 유지하는 조밀한 항목 배열을 통해 삽입 순서(Python 3.7부터 보장됨)를 유지합니다.
+**딕셔너리 크기 조정**: 사용 슬롯과 더미 슬롯이 구현의 임계값에 도달하면 새 테이블 크기를 선택하고 인덱스 구조를 재구축합니다. 성장 배수와 조건은 버전별 세부이며, 저장된 해시를 재사용할 수 있으므로 키의 `__hash__`를 모두 다시 호출한다는 뜻도 아닙니다. 삽입 순서는 Python 3.7부터 언어 수준에서 보장되지만 내부 레이아웃은 계약이 아닙니다.
 
 ---
 
@@ -443,8 +453,8 @@ flowchart TD
     B -->|"Yes (cached)"| C["Return cached module object\nO(1) dict lookup"]
     B -->|"No"| D["sys.meta_path finders\n[BuiltinImporter, FrozenImporter, PathFinder]"]
     D --> E["PathFinder searches sys.path\n['/usr/lib/python3.11', 'site-packages', ...]"]
-    E --> F["numpy/__init__.py found\nSourceFileLoader.load_module()"]
-    F --> G["Compile: py_compile → .pyc\n(.pyc = magic + mtime + marshal(code_obj))"]
+    E --> F["numpy/__init__.py found\nloader creates module spec/module"]
+    F --> G["load code or compatible .pyc\n(timestamp- or hash-based validation)"]
     G --> H["exec(code_obj, module.__dict__)\nTop-level numpy code executed\nAll numpy.* names added to module dict"]
     H --> I["sys.modules['numpy'] = module\nReturn module to caller"]
 ```
@@ -473,7 +483,7 @@ flowchart LR
 | `.get()` 없이 루프에 `dict[key]` | KeyError 예외 경로 | `dict.get(key, default)` |
 | 전역 변수 액세스 | `LOAD_GLOBAL` → 사전 조회 | 로컬에 바인딩: `g = global_var` |
 | `append` 대 `extend` | 반복되는 단일 항목 삽입 | `extend`를 사용한 일괄 처리 |
-| 순수 Python 루프 | ~100바이트코드/μs | numpy 벡터화 |
+| 순수 Python 루프 | 인터프리터·연산별 비용 | 의미가 맞을 때 NumPy 벡터화 후 측정 |
 
 ### NumPy — CPython 속도 저하를 우회하는 방법
 
@@ -481,16 +491,18 @@ flowchart LR
 flowchart TD
     A["np.sum(arr) where arr is ndarray of 1M floats"] 
     A --> B["Python call: np.sum → C function"]
-    B --> C["GIL released\nC loop: sum += arr[i] for i in 0..999999\nAVX-256 SIMD: 8 doubles per instruction\n~10M flops/cycle on modern CPU"]
+    B --> C["implementation may release GIL\noptimized native loop\nSIMD when dtype/build/CPU permit"]
     C --> D["GIL reacquired\nReturn Python float"]
     
     E["Pure Python: sum([...]) with 1M floats"] 
-    E --> F["1M × BINARY_ADD opcodes\n1M × ob_refcnt++/--\n1M × PyFloat heap objects\n~50-100x slower than numpy"]
+    E --> F["interpreter loop and object dispatch overhead\nrelative speed depends on data, version and build"]
 ```
 
 ---
 
-## Python 런타임 번호 참조
+## Python 런타임 측정 예시
+
+다음 값은 고정 참조값이 아니라 특정 환경에서 나올 수 있는 자릿수 예시입니다. 성능 판단에는 `pyperf` 같은 도구로 워밍업·반복·분포를 기록하고, 인터프리터 버전과 CPU를 함께 보고해야 합니다.
 
 | 운영 | 시간 | 메모 |
 |-----------|------|-------|
@@ -551,7 +563,7 @@ flowchart TD
 CPython은 두 가지 GC 메커니즘을 결합한다. 이는 각 방식의 한계를 상호 보완하는 설계 결정이다.
 
 - **참조 카운팅**: 대부분의 객체를 즉시 해제한다. 예측 가능한 메모리 해제 시점, 간단한 구현이지만 순환 참조(A->B->A)를 감지할 수 없다.
-- **세대별 순환 GC**: 순환 참조를 감지하고 해제한다. 3세대(gen-0, gen-1, gen-2)로 나누어 신생 객체를 더 자주 검사한다.
+- **세대별 순환 GC**: 순환 참조를 감지하고 해제한다. 세대 수와 승격·스캔 정책은 CPython 버전에 따라 다르므로 `gc.get_threshold()`와 해당 버전 문서를 기준으로 해석한다.
 
 ```mermaid
 flowchart TD
@@ -586,7 +598,7 @@ Python의 동적 타이핑은 언어의 핵심 철학이지만, PEP 484 타입 �
 flowchart TD
     A["프로젝트 특성"] --> B{"팀 규모?"}
     B -->|"솔로 / 소규모"| C{"코드 수명?"}
-    B -->|"대규모 10인+"| D["타입 힌트 필수\nmypy strict 모드\nCI에서 타입 검사 강제"]
+    B -->|"대규모 또는 변경 잦음"| D["핵심 경계부터 타입 검사 후보\n엄격도는 오류 예산으로 결정"]
     
     C -->|"프로토타입 / 스크립트"| E["동적 타이핑만\n빠른 반복 우선"]
     C -->|"장기 유지보수"| F["핵심 API는 타입 힌트\n내부 로직은 선택적"]
@@ -673,7 +685,7 @@ flowchart TD
 Python의 내부 동작 방식에는 다양한 디자인 패턴이 녹아 있다. 이를 이해하면 Python의 동작 원리를 더 깊이 파악할 수 있다.
 
 - **전략 패턴(Strategy)**: 임포트 시스템의 finder/loader 체인. `sys.meta_path`에 등록된 여러 찾기(finder) 전략을 순차적으로 시도하여 모듈을 찾는다.
-- **싱글턴 패턴(Singleton)**: `None`, `True`, `False`는 CPython에서 단일 인스턴스로 관리된다. 작은 정수(-5~256)도 미리 캐싱된 싱글턴이다.
+- **싱글턴/공유 객체**: `None`, `True`, `False`의 정체성은 언어 사용에서 특별히 다뤄집니다. 작은 정수 캐시는 CPython 최적화이지 응용 코드가 의존할 싱글턴 계약이 아닙니다.
 - **이터레이터 패턴(Iterator)**: Python의 `for` 루프는 `__iter__()` -> `__next__()` 프로토콜을 따른다. 모든 이터러블이 동일한 인터페이스를 공유한다.
 - **디스크립터 패턴(Descriptor)**: `property`, `classmethod`, `staticmethod`는 모두 디스크립터 프로토콜(`__get__`, `__set__`, `__delete__`)로 구현된다. Python OOP의 핵심 메커니즘이다.
 - **체인 오브 리스폰시빌리티(Chain of Responsibility)**: 예외 처리의 `try/except` 체인. 콜 스택을 따라 올라가며 처리자를 찾는다.
@@ -755,7 +767,7 @@ CPython에서 GIL은 바이트코드 명령어 단위(기본 5ms 간격, `sys.ge
 
 <details><summary>힌트 보기</summary>
 
-점진적 도입 전략: (1) `mypy --strict` 대신 `--disallow-untyped-defs`만 새 코드에 적용, (2) 핵심 도메인 모듈부터 타이핑 시작, (3) `py.typed` 마커 파일로 패키지별 도입 범위 명시. 비용 측면에서는 `**kwargs`를 많이 쓰는 코드는 `TypedDict`나 `Protocol`로 변환해야 하고, 덕타이핑은 `Protocol` 클래스로 명시해야 한다. `MonkeyType`나 `pytype` 같은 자동 타입 추론 도구로 초기 마이그레이션 비용을 줄일 수 있다. 장기적으로는 런타임 TypeError가 50% 이상 감소하는 효과가 보고된다.
+점진적 도입 전략의 한 예는 (1) 새 코드와 공개 API의 검사 범위를 먼저 정하고, (2) 결함·변경 빈도가 높은 모듈부터 타입을 추가하며, (3) 배포 패키지가 타입 정보를 제공할 때 `py.typed`를 정확히 선언하는 것입니다. `TypedDict`, `Protocol`과 추론 도구는 후보이지 모든 동적 패턴의 필수 변환은 아닙니다. 효과는 “TypeError 50% 감소”처럼 근거 없는 보편값으로 두지 말고 도입 전후의 타입 관련 결함, 검사 시간과 무시 주석 수로 판단합니다.
 
 </details>
 
@@ -806,7 +818,7 @@ Python 3.4 이전에는 `__del__`이 정의된 순환 참조 그룹은 **수집 
 
 <details><summary>힌트 보기</summary>
 
-Python의 `import`는 모듈 코드를 실행(전역 스코프 코드 실행)하고 `sys.modules`에 캐싱한다. 처음 임포트 시에만 실행되고, 이후는 캐시에서 바로 반환된다. 함수 내부에 `import heavy_module`이 있으면 첫 호출에 모듈 초기화 비용이 발생한다. `.pyc` 파일이 없으면 컴파일 비용도 추가된다. 해결책: (1) 모듈 톱레벨에서 임포트하여 애플리케이션 시작 시 초기화, (2) PEP 690(지연 임포트, Python 3.12+ 실험적)을 활용, (3) `importlib.import_module()`로 제어된 시점에 로드.
+일반적인 `import`는 모듈 객체를 `sys.modules`에 등록하고 초기화 코드를 실행하며, 성공한 뒤 같은 이름을 다시 가져오면 보통 캐시를 사용합니다. 첫 호출 지연은 컴파일뿐 아니라 디스크 I/O, 의존 모듈과 최상위 초기화에서 생길 수 있으므로 import-time 프로파일로 분리합니다. PEP 690은 표준 Python 기능으로 채택된 지연 임포트가 아니므로 전제하지 않습니다. 시작 시 선로딩, 함수 내부 import 또는 `importlib` 제어 중 하나를 선택해 시작 시간·첫 요청 지연·실패 노출 시점을 함께 측정합니다.
 
 </details>
 
@@ -824,7 +836,7 @@ Python의 `import`는 모듈 코드를 실행(전역 스코프 코드 실행)하
 
 <details><summary>힌트 보기</summary>
 
-(A) 재귀: O(2^n) 시간, O(n) 스택. (B) `lru_cache` 재귀: O(n) 시간, O(n) 캐시 메모리 + O(n) 스택. `maxsize`가 n보다 작으면 캐시 축출(eviction)이 발생하여 O(2^n)으로 퇴행한다. (C) 제너레이터: O(n) 시간, O(1) 메모리(현재값과 이전값만 유지), 단 특정 인덱스 접근에는 O(n) 순회 필요. (D) 반복문: O(n) 시간, O(1) 메모리, 가장 효율적. `lru_cache`는 내부적으로 이중 연결 리스트 + 딕셔너리로 LRU를 구현하며, `cache_info()`로 hit/miss 비율을 모니터링할 수 있다.
+(A) 단순 재귀는 지수 시간과 O(n) 호출 스택을 사용합니다. (B) 충분한 캐시가 있는 재귀는 O(n) 시간·캐시와 O(n) 스택이지만, 작은 `maxsize`의 영향은 접근 순서에 따라 달라져 자동으로 정확히 O(2^n)이 되는 것은 아닙니다. `cache_info()`의 hit/miss와 실행 횟수로 확인합니다. (C) 두 상태만 유지하는 제너레이터와 (D) 반복문은 자체 상태가 O(1)이지만 소비자가 결과를 저장하면 전체 메모리는 달라집니다.
 
 </details>
 
@@ -832,6 +844,6 @@ Python의 `import`는 모듈 코드를 실행(전역 스코프 코드 실행)하
 
 <details><summary>힌트 보기</summary>
 
-`gather(*coros, return_exceptions=False)`: 모든 코루틴이 완료될 때까지 대기하며, 하나가 예외를 발생시키면 나머지는 자동 취소되지 않고 계속 실행된다(`return_exceptions=True`로 예외를 결과로 받을 수 있음). `as_completed()`: 완료 순서대로 처리할 수 있어 빠른 응답을 먼저 활용 가능하지만, 예외 처리는 개별적으로 해야 한다. `TaskGroup`(Python 3.11+): 구조화된 동시성을 제공하며, 하나가 예외를 발생시키면 **모든 태스크를 취소**한 후 `ExceptionGroup`을 발생시킨다. 이는 자원 누수를 방지하는 가장 안전한 접근이다.
+`gather(*coros, return_exceptions=False)`는 첫 예외를 호출자에게 전파하지만 기본적으로 다른 awaitable을 자동 취소하지 않습니다. `return_exceptions=True`이면 결과로 모읍니다. `as_completed()`는 완료 순서 처리와 개별 예외 정책에 적합합니다. `TaskGroup`은 한 태스크의 비취소 예외가 발생하면 아직 끝나지 않은 형제 태스크를 취소하고 종료를 기다린 뒤 `ExceptionGroup`을 올립니다. 어느 방식이 “가장 안전”한지는 부분 성공, 타임아웃, 재시도와 정리 계약에 따라 결정합니다.
 
 </details>

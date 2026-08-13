@@ -3,6 +3,12 @@
 
 보안/암호화 관련 Docker Compose 스택 모음입니다.
 
+## 보안 스택 점검 기준
+
+- 초기 관리자 자격 증명, 암호화 키와 복구 코드는 생성·배포·회전·폐기 소유자를 정한 뒤 주입합니다.
+- `up -d` 성공을 보안 완료로 간주하지 않습니다. TLS 체인, 접근 정책, 감사 로그, 백업 암호화와 복구 권한을 시험합니다.
+- 잠금 또는 키 유실 시 복구 절차와 break-glass 접근을 별도 보관하고 정기적으로 검증합니다.
+
 <div class="compose-hero" markdown>
 <span class="compose-kicker">Quick Start</span>
 

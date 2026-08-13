@@ -1,13 +1,19 @@
 # 비트 마스킹 (Bit Masking)
 
+## 적용 계약
+
+- 대상은 Python 3.x의 **0 이상 정수** 비트마스크입니다. Python 정수는 임의 정밀도이므로 32~64개 제한은 언어 제한이 아니라 메모리·시간 및 외부 저장 형식의 제약입니다.
+- 비트 인덱스 `i`는 0 이상이어야 합니다. 음수 마스크는 Python의 부호 확장 때문에 아래 비트 개수 루프의 계약 밖입니다.
+- 부분 집합을 실제 리스트로 만들면 시간과 출력 공간 모두 원소 복사를 포함합니다. 복잡도 표기는 단위 연산 가정의 분석값이며 실행 시간 보장이 아닙니다.
+
 ## 개요
 
 | 항목 | 설명 |
 |------|------|
 | **Use Case** | 집합 상태 관리, 부분 집합 |
 | **Components** | Bitmask (정수), Bit Operations |
-| **Constraint** | 최대 32~64개 원소 |
-| **시간 복잡도** | O(2^N) (부분 집합 생성) |
+| **Constraint** | 비트 인덱스와 마스크는 0 이상, 열거는 작은 `N`에만 적용 |
+| **시간 복잡도** | 모든 부분 집합 materialization: `O(N·2^N)` |
 
 ---
 
@@ -72,24 +78,26 @@ def generate_subsets(arr):
 
 ---
 
-## 예제: 최소 XOR 값 (DP with Bitmask)
+## 예제: 비어 있지 않은 부분 집합의 최소 XOR 값
 
 ```python
-# [예제: 최소 XOR 값 (DP with Bitmask)]
-def min_xor_subset(arr):
-    n = len(arr)
-    dp = {0}  # 가능한 XOR 값들
-    
+# 빈 부분 집합은 제외한다. arr 원소는 0 이상 정수라고 가정한다.
+def min_nonempty_subset_xor(arr):
+    reachable = set()
+
     for num in arr:
-        new_dp = set()
-        for xor_val in dp:
-            new_dp.add(xor_val ^ num)
-        dp.update(new_dp)
-    
-    return min(dp)
+        next_values = {num}
+        next_values.update(xor_value ^ num for xor_value in reachable)
+        reachable.update(next_values)
+
+    return min(reachable) if reachable else None
 ```
 
 ---
+
+## 완료 및 실패 증거
+
+빈 입력, 중복 원소, 0 포함, 단일 원소를 확인하고 작은 입력은 `itertools.combinations`로 만든 전수 결과와 대조합니다. `None`은 비어 있지 않은 부분 집합이 없다는 뜻입니다. 큰 `N`에서는 `2^N` 출력 자체가 실패 원인이므로 시간·메모리 한도를 먼저 정합니다.
 
 ## 구조 요약
 

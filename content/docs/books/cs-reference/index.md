@@ -5,6 +5,8 @@
 - 언어 선택: `한국어`, `English`
 - 카테고리 선택: 코어 시스템, 네트워킹, 언어와 런타임 등
 
+필터 동작 계약은 다음과 같습니다. 언어 선택은 각 행의 `data-lang` 요소 중 하나를 표시하고, 카테고리 선택은 행의 `data-category`와 정확히 일치하는 항목만 남깁니다. 스크립트가 비활성화되거나 초기화에 실패하면 링크를 숨기지 않고 한국어·영어 항목을 모두 표시하는 것이 안전한 폴백입니다.
+
 <div class="cs-reference-controls" markdown>
   <label for="cs-ref-language">언어</label>
   <select id="cs-ref-language">
@@ -202,8 +204,8 @@
         <a data-lang="en" href="data-structures-internals/">Data Structures Internals</a>
       </td>
       <td>
-        <span data-lang="ko">RB 트리, 스킵 리스트, 해시맵, 유니온파인드, 피보나치 힙</span>
-        <span data-lang="en">RB tree, skip list, hash map, union-find, Fibonacci heap</span>
+        <span data-lang="ko">RB 트리, 스킵 리스트, 해시맵, 유니온파인드, 세그먼트 트리</span>
+        <span data-lang="en">RB tree, skip list, hash map, union-find, segment tree</span>
       </td>
     </tr>
     <tr data-category="databases-data">
@@ -216,8 +218,8 @@
         <a data-lang="en" href="data-mining-bigdata-internals/">Data Mining & Big Data Internals</a>
       </td>
       <td>
-        <span data-lang="ko">MapReduce, Spark lineage, Flink 워터마크, 컬럼 저장, LSM 컴팩션</span>
-        <span data-lang="en">MapReduce, Spark lineage, Flink watermarking, columnar formats, LSM compaction</span>
+        <span data-lang="ko">MapReduce, Spark lineage, Flink 체크포인트, 컬럼 저장, LSM 컴팩션</span>
+        <span data-lang="en">MapReduce, Spark lineage, Flink checkpoints, columnar formats, LSM compaction</span>
       </td>
     </tr>
     <tr data-category="security">
@@ -258,8 +260,8 @@
         <a data-lang="en" href="devops-linux-internals/">DevOps & Linux Internals</a>
       </td>
       <td>
-        <span data-lang="ko">systemd 활성화, cgroup v2, 네임스페이스, seccomp, audit, netfilter</span>
-        <span data-lang="en">systemd activation, cgroup v2, namespaces, seccomp, audit, netfilter</span>
+        <span data-lang="ko">systemd 활성화, 패키지 관리, Terraform 상태, 프로세스·시그널, eBPF, OCI 런타임</span>
+        <span data-lang="en">systemd activation, package management, Terraform state, processes and signals, eBPF, OCI runtime</span>
       </td>
     </tr>
     <tr data-category="cloud-devops">
@@ -272,8 +274,8 @@
         <a data-lang="en" href="docker-kubernetes-cs/">Docker & Kubernetes CS Internals</a>
       </td>
       <td>
-        <span data-lang="ko">BuildKit, etcd watch, kube-proxy 모드, Helm 수명주기, 어드미션 제어</span>
-        <span data-lang="en">BuildKit, etcd watch, kube-proxy modes, Helm lifecycle, admission control</span>
+        <span data-lang="ko">BuildKit, etcd/Raft, kube-proxy 모드, 스케줄러, 어드미션 제어</span>
+        <span data-lang="en">BuildKit, etcd/Raft, kube-proxy modes, scheduler, admission control</span>
       </td>
     </tr>
     <tr data-category="cloud-devops">
@@ -406,3 +408,5 @@
 </table>
 
 > 참고: 한국어 버전은 한국어 안내 + 원문 병행 구조입니다. 언어 선택은 목록 노출 기준이며, 각 문서 내부에서 원문과 함께 확인할 수 있습니다.
+
+새 행의 등록 완료 기준은 고유 링크 두 개, 유효한 카테고리 값, 한국어·영어 제목과 실제 본문 범위에 맞는 요약, 키보드만으로 가능한 선택, 스크립트 비활성 폴백입니다.

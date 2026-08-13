@@ -2,6 +2,10 @@
 
 # 자바 메모리 관리, 람다, GC 및 OOP 개념 심층 분석
 
+## 버전·구현·측정 경계
+
+메모리 배치, reference 크기, GC 단계와 기본 collector는 Java 버전, JVM 구현, compressed ordinary object pointer 설정에 따라 달라진다. 아래 도식은 개념 모델이며 특정 HotSpot collector의 모든 동작을 보장하지 않는다. 성능 예제의 객체 재사용은 대상 객체가 thread-safe하고 실제 profiling에서 할당 비용이 병목으로 확인된 경우에만 적용한다. Spring scope와 cache는 lifecycle·동시성·key·무효화 계약을 먼저 정의한다. 결론은 GC log, JFR 또는 profiler, benchmark 조건과 결과가 있을 때만 최적화 근거로 사용한다.
+
 ## 1. 객체 생성과 메모리 관리 구조
 
 ### 1.1 힙 인스턴스 참조 저장 위치
@@ -19,7 +23,7 @@ public class MemoryExample {
 }
 ```
 
-- **스택 저장**: 메서드 내 지역 변수(`localVar`)는 스택 프레임에 4/8바이트 참조 값 저장[^1][^9]
+- **스택 저장**: 메서드 내 지역 변수(`localVar`)는 스택 프레임에 참조 값을 저장하며, 크기는 JVM 구현과 compressed ordinary object pointer 설정에 따라 달라질 수 있음[^1][^9]
 - **힙 저장**: 인스턴스 변수(`instanceField`)는 해당 객체의 힙 메모리 구조 내부에 저장[^10]
 
 메모리 구조
@@ -53,7 +57,7 @@ public class ReferenceLeak {
 | 접근 제어 | 클래스 내부에서만 호출 가능 | 함수형 인터페이스 구현 |
 | 상태 접근 | 인스턴스 변수 직접 접근 | final/effective final 변수만 캡처[^14] |
 | 바이트코드 생성 | 일반 메서드로 컴파일 | invokedynamic 사용[^3][^11] |
-| 직렬화 | 기본 지원 | SAM 인터페이스 구현 필요 |
+| 직렬화 | 메서드 자체를 직렬화하지 않음 | 대상 타입이 직렬화 계약을 명시한 경우에만 고려하며 구현 의존성이 큼 |
 
 ### 2.2 코드 예시
 
@@ -68,8 +72,8 @@ public class LambdaVsPrivate {
     public Runnable getLambda() {
         int localCounter = 0;
         return () -&gt; {
-            // counter++;  // 컴파일 에러 (람다 캡처링 규칙 위반)
-            localCounter++;  // 컴파일 에러 (effective final 위반)
+            counter++;  // 인스턴스 필드는 수정 가능
+            // localCounter++;  // 컴파일 에러 (effective final 위반)
             System.out.println("Lambda executed");
         };
     }
@@ -88,16 +92,16 @@ A[Young Generation] --&gt; B[Eden]
 A --&gt; C[Survivor S0]
 A --&gt; D[Survivor S1]
 E[Old Generation]
-F[Permanent/Metaspace]
+F[Metaspace: 클래스 메타데이터]
 
 B -- Minor GC --&gt; C
 C -- 객체 Age 증가 --&gt; D
 D -- 임계치 초과 --&gt; E
-E -- Major GC --&gt; F
+E -- Major/Full GC 대상 --&gt; G[회수 또는 유지]
 ```
 
 - **Minor GC**: Young 영역 (Eden → Survivor)[^9]
-- **Major GC**: Old 영역 (Mark-Sweep-Compact)[^4]
+- **Major/Old GC**: Old 영역 수집 방식과 compact 여부는 선택한 collector에 따라 달라짐[^4]
 - **G1 GC**: 영역 분할과 예측 기반 수집 (Java 9+ 기본)
 
 
@@ -111,9 +115,9 @@ List&lt;Data&gt; processData(List&lt;RawData&gt; inputs) {
         .collect(Collectors.toList());
 }
 
-// 최적화 코드
+// 재사용 후보: DataParser의 thread-safety 확인 필요
 public class DataProcessor {
-    private static final DataParser PARSER = new DataParser();  // 재사용
+    private static final DataParser PARSER = new DataParser();  // thread-safe일 때만 공유
 
     List&lt;Data&gt; optimizedProcess(List&lt;RawData&gt; inputs) {
         return inputs.stream()
@@ -233,7 +237,7 @@ public class UserService {
 
 | 구분 | 주요 내용 | 성능 영향 요소 |
 | :-- | :-- | :-- |
-| 메모리 관리 | 스택-힙 분리 저장, 참조 카운팅 기반 GC | 객체 생명주기 관리 |
+| 메모리 관리 | 스택·힙 등 런타임 영역, 도달 가능성 추적 기반 GC | 객체 생명주기 관리 |
 | 람다 특성 | 캡처 변수의 불변성 유지, 함수형 인터페이스 구현 | 스택 트레이스 복잡도 증가 |
 | GC 전략 | 세대별 분리 수집, Stop-The-World 시간 최소화 | Full GC 발생 빈도 |
 | OOP 설계 | 인터페이스 분리 원칙(ISP), 의존성 역전(DIP) | 클래스 결합도 |

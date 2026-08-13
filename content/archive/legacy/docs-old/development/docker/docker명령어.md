@@ -4,6 +4,10 @@
 
 # Docker 설치 후 사용자 권한 및 컨테이너 자동 재시작 설정
 
+## 권한과 재시작 상태의 판정
+
+`docker` 그룹 구성원은 Docker 소켓을 통해 호스트의 높은 권한을 얻을 수 있으므로 일반 사용자 권한 추가와 동일하게 취급하지 않는다. 사용자·호스트 범위를 먼저 정하고 새 로그인 세션에서 `docker ps`로 확인한다. 새 컨테이너 생성의 `--restart` 정책과 기존 컨테이너의 정책 변경은 별도 작업이며, 재시작 정책은 애플리케이션 정상 상태를 보장하지 않는다. `sudoers`의 `NOPASSWD` 규칙은 허용할 실행 파일과 인수를 최소화하고 `visudo`의 구문 확인을 통과한 경우에만 적용한다.
+
 ## 1. Docker 권한 설정: 사용자에게 Docker 그룹 권한 부여
 Docker 설치 후 기본적으로 **root** 사용자만 실행 권한을 가집니다. Docker를 비관리자 사용자도 실행할 수 있도록 하려면 해당 사용자를 `docker` 그룹에 추가해야 합니다.
 
@@ -34,20 +38,21 @@ Docker 컨테이너가 종료되더라도 서버 재부팅 시 자동으로 컨�
 
 ### 명령어:
 ```bash
-docker run -d --restart always <container_name>
+docker run -d --name <container_name> --restart always <image>
 ```
 
 ### 상세 설명:
 - **`-d`**: 컨테이너를 백그라운드에서 실행합니다.
 - **`--restart always`**: 컨테이너를 항상 재시작하도록 설정합니다.
   - 예: 서버 재부팅 또는 컨테이너 오류 종료 시 자동으로 다시 시작됩니다.
-- `<container_name>`: 실행하려는 컨테이너의 이름입니다.
+- `<container_name>`: 생성할 컨테이너 이름입니다.
+- `<image>`: 실행할 이미지 이름 또는 ID입니다.
 
 ### 예제:
 ```bash
-docker run -d --restart always nginx
+docker run -d --name web --restart always nginx
 ```
-위 명령어는 `nginx` 컨테이너를 백그라운드에서 실행하고, 자동 재시작을 활성화합니다.
+위 명령어는 `nginx` 이미지로 `web` 컨테이너를 생성하고 자동 재시작 정책을 설정합니다. 기존 컨테이너의 정책만 바꾸려면 `docker update --restart always <container_name>`을 사용합니다.
 
 ---
 

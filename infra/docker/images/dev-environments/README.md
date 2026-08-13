@@ -1,8 +1,14 @@
 # Development Environment Images
 
-개발 환경용 Docker 이미지들입니다.
+Development environment image example 목록입니다. 실제 base와 language version은 각 Dockerfile과 lockfile이 authoritative합니다.
 
-## Available Environments
+## Environment Scope and Verification
+
+The listed Ubuntu, language versions and ports describe repository examples, not current universal defaults. Verify each Dockerfile, base digest, target architecture, user, mounted workspace ownership, published port and toolchain lockfiles. Test build, shell, compiler/runtime, file permissions, network exposure, restart and image rollback before treating an environment as ready.
+
+---
+
+## Declared Environment Examples
 
 | Language | Directory | Base | Ports |
 |----------|-----------|------|-------|

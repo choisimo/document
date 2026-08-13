@@ -1,6 +1,15 @@
-리눅스에서 비디오 파일을 여러 개의 작은 파일로 쪼개는 방법
+# FFmpeg로 비디오 파일 분할하기
 
-리눅스에서 비디오 파일을 다루는 가장 강력하고 표준적인 도구는 FFmpeg입니다. FFmpeg를 사용하면 재인코딩을 통해 화질 손실을 감수하고 정밀하게 자르거나, 화질 손실 없이 키프레임 기준으로 매우 빠르게 자르는 등 다양한 방법으로 동영상을 분할할 수 있습니다.
+FFmpeg는 Linux에서 널리 사용하는 multimedia 처리 도구입니다. FFmpeg를 사용하면 재인코딩을 통해 화질 손실을 감수하고 정밀하게 자르거나, 재인코딩에 따른 세대 손실 없이 keyframe 부근에서 stream copy로 자르는 등 다양한 방법으로 동영상을 분할할 수 있습니다.
+
+## 적용 범위와 결과 검증
+
+- **범위:** FFmpeg·ffprobe version과 build options, input container, video/audio/subtitle codec, time base, variable frame rate와 keyframe 간격을 기록합니다. 설치 package와 지원 codec은 배포판별로 다릅니다.
+- **전제:** stream copy는 packet을 재인코딩하지 않지만 cut 위치, timestamp, metadata와 container 호환성은 달라질 수 있습니다. frame 단위 절단은 decode·encode 설정과 audio 경계를 함께 결정합니다.
+- **수치 불확실성:** `-segment_time`, 평균 bitrate와 목표 file 크기는 keyframe, VBR, muxing overhead와 stream 구성 때문에 근사값일 수 있습니다. 예제의 초·MB 값은 공식이 아니라 입력 예시입니다.
+- **실패·완료:** 재생 불가, A/V sync, 누락 stream, 부정확한 duration, timestamp 불연속과 예상 밖 재인코딩을 확인합니다. ffprobe의 stream·duration·timestamp와 실제 재생, 표본 frame 및 file size 허용 오차가 기준을 만족할 때 완료입니다.
+
+---
 1단계: FFmpeg 설치
 
 FFmpeg가 설치되어 있지 않다면, 사용 중인 배포판에 맞는 명령어로 먼저 설치해야 합니다.
@@ -40,7 +49,7 @@ FFmpeg로 파일을 쪼개는 방법은 크게 두 가지이며, 이 차이를 �
 원본 파일(input.mp4)에서 원하는 특정 구간만 잘라내어 새로운 파일(output.mp4)로 저장합니다.
 A. 스트림 복사로 빠르게 자르기 (추천)
 
-가장 많이 사용되는 방법입니다. 화질 저하 없이 특정 구간을 빠르게 잘라냅니다.
+stream copy를 이용하는 대표 방법입니다. media packet을 재인코딩하지 않지만 cut 위치·timestamp·metadata와 container는 달라질 수 있습니다.
 Bash
 
 # 10초 지점부터 30초 분량의 동영상을 잘라냅니다. (총 10초~40초 구간)
@@ -74,7 +83,7 @@ ffmpeg -i input.mp4 -c copy -map 0 -segment_time 120 -f segment -reset_timestamp
     -map 0: 원본 파일의 모든 스트림(비디오, 오디오, 자막 등)을 대상으로 합니다.
     -f segment: 동영상을 여러 조각으로 나누는 '세그먼트' 기능을 사용합니다.
     -segment_time 120: 각 조각의 길이를 초 단위로 지정합니다. (120초 = 2분)
-    -reset_timestamps 1: 각 조각 파일이 0초부터 시작하도록 타임스탬프를 초기화합니다. 이 옵션이 없으면 재생 시 문제가 생길 수 있습니다.
+    -reset_timestamps 1: 각 조각 파일이 0초부터 시작하도록 타임스탬프를 초기화합니다. 필요 여부는 target player와 timestamp 요구에 따라 다르므로 적용 전후를 검사합니다.
     output_%03d.mp4: 출력 파일 이름 형식. %03d는 파일명에 001, 002, 003과 같이 3자리 숫자를 순서대로 붙이라는 의미입니다.
 
 참고: 스트림 복사 방식이므로 -segment_time에 지정한 시간과 정확히 일치하지 않을 수 있습니다. FFmpeg는 지정된 시간에서 가장 가까운 키프레임을 기준으로 파일을 나누기 때문입니다.
@@ -114,7 +123,7 @@ ffmpeg -i input.mp4 -c copy -map 0 -segment_time 280 -f segment -reset_timestamp
 이 방법은 평균 비트레이트를 사용하므로 파일 크기가 정확하게 맞지는 않지만, 근사치로 쪼개는 데 유용합니다.
 요약
 목적	추천 명령어	특징
-특정 구간 1개 자르기	ffmpeg -i input.mp4 -ss [시작] -t [길이] -c copy output.mp4	가장 일반적. 화질 손실 없고 빠름.
+특정 구간 1개 자르기	ffmpeg -i input.mp4 -ss [시작] -t [길이] -c copy output.mp4	가장 일반적. 재인코딩에 따른 세대 손실은 없지만 정확도와 속도는 keyframe·storage·container에 종속.
 일정한 시간 간격으로 모두 쪼개기	ffmpeg -i input.mp4 -c copy -f segment -segment_time [초] ... output_%03d.mp4	긴 동영상을 여러 개로 나눌 때 편리.
 정확한 시간/프레임에 맞춰 자르기	-c copy 옵션 제거	재인코딩으로 느리지만 정확함.
 

@@ -1,5 +1,7 @@
 # Using Raspberry Pi or NanoPi NEO3 as a Quorum Device for Proxmox Clusters
 
+> Scope: an existing healthy two-node Proxmox VE cluster with a supported Corosync QDevice/QNetd combination. Record exact Proxmox VE, Corosync, Debian, architecture, and package versions. A QDevice arbitrates quorum; it does not provide spare compute, storage durability, fencing, or a complete HA design.
+
 ## 1. Title
 Using Raspberry Pi or NanoPi NEO3 as a Quorum Device (QDevice) for Proxmox Cluster
 
@@ -8,7 +10,7 @@ Using Raspberry Pi or NanoPi NEO3 as a Quorum Device (QDevice) for Proxmox Clust
 - NanoPi NEO3 (with its 1Gbps Ethernet port)
 
 ## 3. Summary of Method
-You can connect a Raspberry Pi or NanoPi NEO3 to a Proxmox cluster as a quorum device (QDevice) without installing Proxmox on the device itself. This configuration allows you to achieve High Availability (HA) with only two Proxmox nodes instead of the typically required three nodes. The Pi device runs a minimal Debian-based system with the corosync-qnetd package to act as a quorum server, providing the additional "vote" needed for cluster decisions when a node fails.
+A compatible Debian host running `corosync-qnetd` can provide external arbitration without running Proxmox VE. In a supported two-node topology it can help one surviving node retain quorum in specific failures. Workload availability still depends on watchdog/fencing, storage, partition direction, and remaining capacity.
 
 ## 4. Code
 ### For Raspberry Pi:
@@ -21,9 +23,11 @@ sudo nano /etc/ssh/sshd_config
 sudo systemctl restart ssh
 sudo passwd root
 
-# On each Proxmox node
+# Install the client package on every Proxmox node
 apt install corosync-qdevice
-pvecm qdevice setup  -f
+
+# Run setup once from one cluster node
+pvecm qdevice setup <QNETD_IP>
 ```
 
 ### For NanoPi NEO3:
@@ -36,9 +40,11 @@ sudo nano /etc/ssh/sshd_config
 sudo systemctl restart ssh
 sudo passwd root
 
-# On each Proxmox node
+# Install the client package on every Proxmox node
 apt install corosync-qdevice
-pvecm qdevice setup  -f
+
+# Run setup once from one cluster node
+pvecm qdevice setup <QNETD_IP>
 ```
 
 ## 5. Network Setting Detail
@@ -51,7 +57,7 @@ pvecm qdevice setup  -f
 ## 6. Detailed Explanation
 
 ### Purpose of a Quorum Device
-In Proxmox clusters, an odd number of votes is required to maintain quorum and prevent "split-brain" scenarios where the cluster divides into independent parts. A quorum device provides an additional vote without requiring a full Proxmox node.
+Corosync quorum requires a majority of configured votes. An odd total reduces ties but is not a universal requirement, and a QDevice cannot prevent failures outside its configured fault model.
 
 ### Setup Process
 
@@ -83,7 +89,6 @@ In Proxmox clusters, an odd number of votes is required to maintain quorum and p
 - Low power consumption
 - Simple setup and maintenance
 
-## 7. Possibility
-True. This is a fully supported and documented method for extending Proxmox clusters. The QuorumPi project specifically provides ready-to-deploy images for Raspberry Pi, and the same technique works for NanoPi NEO3 using a standard Debian installation with the required packages.
+## 7. Support boundary and completion evidence
 
-While NanoPi NEO3 isn't specifically mentioned in Proxmox documentation, it meets all the requirements for a quorum device: it runs Debian-based systems, has reliable network connectivity, and supports the required packages. Its powerful quad-core ARM processor (RK3328) and gigabit Ethernet make it even more suitable for this task than some Raspberry Pi models.
+An unlisted SBC or community image is not Proxmox-supported without an exact vendor source for the deployed version. Completion requires `pvecm status` on every node to show intended expected votes, quorum, and QDevice connectivity, plus clean client/QNetd logs. In a maintenance window test QNetd loss, one-node loss with QNetd reachable, and relevant partitions while verifying fencing. If observed behavior differs, remove the QDevice through `pvecm qdevice remove` and restore prior firewall and SSH policy.

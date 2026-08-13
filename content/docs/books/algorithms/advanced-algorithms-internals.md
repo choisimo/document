@@ -1,4 +1,9 @@
 # Advanced Algorithms — Under the Hood
+
+## Assumptions and proof boundaries
+
+Complexity and correctness claims in this synthesis depend on the graph model, edge-weight ties, computation model, randomization, and error probability. In the MST diagram, a light edge is guaranteed to belong to some MST under the cut-property conditions; it belongs to every MST only with an appropriate uniqueness condition. Likewise, a cycle edge is excluded from every MST only when it is uniquely heaviest. Treat “all known algorithms” and register-level descriptions as explanatory synthesis rather than a theorem from the cited course. A section is complete when it states the input model, maintained invariant, tie or probability assumptions, proof step, and time·space bound in the same model.
+
 ## CMU 15-850 (Anupam Gupta, Fall 2020) · Internal Mechanics
 
 > **Not a tutorial.** This document maps how data flows through memory structures, how mathematical invariants propagate, and how algorithmic state evolves at the register/heap level — from MST history through graph matchings, metric embeddings, streaming sketches, and dimension reduction.
@@ -27,7 +32,7 @@ flowchart TD
     CYCLE_RULE -->|"Non-red edges\nacyclic → done"| DONE
 ```
 
-**Key insight**: All known deterministic MST algorithms use *only* the Cut Rule. The Karger-Klein-Tarjan randomized algorithm additionally exploits the Cycle Rule for edge filtering.
+**Key insight**: The algorithms discussed here can be explained through cut-property safe edges and, for Karger-Klein-Tarjan filtering, cycle-property reasoning. This is a scope statement for this document, not a claim about every deterministic MST algorithm.
 
 ### 1.2 Algorithm Complexity Timeline — Why It Matters Internally
 

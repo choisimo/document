@@ -8,6 +8,12 @@
 ## 원본 템플릿
 - Source: [01-graph/02-dfs.md](../../01-graph/02-dfs.md)
 
+## 적용 계약과 근거 경계
+
+- Python 3.x의 인접 리스트 graph와 hashable 노드를 전제로 하며, 누락 key는 outgoing edge가 없는 노드로 처리합니다.
+- 함수는 목표 도달 여부만 반환합니다. 최단 경로나 방문 순서는 보장하지 않습니다.
+- 시간 `O(V+E)`, 방문 집합 `O(V)` 외에 재귀 깊이 `O(V)`가 가능하므로 깊은 그래프는 반복형 stack이나 recursion limit 정책이 필요합니다.
+
 ## 내부 메커니즘 (Flow)
 ```mermaid
 flowchart TD
@@ -46,7 +52,7 @@ sequenceDiagram
 # Constraint: 백트래킹 시 방문 해제 필요한 경우 있음
 
 # [DFS 재귀 버전]
-def dfs_recursive(node, graph, visited=None, target=None):
+def dfs_recursive(node, graph, target, visited=None):
     # 1. 초기화 (Initialization Layer)
     #    - 방문 집합 생성 (최초 호출 시)
     if visited is None:
@@ -57,14 +63,14 @@ def dfs_recursive(node, graph, visited=None, target=None):
     
     # 3. 비즈니스 로직 (Core Logic)
     #    - 목표 발견 시 조기 종료
-    if target and node == target:
+    if node == target:
         return True
     
     # 4. 재귀 확장 (Recursive Expansion)
     #    - 인접 노드로 깊이 우선 탐색
-    for neighbor in graph[node]:
+    for neighbor in graph.get(node, ()):
         if neighbor not in visited:
-            if dfs_recursive(neighbor, graph, visited, target):
+            if dfs_recursive(neighbor, graph, target, visited):
                 return True
     
     return False
@@ -78,7 +84,7 @@ def dfs_recursive(node, graph, visited=None, target=None):
 - **Termination**: 목표 도달, 범위 소진, 큐/스택 고갈, 사이클 검출 등으로 종료한다.
 
 ## 실전 적용 체크리스트
-- 입력 자료구조 형식(인접 리스트, 간선 리스트, 정렬 여부, 1-index/0-index)을 먼저 고정한다.
-- 시간 복잡도 한계에 맞게 자료구조를 교체한다 (`list.pop(0)` -> `deque.popleft` 등).
-- 실패/예외 경로를 명시한다 (도달 불가, 음수 사이클, 빈 결과, 사이클 존재).
-- 테스트는 최소 3개: 정상 케이스, 경계 케이스, 반례 케이스를 포함한다.
+- graph reachability에서는 방문 표시를 되돌리지 않습니다. 조합 백트래킹의 선택 해제와 구분합니다.
+- 시작점과 목표가 같은 경우, cycle, 누락 adjacency, 도달 불가를 시험합니다.
+- 방문 집합 때문에 각 노드가 최대 한 번 확장되는지 확인합니다.
+- 매우 긴 chain은 `RecursionError` 가능성을 확인하고 반복형 구현으로 전환합니다.

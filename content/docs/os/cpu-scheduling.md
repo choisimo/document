@@ -2,6 +2,14 @@
 
 _운영체제의 두뇌 - CPU를 효율적으로 관리하는 핵심 기술_
 
+## 문서 범위와 검증 기준
+
+- **범위**: 단일 CPU의 교과서형 작업 모델에서 시작해 다중처리기·실시간 스케줄링으로 확장하는 학습 자료입니다. 의사 코드와 점수 그래프는 운영체제 구현 코드나 범용 성능 순위가 아닙니다.
+- **전제**: 별도 표기가 없는 계산 예제는 CPU burst가 알려져 있고 I/O, 컨텍스트 스위치 비용, 캐시·NUMA 효과가 없는 모델을 가정합니다. SJF/RM/EDF의 최적성은 각 절에 적은 제한 조건 안에서만 성립합니다.
+- **근거 상태와 환경**: Linux·Windows·Solaris 설명은 커널/제품 버전을 고정해 공식 문서와 trace로 다시 확인해야 합니다. 지연·처리량·비율·별점은 입력과 측정 환경이 없는 한 설명용 가상값이며 SLA가 아닙니다.
+- **실패/재시도**: 시뮬레이션은 잘못된 입력, 빈 ready queue, deadline miss와 과부하를 명시적 상태로 기록합니다. 실패한 태스크를 무한 재실행하지 말고 재시도 한도·취소·격리 정책을 둡니다.
+- **완료 증거**: 비교 결과에는 workload, 도착/burst/deadline, quantum, CPU 수, 선점·오버헤드 모델, OS/커널 버전, 반복 횟수와 원시 trace를 남깁니다. 평균값뿐 아니라 starvation과 deadline miss가 없는지 확인해야 완료입니다.
+
 ## 📋 목차 (Table of Contents)
 
 - [🎯 개요와 핵심 개념](#-개요와-핵심-개념)
@@ -46,7 +54,7 @@ graph TB
 
 ## 🎯 개요와 핵심 개념
 
-> **CPU 스케줄링**은 운영체제의 **핵심 두뇌**로서, 한정된 CPU 자원을 여러 프로세스가 **효율적이고 공정하게** 사용할 수 있도록 관리하는 핵심 기술입니다.
+> **CPU 스케줄링**은 실행 가능한 작업에 CPU 시간을 배분하는 운영체제 메커니즘입니다. 처리량, 지연, 공정성, 에너지와 deadline은 서로 충돌할 수 있으므로 정책 선택만으로 효율이나 공정성이 자동 보장되지는 않습니다.
 
 ### 🌟 CPU 스케줄링이란?
 
@@ -74,7 +82,7 @@ graph TD
 | 영역             | 학습 목표                                    | 실무 적용                 |
 | ---------------- | -------------------------------------------- | ------------------------- |
 | **🔧 기본 원리** | 다중 프로그래밍 환경에서의 CPU 스케줄링 역할 | 시스템 성능 분석          |
-| **📊 알고리즘**  | FCFS, SJF, RR, Priority 등 다양한 알고리즘   | 상황별 최적 알고리즘 선택 |
+| **📊 알고리즘**  | FCFS, SJF, RR, Priority 등 다양한 알고리즘   | 부하와 목표에 맞는 후보 비교 |
 | **⚖️ 성능 평가** | 평균 대기시간, 응답시간, 처리율 측정         | 시스템 튜닝 및 최적화     |
 | **🌐 실제 적용** | 실시간, 다중처리기 환경 이해                 | 고성능 시스템 설계        |
 
@@ -112,8 +120,10 @@ graph LR
 
 ### 💡 왜 CPU 스케줄링이 중요한가?
 
+다음 비율은 경험 데이터가 아니라 영향 영역을 한 그림에 배치하기 위한 **설명용 가중치**입니다.
+
 ```mermaid
-pie title CPU 스케줄링의 영향도
+pie title CPU 스케줄링 영향 영역 (설명용, 실측 비율 아님)
     "시스템 성능" : 35
     "사용자 만족도" : 25
     "자원 효율성" : 20
@@ -123,7 +133,9 @@ pie title CPU 스케줄링의 영향도
 
 #### 📈 성능 향상 효과
 
-**🔥 Before vs After 스케줄링 최적화:**
+**🔥 가상 시나리오의 Before vs After:**
+
+아래 값은 특정 시스템의 예상 개선율이 아닙니다. 같은 workload에서 기준선과 후보 정책을 반복 측정하는 보고 형식을 보여주는 예시입니다.
 
 | 지표              | 최적화 전   | 최적화 후   | 개선율  |
 | ----------------- | ----------- | ----------- | ------- |
@@ -214,13 +226,13 @@ timeline
 
 ### 5.2.2 CPU 버스트 분포 (CPU Burst Distribution)
 
-대부분의 프로세스는 다음과 같은 패턴을 보입니다:
+전통적인 설명에서는 다음 패턴을 자주 사용하지만 실제 분포는 workload와 관측 구간에서 측정해야 합니다.
 
 - **짧은 CPU 버스트가 많음**: I/O 중심 프로세스의 특징
 - **긴 CPU 버스트가 적음**: CPU 중심 프로세스의 특징
 
 ```mermaid
-pie title CPU 버스트 시간 분포 (CPU Burst Time Distribution)
+pie title CPU 버스트 시간 분포 (70/20/10 가상 예시)
     "짧은 버스트 (1-10ms)<br/>Short bursts" : 70
     "중간 버스트 (10-50ms)<br/>Medium bursts" : 20
     "긴 버스트 (50ms+)<br/>Long bursts" : 10
@@ -310,8 +322,8 @@ gantt
 
 **결과 분석:**
 
-- 단일 프로그래밍: CPU 활용률 = 33% (150ms 실행 / 450ms 총 시간)
-- 다중 프로그래밍: CPU 활용률 = 100% (450ms 실행 / 450ms 총 시간)
+- 단일 프로그래밍: 이 예제 입력에서는 CPU 활용률 = 33% (150ms 실행 / 450ms 총 시간)
+- 다중 프로그래밍: 이 예제는 I/O 대기가 완전히 겹친다고 가정해 100%로 계산합니다. 실제로는 idle gap, 스케줄링·I/O 병목 때문에 보장되지 않습니다.
 
 ---
 
@@ -571,14 +583,16 @@ def long_term_scheduler():
 
 ### 📈 메모리 로드 밸런싱 전략
 
+아래 60/25/15 비율은 “이상적”인 보편값이 아니라 혼합 workload를 설명하기 위한 예시입니다. 실제 admission 정책은 CPU·I/O queue, 메모리 압박과 목표 지연으로 조정합니다.
+
 ```mermaid
-pie title 이상적인 프로세스 혼합비
+pie title 설명용 프로세스 혼합비
     "I/O 중심 프로세스 60%" : 60
     "CPU 중심 프로세스 25%" : 25
     "혼합형 프로세스 15%" : 15
 ```
 
-**왜 이런 비율인가?**
+**이 예시가 보여 주려는 점**
 
 - I/O 중심: 빈번한 I/O로 CPU 양보 → 다른 프로세스에게 기회 제공
 - CPU 중심: 긴 계산 작업 처리 → 전체적인 작업 처리량 확보
@@ -595,14 +609,14 @@ pie title 이상적인 프로세스 혼합비
 
 ```mermaid
 graph LR
-    A[스케줄링 요청] --> B{실행 시간}
-    B -->|< 1ms| C[✅ 우수]
-    B -->|1-5ms| D[⚠️ 양호]
-    B -->|> 5ms| E[❌ 부적절]
+    A[스케줄링 요청] --> B{측정 지연이<br/>환경별 budget 안인가?}
+    B -->|충족| C[후보 유지]
+    B -->|경계| D[분포와 과부하 재측정]
+    B -->|초과| E[원인 분해 및 정책 조정]
 
-    C --> F[사용자가 지연 인식 불가]
-    D --> G[약간의 성능 저하]
-    E --> H[시스템 응답성 심각한 저하]
+    C --> F[p50/p95/p99 기록]
+    D --> G[run queue와 switch cost 확인]
+    E --> H[deadline/응답 SLO 영향 확인]
 
     style C fill:#c8e6c9
     style D fill:#fff3e0
@@ -814,12 +828,14 @@ mindmap
 
 ### 📊 실제 시스템에서의 디스패치 지연
 
-| 시스템 유형  | 일반적인 지연 | 목표 지연 | 최적화 방법       |
-| ------------ | ------------- | --------- | ----------------- |
-| **데스크톱** | 10-50μs       | < 10μs    | 캐시 최적화       |
-| **서버**     | 5-20μs        | < 5μs     | 하드웨어 가속     |
-| **실시간**   | 1-10μs        | < 1μs     | 전용 하드웨어     |
-| **임베디드** | 100μs-1ms     | < 100μs   | 단순화된 스케줄러 |
+고정 범위는 CPU·커널·보안 완화·부하에 따라 쉽게 달라집니다. 다음처럼 환경별로 budget과 증거를 채워 비교합니다.
+
+| 시스템 유형 | 목표를 정하는 기준 | 필요한 증거 |
+| ------------ | ------------------ | ----------- |
+| **데스크톱** | 입력·화면 응답 SLO | interactive 부하의 wake-to-run 분포 |
+| **서버** | 요청 latency·throughput SLO | run queue, p95/p99 지연, switch rate |
+| **실시간** | 태스크별 deadline·jitter budget | WCET 가정과 deadline-miss trace |
+| **임베디드** | CPU·전력·안전 요구사항 | 대상 보드에서 측정한 최악 지연 |
 
 ### 5.5.3 컨텍스트 스위치 모니터링 (Context Switch Monitoring)
 
@@ -1094,7 +1110,7 @@ graph TD
 **특성:**
 
 - 선점형(SRTF) 또는 비선점형 가능
-- 평균 대기 시간이 최적
+- 모든 작업이 동시에 준비되고 burst가 정확히 알려진 비선점 단일 CPU 모델에서는 평균 대기 시간을 최소화
 - 버스트 시간 예측이 필요
 
 ```python
@@ -1130,10 +1146,10 @@ def sjf_scheduling(processes):
 
 ```mermaid
 graph LR
-    A[SJF는 평균 대기 시간 최소화] --> B[수학적 증명]
+    A[SJF는 명시된 단일 CPU 모델에서 평균 대기 시간 최소화] --> B[교환 논리]
     B --> C[교환 논리]
     C --> D[긴 작업과 짧은 작업 순서 바꾸기]
-    D --> E[항상 대기 시간 감소 또는 동일]
+    D --> E[동시 도착·정확한 burst 가정에서 감소 또는 동일]
 
     style A fill:#4caf50,color:#fff
     style E fill:#4caf50,color:#fff
@@ -1181,7 +1197,7 @@ flowchart TD
 | 측면                | SJF (비선점형)     | SRTF (선점형) |
 | ------------------- | ------------------ | ------------- |
 | **선점**            | 불가능             | 가능          |
-| **평균 대기 시간**  | 최적 (비선점형 중) | 최적 (전체)   |
+| **평균 대기 시간**  | 동시 도착·정확한 burst 모델에서 최소 | 선점 비용이 없는 대응 모델에서 최소 |
 | **구현 복잡도**     | 단순               | 복잡          |
 | **컨텍스트 스위치** | 적음               | 많음          |
 | **응답 시간**       | 길 수 있음         | 짧음          |
@@ -1342,7 +1358,7 @@ graph LR
 
 ### 5.7.5 라운드 로빈 (Round Robin, RR)
 
-시분할 시스템의 핵심 알고리즘으로, 공정한 CPU 시간 할당을 보장합니다:
+라운드 로빈은 동일 우선순위의 계속 실행 가능한 작업을 순환시키는 시분할 정책입니다. 양의 quantum과 유한한 ready set 같은 전제에서 기아 위험을 낮추지만 전체 시스템의 공정성을 보장하지는 않습니다.
 
 #### 🔄 라운드 로빈 특성
 
@@ -1356,7 +1372,7 @@ mindmap
       공정한 CPU 시간 분배
     장점
       응답 시간 향상
-      기아 현상 없음
+      단순 동일 우선순위 모델에서 유한 대기
       대화형 시스템에 적합
     단점
       컨텍스트 스위치 오버헤드
@@ -1480,6 +1496,8 @@ graph TD
 ```
 
 #### 📈 시간 할당량별 성능 비교
+
+아래 점수는 측정값이 아니라 quantum에 따른 상충 관계를 시각화한 **정규화 가상 점수**입니다. 8ms가 최적이라는 결론을 일반화하지 않습니다.
 
 ```mermaid
 graph LR
@@ -2469,9 +2487,9 @@ RealTimeTask* create_rt_task(int id, int period, int deadline, int computation) 
 
 | 시스템 유형     | 응답 시간 | 데드라인 위반 | 예측 가능성 | 사용 사례                |
 | --------------- | --------- | ------------- | ----------- | ------------------------ |
-| **경성 실시간** | μs ~ ms   | 절대 불가     | 100% 보장   | ABS 브레이크, 심박조율기 |
-| **연성 실시간** | ms ~ 초   | 가끔 허용     | 통계적 보장 | 동영상 스트리밍, VoIP    |
-| **펌 실시간**   | ms ~ 분   | 자주 허용     | 노력 기반   | 일반 데스크톱 앱         |
+| **경성 실시간** | 태스크별 요구사항 | 위반을 허용하지 않는 설계 목표 | WCET·자원·스케줄가능성 증거 필요 | 안전 제어 계열 |
+| **연성 실시간** | 서비스별 목표 | 제한된 위반 허용 | miss 비율·지연 분포로 검증 | 동영상 스트리밍, VoIP |
+| **펌 실시간** | 서비스별 목표 | 늦은 결과의 가치가 없음 | 폐기·복구 정책으로 검증 | 거래·센서 처리 등 |
 
 ### 5.9.2 비율 단조 스케줄링 (Rate Monotonic Scheduling, RM)
 
@@ -2693,6 +2711,8 @@ graph LR
 
 절대 데드라인이 가장 가까운 태스크를 우선 실행하는 동적 우선순위 알고리즘:
 
+아래 사용률 판정과 최적성 설명은 독립적·선점 가능한 주기 태스크, 단일 프로세서, deadline=period, 무시 가능한 스케줄링 비용 같은 고전적 전제를 사용합니다. 임의 deadline, 공유 자원, blocking, multicore에서는 response-time/demand-bound 분석이 추가로 필요합니다.
+
 #### 🎯 EDF 스케줄링 특성
 
 ```mermaid
@@ -2702,10 +2722,10 @@ mindmap
       동적 우선순위
       데드라인 기반 선택
       선점형 스케줄링
-      최적 알고리즘
+      고전적 단일 CPU 모델에서 최적
     장점
-      최대 사용률 달성 (U≤1)
-      단일 프로세서 최적
+      implicit-deadline 모델에서 U≤1 검사
+      제한된 단일 프로세서 모델
       구현 상대적 단순
     단점
       우선순위 계산 오버헤드
@@ -2911,14 +2931,14 @@ graph TD
     style G fill:#4caf50,color:#fff
 ```
 
-**정리**: 단일 프로세서에서 총 사용률이 1 이하이면, EDF는 모든 데드라인을 만족할 수 있는 유일한 알고리즘입니다.
+**정리**: 위의 implicit-deadline 단일 프로세서 모델에서는 총 사용률이 1 이하일 때 EDF로 스케줄할 수 있습니다. EDF가 유일한 알고리즘인 것은 아니며 전제가 달라지면 사용률 검사만으로 충분하지 않습니다.
 
 #### 💡 EDF vs RM 비교
 
 | 측면                | Rate Monotonic (RM)  | Earliest Deadline First (EDF) |
 | ------------------- | -------------------- | ----------------------------- |
 | **우선순위**        | 고정 (주기 기반)     | 동적 (데드라인 기반)          |
-| **사용률 상한**     | ~69.3% (많은 태스크) | 100%                          |
+| **사용률 판정**     | 약 69.3%는 고전적 충분조건의 점근값이며 필요조건이 아님 | implicit-deadline 단일 CPU 모델에서 U≤1 |
 | **구현 복잡도**     | 낮음                 | 중간                          |
 | **런타임 오버헤드** | 낮음                 | 높음                          |
 | **예측 가능성**     | 높음                 | 낮음                          |
@@ -2931,11 +2951,11 @@ graph TD
 
 ### 5.10.1 Linux Scheduling
 
-**Completely Fair Scheduler (CFS)**:
+**Linux fair-class scheduler의 역사적 CFS 모델**:
 
-- Uses red-black tree for process queue
-- Virtual runtime tracking
-- No fixed time slices
+- CFS는 virtual runtime과 red-black tree를 사용한 대표 모델입니다.
+- 최신 Linux는 공정 클래스의 선택 로직에 EEVDF를 도입한 릴리스가 있으므로 대상 커널 버전의 `kernel/sched/fair.c`와 문서를 확인합니다.
+- 시간 slice와 선점 동작은 tunable, runnable task 수와 커널 버전에 따라 달라집니다.
 
 ```c
 // Simplified Linux CFS concept
@@ -2951,19 +2971,15 @@ vruntime += delta_exec * (NICE_0_LOAD / weight);
 
 ### 5.10.2 Windows Scheduling
 
-**Multilevel feedback queue** with 32 priority levels:
+**Windows 우선순위 모델의 대표 설명**:
 
-- Real-time priorities: 16-31
-- Variable priorities: 1-15
-- System idle: 0
+- 전통적으로 0~31 범위를 설명에 사용하지만 boost, quantum, processor group과 버전별 정책은 해당 Windows Internals/ETW 자료로 확인합니다.
 
 ### 5.10.3 Solaris Scheduling
 
-**Time-sharing class** with multilevel feedback:
+**Solaris time-sharing class의 대표 설명**:
 
-- 60 priority levels
-- Dynamic priority adjustment
-- Dispatch tables for each class
+- priority 범위와 dispatch table은 Solaris 릴리스·class 설정에 의존하므로 역사적 예시로 다룹니다.
 
 ---
 
@@ -3086,7 +3102,7 @@ void age_processes(Process processes[], int n) {
 2. **Scheduling Algorithms**
 
    - FCFS: Simple but can cause convoy effect
-   - SJF: Optimal average waiting time but requires prediction
+   - SJF: Minimizes average waiting time only under the stated single-CPU/burst assumptions
    - Priority: Flexible but can cause starvation
    - Round Robin: Fair time sharing with quantum overhead
 

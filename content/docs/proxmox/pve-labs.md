@@ -1,7 +1,16 @@
 # Proxmox VE 실습 랩 가이드
 
-> **Hands-on Lab Exercises for Proxmox VE 8.x**  
-> 단계별 실습을 통한 PVE 마스터하기
+> **Version-scoped lab exercises written for Proxmox VE 8.x**  
+> 단계별 실습으로 PVE의 대표 관리 흐름과 검증 방법 익히기
+
+---
+
+## 실습 범위와 완료 증거
+
+- **범위:** 실습은 Proxmox VE 8.x 계열의 격리된 lab을 가정합니다. bare metal·nested virtualization, node 수, CPU virtualization, RAM, storage, bridge/VLAN, DNS와 Internet 접근을 기록합니다.
+- **수치 전제:** 4GB RAM, 32GB storage와 같은 값은 최소 보장이 아니라 특정 기초 실습의 시작 예시입니다. Ceph, HA, 여러 guest와 nested 환경은 별도 capacity·quorum 계획이 필요합니다.
+- **안전 전제:** production cluster·network·disk를 사용하지 않고 각 lab의 snapshot, backup 또는 reset 경로를 만듭니다. device, subnet, VMID와 삭제 대상을 실행 전에 확인합니다.
+- **실패·완료:** 명령 성공만으로 완료하지 않습니다. UI/API 상태, guest connectivity, storage data, failover·restore, 권한의 허용/거부와 reset 후 재현성을 lab별 checklist로 확인합니다.
 
 ---
 
@@ -24,8 +33,8 @@
 ### 하드웨어/소프트웨어 요구사항
 - **최소 하드웨어**: 
   - CPU: 64-bit with VT-x/AMD-V
-  - RAM: 4GB (8GB+ 권장)
-  - Storage: 32GB+ SSD
+  - RAM: 기초 단일-node 실습 예시 4GB, 여유 구성 예시 8GB 이상. 실제 요구량은 guest·Ceph·HA topology로 산정
+  - Storage: 기초 실습 시작 예시 32GB 이상 SSD. image·backup·ZFS/Ceph와 failure reserve를 별도 산정
 - **네트워크**: 인터넷 연결 (ISO/템플릿 다운로드용)
 - **가상화 플랫폼 (홈랩)**: VMware Workstation, VirtualBox, 또는 네스티드 가상화 지원 환경
 

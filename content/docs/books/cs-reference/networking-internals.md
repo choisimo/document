@@ -4,9 +4,21 @@
 
 ---
 
+## Scope, Protocol Assumptions, and Verification
+
+This document combines protocol contracts with representative Linux implementations. Wire behavior defined by a standard must be distinguished from a kernel data structure, default, offload path, or vendor implementation.
+
+- **Scope:** Record kernel and network-stack version, namespace and firewall configuration, congestion-control algorithm, NIC and driver, offloads, MTU, address family, TLS library, and protocol versions.
+- **Path assumptions:** XDP, GRO/GSO, segmentation, cloning, tunneling, hardware offload, and user-space networking can bypass or reshape the simplified `sk_buff` path. Routing and firewall complexity depend on the actual table and rule representation.
+- **Numeric assumptions:** RTT, handshake time, cache-hit latency, timer defaults, throughput, and per-rule cost require topology, packet size, load, queueing, loss, warm state, and measurement points. Report distributions rather than universal point estimates.
+- **Evidence and uncertainty:** Use packet captures, socket and protocol counters, routing or firewall state, kernel traces, and synchronized endpoint logs. A timeout or retransmission is evidence of an observation, not proof of a unique root cause.
+- **Failure and completion:** Test loss, reordering, duplication, MTU mismatch, resolver failure, route change, certificate error, and overload. Completion requires protocol invariants, bounded recovery, and application-level success under the stated fault budget.
+
+---
+
 ## 1. The Linux Network Stack — sk_buff Flow
 
-Every packet in Linux travels through the kernel as a single heap object: `struct sk_buff`. Understanding its lifecycle reveals exactly where headers are added/stripped, checksums computed, and routing decisions made.
+Many packets on the conventional Linux socket path are represented by one or more `struct sk_buff` objects, but XDP, GRO/GSO, cloning, fragmentation, tunneling, hardware offload, and user-space stacks can bypass or change that mapping. The lifecycle below is a representative path, not every packet’s exact path.
 
 ```c
 struct sk_buff {
@@ -123,7 +135,7 @@ BtlBw = max delivery rate over RTprop window
 pacing_rate = BtlBw × pacing_gain
 cwnd = BtlBw × RTprop × cwnd_gain
 ```
-BBR maintains separate PROBE_BW/PROBE_RTT/STARTUP/DRAIN state machine, never reacting to loss directly.
+BBR versions use model-based states such as STARTUP, DRAIN, PROBE_BW, and PROBE_RTT rather than treating loss as the primary bandwidth signal. Implementations still participate in loss recovery and can adjust sending constraints, so “never reacting to loss” is too strong and must be checked against the deployed version.
 
 ---
 
@@ -153,7 +165,7 @@ BBR maintains separate PROBE_BW/PROBE_RTT/STARTUP/DRAIN state machine, never rea
 
 ### FIB (Forwarding Information Base) Trie Lookup
 
-Linux stores routing table as **LC-trie** (Level Compressed trie) for O(log₂W) LPM:
+A Linux IPv4 FIB implementation may use an **LC-trie**, but the representation and lookup cost are kernel- and address-family-specific. `O(log₂W)` is a simplified model rather than a measured or universal longest-prefix-match bound:
 
 ```mermaid
 flowchart TD
@@ -488,7 +500,7 @@ BGP UPDATE message carries:
 - **PATH ATTRIBUTES**: ORIGIN, AS_PATH, NEXT_HOP, MED, LOCAL_PREF, COMMUNITY, LARGE_COMMUNITY
 - **NLRI**: Network Layer Reachability Information (prefixes)
 
-BGP session state machine: `IDLE → CONNECT → ACTIVE → OPENSENT → OPENCONFIRM → ESTABLISHED`. Keepalive timer (60s default) maintains session; Hold Time (180s) expiry tears it down.
+BGP session state machine: `IDLE → CONNECT → ACTIVE → OPENSENT → OPENCONFIRM → ESTABLISHED`. A commonly shown configuration uses a 60s keepalive and negotiates a 180s Hold Time; actual timers are peer- and implementation-configured, and Hold Time expiry tears the session down.
 
 ---
 
@@ -532,6 +544,8 @@ flowchart TD
 
 ## Network Stack Performance Numbers
 
+> These figures are illustrative, not protocol bounds or Linux defaults. Re-measure with the named kernel, NIC, offloads, packet size, topology, load, cache state, and percentile.
+
 | Operation | Typical Latency | Notes |
 |-----------|-----------------|-------|
 | L1 ARP cache hit → TX | ~5 µs | NIC DMA + driver path |
@@ -541,7 +555,7 @@ flowchart TD
 | DNS lookup (recursive, cold) | 20-200 ms | resolver chain traversal |
 | TLS 1.3 handshake (warm) | 1 RTT + crypto | ~1-3 ms LAN |
 | iptables rule (linear scan) | O(N) rules | 10k rules = ~100µs overhead |
-| nftables rule (hash/map) | O(1) typical | set-based matching |
+| nftables hash-backed set lookup | expected O(1) under its hash assumptions | complete rule-path cost still depends on expressions, sets, chains, and collisions |
 | TCP connection setup | 1.5 RTT | SYN + SYN-ACK + ACK + data |
 
 ---

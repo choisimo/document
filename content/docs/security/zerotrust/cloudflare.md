@@ -1,5 +1,19 @@
 # Cloudflare Zero Trust와 Nginx를 활용한 접근 관리 구현 가이드
 
+
+## 문서 상태와 실행 게이트
+
+이 파일은 설치 초안과 서로 다른 장애 사례가 누적된 참고 보고서입니다. 일부 명령은 폐기된 apt-key와 Docker Compose v1을 사용하고, 일부 코드 블록은 잘렸으며, 특정 로그에 대한 가설이 일반 해법처럼 섞여 있습니다. 아래 조각을 연속 실행 절차로 사용하지 말고 현재 Cloudflare, cloudflared, Docker, Nginx, code-server 문서와 대조해 승인된 구성으로 재작성한 뒤 실행합니다.
+
+- **범위와 버전**: Cloudflare 플랜, Access 정책 모델, 터널 유형, cloudflared 이미지와 바이너리 버전, Ubuntu 및 Docker 버전을 기록합니다. 비용, 업로드 크기, 프로토콜 지원은 현재 플랜에서 확인합니다.
+- **신뢰 경계**: Tunnel은 오리진을 자동으로 인가하지 않습니다. 기본 거부 Access 정책, MFA, 서비스 토큰 수명과 회수, 최소 권한 API 토큰, 오리진의 직접 접근 차단을 별도로 검증합니다.
+- **비밀과 공급망**: 터널 토큰, credentials 파일, API 키와 비밀번호를 명령 기록이나 Compose 파일에 넣지 않습니다. 패키지 서명과 체크섬을 검증하고 이미지와 바이너리를 승인 버전 또는 digest로 고정합니다.
+- **진단 원칙**: HTTP 521, 502와 context canceled는 여러 원인이 가능한 증상입니다. DNS, 터널 상태, 컨테이너 네트워크, 오리진 리슨 주소, TLS 검증, 타임아웃을 계층별 증거로 분리하며 noTLSVerify를 일반 해결책으로 사용하지 않습니다.
+- **변경과 롤백**: 현재 설정과 인증서를 백업하고 구문 검사를 통과한 뒤 한 계층씩 적용합니다. 기존 관리 경로를 유지하고 실패하면 마지막 정상 설정과 고정 이미지로 되돌립니다.
+- **완료 조건**: 비인가 요청 거부, 승인 사용자와 서비스 토큰 성공, 오리진 직접 접근 차단, WebSocket과 업로드 시험, 재시작 후 터널 복구, 감사 로그와 경보 수신을 기록합니다.
+
+문서에 포함된 날짜가 있는 로그와 사용자별 경로는 해당 사건의 관찰값일 뿐 현재 환경의 사실이 아닙니다. 디버그 로그에는 헤더와 토큰이 포함될 수 있으므로 제한된 시간 동안만 수집하고 공유 전 비식별화합니다.
+
 ## 인증 및 인가 흐름도 (ASCII Art)
 
 ```
@@ -33,7 +47,7 @@
 
 | 접근 방식                               | 장점                                                                                              | 단점                                                             | 보안 수준 | 설정 복잡성 | 비용              |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | --------- | ----------- | ----------------- |
-| **Cloudflare Zero Trust + Nginx** | -  IP 노출 방지[14]-  포트 포워딩 불필요[2][7]-  무료 SSL 제공[5]-  DDoS 보호-  다중 인증 지원[2] | -  Cloudflare 의존성[14]-  추가 구성 필요-  100MB 업로드 제한[3] | 높음      | 중간        | 기본 기능 무료[5] |
+| **Cloudflare Zero Trust + Nginx** | -  IP 노출 방지[14]-  포트 포워딩 불필요[2][7]-  무료 SSL 제공[5]-  DDoS 보호-  다중 인증 지원[2] | -  Cloudflare 의존성[14]-  추가 구성 필요-  업로드 제한은 현재 플랜과 제품 경로에서 확인 | 높음      | 중간        | 기본 기능 무료[5] |
 | **전통적인 VPN**                  | -  전체 네트워크 접근-  클라이언트 측 암호화-  익숙한 기술                                        | -  클라이언트 설치 필요-  모든 트래픽 터널링-  포트 개방 필요    | 중간      | 중간        | 다양함            |
 | **Nginx Proxy Manager 단독**      | -  자체 운영[4]-  커스텀 설정 용이-  Basic Auth 지원[10]                                          | -  IP 주소 노출[14]-  포트 개방 필요-  직접 보안 관리[14]        | 중간      | 낮음        | 무료              |
 | **OAuth2-Proxy**                  | -  다양한 ID 제공자 지원[13]-  세분화된 접근 제어-  오픈소스                                      | -  추가 설정 필요-  Nginx 연동 복잡성                            | 높음      | 높음        | 무료              |
@@ -85,7 +99,7 @@
    cd ~/nginx-proxy-manager
 
    # docker-compose.yml 파일 생성
-   cat > docker-compose.yml  Tunnels 메뉴로 이동
+   # docker-compose.yml은 아래 통합 예시를 검토해 별도로 작성합니다.
    # 2. "Create a tunnel" 클릭
    # 3. 터널 이름 입력 (예: "my-home-server")
    # 4. "Save tunnel" 클릭하여 터널 토큰 확인
@@ -246,7 +260,7 @@ services:
   # 2. Cloudflare Tunnel
   # ---------------------------------------------------------------------------
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:<approved-version>@sha256:<approved-digest>
     container_name: cloudflare-tunnel
     restart: unless-stopped
     command: tunnel --no-autoupdate run
@@ -286,7 +300,7 @@ Nginx가 트래픽을 받은 후, 최종 목적지(서비스)로 라우팅하는
 ```yaml
 services:
   my-web-app:
-    image: my-app:latest
+    image: my-app:<approved-version>@sha256:<approved-digest>
     container_name: web-app
     networks:
       - tunnel-net
@@ -380,7 +394,7 @@ ingress:
     service: http://localhost:8080  # 실제 서비스 포트와 불일치
 ```
 
-- **실제 서비스 포트 확인 필요**: 80%의 사례에서 잘못된 포트 매핑이 주요 원인[16]
+- **실제 서비스 포트 확인 필요**: 잘못된 포트 매핑은 가능한 원인 중 하나이므로 실제 리슨 주소와 컨테이너 네트워크에서 확인
 - **로컬 테스트 방법**:
   ```bash
   curl -v http://localhost:8080  # 서버 내부에서 접근 테스트
@@ -446,7 +460,7 @@ ingress:
   - hostname: app.example.com
     service: http://localhost:3000  # 실제 애플리케이션 포트
     originRequest:
-      noTLSVerify: true            # 자체 서명 인증서 사용 시
+      noTLSVerify: false            # 자체 서명 인증서 사용 시
   - service: http_status:404
 ```
 
@@ -457,8 +471,8 @@ ingress:
 sudo ufw status numbered
 
 # Cloudflare IP 대역 허용
-curl -s https://www.cloudflare.com/ips-v4 | sudo ufw allow from
-curl -s https://www.cloudflare.com/ips-v6 | sudo ufw allow from
+# Tunnel은 outbound 연결이므로 이 경로에 Cloudflare IP의 inbound UFW 허용 규칙을 추가하지 않습니다.
+# 필요한 inbound 서비스가 별도로 있을 때만 검토된 주소 목록으로 명시적 규칙을 관리합니다.
 ```
 
 ### 4단계: 고급 진단 도구 활용
@@ -598,7 +612,7 @@ ingress:
   - hostname: code.nodove.com
     service: http://127.0.0.1:8080
     originRequest:
-      noTLSVerify: true  # 자체 서명 인증서 사용 시
+      noTLSVerify: false  # 자체 서명 인증서 사용 시
   - service: http_status:404
 ```
 
@@ -615,7 +629,7 @@ while true; do
       sleep 5
     done
     echo "인터넷 연결 복구, cloudflared 재시작..."
-    sudo systemctl restart cloudflared
+    sudo cloudflared tunnel ingress validate && sudo systemctl restart cloudflared
   fi
   sleep 30
 done
@@ -628,7 +642,7 @@ done
 
    ```bash
    # Cloudflare IP 허용
-   curl -s https://www.cloudflare.com/ips-v4 | sudo ufw allow from
+   # Tunnel은 outbound 연결이므로 이 경로에 Cloudflare IP의 inbound UFW 허용 규칙을 추가하지 않습니다.
    ```
 3. **호스트 이름 확인**: config.yml의 호스트 이름과 Cloudflare DNS 설정이 일치하는지 확인하세요[7]
 4. **TLS/SSL 설정 검증**: SSL 설정이 올바른지 확인하고, 필요시 "No TLS Verify" 옵션을 활성화하세요[8][12]
@@ -669,7 +683,7 @@ ingress:
   - hostname: code.nodove.com
     service: http://localhost:8080
     originRequest:
-      noTLSVerify: true
+      noTLSVerify: false
       # 경로 재작성 규칙 추가
       http2Origin: true
 ```
@@ -680,9 +694,9 @@ code-server의 설정 파일에 baseURL 추가:
 
 ```yaml
 # ~/.config/code-server/config.yaml
-bind-addr: 0.0.0.0:8080
+bind-addr: 127.0.0.1:8080
 auth: password
-password: 
+password: <load-from-secret-store>
 cert: false
 # 중요: 베이스 URL 추가
 base-url: /
@@ -739,7 +753,7 @@ cloudflared tunnel --loglevel debug run
 2. 터널 서비스 재시작:
 
    ```bash
-   sudo systemctl restart cloudflared
+   sudo cloudflared tunnel ingress validate && sudo systemctl restart cloudflared
    ```
 3. 서비스 바인딩 확인 및 수정:
 
@@ -773,7 +787,7 @@ cloudflared tunnel --loglevel debug run
 | 확인 항목                    | 설명                                                  | 해결 방법                            |
 | ---------------------------- | ----------------------------------------------------- | ------------------------------------ |
 | **로컬 서비스 접근성** | 서비스가 localhost에서 접근 가능한지 확인             | 이미 확인됨 - 302 리다이렉트 발생    |
-| **서비스 바인딩**      | 모든 인터페이스(0.0.0.0)에 바인딩되어 있는지 확인     | `bind-addr: 0.0.0.0:8080`으로 수정 |
+| **서비스 바인딩**      | 모든 인터페이스(0.0.0.0)에 바인딩되어 있는지 확인     | `bind-addr: 127.0.0.1:8080`으로 수정 |
 | **리다이렉트 문제**    | 상대 경로(`./login`) 리다이렉트 이슈                | Nginx 프록시로 리다이렉트 재작성     |
 | **SSL/TLS 설정**       | Cloudflare SSL 모드가 올바르게 설정되었는지 확인      | Full 또는 Flexible로 변경 테스트[5]  |
 | **방화벽 설정**        | 로컬 방화벽이 cloudflared 연결을 차단하지 않는지 확인 | Cloudflare IP 화이트리스트 추가[9]   |
@@ -783,7 +797,7 @@ cloudflared tunnel --loglevel debug run
 1. **Cloudflare 터널 재연결**:
 
    ```bash
-   sudo systemctl restart cloudflared
+   sudo cloudflared tunnel ingress validate && sudo systemctl restart cloudflared
    ```
 2. **서비스 포트 변경 테스트**:
    다른 포트로 서비스를 실행하고 터널 설정 업데이트
@@ -797,7 +811,7 @@ cloudflared tunnel --loglevel debug run
        service: http://localhost:8080
        originRequest:
          connectTimeout: 30s
-         noTLSVerify: true
+         noTLSVerify: false
    ```
 5. **로컬 네트워크 연결성 모니터링**:
    네트워크 연결이 끊기면 자동으로 터널을 재시작하는 스크립트 구현[3][8]
@@ -849,7 +863,7 @@ Apr 27 21:34:58 dev-server code-server[5473]: [2025-04-27T12:34:58.246Z] info  H
          connectTimeout: 30s
          tcpKeepAlive: 30s
          # 헤더 처리 최적화
-         noTLSVerify: true
+         noTLSVerify: false
          disableChunkedEncoding: true
          # HTTP/2 활성화로 성능 향상
          http2Origin: true
@@ -858,7 +872,7 @@ Apr 27 21:34:58 dev-server code-server[5473]: [2025-04-27T12:34:58.246Z] info  H
 2. **Cloudflare 터널 서비스 재시작**:
 
    ```bash
-   sudo systemctl restart cloudflared
+   sudo cloudflared tunnel ingress validate && sudo systemctl restart cloudflared
    ```
 3. **네트워크 연결 안정성 확인**:
 
@@ -891,9 +905,9 @@ Apr 27 21:34:58 dev-server code-server[5473]: [2025-04-27T12:34:58.246Z] info  H
 
    ```yaml
    # ~/.config/code-server/config.yaml 내용 확인
-   bind-addr: 0.0.0.0:8080
+   bind-addr: 127.0.0.1:8080
    auth: password
-   password: 
+   password: <load-from-secret-store>
    cert: false
    ```
 2. **방화벽 규칙 확인**:

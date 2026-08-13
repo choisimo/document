@@ -1,6 +1,15 @@
 # Docker 네트워크 생성 옵션 종합 분석
 
-Docker의 `docker network create` 명령어는 컨테이너 간 통신 및 네트워크 격리를 제어하는 핵심 도구로, 다양한 옵션을 통해 네트워크 토폴로지를 세밀하게 구성할 수 있습니다[5][7]. 본 분석에서는 모든 주요 옵션의 기능, 사용 사례, 실제 적용 예시를 체계적으로 설명합니다.
+Docker의 `docker network create` 명령어는 컨테이너 간 통신 및 네트워크 격리를 제어하는 핵심 도구로, 다양한 옵션을 통해 네트워크 토폴로지를 세밀하게 구성할 수 있습니다[5][7]. 본 분석에서는 선택한 주요 option의 기능과 사용 사례를 특정 Docker 환경에서 확인하는 방법을 설명합니다.
+
+---
+
+## 적용 범위와 검증 기준
+
+- **범위:** Docker Engine/Desktop version, host OS, rootful·rootless mode, network driver, IPAM plugin, Swarm 여부와 IPv4/IPv6 설정을 명시합니다. option과 기본값은 이 조합에 종속됩니다.
+- **환경 전제:** 기존 subnet·route·DNS·firewall/VPN, port publishing, host reachability와 multi-host control plane을 확인합니다. 같은 driver 이름도 platform별 구현이 다를 수 있습니다.
+- **사실과 추론:** `docker network inspect`, host route/firewall와 packet trace는 근거이고, 격리·성능·통신 실패 원인은 관측 전까지 가설입니다.
+- **실패·완료:** CIDR 충돌, DNS 실패, unintended host/Internet 접근, MTU, restart와 multi-host 단절을 시험합니다. 의도한 endpoint만 통신하고 금지 경로가 차단될 때 완료입니다.
 
 ---
 
@@ -210,7 +219,7 @@ docker network create -d macvlan \
 
 1. **오버레이 네트워크**:
    - `--attachable` 없이는 Swarm 서비스만 연결 가능[1][8]
-   - 멀티호스트 구성 시 `--subnet` 필수[7]
+   - multi-host subnet 요구는 driver, orchestrator와 IPAM 설계에 따라 달라집니다. 명시적 `--subnet`은 address plan이 필요할 때 사용합니다[7].
 
 2. **MACVLAN/IPVLAN**:
    - 물리 네트워크 인터페이스(`--opt parent=`) 지정 필요[2][5]
@@ -236,7 +245,7 @@ Docker를 설치하면 기본적으로 세 가지 네트워크가 생성됩니�
 
 - **bridge**: 기본 네트워크 드라이버로, 별도 지정이 없으면 컨테이너는 이 네트워크에 연결됩니다
 - **host**: 컨테이너와 Docker 호스트 간의 네트워크 격리를 제거합니다
-- **none**: 컨테이너를 호스트 및 다른 컨테이너로부터 완전히 격리합니다
+- **none**: Docker network interface 연결을 만들지 않지만 loopback, mounted resource, capability와 다른 host 경로까지 포함한 완전한 security isolation을 보장하지 않습니다.
 
 현재 네트워크 목록은 다음 명령어로 확인할 수 있습니다:
 
@@ -280,7 +289,7 @@ Docker는 다양한 사용 사례에 맞는 여러 네트워크 드라이버를 
 
 **overlay**: 여러 Docker 데몬을 연결하는 데 사용되며, Swarm 서비스에 적합합니다[3].
 
-**ipvlan**: IPv4 및 IPv6 주소 지정에 대한 완전한 제어를 제공합니다[3].
+**ipvlan**: driver·mode·host network와 IPAM 조건 안에서 IPv4/IPv6 address 배치를 제어할 수 있습니다. host reachability와 isolation은 별도 검증합니다[3].
 
 **macvlan**: 컨테이너에 MAC 주소를 할당하여 물리적 디바이스처럼 네트워크에 나타나게 합니다[3].
 

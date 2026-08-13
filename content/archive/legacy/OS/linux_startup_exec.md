@@ -1,96 +1,129 @@
-우분투에서 새 세션 접속 시 자동으로 PS1="$ "로 설정하는 방법에 대해 알려드리겠습니다.
+# Bash 세션의 프롬프트를 `$ `로 고정하기
 
-## 사용자별 설정 방법
+이 문서는 Ubuntu에서 **Bash 대화형 셸**의 기본 프롬프트(`PS1`)를 `$ `로 설정하는 방법을 설명합니다. Zsh, Fish, 애플리케이션이 직접 실행하는 비대화형 셸은 대상에 포함하지 않습니다.
 
-우분투에서 개인 사용자 세션의 프롬프트를 변경하려면 `.bashrc` 파일을 수정하는 것이 가장 효과적입니다:
+## 적용 범위 선택
 
-1. 터미널을 열고 다음 명령어로 `.bashrc` 파일을 엽니다:
+| 원하는 범위 | 수정할 파일 | 적용 시점 |
+| --- | --- | --- |
+| 현재 사용자 | `~/.bashrc` | 새 대화형 Bash를 시작할 때 |
+| SSH로 연 세션만 | `~/.bashrc`의 조건문 | `SSH_CONNECTION`이 설정된 대화형 Bash를 시작할 때 |
+| 시스템의 대화형 Bash 사용자 | `/etc/bash.bashrc` | 각 사용자가 새 대화형 Bash를 시작할 때 |
+| 로그인 셸 | `/etc/profile.d/*.sh` 또는 사용자 로그인 프로필 | 새 Bash 로그인 셸을 시작할 때 |
+
+배포판 설정이나 사용자 로그인 프로필이 `.bashrc`를 불러오지 않으면 로그인 셸과 비로그인 셸의 결과가 다를 수 있습니다. 먼저 다음 명령으로 현재 셸을 확인합니다.
+
+```bash
+printf 'shell=%s\n' "$SHELL"
+printf 'bash=%s\n' "$BASH_VERSION"
+```
+
+`BASH_VERSION`이 비어 있으면 현재 셸은 Bash가 아니므로 이 절차를 적용하지 않습니다.
+
+## 현재 사용자에게 적용
+
+1. 기존 설정을 백업합니다.
+
+   ```bash
+   cp -- ~/.bashrc ~/.bashrc.backup
    ```
-   nano ~/.bashrc
+
+2. `~/.bashrc`의 마지막에 다음 줄을 추가합니다.
+
+   ```bash
+   PS1='$ '
    ```
 
-2. 파일 끝부분에 다음 라인을 추가합니다:
-   ```
-   PS1="$ "
-   ```
+3. 현재 셸에서 새 설정을 불러옵니다.
 
-3. `Ctrl+O`를 눌러 저장하고 `Ctrl+X`로 나갑니다.
-
-4. 변경사항을 적용하려면 다음 명령어를 실행하거나 터미널을 다시 시작합니다:
-   ```
+   ```bash
    source ~/.bashrc
    ```
 
-## SSH 접속 시에만 적용하기
+4. 프롬프트 값이 정확히 `$ `인지 확인합니다.
 
-SSH로 접속할 때만 프롬프트를 변경하려면 `.bashrc` 파일에 다음과 같이 조건문을 추가합니다:
+   ```bash
+   printf '<%s>\n' "$PS1"
+   ```
+
+   출력이 `<$ >`이면 설정이 적용된 상태입니다. 프롬프트에 사용자명, 호스트명, 현재 디렉터리, 권한 수준 표시는 더 이상 나타나지 않습니다.
+
+## SSH 세션에만 적용
+
+로컬 터미널의 프롬프트는 유지하고 SSH 접속에서만 바꾸려면 `~/.bashrc`에 다음 조건을 추가합니다.
 
 ```bash
-if [[ -n $SSH_CONNECTION ]] ; then
-  PS1="$ "
+if [[ -n ${SSH_CONNECTION:-} ]]; then
+  PS1='$ '
 fi
 ```
 
-## 시스템 전체 적용 방법
+`SSH_CONNECTION`은 SSH 서버가 접속 세션에 제공하는 환경 변수입니다. SSH 외의 원격 실행 도구에는 이 조건이 적용되지 않을 수 있습니다.
 
-모든 사용자에게 동일한 프롬프트를 적용하려면 다음 방법을 사용할 수 있습니다:
+## 시스템 범위에 적용
 
-### 1. /etc/bash.bashrc 수정
+시스템 파일을 바꾸면 여러 사용자에게 영향을 주므로, 먼저 변경 대상과 배포판의 로딩 순서를 확인합니다.
 
-시스템의 모든 사용자에게 적용하려면 `/etc/bash.bashrc` 파일을 수정합니다:
+### 대화형 Bash: `/etc/bash.bashrc`
 
-```
-sudo nano /etc/bash.bashrc
-```
-
-파일 끝부분에 `PS1="$ "` 라인을 추가하고 저장합니다.
-
-### 2. /etc/profile.d에 스크립트 생성
-
-`/etc/profile.d/` 디렉토리에 쉘 스크립트를 추가하는 방법도 있습니다:
-
-```
-sudo nano /etc/profile.d/custom-prompt.sh
-```
-
-파일에 다음 내용을 추가합니다:
-```bash
-#!/bin/bash
-PS1="$ "
-```
-
-스크립트에 실행 권한을 부여합니다:
-```
-sudo chmod +x /etc/profile.d/custom-prompt.sh
-```
-
-## PROMPT_COMMAND 확인하기
-
-만약 위 방법이 작동하지 않는다면, PROMPT_COMMAND 변수가 설정되어 있어 PS1을 재정의하고 있을 수 있습니다. 이 경우 다음 명령어로 확인합니다:
-
-```
-echo $PROMPT_COMMAND
-```
-
-PROMPT_COMMAND가 설정되어 있다면 `.bashrc` 파일에 다음 내용을 추가합니다:
+Ubuntu의 대화형 Bash 기본 설정을 바꾸려면 `/etc/bash.bashrc`를 백업한 뒤 편집합니다.
 
 ```bash
-unset PROMPT_COMMAND
-PS1="$ "
+sudo cp -- /etc/bash.bashrc /etc/bash.bashrc.backup
+sudoedit /etc/bash.bashrc
 ```
 
-## 참고 사항
+파일 끝에 다음 줄을 추가합니다.
 
-1. PS1의 변경은 각 쉘 세션에 적용됩니다. 로그아웃 후 다시 로그인하면 변경된 설정이 적용됩니다.
+```bash
+PS1='$ '
+```
 
-2. 필요한 경우 변경 전 설정을 백업해두는 것이 좋습니다:
-   ```
-   cp ~/.bashrc ~/.bashrc.backup
-   ```
+기존 세션에는 자동으로 반영되지 않습니다. 새 Bash 세션을 열거나 해당 파일을 명시적으로 다시 불러와야 합니다.
 
-3. 서버 환경에서는 변경 후 SSH 서비스를 재시작할 필요가 있을 수 있습니다:
-   ```
-   sudo systemctl restart sshd.service
-   ```
+### 로그인 셸: `/etc/profile.d/custom-prompt.sh`
 
-이렇게 설정하면 새 세션이 시작될 때마다 프롬프트가 단순한 "$ "로 표시됩니다.
+로그인 셸에서 공통 값을 제공하려면 다음 파일을 만듭니다.
+
+```bash
+sudoedit /etc/profile.d/custom-prompt.sh
+```
+
+내용은 다음과 같습니다.
+
+```bash
+if [[ -n ${BASH_VERSION:-} && $- == *i* ]]; then
+  PS1='$ '
+fi
+```
+
+`/etc/profile`이 `/etc/profile.d/*.sh`를 불러오는 시스템에서만 이 설정이 적용됩니다. 이 파일은 `source`로 읽히므로 실행 권한은 필수 조건이 아닙니다. 또한 이후에 로드되는 사용자 설정이 `PS1`을 다시 지정하면 최종 값은 달라질 수 있습니다.
+
+## 설정이 덮어써질 때 진단
+
+기대 상태는 새 대화형 Bash에서 `printf '<%s>\n' "$PS1"`의 결과가 `<$ >`인 것입니다. 값이 다르면 설정 파일의 로딩 순서와 후속 재정의를 확인합니다.
+
+```bash
+type -a bash
+printf 'flags=%s\n' "$-"
+declare -p PROMPT_COMMAND 2>/dev/null || true
+```
+
+`PROMPT_COMMAND`는 프롬프트를 표시하기 전에 실행되는 명령입니다. 이 명령이 `PS1`을 변경하는 경우에만 원인을 제거하거나 순서를 조정합니다. 값을 확인하지 않은 채 `unset PROMPT_COMMAND`를 실행하면 터미널 제목, 명령 기록, 가상환경 표시 같은 기존 기능이 사라질 수 있습니다.
+
+다른 설정 파일이 `PS1`을 재정의하는지 확인할 때는 Bash 관련 파일로 범위를 제한합니다.
+
+```bash
+grep -nH 'PS1=' ~/.bashrc ~/.bash_profile ~/.bash_login ~/.profile 2>/dev/null
+```
+
+## 복구
+
+사용자 설정을 원래대로 되돌리려면 백업 파일을 복원하고 새 Bash를 시작합니다.
+
+```bash
+cp -- ~/.bashrc.backup ~/.bashrc
+exec bash
+```
+
+시스템 범위 파일을 바꿨다면 해당 백업을 같은 방식으로 복원합니다. 프롬프트 설정은 셸 초기화 파일의 동작이므로 SSH 데몬을 재시작할 필요가 없습니다.

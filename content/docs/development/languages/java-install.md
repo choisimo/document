@@ -2,6 +2,13 @@
 
 > OpenJDK installation and configuration for development
 
+## Scope and completion criteria
+
+- Package names and available JDK builds depend on distribution release, CPU architecture, enabled repositories, and the date of installation.
+- Choose the project's required Java release and vendor before running commands; an LTS label alone does not prove application compatibility.
+- Keep `java`, `javac`, build-tool JVM, service JVM, and `JAVA_HOME` on the intended installation rather than switching only one alternative.
+- Installation is complete when version output, a compile/run smoke test, and the consuming build or service all report the expected runtime path.
+
 ---
 
 ## Quick Install

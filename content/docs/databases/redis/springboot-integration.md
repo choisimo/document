@@ -1,12 +1,21 @@
 # Redis Spring Boot Integration
 
-> Complete guide to integrating Redis with Spring Boot applications
+> Practical guide to one Redis and Spring Boot integration path
+
+---
+
+## Scope and Verification Contract
+
+- **Scope:** Pin Spring Boot, Spring Data Redis, client library, Redis server, serializer, cache and session modules, and deployment mode. Configuration keys and defaults vary by release.
+- **Assumptions:** Define key ownership, TTL, serialization compatibility, cache consistency, connection and command timeouts, retry policy, pooling, and behavior when Redis is unavailable.
+- **Facts and inference:** A successful connection and emitted command are facts; a latency or cache-benefit claim needs application metrics, Redis statistics, and a controlled baseline.
+- **Failure and completion:** Test missing and malformed values, expiry, reconnect, timeout, failover, serializer migration, stale cache, and session loss. Completion requires passing integration tests and bounded fallback or failure behavior.
 
 ---
 
 ## Overview
 
-Redis integration enables caching, session management, and high-performance data storage in Spring Boot applications.
+Redis integration can support caching, session management, and latency-sensitive data access in Spring Boot applications; the benefit and consistency behavior depend on the workload and configuration.
 
 ```mermaid
 flowchart LR

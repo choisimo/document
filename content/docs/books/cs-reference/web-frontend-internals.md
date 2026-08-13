@@ -4,6 +4,8 @@
 
 ---
 
+> **Reading contract:** This is a browser-engine study guide for frontend engineers. HTML/CSS/ECMAScript and Web protocols are standard-level facts; Chromium/V8, React, service-worker, and performance behavior must name browser, engine, React version, device, flags, and capture date. Pipeline diagrams are simplified execution models, while millisecond slices, speed ratios, and Core Web Vitals examples are measurements or versioned policy. A section is complete only with a reproducible profile or trace, success and failure conditions, and a fallback that works without the optimization. Re-profile after browser or framework upgrades.
+
 ## 1. Browser Rendering Pipeline: Critical Path
 
 ```mermaid
@@ -45,7 +47,7 @@ stateDiagram-v2
     RCDATA --> Data: matching end tag
 ```
 
-**Script blocking**: When the parser encounters a `<script>` tag (without `async`/`defer`), it **pauses HTML parsing**, executes the script (which may modify the DOM), then resumes. This is why `<script>` at the end of `<body>` is critical for performance.
+**Script blocking**: A classic `<script>` without `async` or `defer` can pause parsing while it is fetched and executed. Moving it late in `<body>` is one mitigation, not a universal requirement; `defer`, modules, dependency order, preload behavior, and measured critical-path impact determine the choice.
 
 ---
 
@@ -53,7 +55,7 @@ stateDiagram-v2
 
 ```mermaid
 flowchart TD
-    subgraph "V8 Event Loop Phases"
+    subgraph "Simplified Browser Event Loop"
         CALL["Call Stack\n(synchronous execution)"]
         MICRO["Microtask Queue\nPromise.then, queueMicrotask,\nMutationObserver callbacks"]
         MACRO["Macrotask Queue\nsetTimeout, setInterval,\nI/O callbacks, UI events"]
@@ -203,7 +205,7 @@ sequenceDiagram
 
 ### Concurrent Mode: Time Slicing
 
-React 18 Concurrent Mode uses the **scheduler** to break rendering work into 5ms slices:
+React 18 can schedule interruptible render work when concurrent features are used. A 5ms slice is an illustrative scheduler heuristic, not a public timing guarantee:
 
 ```mermaid
 flowchart TD
@@ -342,7 +344,7 @@ flowchart TD
         C["C/C++/Rust source"]
         WASM["WebAssembly binary\n(.wasm)\nstructured binary format:\nmodule, functions, tables, memory"]
         VALIDATE["Browser validates WASM\n(type-check in O(N) single pass)\nSafer than JS eval"]
-        JIT["JIT compile to machine code\n(WASM types are explicit\n→ simpler/faster than JS JIT\n~5% of native speed achievable)"]
+        JIT["Compile to machine code\n(explicit WASM types aid validation and compilation)\nperformance relative to native depends on workload,\nengine, host calls, SIMD, and optimization"]
         EXEC["Execute in sandboxed linear memory\n(no pointers outside WASM.memory\ncannot access browser internals)"]
         C --> WASM --> VALIDATE --> JIT --> EXEC
     end
@@ -394,7 +396,7 @@ block-beta
     block:Rendering
         RTree["Render Tree\nDOM+CSSOM merged\nno hidden elements"]
         Layout["Layout/Reflow\nbox positions computed\nexpensive on % widths"]
-        Composite["GPU Compositing\ntransform/opacity free\nlayer promotion: will-change"]
+        Composite["GPU Compositing\ntransform/opacity can avoid layout or paint\nbut still consume raster, memory, and composite work"]
     end
     block:JavaScript
         EventLoop["Event Loop\nmicrotask drain first\nRAF before paint"]

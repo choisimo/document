@@ -1,10 +1,9 @@
-3개의 서로 다른 VM 서버의 로그를 통합하여 보기 위해 
+# Loki + Promtail + Grafana 중앙 로그 수집 가이드
 
-**Prometheus + Loki + Grafana**를 설정하는 방법을 안내하겠습니다. 
+서로 다른 VM의 파일 로그를 기존 Promtail 에이전트로 Loki에 전송하고 Grafana에서 조회하는 단일 노드 예시입니다. 제목과 달리 Prometheus 설치와 메트릭 수집은 이 문서 범위가 아닙니다.
 
-이 구성은 경량화된 설치와 운영이 가능하며, 
-
-로그와 메트릭을 동시에 시각화할 수 있는 강력한 솔루션입니다.
+!!! warning "버전 및 운영 범위"
+    예제에는 Loki/Promtail 2.8.0·2.9.1과 Grafana 10.1.2가 혼재합니다. 과거 배포 참고값이므로 서로 다른 버전의 바이너리와 설정을 그대로 조합하지 마세요. 신규 배포는 Promtail의 현재 지원 상태와 대체 수집기, Loki 스키마 요구사항을 확인하고 한 버전 세트로 고정해야 합니다. `replication_factor: 1`과 로컬 파일 시스템은 고가용성 구성이 아닙니다.
 
 ---
 
@@ -36,7 +35,7 @@
 wget https://raw.githubusercontent.com/grafana/loki/main/clients/cmd/promtail/promtail-local-config.yaml
 
   sudo apt-get install unzip
-  unzip locki-linux.amd64.zip
+  unzip loki-linux-amd64.zip
   unzip promtail-linux-amd64.zip
 
   chmod +x loki-linux-amd64
@@ -89,7 +88,7 @@ server:
   grpc_listen_port: 0
 
 positions:
-  filename: /tmp/positions.yaml  # Promtail이 마지막으로 읽은 로그 위치 저장 경로
+  filename: /var/lib/promtail/positions.yaml  # Promtail이 마지막으로 읽은 로그 위치 저장 경로
 
 clients:
   - url: http://<Loki_Server_IP>:3100/loki/api/v1/push  # Loki 서버의 HTTP URL
@@ -112,7 +111,7 @@ server:
   grpc_listen_port: 0
 
 positions:
-  filename: /tmp/positions.yaml
+  filename: /var/lib/promtail/positions.yaml
 
 clients:
   - url: http://192.168.0.44:3200/loki/api/v1/push
@@ -185,7 +184,7 @@ Promtail이 수집한 로그의 마지막 읽기 위치를 저장하는 파일 �
 
 ```yaml
 positions:
-  filename: /tmp/positions.yaml
+  filename: /var/lib/promtail/positions.yaml
 ```
 
 - **`filename`**: 로그 파일의 마지막 읽은 위치를 저장하는 YAML 파일의 경로입니다.
@@ -325,7 +324,7 @@ server:
 
 common:
   instance_addr: 127.0.0.1
-  path_prefix: /tmp/loki
+  path_prefix: /data/loki
   replication_factor: 1
   ring:
     kvstore:
@@ -333,9 +332,9 @@ common:
 
 storage_config:
   boltdb:
-    directory: /tmp/loki/index
+    directory: /data/loki/index
   filesystem:
-    directory: /tmp/loki/chunks
+    directory: /data/loki/chunks
 
 query_range:
   results_cache:
@@ -392,7 +391,7 @@ ruler:
      - url: http://<Loki_Server_IP>:3100/loki/api/v1/push
 
    positions:
-     filename: /tmp/positions.yaml
+     filename: /var/lib/promtail/positions.yaml
 
    scrape_configs:
      - job_name: system
@@ -500,6 +499,10 @@ sudo systemctl status grafana-custom
 
 ---
 
+## 운영 완료 기준과 롤백
+
+설정과 positions 파일, Loki 데이터 경로를 백업한 뒤 구성 파싱, 두 프로세스의 준비 상태, 테스트 로그의 종단 간 조회, 재시작 후 offset 연속성을 확인해야 완료입니다. 오류율이나 지연이 악화되면 직전 설정으로 되돌리고 같은 테스트 로그로 회귀 여부를 확인합니다. `auth_enabled: false`와 평문 HTTP는 제한된 신뢰망 실습에만 사용합니다.
+
 ## **요약**
 1. **Loki 설치**: 중앙에서 로그를 저장.
 2. **Promtail 설치**: 각 VM에서 로그를 수집하여 Loki로 전송.
@@ -511,10 +514,14 @@ sudo systemctl status grafana-custom
 - Prometheus를 Loki와 함께 설치하면 애플리케이션 메트릭도 모니터링할 수 있습니다.
 - 추가적인 알림 설정은 Grafana의 "Alerting" 기능을 사용하세요.
 
-#### promtail <-> loki connection
+#### Promtail과 Loki 연결 확인
+
 ```bash
-curl -X GET http://192.168.0.44:3100/metrics | grep promtail
+curl -fsS http://<Promtail_IP>:9080/ready
+curl -fsS http://<Loki_Server_IP>:3100/ready
 ```
+
+준비 상태만으로 전송 완료를 판정하지 않습니다. 고유한 테스트 로그를 기록한 뒤 Promtail 재시도 로그, Loki 수신 상태, LogQL 조회의 타임스탬프와 라벨까지 확인합니다.
 
 
 ### **Extension**
@@ -531,8 +538,8 @@ curl -X GET http://192.168.0.44:3100/metrics | grep promtail
   - `grpc_server_max_concurrent_streams`: `1000` (동시 스트림 처리 제한).
 
 - **Storage Config**:
-  - `boltdb` 인덱스 저장 위치: `/tmp/loki/index`.
-  - `filesystem` 저장 위치: `/tmp/loki/chunks`.
+  - `boltdb` 인덱스 저장 위치: `/data/loki/index`.
+  - `filesystem` 저장 위치: `/data/loki/chunks`.
 
 - **Query Range**:
   - 캐시 활성화: `true`.
@@ -548,8 +555,8 @@ curl -X GET http://192.168.0.44:3100/metrics | grep promtail
 
 ---
 
-### **2. "Too Many Outstanding Requests" 해결을 위한 수정**
-`Too Many Outstanding Requests` 오류는 보통 Loki의 요청 처리 능력을 초과했을 때 발생합니다. 설정 파일을 다음과 같이 수정하여 문제를 완화할 수 있습니다.
+### **2. "Too Many Outstanding Requests" 진단과 변경 후보**
+이 문구만으로 병목 원인을 확정할 수 없습니다. 오류를 반환한 컴포넌트, HTTP 상태, 요청 유형, 큐 길이, CPU·메모리·디스크 지연을 먼저 수집하세요. 아래 수치는 권장값이 아니라 동일 부하에서 한 번에 하나씩 검증할 후보입니다.
 
 ---
 
@@ -650,4 +657,4 @@ clients:
 - 캐시 크기를 늘려 쿼리 성능 향상.
 - Promtail의 전송 빈도와 크기를 조정하여 Loki의 부하를 줄임.
 
-위 단계를 적용하면 "Too Many Outstanding Requests" 문제를 해결할 수 있을 것입니다. 추가로 문제가 발생하면 말씀해주세요!
+위 변경은 원인별 실험 후보입니다. 동일한 부하에서 오류율, 큐 대기, p95/p99 지연, 메모리와 디스크 I/O가 개선된 값만 유지하세요.

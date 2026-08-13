@@ -2,6 +2,9 @@
 
 Service configuration files organized by service type.
 
+> Scope: these are candidate repository configurations, not proof of what a host currently runs. Record the environment, service/package version, active include path, approved diff, and deployment revision before applying a file.
+> Safety: syntax validation is necessary but does not prove routing, authorization, upstream health, or rollback. Keep the exact previous config, use a canary where possible, and define health checks and an automatic rollback window.
+
 ## 📁 Directory Structure
 
 ### `haproxy/` - HAProxy Load Balancer
@@ -31,6 +34,8 @@ Configuration for monitoring and logging services:
 ### Common Tasks
 
 **Deploy HAProxy config:**
+
+Replace repository-relative paths with reviewed absolute paths. After reload, verify process status, listeners, representative routes, TLS, and backend health; restore the timestamped backup if any check fails.
 ```bash
 # Backup current config
 cp /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.backup
@@ -55,6 +60,8 @@ systemctl reload nginx
 ```
 
 **Deploy monitoring config:**
+
+Validate the Loki configuration with the installed version before restart, and confirm ingestion plus query results afterward. A running service alone is not completion evidence.
 ```bash
 # Loki
 cp configs/monitoring/Loki_config.yml /etc/loki/
@@ -73,7 +80,7 @@ systemctl restart loki
 ### Security Considerations
 
 - Review configs for sensitive data before committing
-- Use environment variables for secrets
+- Use a secret manager or protected credential file; environment variables may leak through process inspection, diagnostics, or child processes
 - Restrict file permissions (600 or 640)
 - Use separate configs for dev/staging/prod
 - Regular security audits

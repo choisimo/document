@@ -4,13 +4,21 @@
 
 When a Unix/Linux process creates a new process using the fork() system call, a complex but elegant memory management mechanism takes place. This explanation will demonstrate how parent and child processes interact with memory during and after a fork() operation.
 
+## Scope, assumptions, and completion criteria
+
+- **Scope:** This guide describes POSIX `fork()` with a Linux-style copy-on-write implementation. It does not describe Windows process creation, every Unix implementation, or all process attributes.
+- **Assumptions:** The diagrams show private anonymous pages in a single-threaded process. Shared mappings, open file descriptions, pending signals, locks, threads, and device state follow separate rules.
+- **Evidence and environment:** Confirm behavior against the target OS/kernel, libc, `fork(2)`, and trace output. Equal pointer values are virtual addresses and do not prove equal physical pages.
+- **Failure/retry:** On `fork() == -1`, preserve `errno` and do not enter parent/child logic. Retry only selected transient resource failures with a bound; uncontrolled retry can worsen PID or memory pressure.
+- **Completion evidence:** The parent must account for or intentionally detach the child, collect its status where applicable, and record both exit paths. In a multithreaded child, call only async-signal-safe operations until `exec()` unless an explicitly supported mechanism is used.
+
 ## The fork() System Call Explained
 
-The fork() system call creates a new process (called the child) by duplicating the calling process (the parent). After fork() completes, two processes continue to run the same program, but with different return values from fork():
+The `fork()` system call creates a child with a new process identity and a logically copied execution context. Many attributes are inherited or shared according to POSIX rather than being an exact duplicate. After a successful call, parent and child continue from the next instruction with different return values:
 
 - In the parent process: fork() returns the PID of the newly created child
 - In the child process: fork() returns 0
-- On failure: fork() returns -1
+- On failure: the caller receives -1, `errno` explains the failure, and no child is created
 
 A key characteristic of fork() is that the child process does not start execution from the beginning of the program. Instead, both processes continue execution from the point immediately after the fork() call.
 
@@ -81,7 +89,7 @@ Parent Process Memory Space      Child Process Memory Space
 
 ### Actual Memory Implementation (Copy-on-Write)
 
-Modern operating systems don't actually create a complete copy of the parent's memory when fork() is called. Instead, they use a technique called "copy-on-write" (COW) to optimize memory usage:
+Linux and many Unix-like systems normally avoid eagerly copying all private writable pages. They establish copy-on-write mappings, while page tables and other kernel metadata still incur work and shared mappings remain shared:
 
 ```
                     Physical Memory Pages
@@ -157,46 +165,46 @@ When either process modifies a memory page, only then is a copy made:
 To illustrate this further, consider this simple code example:
 
 ```c
-#include &lt;stdio.h&gt;
-#include &lt;unistd.h&gt;
+#include <stdio.h>
+#include <unistd.h>
 
 int main() {
     int x = 5;  // Variable in memory
     
-    printf("Before fork: x = %d (address: %p)\n", x, &amp;x);
+    printf("Before fork: x = %d (address: %p)\n", x, (void *)&x);
     
     pid_t pid = fork();
     
-    if (pid &lt; 0) {
+    if (pid < 0) {
         // Fork failed
         fprintf(stderr, "Fork failed\n");
         return 1;
     } else if (pid == 0) {
         // Child process
-        printf("Child: x = %d (address: %p)\n", x, &amp;x);
+        printf("Child: x = %d (address: %p)\n", x, (void *)&x);
         x = 10;  // Child modifies x
-        printf("Child after change: x = %d (address: %p)\n", x, &amp;x);
+        printf("Child after change: x = %d (address: %p)\n", x, (void *)&x);
     } else {
         // Parent process
-        printf("Parent: x = %d (address: %p)\n", x, &amp;x);
+        printf("Parent: x = %d (address: %p)\n", x, (void *)&x);
         x = 20;  // Parent modifies x
-        printf("Parent after change: x = %d (address: %p)\n", x, &amp;x);
+        printf("Parent after change: x = %d (address: %p)\n", x, (void *)&x);
     }
     
     return 0;
 }
 ```
 
-In this example, both parent and child initially see the same value of x (5), and the memory addresses reported will appear the same (though they refer to different physical memory after fork()). When either process modifies x, the copy-on-write mechanism creates a separate physical copy of that memory page, allowing each process to maintain its own independent value (10 for the child, 20 for the parent).
+In this example, parent and child initially see `x == 5`, and the pointer values normally look the same because each process has a separate virtual address space. Private pages may still reference the same physical page until one process writes; after a COW fault, the writer receives a private copy. Output order is nondeterministic, and the sample does not call `waitpid()`, so it is a memory illustration rather than complete child-lifecycle management.
 
 ## Key Insights About fork() and Memory
 
-1. fork() creates an almost exact duplicate of the parent process
-2. Both processes continue execution from the point after fork()
-3. Modern systems use copy-on-write to optimize memory usage, only creating copies of memory pages when they are modified
-4. This mechanism allows for efficient process creation while maintaining memory isolation between processes
+1. A successful `fork()` creates a distinct child while inheriting and sharing attributes according to POSIX
+2. Parent and child continue from the point after `fork()`, but scheduling order is unspecified
+3. Linux commonly uses COW for private writable pages; page-table copying and later write faults still cost time and memory
+4. Isolation applies to private address-space state, while explicitly shared mappings and open file descriptions can remain shared
 
-This memory management strategy makes fork() both powerful and efficient, enabling the creation of new processes without excessive memory overhead.
+This strategy can make `fork()+exec` efficient, but cost grows with address-space metadata, active threads, memory pressure and pages dirtied before `exec()`. Measure the target workload rather than assuming negligible overhead.
 
 ---
 
@@ -216,4 +224,3 @@ This memory management strategy makes fork() both powerful and efficient, enabli
 - [Unix Stack Exchange: How does forking affect memory layout](https://unix.stackexchange.com/questions/31407/how-does-forking-affect-a-processs-memory-layout)
 - [Unix Stack Exchange: Copy-on-write with multiple forks](https://unix.stackexchange.com/questions/58145/how-does-copy-on-write-in-fork-handle-multiple-fork)
 - [Copy-on-Write in fork() - UPenn](https://www.cis.upenn.edu/~jms/cw-fork.pdf)
-

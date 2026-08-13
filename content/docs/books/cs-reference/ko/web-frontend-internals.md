@@ -1,6 +1,18 @@
 # 웹 및 프런트엔드 내부: 브라우저 엔진, JavaScript 런타임 및 React 조정
 
-> 내부 내용: 브라우저가 HTML을 렌더링 트리로 구문 분석하는 방법, JavaScript 이벤트 루프가 마이크로태스크와 매크로태스크를 처리하는 방법, React의 조정자가 가상 DOM 트리를 비교하는 방법, V8 JIT 컴파일 핫 기능(최신 웹 개발의 이면에 있는 정확한 파이프라인, 데이터 구조 및 스케줄링 메커니즘).
+> 내부 내용: 브라우저가 HTML을 렌더링 트리로 구문 분석하는 방법, JavaScript 이벤트 루프가 마이크로태스크와 매크로태스크를 처리하는 방법, React의 조정자가 가상 DOM 트리를 비교하는 방법, V8 JIT 컴파일 핫 기능(현대 웹 개발에서 볼 수 있는 대표적인 파이프라인, 데이터 구조 및 스케줄링 메커니즘).
+
+---
+
+## 읽기 범위와 검증 기준
+
+이 문서는 브라우저와 프런트엔드 런타임의 대표 경로를 설명하며, 표준의 요구사항과 특정 엔진·프레임워크 버전의 구현 세부 사항을 구분합니다.
+
+- **범위:** HTML/CSS/이벤트 루프의 표준 모델, V8과 브라우저 렌더러의 대표 구현, React의 조정 과정을 다룹니다. 엔진 이름이 없는 수치나 자료구조는 설명용 예시입니다.
+- **실행 전제:** 브라우저·V8·React 버전, OS와 기기, refresh rate, 네트워크·캐시 상태, 번들러와 빌드 모드를 고정해야 합니다. 상태 수, scheduler slice, bundle 크기와 Web Vitals 값은 이 전제 없이 일반화하지 않습니다.
+- **근거 구분:** 명세가 요구하는 관찰 가능 동작은 계약이고, 엔진 내부 파이프라인은 버전별 구현이며, 성능 원인과 최적화 효과는 profile 전까지 가설입니다.
+- **불확실성:** CSR·SSR·SSG, memoization, preload와 virtualization의 효과는 콘텐츠, 캐시, hydration, 사용자 기기와 상호작용에 따라 방향과 크기가 달라질 수 있습니다.
+- **완료 기준:** 동일한 사용자 흐름에서 trace, long task, network waterfall, render count, 메모리와 사용자 지표의 분포를 전후 비교하고 접근성·오류 경계·저속망 회귀가 없을 때 개선 완료로 판정합니다.
 
 ---
 
@@ -26,7 +38,7 @@ flowchart LR
 
 ### HTML 토크나이저 상태 머신
 
-HTML 토크나이저는 ~80개의 상태를 갖는 상태 머신입니다. 상황에 맞는 규칙으로 인해 HTML을 정규식으로 구문 분석할 수는 없습니다.
+HTML 토크나이저의 상태 수는 적용한 WHATWG HTML 명세 시점과 구현 방식에 따라 달라지며, 약 80개라는 값은 설명용입니다. 정규식만으로 전체 HTML 파싱 알고리즘을 충실히 구현할 수는 없지만 제한된 입력의 추출 문제까지 불가능하다는 뜻은 아닙니다.
 
 ```mermaid
 stateDiagram-v2
@@ -45,7 +57,7 @@ stateDiagram-v2
     RCDATA --> Data: matching end tag
 ```
 
-**스크립트 차단**: 파서가 `<script>` 태그(`async`/`defer` 없음)를 발견하면 **HTML 구문 분석을 일시 중지**하고 스크립트를 실행한 다음(DOM을 수정할 수 있음) 다시 시작합니다. 이것이 바로 `<body>` 끝에 있는 `<script>`이 성능에 중요한 이유입니다.
+**스크립트 차단**: 파서가 `<script>` 태그(`async`/`defer` 없음)를 발견하면 **HTML 구문 분석을 일시 중지**하고 스크립트를 실행한 다음(DOM을 수정할 수 있음) 다시 시작합니다. 파서 차단 비용은 스크립트 크기와 네트워크·실행 시간에 따라 달라지며, `defer`, `async`, module과 의존 순서를 함께 측정해야 합니다.
 
 ---
 
@@ -203,7 +215,7 @@ sequenceDiagram
 
 ### 동시 모드: 시간 분할
 
-React 18 동시 모드는 **스케줄러**를 사용하여 렌더링 작업을 5ms 조각으로 나눕니다.
+React 18의 concurrent rendering은 scheduler가 호스트에 제어권을 돌려줄 수 있도록 작업을 나눕니다. 5ms는 특정 scheduler 구현의 휴리스틱 예시이지 React의 고정 시간 보장이 아니며 버전, host와 부하에 따라 달라집니다.
 
 ```mermaid
 flowchart TD
@@ -422,7 +434,7 @@ block-beta
 
 프론트엔드 아키텍처의 근본적 구조 결정은 **렌더링 전략 선택**입니다. CSR(Client-Side Rendering), SSR(Server-Side Rendering), SSG(Static Site Generation), ISR(Incremental Static Regeneration)은 각각 다른 성능 프로파일과 개발 복잡도를 가집니다.
 
-CSR은 초기 로딩이 느리지만 이후 페이지 전환이 빠르고, SSR은 TTFB(Time to First Byte)가 빠르나 서버 부하가 증가합니다. SSG는 빌드 타임에 모든 페이지를 생성하여 CDN에서 직접 제공하므로 가장 빠르지만, 데이터 변경 시 재빌드가 필요합니다. ISR은 SSG의 장점을 유지하면서 `revalidate` 주기로 페이지를 갱신합니다.
+CSR, SSR, SSG와 ISR의 성능 순서는 고정되어 있지 않습니다. TTFB, 다운로드·실행·hydration, CDN·서버 캐시, 개인화와 갱신 요구를 같은 사용자 흐름에서 측정해야 하며, 각 방식은 서버 비용과 stale-data 위험도 함께 바꿉니다.
 
 ```mermaid
 flowchart TD
@@ -471,7 +483,7 @@ flowchart TD
     end
 ```
 
-**번들 최적화 전략**에서의 트레이드오프도 중요합니다. 코드 스플리팅은 초기 로딩을 줄이지만 라우트 전환 시 추가 네트워크 요청이 발생합니다. 트리 쉐이킹은 사용하지 않는 코드를 제거하지만 사이드 이펙트가 있는 모듈은 제거할 수 없습니다. 레이지 로딩은 필요한 시점에 로드하지만 사용자 경험에 지연을 줄 수 있어 `prefetch` 힌트와 함께 사용해야 합니다.
+**번들 최적화 전략**에서의 트레이드오프도 중요합니다. 코드 스플리팅은 초기 로딩을 줄이지만 라우트 전환 시 추가 네트워크 요청이 발생합니다. 트리 쉐이킹은 정적 분석과 `sideEffects` 메타데이터가 안전하다고 판정한 미사용 코드를 제거하며, 부작용이 불명확한 모듈은 보수적으로 남길 수 있습니다. 레이지 로딩은 필요한 시점에 로드하지만 사용자 경험에 지연을 줄 수 있어 `prefetch` 힌트와 함께 사용해야 합니다.
 
 | 전략 | 초기 로딩 | 후속 탐색 | 개발 복잡도 | 적합한 케이스 |
 |---|---|---|---|---|
@@ -502,7 +514,7 @@ flowchart TD
 
 **웹 컴포넌트 vs 프레임워크 컴포넌트**도 설계 원칙과 연관된 결정입니다. 웹 컴포넌트(Custom Elements + Shadow DOM)는 웹 표준이므로 프레임워크에 종속되지 않지만, 생태계와 DX(개발자 경험)가 React/Vue에 비해 부족합니다. 디자인 시스템처럼 프레임워크 간 공유가 필요한 경우 웹 컴포넌트가 적합하고, 특정 프레임워크 내 생산성이 우선이면 프레임워크 컴포넌트가 유리합니다.
 
-**성능 최적화 리팩토링**에서는 측정 기반 접근이 필수입니다. Lighthouse, Web Vitals(LCP, FID, CLS) 메트릭을 기준으로 병목을 식별하고, 가장 임팩트가 큰 부분부터 최적화합니다. 무분별한 `React.memo`나 `useMemo`는 오히려 메모리 사용량을 증가시킬 수 있으므로, 프로파일링으로 실제 렌더링 병목을 확인한 후 적용해야 합니다.
+**성능 최적화 리팩토링**에서는 측정 기반 접근이 재현 가능한 판단 기준입니다. Lighthouse, Web Vitals(LCP, FID, CLS) 메트릭을 기준으로 병목을 식별하고, 가장 임팩트가 큰 부분부터 최적화합니다. 무분별한 `React.memo`나 `useMemo`는 오히려 메모리 사용량을 증가시킬 수 있으므로, 프로파일링으로 실제 렌더링 병목을 확인한 후 적용해야 합니다.
 
 ### 디자인 패턴 적용
 
@@ -527,7 +539,7 @@ flowchart TD
 
 **Container/Presenter 패턴**은 데이터 로직과 UI 렌더링을 분리하는 고전적 패턴입니다. Container가 데이터를 가져와 Presenter에 Props로 전달하면, Presenter는 순수하게 UI만 담당합니다. 이 패턴은 Storybook에서의 컴포넌트 격리 테스트를 매우 용이하게 만듭니다.
 
-**Error Boundary 패턴**은 React에서 컴포넌트 트리의 에러를 격리하는 패턴입니다. 개별 위젯의 에러가 전체 페이지를 다운시키지 않도록, 기능 단위로 Error Boundary를 배치하고 Fallback UI를 제공합니다. 이는 마이크로 프론트엔드에서 특히 중요하며, 독립 배포되는 각 마이크로 앱의 장애가 호스트 앱에 전파되지 않도록 보장합니다.
+**Error Boundary 패턴**은 지원되는 render·lifecycle 오류를 하위 컴포넌트 단위로 격리할 수 있습니다. 이벤트 handler, 비동기 callback, SSR, boundary 자체의 오류는 별도 처리가 필요하므로 전체 페이지 장애 방지를 보장하지 않습니다. fallback, telemetry와 복구 동작을 기능 경계별로 검증합니다.
 
 ## 연습 문제
 
@@ -561,7 +573,7 @@ console.log('5');
 
 <details><summary>힌트 보기</summary>
 
-이벤트 루프는 콜 스택이 비면 먼저 마이크로태스크 큐를 모두 비운 후 매크로태스크를 하나 실행합니다. 동기 코드(1, 5) → 마이크로태스크(3, 4) → 매크로태스크(2) 순서입니다. `queueMicrotask`와 `Promise.then`은 같은 마이크로태스크 큐에 들어가며 등록 순서대로 실행됩니다. 이 메커니즘의 이해는 React의 `setState` 배칭이나 Vue의 `nextTick` 동작을 파악하는 데 필수적입니다.
+이 예제에서는 현재 task가 끝난 microtask checkpoint에서 등록된 microtask가 처리된 뒤 다음 timer task가 실행되어 `1, 5, 3, 4, 2` 순서가 됩니다. 실제 브라우저 이벤트 루프에는 여러 task source, rendering opportunity와 host integration이 있으므로 이를 모든 상황의 고정 순서로 일반화하지 않습니다.
 
 </details>
 
@@ -601,7 +613,7 @@ CSR SPA는 초기 HTML이 빈 `<div id="root">`이므로 검색 엔진 크롤러
 
 <details><summary>힌트 보기</summary>
 
-가상 스크롤은 전체 목록의 높이를 계산하여 스크롤 영역을 확보하되, 실제로는 뷰포트에 보이는 아이템(+ 오버스캔 버퍼)만 DOM에 렌더링합니다. 이를 통해 DOM 노드 수를 수십 개로 제한하여 메모리와 렌더링 성능을 극적으로 개선합니다. 동적 높이 아이템은 렌더링 전 높이를 알 수 없으므로, 예상 높이(estimateSize)로 초기 배치 후 실제 높이를 측정하여 조정하는 방식이 필요합니다.
+가상 스크롤은 전체 목록의 높이를 계산하여 스크롤 영역을 확보하되, 실제로는 뷰포트에 보이는 아이템(+ 오버스캔 버퍼)만 DOM에 렌더링합니다. 이를 통해 DOM 노드 수를 수십 개로 제한하여 메모리와 렌더링 DOM 수를 줄일 수 있지만 실제 개선 폭은 항목 높이 계산, overscan과 기기에서 측정해야 합니다. 동적 높이 아이템은 렌더링 전 높이를 알 수 없으므로, 예상 높이(estimateSize)로 초기 배치 후 실제 높이를 측정하여 조정하는 방식이 필요합니다.
 
 </details>
 
@@ -627,7 +639,7 @@ AbortController의 `signal`을 `fetch`에 전달하고, 클린업 함수에서 `
 
 <details><summary>힌트 보기</summary>
 
-Tree Shaking은 ES Module의 정적 구조(import/export)를 분석하여 사용되지 않는 코드를 제거합니다. `lodash`는 CommonJS 모듈이므로 Tree Shaking이 불가능하지만, `lodash-es`는 ES Module이므로 사용한 함수만 번들에 포함됩니다. `moment.js`는 모든 로케일을 포함하므로 `date-fns`나 `dayjs`로 교체하면 크기가 크게 줄어듭니다. `React.lazy` + `Suspense`로 라우트별 코드 스플리팅을 적용하면 초기 로딩에 필요한 코드만 전달합니다.
+Tree Shaking은 ES Module의 정적 구조와 bundler의 side-effect 분석을 이용합니다. CommonJS도 bundler와 import 형태에 따라 일부 최적화될 수 있어 `lodash`가 항상 제거 불가능하다고 단정할 수 없습니다. `lodash-es`, per-method import, 대체 라이브러리와 route splitting은 실제 bundle report와 runtime 회귀로 비교합니다.
 
 </details>
 
@@ -645,7 +657,7 @@ Service Worker는 네트워크 프록시 역할로 요청을 가로채 캐시된
 
 <details><summary>힌트 보기</summary>
 
-`preload`는 현재 페이지에 필수적인 리소스(히어로 이미지, 웹폰트)를 조기 로딩하고, `prefetch`는 다음 네비게이션에 필요한 리소스를 유휴 시간에 미리 가져옵니다. `fetchpriority="high"`를 LCP 요소의 이미지에 적용하면 브라우저가 우선적으로 다운로드합니다. CLS는 이미지/비디오에 `width`/`height` 속성 미지정, 동적으로 삽입되는 콘텐츠(광고 배너), 웹폰트 FOUT(Flash of Unstyled Text) 등이 원인이며, `aspect-ratio` 예약, `font-display: optional` 등으로 해결합니다.
+`preload`, `prefetch`와 `fetchpriority`는 브라우저에 우선순위 힌트를 제공하지만 다운로드 순서나 LCP 개선을 보장하지 않습니다. candidate 이미지 선택, 캐시, font 정책과 네트워크 경쟁을 waterfall과 사용자 지표로 확인하고, CLS 원인도 layout trace에서 검증합니다.
 
 </details>
 

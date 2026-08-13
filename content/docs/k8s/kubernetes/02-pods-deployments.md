@@ -1,5 +1,12 @@
 # Kubernetes Pod와 Deployment
 
+## 실습 계약과 완료 증거
+
+- 매 명령 전에 context와 namespace를 확인하고, 예제 label이 다른 리소스를 선택하지 않는지 검토합니다.
+- `Running`, `Ready`, rollout 완료와 사용자 요청 성공은 서로 다른 상태입니다. Events, container 상태, probe와 Service 경로를 함께 확인합니다.
+- Deployment 업데이트는 무중단을 자동 보장하지 않습니다. replica 수, `maxUnavailable`, readiness, 종료 유예, PDB 적용 범위와 애플리케이션 호환성을 시험합니다.
+- 롤백 완료는 이전 ReplicaSet 선택만이 아니라 이미지·설정·데이터 스키마가 호환되고 요청 오류율이 회복된 상태입니다.
+
 ## 📖 개요
 
 Pod는 Kubernetes의 최소 배포 단위이며, Deployment는 Pod를 관리하는 상위 리소스입니다. 이 문서에서는 두 개념을 실습을 통해 학습합니다.
@@ -26,7 +33,7 @@ Pod
 - 하나 이상의 컨테이너 그룹
 - 같은 네트워크 네임스페이스 공유 (localhost 통신 가능)
 - 같은 스토리지 볼륨 공유
-- 항상 같은 노드에 배치
+- 한 Pod 수명 동안 컨테이너는 같은 노드에 함께 배치되며, 대체 Pod는 다른 노드에 생성될 수 있음
 - 배포의 최소 단위
 
 ### Pod 생명주기

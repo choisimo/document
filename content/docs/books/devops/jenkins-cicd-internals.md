@@ -4,6 +4,8 @@
 
 ---
 
+> **Reading contract:** This is a Jenkins architecture study guide based on a secondary source. It is for administrators and pipeline authors, not a current backup, security, or recovery runbook. Bind claims to Jenkins core, Java, plugin and Remoting versions, controller topology, durability setting, agent launcher, and storage backend. A build is complete only with immutable source and artifact identifiers, test and policy evidence, deployment health, and a proven rollback. Agent loss, controller restart, plugin incompatibility, secret exposure, or deployment failure requires evidence capture, bounded retry, and escalation or rollback.
+
 ## 1. What Jenkins Actually Is: A Java-Based Event-Driven Orchestrator
 
 Jenkins is a **Java process** (runs in a servlet container — historically Jetty, or deployed as a WAR in Tomcat) that maintains a persistent workspace directory (`$JENKINS_HOME`) and an internal execution graph. It is **not** a build runner itself — it is an **orchestrator** that delegates actual work to **build agents** via remote protocol.
@@ -28,13 +30,13 @@ block-beta
   end
 ```
 
-The **controller** never runs build steps directly (in production setups). It schedules, monitors, and persists results. All `sh`, `bat`, `docker.build`, `mvn` steps execute on agent JVMs connected via the **Remoting** protocol.
+The controller can run build steps when it has executors, though production guidance commonly sets controller executors to zero and uses agents. Step location also depends on the Pipeline step and plugin; controller-side Groovy and coordination work still consume controller resources.
 
 ---
 
 ## 2. $JENKINS_HOME: The Filesystem as Database
 
-Jenkins has no external database. All state — job configurations, build history, credentials, plugin data — lives as XML files in `$JENKINS_HOME`:
+Jenkins core commonly persists substantial state under `$JENKINS_HOME`, but plugins and integrations may use external artifact stores, credentials systems, databases, clouds, and SCM. Inventory plugin-owned state before defining a backup boundary.
 
 ```mermaid
 flowchart TD
@@ -50,7 +52,7 @@ flowchart TD
 ```
 
 **Implications**:
-- Jenkins state is **entirely file-based** — backup = `tar $JENKINS_HOME`
+- A consistent backup is not merely a live `tar` of `$JENKINS_HOME`. Quiesce or use a supported snapshot method, include encryption keys and external plugin state, verify permissions, and prove restore on a compatible Jenkins/plugin version.
 - Build history accumulates indefinitely unless configured with **build discarder** (`logRotator`)
 - Plugin updates install new `.jpi` files; restart loads them via classloader
 - Credentials are encrypted with `master.key` (AES-128) — losing this key = losing all stored credentials
@@ -148,7 +150,7 @@ flowchart TD
   S3 --> S4["stage('Deploy')\nkubectl set image deployment/app\napp=registry/myapp:$GIT_SHA"]
 ```
 
-Parallel stages run on **separate executors** — potentially on different agents. The `parallel` step spawns multiple lightweight threads, each synchronized via the CPS execution engine. Results are aggregated — if any branch fails, the `parallel` block marks the overall stage failed.
+`parallel` branches are concurrent in the Pipeline graph, but they consume separate executors only when their nested `node` or `agent` allocations require them. Failure aggregation and fail-fast behavior depend on Pipeline options and branch error handling.
 
 ---
 
@@ -269,7 +271,7 @@ flowchart TD
   MATRIX --> DENY["DENY: HTTP 403"]
 ```
 
-**Credential binding**: secrets stored in `$JENKINS_HOME/credentials.xml` encrypted with `master.key` (AES-128). At build time, `withCredentials([...])` block decrypts the secret into an environment variable **only for the duration of the block** — it is masked in console output (replaced with `****`). The decrypted value is never written to disk.
+**Credential binding:** Storage and encryption depend on credential type and plugin version. `withCredentials` scopes binding and attempts console masking, but masking is not a security boundary: child processes, debug output, transformed values, temporary files, process inspection, or a malicious build can expose plaintext. Use isolated agents, least privilege, short-lived credentials, and post-build revocation evidence.
 
 ```mermaid
 sequenceDiagram
@@ -408,4 +410,4 @@ flowchart TD
   RESULT --> NOTIFY["post-build notifications:\nGitHub status API, Slack, email\nvia plugin extension points"]
 ```
 
-Every Jenkins build traverses this exact internal path — from webhook verification through CPS-transformed pipeline execution on an isolated agent JVM, with controller-side state persistence at each durable step boundary.
+The final path is one multibranch, webhook, CPS, ephemeral-agent example. Freestyle jobs, controller executors, polling, non-durable steps, alternate agents, and plugin-specific steps take different paths; use build causes, FlowGraph, queue, node, and deployment records as completion evidence.

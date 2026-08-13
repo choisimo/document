@@ -1,6 +1,8 @@
 # VS Code 서버의 WebSocket 오류 해결을 위한 Nginx 설정
 
-현재 Nginx 설정에는 VS Code 서버에 필요한 WebSocket 지원 설정이 누락되어 있습니다. VS Code 서버는 실시간 편집 기능, 터미널, 확장 기능 등을 위해 WebSocket 연결을 필수적으로 사용합니다.
+> **진단 범위:** 아래 구성은 `code.nodove.com`을 `localhost:8080`의 code-server로 프록시하는 예시입니다. 장애 원인이 Upgrade 헤더인지 인증·경로·인증서·업스트림 연결인지 Nginx 오류 로그와 브라우저 네트워크 기록으로 먼저 구분합니다.
+
+WebSocket 요청이 일반 HTTP 응답으로 끝나고 업스트림 HTTP 연결은 정상이라는 관찰이 있을 때, 아래 헤더 구성을 후보 수정안으로 적용합니다. HSTS의 `includeSubDomains`와 `preload`는 모든 하위 도메인이 HTTPS를 지원하는 경우에만 유지합니다.
 
 ## 수정된 Nginx 설정
 
@@ -48,6 +50,8 @@ server {
 ```
 
 ## 주요 변경사항 설명
+
+설정 적용 완료는 Nginx 재시작이 아니라 브라우저의 WebSocket 요청이 `101 Switching Protocols`로 전환되고 code-server 터미널과 편집 세션이 지정한 타임아웃 동안 유지되는 것으로 판정합니다.
 
 1. **HTTP 버전 설정**: `proxy_http_version 1.1;` - WebSocket은 HTTP/1.1 이상에서 지원됩니다[4][6].
 

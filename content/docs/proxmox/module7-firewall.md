@@ -1,12 +1,21 @@
 # Module 7: Proxmox VE Firewall
 
 ## 학습 목표
-이 모듈을 완료하면 다음을 이해할 수 있습니다:
+이 모듈의 설명과 실습을 완료하면 다음 항목을 설명하고 test matrix로 검증할 수 있어야 합니다:
 - PVE Firewall의 분산 아키텍처와 계층 구조
 - 방향(Direction)과 영역(Zone) 개념
 - 방화벽 규칙 문법과 매크로 활용
 - Security Group, IP Set, Alias 관리
 - iptables/nftables 기반 규칙 생성 흐름
+
+---
+
+## 적용 범위와 학습 검증 기준
+
+- **범위:** Proxmox VE와 firewall backend 버전, cluster/node/VM/CT 계층, bridge·SDN topology, IPv4/IPv6, enable flag와 effective input/output policy를 기록합니다. `iptables`·`nftables` 상태와 생성 규칙은 설치 버전에서 확인합니다.
+- **안전 전제:** Web UI·SSH·cluster communication의 source와 복구 console을 먼저 확보합니다. datacenter, node, guest, security group과 자동 생성 규칙을 합친 결과가 실제 정책입니다.
+- **사실과 추론:** 설정 파일, compiled ruleset, counter, log와 packet trace는 근거이고, “어느 계층이 차단했다”는 설명은 rule hit를 확인하기 전까지 가설입니다.
+- **실패·완료:** management lockout, asymmetric rule, IPv6 우회, east-west traffic, migration 후 policy와 service restart를 시험합니다. 허용·차단 test matrix와 rollback이 통과할 때 모듈 및 변경 작업을 완료로 판정합니다.
 
 ---
 
@@ -44,7 +53,7 @@
 
 **분산 아키텍처의 장점:**
 - **고대역폭**: 중앙 병목 없이 각 노드에서 필터링
-- **완전 격리**: VM 간 트래픽이 노드를 벗어나지 않음
+- **노드 내부 경로**: 일부 VM 간 traffic은 물리 NIC를 통과하지 않을 수 있지만 bridge, host service와 policy를 포함한 완전 격리는 별도 rule test가 필요
 - **자동 동기화**: pmxcfs를 통해 설정 자동 배포
 - **IPv4/IPv6 동시 지원**: 투명한 듀얼 스택 필터링
 
@@ -785,7 +794,7 @@ journalctl -u pve-firewall -f
 
 ### 10.1 활성화 시 기본 허용 트래픽
 
-방화벽을 활성화하면 기본적으로 모든 트래픽이 **차단**되지만, 다음은 자동 허용됩니다:
+firewall enable만으로 모든 traffic이 일률적으로 차단되는 것은 아닙니다. effective 동작은 계층별 enable flag, input/output policy, 명시·자동 생성 rule과 backend에 따라 달라지므로 다음 예시와 compiled ruleset을 함께 확인합니다:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -839,7 +848,7 @@ journalctl -u pve-firewall -f
 
 ---
 
-## 11. nftables (Tech Preview)
+## 11. nftables (설치된 PVE 버전에서 지원 상태 확인)
 
 ### 11.1 nftables vs iptables
 

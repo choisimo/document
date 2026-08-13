@@ -5,6 +5,15 @@
 - 코드 레이어(초기화/루프/조건/갱신/종료)를 분해하고, Mermaid로 제어 흐름을 시각화합니다.
 - 실전 문제에 붙일 때 반드시 수정해야 하는 지점을 체크리스트로 제공합니다.
 
+## 입력 계약과 완료 판정
+
+- 배열은 코드의 비교 연산과 같은 기준으로 오름차순 정렬돼 있어야 합니다.
+- 중복 값이 있으면 이 템플릿은 일치하는 인덱스 하나를 반환하며 첫 번째·마지막 위치를 보장하지 않습니다.
+- 빈 배열은 `-1`을 반환하고, 찾지 못한 경우의 sentinel도 `-1`입니다.
+- 사용자 정의 객체는 정렬과 탐색에 같은 key 또는 comparator를 사용해야 합니다.
+
+완료 조건은 반환 인덱스가 범위 안이고 `arr[index] == target`이거나, `-1`일 때 정렬된 입력에 target이 없다는 것입니다. 첫 위치나 삽입 위치가 필요하면 루프 불변식과 반환 계약을 별도로 바꿉니다.
+
 ## 원본 템플릿
 - Source: [02-sorting-searching/01-binary-search.md](https://github.com/choisimo/document/blob/main/code/templates/algorithm-architect/02-sorting-searching/01-binary-search.md)
 

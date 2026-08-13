@@ -5,11 +5,13 @@
 
 ---
 
+> **Reading contract:** Scope is CTCI 4th edition and the C/C++/Java-style examples reconstructed here. The edition predates current language standards and JVM implementations, so object headers, bucket layouts, integer representation, and synchronization details require an explicit language version, VM, architecture, and flags. Separate language guarantees from one runtime layout and from performance estimates. A claim is complete when its target environment, invariant, failure mode, and source problem or chapter are named; otherwise keep it as an interview model rather than production fact.
+
 ## 1. Bit Manipulation: Integer Memory Layout and Arithmetic
 
 ### 1.1 Integer Representation in Memory
 
-Every integer in a 32-bit system occupies exactly 4 bytes = 32 bits in two's complement representation. Bit position `k` has value `2^k` (LSB = bit 0).
+For a specified 32-bit two's-complement integer type, the representation uses 32 bits and bit position `k` has unsigned weight `2^k` (LSB = bit 0). A "32-bit system" alone does not determine the width or signed representation of every integer type; use fixed-width types or the language's defined `int` model.
 
 ```mermaid
 block-beta
@@ -514,7 +516,7 @@ K-way merge uses a min-heap of size K → O(K log K) per element → total O(N l
 
 ### 10.1 Java Monitor — Object Header Lock Word
 
-Every Java object has a **2-word object header**: 8 bytes mark word + 4-byte class pointer (compressed OOPs) = 12 bytes. The **mark word** encodes lock state:
+In one common 64-bit HotSpot configuration with compressed class pointers, a Java object header is often modeled as an 8-byte mark word plus a 4-byte class pointer before alignment. This is not a Java-language guarantee; VM version, compression flags, collector, and alignment determine the actual layout. The mark word may encode lock state in the modeled configuration:
 
 ```mermaid
 stateDiagram-v2

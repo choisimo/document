@@ -1,4 +1,8 @@
-Zsh(Z shell)은 기존의 Bash 셸보다 강력한 자동 완성, 플러그인, 테마 설정 등 다양한 기능을 제공하여 터미널 사용 경험을 크게 향상시켜 줍니다.
+# Arch Linux에서 Zsh 테마 구성하기
+
+> **문서 범위:** 이 기록은 Zsh, Oh My Zsh, Powerlevel10k 구성 절차를 다룹니다. 파일명과 달리 Catppuccin 색상표나 Catppuccin 플러그인 설치 절차는 포함하지 않습니다.
+
+Zsh(Z shell)은 자동 완성, 플러그인, 테마 설정을 지원합니다. 이 문서에서는 기본 셸 변경, 테마 선택, 글꼴 의존성 확인 순서로 구성합니다.
 
 -----
 
@@ -29,7 +33,7 @@ chsh -s $(which zsh)
 
 ### 3단계: 테마 관리를 위한 "Oh My Zsh" 설치하기
 
-Oh My Zsh는 Zsh의 설정을 관리해주는 가장 인기 있는 프레임워크입니다. 수많은 테마와 플러그인을 아주 쉽게 사용할 수 있게 해줍니다.
+Oh My Zsh는 Zsh 설정, 테마, 플러그인을 한 디렉터리 구조에서 관리하는 프레임워크입니다.
 
 아래 명령어를 터미널에 붙여넣어 실행하면 자동으로 설치됩니다. (`curl`이 없다면 `sudo pacman -S curl`로 먼저 설치해주세요.)
 
@@ -100,7 +104,7 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/too
 
 ### 특별 추천: `powerlevel10k` 테마 설치하기
 
-`powerlevel10k`는 `agnoster`보다 훨씬 빠르고, 사용자 설정이 매우 편리하며, 화려한 기능을 제공하는 현존 최고의 Zsh 테마입니다.
+`powerlevel10k`는 구성 마법사와 Git 상태 표시를 제공하는 Zsh 테마입니다. 체감 속도와 선호도는 플러그인 수, 글꼴, 터미널 환경에 따라 달라집니다.
 
 1.  **powerlevel10k 테마 다운로드**
 
@@ -117,4 +121,3 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/too
 
 3.  **설정 마법사 실행**
     파일을 저장하고 `source ~/.zshrc`를 실행하거나 터미널을 새로 열면, `powerlevel10k` 설정 마법사가 자동으로 시작됩니다. 마법사가 묻는 질문(아이콘이 잘 보이는지, 어떤 모양의 프롬프트를 원하는지 등)에 따라 몇 가지 선택만 하면 자신에게 최적화된 멋진 터미널이 완성됩니다.
-

@@ -2,13 +2,22 @@
 
 이 문서는 Docker 및 Kubernetes 환경에서 Nginx를 배포하고 운용하기 위한 설정 방법(Dockerfile, YAML 매니페스트 등)을 다룹니다.
 
+## 적용 범위와 배포 완료 기준
+
+- **범위:** Nginx image digest/version, Docker build platform, Kubernetes·API version, namespace, Ingress controller, CNI와 cluster policy를 기록합니다.
+- **전제:** immutable image, non-root filesystem·user, resource request/limit, health probe, ConfigMap 반영 방식, Service·Ingress의 실제 controller와 TLS 종료 지점을 정합니다.
+- **사실과 추론:** rendered manifest, admitted object, image digest, Pod event·log와 endpoint 응답은 근거이고, 가용성·확장성·성능은 rollout 및 부하 시험 전까지 추론입니다.
+- **실패·완료:** image pull, invalid config, probe 실패, unavailable replica, ConfigMap 불일치, routing·TLS 오류와 rollback을 시험합니다. desired replica, endpoint, SLO, security context와 이전 revision 복구가 확인될 때 완료입니다.
+
+---
+
 ## 1. Dockerfile을 이용한 Nginx 이미지 구성
 
 Nginx 애플리케이션을 컨테이너로 패키징하기 위해 `Dockerfile`을 작성합니다.
 
-*   **기본 이미지 지정:** `FROM nginx:latest`를 사용합니다.
+*   **기본 이미지 지정:** 실험 예시에서 `nginx:latest`를 볼 수 있지만 재현 가능한 배포에는 검증한 version 또는 digest를 고정하고 update 절차를 둡니다.
 *   **컨텐츠 수정:** `RUN` 명령어로 정적 파일을 수정하거나 설정할 수 있습니다.
-*   **포트 노출:** `EXPOSE 80`으로 포트를 명시합니다.
+*   **포트 메타데이터:** `EXPOSE 80`은 image가 사용하는 port를 문서화할 뿐 host나 cluster에 port를 publish하지 않습니다.
 
 **작성 예시:**
 ```dockerfile

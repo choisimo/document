@@ -1,5 +1,19 @@
 # WireGuard VPN Setup
 
+
+## Scope and operational contract
+
+This guide combines a third-party wg-easy deployment with a manual WireGuard example. Treat both as templates: container names, environment variables, firewall tooling, kernel support, and authentication settings vary by release and host.
+
+- **Supply chain**: Use the current project registry, pin a reviewed release and image digest, inspect release notes and migrations, and retain a rollback image plus a backup of persistent state.
+- **Secrets**: Generate keys under umask 077. Never expose private keys, QR codes, configuration exports, or admin password material in shell history, logs, tickets, or world-readable volumes.
+- **Network assumptions**: Replace eth0, subnets, DNS, endpoint, and MTU with observed values. Full tunnel versus split tunnel, IPv6 routing, DNS leak behavior, forwarding, NAT, and overlapping routes require explicit decisions.
+- **Exposure**: Keep the web administration UI on loopback or a private management network behind TLS and strong authentication. Only the WireGuard UDP port should be publicly reachable unless another path is justified.
+- **Failure and rollback**: Back up firewall and WireGuard state, apply one peer at a time, and remove partially applied NAT rules before retrying.
+- **Completion evidence**: Record recent handshakes, peer-specific AllowedIPs, route and DNS tests, intended internet egress, denied cross-peer access, restart persistence, and recovery from the saved configuration.
+
+The Compose schema below reflects one product generation and must be reconciled with the pinned wg-easy release before use. Do not assume legacy PASSWORD_HASH or WG_* variables are accepted by a newer major version.
+
 > Modern, fast, and secure VPN using WireGuard with Docker
 
 ---
@@ -40,7 +54,7 @@ Create `docker-compose.yml`:
 version: "3.8"
 services:
   wg-easy:
-    image: weejewel/wg-easy
+    image: ghcr.io/wg-easy/wg-easy:<approved-version>@sha256:<approved-digest>
     container_name: wg-easy
     environment:
       # Required: Your public hostname or IP
@@ -59,7 +73,7 @@ services:
       - ./wireguard:/etc/wireguard
     ports:
       - "51820:51820/udp"  # WireGuard
-      - "51821:51821/tcp"  # Web UI
+      - "127.0.0.1:51821:51821/tcp"  # Web UI: expose through authenticated TLS proxy
     restart: unless-stopped
     cap_add:
       - NET_ADMIN
@@ -82,7 +96,7 @@ echo "PASSWORD_HASH=$(docker run --rm -it ghcr.io/wg-easy/wg-easy wgpw 'your-pas
 docker compose up -d
 ```
 
-Access web UI at: `http://your-server:51821`
+Access the web UI only through an authenticated TLS reverse proxy; the example binds it to loopback.
 
 ---
 
@@ -106,7 +120,8 @@ sudo sysctl -p
 ### Generate Keys
 
 ```bash
-# Generate server keys
+# Generate server keys with restrictive permissions
+umask 077
 wg genkey | tee server_private.key | wg pubkey > server_public.key
 
 # Generate client keys
@@ -144,7 +159,7 @@ DNS = 1.1.1.1
 [Peer]
 PublicKey = <server_public_key>
 Endpoint = vpn.example.com:51820
-AllowedIPs = 0.0.0.0/0  # Route all traffic through VPN
+AllowedIPs = 0.0.0.0/0
 PersistentKeepalive = 25
 ```
 
@@ -244,7 +259,7 @@ sudo wg-quick down wg0
 sudo wg show
 
 # Check if port is open
-sudo netstat -ulnp | grep 51820
+sudo ss -lunp | grep 51820
 ```
 
 ### Common Issues

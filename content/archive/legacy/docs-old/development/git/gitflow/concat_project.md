@@ -1,4 +1,4 @@
-Okay, I can help you with that! To automatically run your `file_concatter.sh` script, create a `total` directory, and place the output file (let's call it `total.txt`) inside it every time you push to your GitHub project, you'll need to use **GitHub Actions**.
+이 문서는 push 시 `file_concatter.sh`를 실행해 `total/total.txt`를 생성하고 변경된 경우 다시 저장소에 반영하는 GitHub Actions 구성을 설명한다.
 
 Here's how you can set it up:
 
@@ -98,7 +98,7 @@ done
 # 병합 완료 메시지
 # find 명령어의 결과를 직접 사용하여 정확한 파일 수를 얻음
 # (파이프라인 서브셸 문제 회피)
-actual_files_processed_count=$(grep -c "^===== .* ====$" "$output_path")
+actual_files_processed_count=$(grep -c "^===== .* ====$" "$output_path" || true)
 
 if [ "$actual_files_processed_count" -eq "0" ] && [ "$file_count" -eq "0" ]; then
     # wc -l 은 파일이 비어있어도 1을 반환할 수 있으므로, 실제 처리된 파일 구분자로 확인
@@ -120,6 +120,11 @@ fi
 * Improved the final count message to be more accurate by counting the separators in the output file.
 
 ---
+
+## 자동화 완료 계약과 알려진 결함
+
+셸 스크립트와 워크플로는 초안이다. `set -e` 상태에서 일치 항목이 없는 `grep -c`가 실패하면 빈 입력 처리 분기에 도달하지 못하므로 명시적으로 허용해야 한다. 출력 디렉터리의 문자열 접두사 비교는 비슷한 이름의 다른 경로를 잘못 제외할 수 있어 정규화된 경로 경계가 필요하다. Action이 생성 파일을 다시 push하면 동일 워크플로를 재호출할 수 있으므로 생성 경로 제외, 쓰기 권한, 동시 실행 정책을 명시한다. 완료는 입력 파일 목록·개수, 출력 해시, 생성 파일만 포함된 diff, Action 종료 상태로 판정한다.
+
 ## 2. Create a GitHub Actions Workflow File
 
 In your GitHub repository, create a directory named `.github` and inside it, another directory named `workflows`. In the `.github/workflows` directory, create a YAML file (e.g., `main.yml` or `build_total.yml`).
@@ -131,6 +136,15 @@ on:
   push:
     branches:
       - main  # 또는 master, develop 등 기본 브랜치명으로 변경하세요.
+    paths-ignore:
+      - 'total/total.txt'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: generate-total-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:

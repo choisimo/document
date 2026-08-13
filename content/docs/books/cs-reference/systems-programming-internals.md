@@ -4,6 +4,8 @@
 
 ---
 
+> **Reading contract:** This note targets systems programmers who already distinguish language guarantees from one Linux, libc, compiler, allocator, and CPU implementation. Bind each low-level claim to ISA and memory model, kernel and libc version, compiler flags, allocator build, architecture, and benchmark conditions. Safe-language guarantees are **facts within their defined subset**; diagrams of futex words, registers, bins, and nanoseconds are **implementation examples**. Completion requires source or disassembly evidence, a failure boundary, and a repeatable trace or benchmark. Retry after controlling noise; invalidate results when the environment changes.
+
 ## 1. CPU Memory Model: Store/Load Ordering
 
 Modern CPUs reorder memory operations for performance. The programmer's sequential mental model does not match hardware reality.
@@ -148,9 +150,9 @@ sequenceDiagram
     BC-->>CODE: OK or Error: "does not live long enough"
 ```
 
-**Borrow checker eliminates at compile time**:
+**Safe Rust's borrow checker prevents at compile time, within Rust's type and aliasing model**:
 - Use-after-free: owner dropped while borrow exists → compile error
-- Data races: `&mut` reference while any other reference active → compile error
+- Many data races expressible through ordinary references: conflicting `&mut` and shared borrows are rejected. `unsafe` code, FFI, atomics, and incorrectly implemented `Send`/`Sync` boundaries still require separate review.
 - Dangling references: reference to value that left scope → compile error
 
 ---
@@ -177,7 +179,7 @@ flowchart LR
     subgraph "Registers Saved on Context Switch"
         CALLEE["Callee-saved (compiler):\nrbx, rbp, r12-r15\n(caller responsible for rax, rcx, rdx, rsi, rdi, r8-r11)"]
         SPECIAL["Special registers:\nrip (instruction pointer)\nrsp (stack pointer)\nrflags (condition codes)"]
-        FPU["FPU/SIMD (lazy save):\nxmm0-xmm15, ymm0-ymm15\nOnly saved if FPU used since last switch\n(XSAVE instruction — slow, avoid if possible)"]
+        FPU["FPU/SIMD state:\nxmm/ymm and extended state as configured\nsave/restore policy depends on kernel and CPU\nmodern Linux commonly uses eager FPU context handling"]
         CALLEE --> SPECIAL --> FPU
     end
 ```
@@ -282,7 +284,7 @@ flowchart TD
         NODE0 <--> INTERCO <--> NODE1
     end
     subgraph "NUMA-Aware Allocation"
-        POLICY["numactl --membind=0 ./process\n  Allocate memory only on node 0\n  (process pinned to node 0 CPUs)\n→ Always local access, no cross-node\nnuma_alloc_local(): first-touch policy"]
+        POLICY["numactl --membind=0 ./process\n  Constrain allocation policy to node 0\nCPU affinity must be configured separately\nlocality can still change through migration,\nreclaim, device DMA, and shared mappings"]
     end
 ```
 

@@ -1,5 +1,13 @@
 # 제 6장: 동기화 도구 (Synchronization Tools) 🔄
 
+## 문서 범위와 검증 기준
+
+- **범위**: 임계 구역과 mutex/semaphore/monitor를 설명하는 교과서 의사 코드입니다. 표시된 C 함수는 완전한 POSIX 구현이 아니며 원자성·메모리 순서·오류 처리가 생략될 수 있습니다.
+- **전제**: Peterson 증명은 두 참여자, sequential consistency와 원자적 load/store 모델을 전제로 합니다. 실제 C/C++의 비원자 공유 접근은 data race이며 단순히 fence 하나를 추가하는 것으로 이식성이 자동 확보되지 않습니다.
+- **근거 상태와 환경**: mutex blocking, fairness, condition-variable wakeup과 atomic ordering은 언어·라이브러리·OS 버전의 계약으로 확인합니다. “빠름/짧음”은 고정 기준이 아니며 hold time, contention과 tail latency로 측정합니다.
+- **실패/재시도**: lock/condition wait에는 timeout·취소·spurious wakeup·owner failure 정책을 둡니다. 실패 뒤 lock 소유 여부를 확인하지 않은 재시도나 무한 spin은 허용하지 않습니다.
+- **완료 증거**: 상호 배제뿐 아니라 progress, bounded waiting 또는 명시한 fairness 수준, 취소·예외 경로의 unlock과 종료를 stress trace/검사로 입증해야 완료입니다.
+
 ## 📖 목차 (Table of Contents)
 
 1. [개요](#overview)
@@ -118,7 +126,7 @@ void consumer() {
 
 ### 🔐 해결책의 필요성
 
-데이터 일관성을 유지하기 위해서는 **협력하는 프로세스의 순서 있는 실행을 보장하는 메커니즘**이 필요합니다.
+공유 가변 상태의 일관성을 위해서는 언어 메모리 모델에 맞는 원자 연산이나 동기화로 happens-before 관계를 세워야 합니다. 단순한 소스 코드 순서나 “동시에 실행되지 않을 것”이라는 기대는 보장이 아닙니다.
 
 ---
 
@@ -203,6 +211,8 @@ graph TD
 
 #### 구현 코드
 
+다음은 알고리즘 구조를 보이는 의사 C입니다. 표준 C의 일반 `boolean` 변수로 여러 스레드가 그대로 실행하면 data race가 되므로 실제 구현에는 대상 언어의 atomic type과 명시된 memory order가 필요합니다.
+
 ```c
 // 공유 변수
 boolean flag[2] = {false, false};  // 프로세스 준비 상태
@@ -228,13 +238,13 @@ void process_i() {
 }
 ```
 
-### ✅ 피터슨 해결책의 정확성
+### ✅ 피터슨 해결책의 정확성 전제
 
 ```mermaid
 graph TD
-    A[피터슨 알고리즘] --> B[상호 배제 ✓]
-    A --> C[진행 ✓]
-    A --> D[유한 대기 ✓]
+    A[두 참여자 + sequential consistency] --> B[상호 배제]
+    A --> C[진행]
+    A --> D[유한 대기]
     
     B --> B1["Pi는 flag[j]==false이거나<br/>turn==i인 경우에만 진입"]
     C --> C1["대기 조건을 만족하지 않으면<br/>진입 가능"]
@@ -266,7 +276,7 @@ sequenceDiagram
     Note over T1,T2: 둘 다 임계 구역 진입 가능!
 ```
 
-현대 아키텍처에서는 **명령어 재배열(instruction reordering)**로 인해 피터슨 알고리즘이 제대로 작동하지 않을 수 있습니다.
+컴파일러·CPU 재배열과 언어의 data-race 규칙 때문에 위의 비원자 코드는 현대 C/C++에서 올바른 동기화가 아닙니다. CPU 동작만의 문제가 아니며 대상 언어의 atomic 연산으로 증명 전제를 표현해야 합니다.
 
 **예시:**
 ```c
@@ -288,6 +298,8 @@ x = 100;
 현대 시스템은 임계 구역 구현을 위한 하드웨어 지원을 제공합니다.
 
 #### Test-and-Set 명령어
+
+아래 `test_and_set` 함수 본문은 원자 명령의 의미를 설명하는 명세형 의사 코드입니다. 보통 load/store로 컴파일되는 일반 C 함수 자체가 원자적인 것은 아닙니다.
 
 ```mermaid
 graph LR
@@ -357,7 +369,7 @@ void increment() {
 
 ### 🔐 뮤텍스 락 개념
 
-**뮤텍스(Mutex, Mutual Exclusion)**는 가장 단순한 동기화 도구입니다.
+**뮤텍스(Mutex, Mutual Exclusion)**는 소유권이 있는 상호 배제 도구입니다. 구현은 사용자 공간 fast path, adaptive spin과 kernel blocking을 조합할 수 있으며 “가장 단순”하거나 항상 busy-wait라고 가정하지 않습니다.
 
 ```mermaid
 graph TD
@@ -413,9 +425,11 @@ void process() {
 }
 ```
 
+위의 `available` 확인과 대입은 하나의 원자 연산이 아니므로 두 스레드가 동시에 통과할 수 있습니다. 실제 mutex 구현 예제가 아니라 잘못된 check-then-set 구조이며, atomic exchange/CAS와 올바른 memory order 또는 검증된 라이브러리 mutex를 사용해야 합니다.
+
 ### 🔄 스핀락 (Spinlock)
 
-뮤텍스 락은 **바쁜 대기(busy waiting)**를 사용하므로 **스핀락**이라고도 불립니다.
+스핀락은 바쁜 대기를 사용하는 별도 lock 종류입니다. 일반 mutex는 경합 시 스레드를 재울 수 있고 일부 구현만 잠시 spin한 뒤 block합니다.
 
 **장점:**
 - 컨텍스트 스위치 오버헤드 없음
@@ -452,6 +466,8 @@ graph TD
 ```
 
 #### 기본 연산
+
+다음 증감과 queue 전환 전체는 원자적으로 직렬화된다는 추상 연산입니다. 일반 정수에 이 C 본문을 그대로 적용하면 올바른 semaphore가 되지 않습니다.
 
 ```c
 // wait 연산 (P 연산)
@@ -559,10 +575,10 @@ signal(&mutex);  // 잘못된 순서!
 wait(&mutex);
 ```
 
-2. **wait → wait**: 영구 블록
+2. **wait → wait**: 같은 실행 흐름이 두 번 획득하고 다른 signal 주체가 없다면 무기한 블록 가능
 ```c
 wait(&mutex);
-wait(&mutex);  // 두 번째 wait에서 영구 대기
+wait(&mutex);  // 비재진입 자원이며 다른 signal이 없으면 무기한 대기
 ```
 
 3. **연산 누락**: 예측 불가능한 동작
@@ -583,7 +599,7 @@ graph TD
     A --> E[초기화 코드]
     
     B --> B1["내부에서만 접근 가능"]
-    C --> C1["상호 배제 자동 보장"]
+    C --> C1["monitor contract가 상호 배제를 제공"]
     D --> D1["wait/signal 연산"]
     E --> E1["모니터 시작 시 실행"]
     
@@ -860,9 +876,9 @@ void reader() {
 
 | 동기화 도구 | 장점 | 단점 | 적용 분야 |
 |------------|------|------|-----------|
-| **뮤텍스 락** | • 단순함<br/>• 빠른 응답 | • 바쁜 대기<br/>• CPU 낭비 | 짧은 임계 구역 |
-| **세마포어** | • 블로킹 대기<br/>• 카운팅 가능 | • 프로그래밍 오류 가능 | 자원 관리 |
-| **모니터** | • 고수준 추상화<br/>• 오류 방지 | • 언어/OS 지원 필요 | 복잡한 동기화 |
+| **뮤텍스 락** | 소유권 기반 상호 배제, 구현별 fast path | 경합·우선순위 역전·owner failure 정책 필요 | 임계 구역 보호 |
+| **세마포어** | permit 카운팅과 순서 동기화 | 소유권이 없어 누락·과다 signal 위험 | 유한 자원·신호 |
+| **모니터** | 상태와 조건 대기를 한 추상화에 묶음 | Mesa/Hoare 의미와 wakeup 조건을 이해해야 함 | 복합 상태 불변식 |
 
 ### 🔍 선택 기준
 
@@ -930,7 +946,7 @@ monitor ComputerLab {
     condition waiting;
     
     void enter() {
-        if (available_seats == 0)
+        while (available_seats == 0)
             waiting.wait();
         available_seats--;
     }

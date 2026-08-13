@@ -2,6 +2,15 @@
 
 Redis를 Docker로 설치하고 Spring Boot와 연동하는 방법을 설명합니다.
 
+## 적용 범위와 검증 기준
+
+- **범위:** Redis 버전, standalone·Sentinel·Cluster 모드, Docker image tag, persistence, eviction, ACL/TLS와 Spring client 버전을 명시합니다.
+- **환경 전제:** 메모리 한도, 데이터 크기와 TTL 분포, 연결 수, network, durability 목표와 장애 시 허용 가능한 손실량을 먼저 정합니다.
+- **근거와 불확실성:** latency, hit rate, memory 비율과 client 수는 workload별 관측값입니다. 고정 임계값보다 baseline과 SLO 대비 추세로 alert를 설계합니다.
+- **실패·완료:** 인증 실패, timeout, eviction, OOM, restart, persistence 손상과 failover를 시험하고 key·TTL·권한·복구 시간·허용 손실이 기준을 만족할 때 완료로 판정합니다.
+
+---
+
 ## 개요
 
 Redis는 오픈소스 인메모리 데이터 구조 저장소로, 데이터베이스, 캐시, 메시지 브로커로 사용됩니다.
@@ -367,15 +376,15 @@ redis-cli MONITOR
 
 | 메트릭 | 설명 | 경고 임계값 |
 |--------|------|-------------|
-| `used_memory` | 사용 중인 메모리 | maxmemory의 80% |
+| `used_memory` | 사용 중인 메모리 | 고정 80%가 아니라 eviction 여유, fragmentation과 workload baseline 대비 추세 |
 | `connected_clients` | 연결된 클라이언트 수 | 1000+ |
-| `blocked_clients` | 블록된 클라이언트 | 0 초과 |
+| `blocked_clients` | 블록된 클라이언트 | 0 초과 자체보다 command 유형, 지속 시간과 SLO 영향으로 판정 |
 | `evicted_keys` | 제거된 키 수 | 증가 추세 |
-| `keyspace_hits/misses` | 캐시 히트율 | 80% 미만 |
+| `keyspace_hits/misses` | 캐시 히트율 | 목표 workload의 baseline·비용 모델과 miss 원인으로 판정 |
 
 ## 보안 설정
 
-!!! danger "필수 보안 설정"
+!!! danger "배포 전 보안 검토 항목"
     - 강력한 비밀번호 설정 (`requirepass`)
     - 외부 접근 제한 (`bind` 설정)
     - `protected-mode yes` 활성화

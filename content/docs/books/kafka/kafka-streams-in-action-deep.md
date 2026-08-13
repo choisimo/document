@@ -3,6 +3,13 @@
 > Source: *Kafka Streams in Action* — William P. Bejeck Jr., Manning 2018  
 > Focus: Internal topology model, StreamTask execution, state store fault-tolerance, KTable cache mechanics, windowing state machines, Processor API scheduling, interactive query RPC routing
 
+## Version and runtime boundary
+
+- The source predates several current Kafka Streams changes. Confirm task assignment, state-store defaults, EOS mode, metrics, and APIs against the deployed client version.
+- A logical topology, generated processor graph, subtopology, task, partition group, and stream thread are different units; do not use them interchangeably.
+- Changelog restoration provides a recovery mechanism, not an instant availability guarantee. Measure state size, restore bandwidth, rebalance duration, standby freshness, and query behavior during migration.
+- Exactly-once processing covers Kafka inputs, outputs, changelogs, and offsets in the transaction. External calls need a separate idempotency or reconciliation contract.
+
 ---
 
 ## 1. The Topology as a Directed Acyclic Graph (DAG)
@@ -81,7 +88,7 @@ graph TD
     style N fill:#555,color:#fff
 ```
 
-### Partition → Task mapping (1:1 invariant)
+### Partition groups to tasks: topology-dependent mapping
 
 ```
 Topic partitions:  [P0]  [P1]  [P2]  [P3]
@@ -222,7 +229,7 @@ flowchart LR
     end
 ```
 
-Each processor owns exclusive access to its state store — no sharing across threads, no network traversal. At 1M records/sec, even 1ms network latency becomes 1000 seconds of overhead.
+An active task normally updates its local state stores from one stream thread, while interactive queries and task migration introduce additional access and lifecycle rules. Locality avoids a network round trip on the normal update path, but the impact cannot be computed by multiplying aggregate record rate by latency as if all operations were serialized. Measure per-record service time, concurrency, cache behavior, and remote-query traffic.
 
 ---
 
@@ -584,10 +591,10 @@ sequenceDiagram
     note over Kafka: Records invisible to read_committed consumers
 ```
 
-**`processing.guarantee=exactly_once_v2`** (Kafka 2.5+):
-- One producer per StreamTask (not per thread) → fewer transactions
+**`processing.guarantee=exactly_once_v2`** (availability depends on Kafka Streams version):
+- Uses a thread-scoped transactional producer in the EOS v2 design rather than the older task-scoped model
 - Epoch-based fencing replaces old per-partition transaction ID scheme
-- Overhead: ~5-10% throughput reduction vs `at_least_once`
+- Throughput and latency overhead depend on commit interval, transaction rate, brokers, storage and workload; measure them rather than assuming 5-10%
 
 ---
 

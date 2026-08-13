@@ -1,12 +1,25 @@
 # SSH Match 지시어 활용 예시 및 설명
 
+
+## 적용 범위와 실행 전 조건
+
+이 문서는 OpenSSH 서버의 sshd_config 예시 모음입니다. 예시는 설계 재료이지 복사 실행용 완성 설정이 아니며, OpenSSH 버전마다 Match 안에서 허용되는 지시어가 다릅니다. ssh_config 전용인 LocalCommand와 PermitLocalCommand는 서버 설정에 사용할 수 없고, 현대 OpenSSH에서는 # Protocol 지시어는 현대 OpenSSH에서 폐기되었습니다. 지시어가 폐기되었습니다.
+
+- **순서 규칙**: 다수의 sshd 옵션은 처음 결정된 값이 적용됩니다. 구체적인 Match를 배치하는 것만으로 충분하다고 가정하지 말고 전역값, Include 파일, Match all 경계를 함께 검사합니다.
+- **chroot 전제**: ChrootDirectory와 상위 경로는 root 소유이고 사용자가 쓸 수 없어야 합니다. 쓰기 작업은 jail 내부의 별도 하위 디렉토리에 허용합니다.
+- **안전한 적용**: sudo sshd -t와 sudo sshd -T -C의 대표 사용자, 주소, 포트 조합을 통과한 뒤 기존 관리자 세션을 유지한 채 reload합니다.
+- **실패 대응**: 새 세션이 실패하면 재시작을 반복하지 말고 백업 설정으로 복구합니다. 콘솔 또는 별도 관리 경로가 없으면 원격 변경을 진행하지 않습니다.
+- **완료 조건**: 각 정책 조합의 허용과 거부 테스트, 셸/SFTP/포워딩 동작, chroot 권한, 감사 로그를 결과로 보관합니다.
+
+Root 로그인 정책과 알고리즘 정책은 제품 버전과 조직 암호 정책을 기준으로 전역에서 관리합니다. 비밀번호, X11, 에이전트 및 TCP 포워딩 허용 예시는 위험을 승인한 제한된 환경에서만 사용합니다.
+
 SSH 서버 구성 파일(sshd_config)의 Match 지시어는 특정 조건에 따라 다양한 SSH 설정을 적용할 수 있게 해주는 강력한 기능입니다. 여러 상황에 맞게 활용할 수 있는 다양한 예시들을 살펴보겠습니다.
 
 ## 예시 1: SFTP 전용 사용자 설정
 
 ```
 Match User sftp_user
-    ChrootDirectory /home/sftp_user
+    ChrootDirectory /srv/sftp/sftp_user
     ForceCommand internal-sftp
     AllowTcpForwarding no
     X11Forwarding no
@@ -21,7 +34,7 @@ Match User sftp_user
 
 ```
 Match User adminuser Address 10.10.10.5
-    PermitRootLogin yes
+    # PermitRootLogin은 전역 정책으로 관리하고 비활성 상태를 유지합니다.
     AllowTcpForwarding yes
     X11Forwarding yes
     PasswordAuthentication no
@@ -53,8 +66,8 @@ Match User dataoperator Group dataadmins Address 192.168.5.* LocalPort 2222
     X11Forwarding yes
     AllowTcpForwarding yes
     ForwardAgent yes
-    PermitLocalCommand yes
-    LocalCommand logger "Data admin access: %h by %u"
+    # PermitLocalCommand는 클라이언트 옵션이므로 sshd_config에서 사용하지 않습니다.
+    # 서버 감사 로그 또는 승인된 세션 래퍼로 접속을 기록합니다.
 ```
 
 이 예시는 네 가지 조건(사용자, 그룹, IP 주소 범위, 로컬 포트)을 모두 만족할 때만 적용되는 복합 설정입니다[2][3]. 'dataoperator' 사용자가 'dataadmins' 그룹에 속해 있고, 192.168.5.* 네트워크에서 2222 포트로 접속할 때만 확장된 접근 권한이 부여됩니다. 이 접근이 발생할 때마다 로컬 명령을 통해 로그를 남기도록 구성되어 있어 감사(audit) 목적으로도 유용합니다.
@@ -63,10 +76,10 @@ Match User dataoperator Group dataadmins Address 192.168.5.* LocalPort 2222
 
 ```
 Match Address !192.168.0.0/16,* User *,!root
-    Protocol 2
-    Ciphers aes256-ctr,aes256-gcm@openssh.com,chacha20-poly1305@openssh.com
-    MACs hmac-sha2-512,hmac-sha2-256
-    KexAlgorithms curve25519-sha256,diffie-hellman-group16-sha512
+    # Protocol 지시어는 현대 OpenSSH에서 폐기되었습니다.
+    # 알고리즘 목록은 Match 밖의 전역 암호 정책에서 지원 버전을 확인해 관리합니다.
+    # MACs 전역 정책은 배포판 암호 정책과 sshd -T 결과를 기준으로 정합니다.
+    # KexAlgorithms 전역 정책은 상호운용 시험과 현재 권고를 기준으로 정합니다.
     PermitRootLogin no
     MaxAuthTries 3
     AllowAgentForwarding no
@@ -86,7 +99,7 @@ X11Forwarding no
 Match Host *-dev
     X11Forwarding yes
     PasswordAuthentication yes
-    PermitLocalCommand yes
+    # PermitLocalCommand는 클라이언트 옵션이므로 sshd_config에서 사용하지 않습니다.
     
 # 테스트 환경용 설정
 Match Host *-test Address 192.168.0.0/16
@@ -109,7 +122,7 @@ Match Host *-prod
 
 ```
 # SSH 서비스 기본 설정
-Protocol 2
+# Protocol 지시어는 현대 OpenSSH에서 폐기되었습니다.
 AllowUsers *
 
 # 데이터베이스 서버용 설정
@@ -138,7 +151,7 @@ Match User monitoring-* Address 10.0.0.0/8
 
 ## 결론
 
-SSH Match 지시어는 사용자, 그룹, 호스트, IP 주소 등 다양한 조건을 기반으로 세밀한 접근 제어를 구현할 수 있는 강력한 도구입니다. 이러한 예시를 응용하여 자신의 환경에 맞는 보안 정책을 구현할 수 있습니다. 설정 변경 후에는 항상 SSH 서비스를 재시작하여 변경 사항을 적용해야 하며, 설정 오류로 인한 접근 문제를 방지하기 위해 변경 전 테스트를 권장합니다.
+SSH Match 지시어는 사용자, 그룹, 호스트, IP 주소 등 다양한 조건을 기반으로 세밀한 접근 제어를 구현할 수 있는 강력한 도구입니다. 이러한 예시를 응용하여 자신의 환경에 맞는 보안 정책을 구현할 수 있습니다. 설정 변경 후에는 구문과 조건별 유효 설정을 검사하고, 기존 세션을 유지한 채 reload한 다음 새 세션으로 허용 및 거부 동작을 확인합니다.
 
 
 <hr/>
@@ -193,7 +206,7 @@ Match Group developers
 # 다중 그룹 조건
 Match Group admins,operators
     PasswordAuthentication yes
-    PermitRootLogin yes
+    # PermitRootLogin은 전역 정책으로 관리하고 비활성 상태를 유지합니다.
 
 # 그룹 제외 패턴
 Match Group *,!guests
@@ -322,7 +335,7 @@ Match User lead-dev Group developers
 # 내부 네트워크에서 접속하는 관리자에게 적용
 Match User admin Address 10.0.0.0/8
     PasswordAuthentication yes
-    PermitRootLogin yes
+    # PermitRootLogin은 전역 정책으로 관리하고 비활성 상태를 유지합니다.
     
 # 외부 네트워크에서 접속하는 관리자에게 적용
 Match User admin Address !10.0.0.0/8,*
@@ -401,7 +414,7 @@ Match User 지시어에서 여러 사용자를 지정할 때는 쉼표(,)로 구
 ```
 Match User user1,user2,user3
     ForceCommand internal-sftp
-    ChrootDirectory /home/%u/
+    ChrootDirectory /srv/sftp/%u
     X11Forwarding no
     AllowTcpForwarding no
 ```
@@ -430,7 +443,7 @@ CIDR 표기법을 사용하여 IP 주소 범위를 지정할 수도 있습니다
 
 ```
 Match User adminuser Address 10.10.10.5
-    PermitRootLogin yes
+    # PermitRootLogin은 전역 정책으로 관리하고 비활성 상태를 유지합니다.
     AllowTcpForwarding no
 ```
 
@@ -494,11 +507,11 @@ SSH 프로토콜은 버전 1과 2가 있으며, 보안상의 이유로 버전 2�
 
 ```
 # 기본적으로 모든 연결에 SSHv2만 허용
-Protocol 2
+# Protocol 지시어는 현대 OpenSSH에서 폐기되었습니다.
 
 # 특정 내부 네트워크에 대해서만 설정
 Match Address 192.168.1.0/24
-    Protocol 2
+    # Protocol 지시어는 현대 OpenSSH에서 폐기되었습니다.
 ```
 
 ## SFTP 전용 접근 설정
@@ -508,7 +521,7 @@ Match Address 192.168.1.0/24
 ```
 Match User sftp-user1,sftp-user2
     ForceCommand internal-sftp
-    ChrootDirectory /home/%u
+    ChrootDirectory /srv/sftp/%u
     AllowTcpForwarding no
     X11Forwarding no
     PermitTTY no
@@ -536,7 +549,7 @@ Match User scp-user
 
 ```
 Match Address !10.0.0.0/8,*
-    Ciphers aes256-ctr,aes256-gcm@openssh.com,chacha20-poly1305@openssh.com
+    # 알고리즘 목록은 Match 밖의 전역 암호 정책에서 지원 버전을 확인해 관리합니다.
     MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com
     KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512
 ```
@@ -643,7 +656,7 @@ Match Group developers Address !10.0.0.0/8,*
 2. 설정 변경 후에는 반드시 구문 검사를 수행하고 SSH 서비스를 재시작해야 합니다:
    ```
    sudo sshd -t
-   sudo systemctl restart sshd
+   sudo systemctl reload sshd
    ```
 
 3. 너무 제한적인 설정은 정상적인 작업을 방해할 수 있으므로, 사용자 요구와 보안 정책 사이의 균형을 고려해야 합니다.

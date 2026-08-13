@@ -1,15 +1,17 @@
 # Competitive Programming Internals — Under the Hood
 ## Antti Laaksonen's Competitive Programmer's Handbook · Internal Mechanics
 
-> **Not a tutorial.** This document maps how data flows through memory structures, how optimization transitions between complexity classes, how DP tables fill in memory, how bit operations manipulate register state — for every major technique in competitive programming.
+> **Not a tutorial.** This document maps selected techniques from the cited handbook to memory structures, complexity transitions, DP table order, and bit operations.
 
 ---
+
+> **Reading contract:** Source scope is the July 3, 2018 handbook draft named at the end. Judge throughput, recursion limits, integer widths, memory limits, and library costs vary by platform, so the tables are estimation heuristics, not acceptance guarantees. Before selecting an algorithm, bind the claim to the exact constraints, input distribution, numeric range, data-structure variant, and worst-case or expected bound. Selection is complete only when correctness and resource bounds fit the judge limits with margin; a timeout, overflow, excessive memory use, or violated invariant returns the choice to an unverified state.
 
 ## 1. Time Complexity — The Internal Machine Model
 
 ### 1.1 Complexity Estimation Table — What Actually Runs
 
-Every complexity class maps to a hardware execution constraint. The key: competitive programming judges run ~10⁸ operations/second.
+Complexity classes constrain growth, while actual runtime depends on the judge hardware, language, constants, cache behavior, and time limit. The often-used ~10⁸ simple operations/second figure is only a rough sizing heuristic and must be calibrated against the target judge.
 
 ```mermaid
 flowchart TD

@@ -3,6 +3,12 @@
 
 개발 및 운영에 사용하는 도구형 스택 모음입니다.
 
+## 도구 스택 점검 기준
+
+- Docker socket, 소스 디렉터리, SSH 키와 클라우드 토큰을 마운트하면 도구 컨테이너가 갖는 권한을 명시합니다.
+- UI·API 공개 범위와 인증을 먼저 설정하고, 이미지와 플러그인 버전을 함께 고정합니다.
+- 완료 기준은 health 상태, 최소 권한 계정의 실제 작업 1건, 재시작과 설정 복원 결과입니다.
+
 <div class="compose-hero" markdown>
 <span class="compose-kicker">Quick Start</span>
 

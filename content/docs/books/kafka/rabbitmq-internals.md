@@ -2,6 +2,13 @@
 
 > Sources: *RabbitMQ in Depth* (Gavin M. Roy, Manning 2018) · *Mastering RabbitMQ* (Ayanoglu, Aytaş, Nahum, Packt 2015)
 
+## Version and evidence boundary
+
+- The sources predate major RabbitMQ changes. Classic mirrored queues, quorum queues, stream queues, metadata storage, defaults, and plugins must be mapped to the deployed RabbitMQ and Erlang/OTP versions.
+- AMQP acknowledgement, publisher confirm, queue replication, consumer acknowledgement, and an external side effect are separate completion points.
+- Internal Erlang processes, ETS tables, routing indexes, and supervision trees are implementation details, not AMQP protocol guarantees.
+- Validate reliability with effective policies, queue type, durable/persistent settings, node-loss tests, redelivery evidence, and recovery time rather than a generic availability label.
+
 ---
 
 ## 1. The AMQP 0-9-1 Wire Frame Machine
@@ -79,7 +86,7 @@ block-beta
     M1["Erlang process + ETS table\n+ credit-flow state"] M2["Erlang process + ETS table\n+ credit-flow state"] MN["Erlang process + ETS table\n+ credit-flow state"]
 ```
 
-**Key insight**: Each channel is not just a number on the wire — inside the broker it maps to an **Erlang process** with its own mailbox, message backlog ETS table, prefetch credit counter, and transaction state. Creating 1,000 channels per connection means 1,000 Erlang processes, with corresponding RAM overhead. Recommended practice: one channel per thread, never reuse channels across threads.
+**Key insight**: a channel has broker and client state beyond its wire identifier, so unbounded channel counts consume resources. The exact Erlang process and table layout varies by release. Channel sharing rules belong to the client library contract; use a bounded pool or per-thread model only after checking thread safety, workload concurrency, and channel churn.
 
 ---
 
@@ -150,7 +157,7 @@ flowchart TD
     TX -->|"image.new.profile ∉ image.delete.*"| X1[❌ No match]
 ```
 
-Internally, RabbitMQ compiles bindings into a **trie structure** indexed by word segments. Routing traverses the trie — O(depth) per word, not O(bindings).
+RabbitMQ can index topic bindings by word segments to avoid a naive scan of every binding. The concrete data structure and cost vary by release and wildcard distribution, so treat O(depth) as a model and measure routing latency against binding count and pattern shape.
 
 ### 5.4 Headers Exchange — Property Table Matching
 
@@ -251,7 +258,7 @@ sequenceDiagram
 
 **Confirms**: broker acks delivery-tags asynchronously after writing to disk/queue. Publisher may batch inflight messages up to `delivery-tag` watermark — single `Basic.Ack(multiple=true)` acknowledges all prior delivery-tags at once.
 
-**Transactions**: synchronous 2PC. `Tx.Select` → publish N messages → `Tx.Commit` — broker must flush all messages to disk before responding. Typically 10–100x slower than confirms.
+**AMQP transactions**: `Tx.Select` followed by publishes and `Tx.Commit` creates a channel-scoped broker transaction; it is not a distributed two-phase commit across arbitrary systems. Persistence and replication completion depend on queue and message settings. Compare its measured latency and throughput with confirms rather than assuming a 10-100x ratio.
 
 ---
 
@@ -270,7 +277,7 @@ flowchart LR
 
 `basic.qos(prefetch_count=N)` sets the **inflight window**: broker buffers at most N unacked messages per consumer channel. When the window is full, the broker stops delivering from the queue to that consumer. This is the primary **backpressure mechanism** between broker and consumer.
 
-Setting `prefetch_count=0` disables prefetch entirely — broker pushes all available messages immediately (dangerous with slow consumers).
+Setting `prefetch_count=0` means an unlimited prefetch count in AMQP 0-9-1 semantics, not that prefetch is disabled. This can build a large unacknowledged backlog at a slow consumer, so set and measure a finite bound when memory and fairness matter.
 
 ---
 
@@ -576,7 +583,7 @@ flowchart TD
     note["Weight determines proportion of hash ring\nassigned to each queue\nSame routing_key → always same queue\n(stickiness guarantee)"]
 ```
 
-Queues bind with an **integer weight** (not a routing key string). The weight determines the proportion of the hash ring assigned to each queue. Consistent hashing guarantees that the same `routing_key` always routes to the same queue — essential when ordering within a logical stream must be preserved.
+In the consistent-hash exchange plugin, binding weights influence hash-ring allocation. A stable ring can map the same routing key to the same queue, but binding or membership changes can remap keys. Ordering also depends on publisher, queue, redelivery, and consumer concurrency, so the exchange alone is not an end-to-end stickiness guarantee.
 
 ---
 
@@ -604,7 +611,7 @@ flowchart TB
     style QUEUE_SUP fill:#6af,color:#fff
 ```
 
-If a channel process crashes (e.g., due to a malformed message or unhandled exception), the supervisor restarts only that process. The connection, other channels, and all queues remain unaffected. This OTP supervision structure is why RabbitMQ achieves the "nine nines" reliability characteristic of Erlang/OTP systems.
+OTP supervision can isolate and restart a failed child according to its supervision strategy, but restart intensity or a shared dependency can escalate failure to a larger subtree. The effect on the connection, other channels, and queues must be observed for the actual failure. No availability percentage follows from OTP alone; it requires a defined SLO and measured service data.
 
 ---
 

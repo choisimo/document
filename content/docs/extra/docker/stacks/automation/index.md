@@ -3,6 +3,12 @@
 
 워크플로우 자동화와 시간 추적을 위한 Docker Compose 스택 모음입니다.
 
+## 자동화 스택 점검 기준
+
+- webhook·OAuth·API 토큰은 `.env`나 비밀 저장소에서 주입하고 문서·Compose·로그에 실제 값을 남기지 않습니다.
+- 타임존, 재시도, 중복 실행, 작업 timeout과 외부 API rate limit을 워크플로별로 정의합니다.
+- 실행 완료는 UI 접속이 아니라 시험 이벤트 1건의 입력, 단일 처리, 결과 기록과 실패 재처리를 확인한 상태입니다.
+
 <div class="compose-hero" markdown>
 <span class="compose-kicker">Quick Start</span>
 

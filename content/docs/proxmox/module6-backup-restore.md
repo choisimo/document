@@ -1,7 +1,11 @@
-# Module 6: Backup & Restore (vzdump)
+# Module 6: Backup & Restore (vzdump) 운영 가이드
+
+> 적용 범위: 명령과 UI 경로는 Proxmox VE 8.x 계열 예시다. 실행 전 `pveversion -v`, `vzdump --help`, PBS 버전과 스토리지 기능을 확인한다.
+> 안전 경계: prune, 작업 삭제, restore, `qm unlock`, 암호화 키 변경은 복구 가능성에 직접 영향을 준다. 대상·보존 기간·복원 위치·rollback 조건을 기록하고 dry-run 또는 격리 복원을 먼저 수행한다.
+> 완료 증거: “백업 작업 성공”, “백업 검증 성공”, “격리 환경 복원 성공”, “애플리케이션 정상 응답”은 서로 다른 단계다. 앞 단계만으로 뒤 단계의 성공을 주장하지 않는다.
 
 ## 학습 목표
-이 모듈을 완료하면 다음을 이해하게 됩니다:
+이 모듈은 다음 주제를 다룹니다:
 - vzdump의 백업 모드와 각각의 장단점
 - Proxmox Backup Server(PBS) 통합 및 고급 기능
 - 백업 보존 정책(Retention)의 설계 및 적용
@@ -82,7 +86,7 @@
 │  │    1. QEMU에 "copy-before-write" 필터 설치                       │  │
 │  │    2. Guest 계속 실행 (다운타임 최소)                            │  │
 │  │    3. 새로운 쓰기 발생시 → 기존 데이터 먼저 백업                 │  │
-│  │    4. QEMU Guest Agent → fs-freeze (일관성 보장)                 │  │
+│  │    4. QEMU Guest Agent → fs-freeze (파일 시스템 쓰기 정지)       │  │
 │  │                                                                   │  │
 │  │    Timeline:                                                      │  │
 │  │    ─────────────────────────────────────────────────────────     │  │
@@ -90,7 +94,7 @@
 │  │      (~1sec)          │              │            (~1sec)         │  │
 │  │                   VM Running     VM Running                       │  │
 │  │                                                                   │  │
-│  │    장점: 최소 다운타임, 모든 스토리지 지원                       │  │
+│  │    장점: guest 실행을 유지; 지원 범위는 스토리지·버전별 확인      │  │
 │  │    단점: I/O 부하 (copy-before-write 오버헤드)                   │  │
 │  └──────────────────────────────────────────────────────────────────┘  │
 │                                                                         │
@@ -127,7 +131,7 @@
 │  │              ←──────── Full Downtime ────────────→               │  │
 │  │                        (백업 전체 시간)                           │  │
 │  │                                                                   │  │
-│  │    장점: 최고의 일관성 보장                                      │  │
+│  │    장점: 종료된 guest 디스크 상태를 백업                          │  │
 │  │    단점: 긴 다운타임                                             │  │
 │  └──────────────────────────────────────────────────────────────────┘  │
 │                                                                         │
@@ -154,8 +158,8 @@
 │  │  SUSPEND Mode                                                     │  │
 │  │                                                                   │  │
 │  │    • 컨테이너 프로세스 freeze (SIGSTOP)                          │  │
-│  │    • 로컬 파일시스템 + NFS 타겟 조합시 성능 향상 (4배↑)         │  │
-│  │    • ACL이 있는 로컬 CT → NFS 백업시 필수                        │  │
+│  │    • 성능은 파일 수·스토리지·네트워크에 따라 달라져 실측 필요    │  │
+│  │    • ACL·xattr 보존 여부를 샘플 복원으로 확인                     │  │
 │  └──────────────────────────────────────────────────────────────────┘  │
 │                                                                         │
 │  ┌──────────────────────────────────────────────────────────────────┐  │
@@ -163,7 +167,7 @@
 │  │                                                                   │  │
 │  │    • 컨테이너 완전 종료                                          │  │
 │  │    • 가장 긴 다운타임                                            │  │
-│  │    • 최고 일관성 보장                                            │  │
+│  │    • 종료된 파일 시스템 상태 제공; 외부 시스템 일관성은 별도     │  │
 │  └──────────────────────────────────────────────────────────────────┘  │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -173,12 +177,12 @@
 
 | 상황 | 권장 모드 | 이유 |
 |------|----------|------|
-| 일반 프로덕션 VM | `snapshot` | 최소 다운타임, Guest Agent로 일관성 |
-| Guest Agent 없는 VM | `suspend` | 짧은 일시정지로 일관성 확보 |
+| 일반 프로덕션 VM | `snapshot` | 중단을 줄일 수 있으며 앱별 quiesce 여부는 별도 확인 |
+| Guest Agent 없는 VM | `snapshot` 또는 `suspend` | RTO와 앱 일관성 요구를 시험해 선택 |
 | 데이터베이스 서버 | `snapshot` + App dump | DB 일관성 별도 확보 필요 |
-| 크리티컬 시스템 | `stop` (점검 시간) | 완벽한 일관성 |
+| 중요 시스템 | `stop` (점검 시간) | 종료된 디스크 상태 확보; 외부 의존성은 별도 검증 |
 | 스냅샷 지원 스토리지의 CT | `snapshot` | 빠르고 효율적 |
-| NFS 타겟 + 로컬 CT | `suspend` | 성능 최적화 |
+| NFS 타겟 + 로컬 CT | 시험 후 선택 | 파일 수·ACL·네트워크에 따른 시간과 복원 결과 비교 |
 
 ---
 
@@ -248,7 +252,7 @@ vzdump 100 --stdout | ssh remote "cat > /backup/vm100.vma"
 
 ### 3.3 Backup Fleecing (VM)
 
-백업 중 새로운 쓰기가 발생하면, 기존 데이터를 임시로 저장하여 백업 성능을 개선합니다.
+백업 중 덮어쓸 기존 블록을 별도 임시 스토리지에 두어 느린 백업 대상이 guest I/O에 주는 영향을 줄이는 기능입니다. 개선 폭과 추가 공간 요구량은 쓰기 패턴과 두 스토리지의 성능에 따라 달라집니다.
 
 ```bash
 # Fleecing 활성화
@@ -257,7 +261,7 @@ vzdump 100 --fleecing enabled=1,storage=local-lvm
 # 설명:
 # - 백업 중 Guest가 블록에 새로 쓰면
 # - 기존 데이터를 fleecing storage에 임시 저장
-# - 백업 타겟의 속도와 무관하게 Guest I/O 유지
+# - guest I/O 지연을 줄일 수 있지만 백업 타겟과 무관한 성능을 보장하지 않음
 ```
 
 ```
@@ -280,7 +284,7 @@ vzdump 100 --fleecing enabled=1,storage=local-lvm
 │   └─────────┘                └─────────┘      │        │ (local)   │  │
 │        │                          │           │        └───────────┘  │
 │        │                          │           │              │         │
-│   No wait!                   ┌────▼────┐      │       ┌──────▼──────┐ │
+│   Less coupling              ┌────▼────┐      │       ┌──────▼──────┐ │
 │                              │ Backup  │◄─────┘       │   Backup    │ │
 │                              │ Process │◄─────────────│   Target    │ │
 │                              └─────────┘              │   (slow)    │ │
@@ -436,7 +440,9 @@ vzdump 100 --prune-backups keep-last=3,keep-daily=14,keep-weekly=8,keep-monthly=
 vzdump 100 --prune-backups keep-all=1
 ```
 
-### 5.3 권장 보존 정책 (10년 보관)
+### 5.3 보존 정책 예시 (10년 보관 요구가 있는 경우)
+
+이 수치는 기본 권장값이 아닙니다. RPO, 규정, 예상 변경률, 백업 크기, 오프사이트 복사와 실제 복원 가능 기간으로 용량을 계산한 뒤 정합니다.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -496,7 +502,7 @@ dir: backup
 # 특정 스토리지의 백업 정리 (dry-run)
 pvesm prune-backups backup-storage --dry-run
 
-# 실제 정리 실행
+# dry-run 목록을 저장하고 보호 백업·법적 보존 대상을 대조한 뒤 실제 정리 실행
 pvesm prune-backups backup-storage
 
 # 특정 VM의 백업만 정리
@@ -553,10 +559,7 @@ pvesm add pbs pbs-backup \
 
 # Password 설정 (대화형)
 pvesm set pbs-backup --password
-
-# 또는 password file 사용
-echo "SecretPassword" > /etc/pve/priv/storage/pbs-backup.pw
-chmod 600 /etc/pve/priv/storage/pbs-backup.pw
+# 셸 기록이나 문서에 평문 비밀번호를 넣지 말고, 전용 최소 권한 계정과 secret 저장소를 사용한다.
 ```
 
 ### 6.3 PBS storage.cfg 예제
@@ -574,8 +577,8 @@ pbs: pbs-backup
 ### 6.4 Client-side 암호화
 
 ```bash
-# 암호화 키 생성 (password 없이)
-proxmox-backup-client key create --kdf none /etc/pve/priv/storage/pbs-backup.enc
+# 암호화 키 생성 (대화형 암호 설정; 운영 키에 --kdf none을 사용하지 않음)
+proxmox-backup-client key create /etc/pve/priv/storage/pbs-backup.enc
 
 # 스토리지에 암호화 키 설정
 pvesm set pbs-backup --encryption-key /etc/pve/priv/storage/pbs-backup.enc
@@ -694,7 +697,7 @@ pct restore 200 backup.tar.zst --bwlimit 51200
 
 ### 7.3 Live-Restore (PBS 전용)
 
-PBS에서 VM을 복원하면서 즉시 시작:
+PBS에서 VM 디스크 전체 전송이 끝나기 전에 guest를 시작할 수 있습니다. 부팅 가능 시점은 네트워크, PBS 부하와 guest의 초기 읽기 패턴에 따라 달라집니다.
 
 ```bash
 # Live-restore 활성화
@@ -721,7 +724,7 @@ qmrestore pbs-backup:backup/vm/100/2024-01-15T02:00:00Z 100 --live-restore 1
 │     │        └── Prioritize ──────┘                           │         │
 │     │            accessed chunks                              │         │
 │     │                                                         │         │
-│     └─── VM available in seconds! ────────────────────────────┘         │
+│     └─── VM availability must be measured ────────────────────┘         │
 │                                                                         │
 │  ⚠️ 주의사항:                                                          │
 │  • 백업 서버 접근 필수 (복원 완료 전까지)                              │
@@ -903,11 +906,11 @@ pvesm list backup-storage
 ### 10.3 백업 실패 복구
 
 ```bash
-# 중단된 백업 정리
-rm -f /var/lib/vz/dump/vzdump-qemu-100-*.tmp
+# 중단된 백업 후보를 먼저 목록화하고 현재 task가 사용 중인지 확인
+find /var/lib/vz/dump -maxdepth 1 -name 'vzdump-qemu-100-*.tmp' -print
 
-# Lock 해제 (주의!)
-qm unlock 100
+# Lock 소유 task가 종료됐고 guest·스토리지 작업이 없음을 확인한 경우에만 잠금 해제
+# qm unlock 100
 
 # PBS 미완료 백업 정리 (PBS 서버에서)
 proxmox-backup-manager garbage-collect <datastore>
@@ -927,6 +930,8 @@ proxmox-backup-manager garbage-collect <datastore>
 - [ ] **알림 설정** - 실패 알림 필수
 
 ### 11.2 권장 설정
+
+다음은 출발점 예시입니다. 스토리지 처리량과 업무 RPO/RTO를 측정하지 않은 채 그대로 운영 기준으로 사용하지 않습니다.
 
 ```bash
 # /etc/vzdump.conf 권장 설정
@@ -968,11 +973,18 @@ pvesh set /cluster/options --bwlimit "restore=51200,default=0"
 
 | 모드 | VM | CT | 다운타임 | 일관성 |
 |------|----|----|----------|--------|
-| snapshot | ✅ | ✅ | 최소 | 높음 (Agent) |
-| suspend | ✅ | ✅ | 짧음 | 높음 |
-| stop | ✅ | ✅ | 김 | 최고 |
+| snapshot | ✅ | ✅ | 보통 짧음 | 파일 시스템·앱 quiesce 방식에 따라 다름 |
+| suspend | ✅ | ✅ | 환경별 측정 | 정지 시점의 메모리·디스크 상태; 앱별 검증 필요 |
+| stop | ✅ | ✅ | 백업 시간 동안 | 종료된 디스크 상태; 외부 의존성은 별도 검증 |
 
 ---
+
+## 완료 기준
+
+- 최근 백업 task가 성공했고 대상 VM/CT, 디스크 포함·제외 목록, 보존 정책이 의도와 일치한다.
+- PBS verify 또는 매체 무결성 검사를 통과했으며, 별도 VMID·격리 네트워크에 복원해 파일과 애플리케이션을 확인했다.
+- 암호화된 백업은 운영 시스템 밖에서 복구 키 접근 절차를 시험했고, 키 자체를 작업 로그에 남기지 않았다.
+- 실패하거나 부분 복원된 대상은 운영 트래픽에 연결하지 않고 로그·임시 리소스를 보존해 재시도 여부를 판단했다.
 
 ## 다음 단계
 

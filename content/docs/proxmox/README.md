@@ -1,7 +1,14 @@
-# Proxmox VE 완전 정복 가이드
+# Proxmox VE 8.x 구조와 운영 학습 가이드
 
 > **Korean Documentation for Proxmox Virtual Environment**
 > 공식 레퍼런스 기반의 체계적인 학습 자료
+
+## 적용 범위와 실행 안전
+
+- 이 문서군은 Proxmox VE 8.x 학습 자료입니다. 명령과 설정 키는 대상 노드의 `pveversion -v`, kernel, storage/SDN/Ceph 구성과 공식 문서에서 다시 확인합니다.
+- 읽기 명령, 즉시 반영 변경, quorum·network·storage를 끊을 수 있는 변경을 구분합니다. 후자는 console, backup, maintenance window와 rollback 없이는 실행하지 않습니다.
+- 예시 IP, node, VMID, storage ID와 인증서는 실제 환경 값이 아닙니다.
+- 완료 증거는 GUI 표시뿐 아니라 daemon 상태, cluster quorum, guest I/O/network, logs와 장애·복구 시험입니다.
 
 ---
 
@@ -14,7 +21,7 @@
 - **Architecture First**: "How" 보다 "Why"를 먼저 설명
 - **Visual Learning**: ASCII 다이어그램으로 데이터 흐름 시각화
 - **Command Context**: 명령어 → 설정 변경 → 데몬 리로드 → 커널 동작까지 전체 체인 설명
-- **실무 중심**: 운영 환경에서 바로 적용 가능한 예제
+- **실무 맥락**: 운영 적용 전에 버전·영향 범위·복구 절차를 검토할 예제
 
 ---
 

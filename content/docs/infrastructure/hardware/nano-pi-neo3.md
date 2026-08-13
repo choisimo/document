@@ -1,10 +1,19 @@
-# NanoPi Neo3 우분투 설치 후 로그인 방법 가이드
+# NanoPi NEO3 초기 로그인, 고정 IP와 SSH 키 진단
 
-우분투를 NanoPi Neo3에 설치한 후 로그인 문제를 겪고 계신 것 같습니다. 검색 결과를 분석한 결과, OS 이미지 종류와 버전에 따라 기본 로그인 정보가 다르다는 것을 알 수 있었습니다.
+이 문서는 서로 독립적인 세 절차를 다룹니다. 먼저 플래싱한 이미지의 배포처·파일명·버전·체크섬을 기록한 뒤 해당 이미지의 공식 초기화 절차를 우선합니다.
+
+## 적용 범위와 안전 기준
+
+- 아래 기본 계정은 과거 이미지에서 사용된 사례이며 현재 이미지의 자격 증명을 보장하지 않습니다. 장치를 인터넷에 연결하기 전에 공식 릴리스 노트를 확인합니다.
+- 로그인 조합을 반복 대입하지 않습니다. 첫 부팅 완료, 콘솔 출력, DHCP 주소와 SSH 서비스 상태를 순서대로 확인합니다.
+- 네트워크 변경 전 기존 연결 프로필과 콘솔 복구 수단을 확보하고, 적용 후 같은 LAN과 원격 경로를 각각 검증합니다.
+- SSH 키 오류는 공개 키, 개인 키, 형식, 권한과 로그를 분리해 진단하며 개인 키 내용을 출력하거나 전송하지 않습니다.
+
+## 절차 A: 이미지별 초기 로그인 확인
 
 ## 기본 로그인 정보
 
-NanoPi Neo3에 사용되는 OS별 기본 로그인 정보는 다음과 같습니다:
+다음 값은 역사적 예시입니다. 현재 이미지가 첫 로그인에서 암호 변경이나 사용자 생성을 요구할 수 있으므로 배포처 문서와 콘솔 메시지가 우선합니다.
 
 ### 우분투 이미지 (FriendlyElec 공식)
 - **사용자명**: root
@@ -32,22 +41,17 @@ NanoPi Neo3에 사용되는 OS별 기본 로그인 정보는 다음과 같습니
 
 SSH로 접속을 시도하는 경우, 장치가 네트워크에 제대로 연결되어 있는지 확인해야 합니다. 직접 이더넷 케이블로 컴퓨터와 연결한 경우, 양쪽의 IP 주소가 같은 서브넷에 있어야 합니다.
 
-### 3. 다양한 로그인 조합 시도
+### 3. 이미지 메타데이터와 콘솔 확인
 
-다음과 같은 일반적인 조합을 시도해 보세요:
-- root / fa
-- root / 1234
-- ubuntu / ubuntu
-- dietpi / dietpi
-- root / (비밀번호 없음)
+다운로드한 이미지 이름과 버전, 체크섬, 릴리스 노트를 확인합니다. 문서에 없는 기본 암호나 빈 암호를 반복 시도하지 말고 시리얼 콘솔의 초기화 안내와 인증 실패 로그를 확인합니다.
 
 ### 4. 시리얼 콘솔 접속
 
-문제가 지속된다면 시리얼 콘솔을 통해 접속을 시도할 수 있습니다. NanoPi Neo3의 시리얼 디버그 포트는 기본적으로 1500000bps 속도로 설정되어 있습니다.
+문제가 지속되면 시리얼 콘솔을 사용합니다. baud rate와 전압 레벨, 핀 배열은 보드 리비전과 이미지의 공식 하드웨어 문서에서 확인한 뒤 연결합니다.
 
 ### 5. 이미지 재설치
 
-모든 방법이 실패할 경우, SD 카드를 다시 포맷하고 이미지를 새로 설치하는 것도 고려해 볼 수 있습니다. FriendlyElec 공식 이미지나 최신 Armbian 이미지를 사용하시는 것이 좋습니다.
+이미지 식별과 콘솔 진단 후에도 부팅이 실패하면 SD 카드 데이터를 보존한 뒤 검증된 체크섬의 지원 이미지를 다시 플래싱합니다. "최신"이라는 이유만으로 선택하지 말고 보드 리비전 지원 여부를 확인합니다.
 
 ## 이미지 설치 방법
 
@@ -55,7 +59,7 @@ SSH로 접속을 시도하는 경우, 장치가 네트워크에 제대로 연결
 2. balenaEtcher와 같은 도구를 사용하여 SD 카드에 이미지를 플래싱합니다.
 3. SD 카드를 NanoPi Neo3에 삽입하고 전원을 연결합니다.
 4. 장치 IP 주소 확인: 라우터 DHCP 목록이나 네트워크 스캔 도구를 사용하여 장치의 IP 주소를 찾습니다.
-5. SSH로 연결: `ssh root@IP주소` 명령을 사용하여 연결(FriendlyElec 이미지의 경우 비밀번호는 'fa'입니다).
+5. SSH로 연결: 릴리스 노트가 지정한 초기 사용자를 사용해 `ssh <user>@<device-ip>`로 연결합니다.
 
 ## SSH 연결 후 첫 설정
 
@@ -67,13 +71,13 @@ SSH로 접속을 시도하는 경우, 장치가 네트워크에 제대로 연결
 
 로그인 문제가 계속된다면 어떤 이미지를 사용하셨는지, 시도한 로그인 정보는 무엇인지 추가 정보를 주시면 더 구체적인 도움을 드릴 수 있습니다.
 
---
+---
 
-# NanoPi Neo3 우분투 고정 IP 설정: NetworkManager를 활용한 체계적인 가이드
+## 절차 B: NetworkManager 고정 IP 설정
 
-NanoPi Neo3에 우분투를 설치한 후 NetworkManager 서비스를 통해 고정 IP를 설정하는 방법에 대해 체계적으로 분석합니다. 본 가이드는 2025년 4월 기준 최신 네트워크 관리 방식을 반영하며, CLI와 TUI 환경에서의 설정 방법을 상세히 설명합니다.
+다음 절은 NetworkManager가 실제 renderer인 Ubuntu 계열 이미지를 대상으로 합니다. `systemctl is-active NetworkManager`, `nmcli connection show`, Netplan renderer를 확인하고 다른 네트워크 관리자를 쓰는 이미지에는 적용하지 않습니다.
 
-## 1. NetworkManager 서비스 개요
+### 1. NetworkManager 서비스 개요
 NetworkManager는 현대 리눅스 배포판에서 표준으로 채택된 네트워크 구성 관리 도구로, 유선/무선 네트워크 관리, 자동 연결 전환, 복잡한 네트워크 프로파일 관리 등의 기능을 제공합니다. NanoPi Neo3의 우분투 이미지 대부분이 기본적으로 NetworkManager를 사용하도록 구성되어 있으며, 이는 `/etc/netplan/` 디렉토리 내 YAML 설정 파일에서 `renderer: NetworkManager`로 확인할 수 있습니다.
 
 ```bash
@@ -83,7 +87,7 @@ network:
   renderer: NetworkManager
 ```
 
-## 2. nmcli를 이용한 CLI 설정
+### 2. nmcli를 이용한 CLI 설정
 ### 2.1 현재 네트워크 연결 상태 확인
 ```bash
 $ nmcli device status
@@ -115,7 +119,7 @@ $ ip -4 addr show eth0
        valid_lft forever preferred_lft forever
 ```
 
-## 3. nmtui를 활용한 TUI 설정
+### 3. nmtui를 활용한 TUI 설정
 ```bash
 $ sudo nmtui
 ```
@@ -125,7 +129,7 @@ $ sudo nmtui
 4. IP 주소/게이트웨이/DNS 입력
 5. **OK**로 저장 후 종료
 
-## 4. Netplan과의 연동 구조
+### 4. Netplan과의 연동 구조
 NetworkManager를 렌더러로 사용할 경우 Netplan 설정은 단순히 NetworkManager에 구성을 위임합니다. `/etc/netplan/` 디렉토리의 YAML 파일은 다음과 같은 최소 구성을 유지해야 합니다:
 
 ```yaml
@@ -134,7 +138,7 @@ network:
   renderer: NetworkManager
 ```
 
-## 5. 고급 구성 시나리오
+### 5. 고급 구성 시나리오
 ### 5.1 다중 IP 할당
 ```bash
 $ sudo nmcli con mod "Wired connection 1" \
@@ -156,14 +160,14 @@ $ sudo nmcli con add type bond \
   bond.options "mode=active-backup,primary=eth0"
 ```
 
-## 6. 문제 해결 체크리스트
+### 6. 문제 해결 체크리스트
 1. **서비스 상태 확인**: `systemctl status NetworkManager`
 2. **저장소 동기화**: `nmcli con reload`
 3. **로그 분석**: `journalctl -u NetworkManager -f`
 4. **DNS 캐시 초기화**: `sudo resolvectl flush-caches`
 5. **라우팅 테이블 점검**: `ip route show`
 
-## 7. 성능 최적화 기법
+### 7. 성능 측정과 조정
 - **MTU 튜닝**: `sudo nmcli con mod "Wired connection 1" 802-3-ethernet.mtu 9000`
 - **TCP 버퍼 크기 조정**: 
   ```bash
@@ -172,7 +176,7 @@ $ sudo nmcli con add type bond \
   ```
 - **IRQ 밸런싱**: `sudo ethtool -X eth0 weight 6 2`
 
-## 8. 보안 강화 방안
+### 8. 보안 강화 방안
 1. **MAC 주소 랜덤화**: 
    ```bash
    $ sudo nmcli con mod "Wired connection 1" \
@@ -188,7 +192,7 @@ $ sudo nmcli con add type bond \
      ipv6.method disabled
    ```
 
-## 9. 자동화 스크립트 예제
+### 9. 자동화 스크립트 예제
 ```bash
 #!/bin/bash
 CONN_NAME="Industrial-Net"
@@ -207,21 +211,23 @@ nmcli con add type ethernet \
   connection.autoconnect yes
 ```
 
-## 10. 주의사항 및 모범 사례
-1. **DHCP 예약 충돌 방지**: 라우터 측에서 IP 주소 예약 설정 필수
-2. **이중화 구성 시**: bonding 대신 teamd 사용 권장
+### 10. 주의사항 및 완료 증거
+1. **주소 충돌 방지**: 정적 주소를 DHCP 풀 밖에 두거나 DHCP 예약과 일관되게 관리
+2. **이중화 구성 시**: 커널·NetworkManager가 지원하는 bonding 등 후보를 스위치 구성과 함께 검증
 3. **업데이트 관리**: `network-manager` 패키지 정기 업데이트
 4. **백업 전략**: `/etc/NetworkManager/system-connections/` 디렉토리 정기 백업
 5. **모니터링 도구**: `nmtui-connect` 및 `nmtui-hostname` 활용
 
-본 가이드에서 제시한 방법론은 NanoPi Neo3의 하드웨어 특성과 우분투 24.04 LTS의 네트워크 스택을 고려하여 최적화되었습니다. 실제 환경 적용 전 테스트 베드에서의 검증을 권장하며, 특히 산업용 제어 환경에서는 네트워크 구성 변경 시 다운타임 계획 수립이 필수적입니다.
+완료 증거는 재부팅 후 주소·기본 경로·DNS가 의도대로 유지되고, 동일 LAN과 필요한 원격 관리 경로에서 접속되며, 콘솔에서 이전 프로필로 되돌릴 수 있는 상태입니다.
 
 
---
+---
 
-`error in libcrypto` 오류가 발생하는 상황에서 `.pub` 키가 생성되었다면, 해당 공개 키를 사용할 때 문제가 될 가능성은 낮습니다. 그러나 몇 가지 확인해야 할 사항이 있습니다.
+## 절차 C: SSH 키와 `error in libcrypto` 진단
 
-## **공개 키 사용 시 문제될 수 있는 점**
+이 오류는 클라이언트가 읽는 개인 키의 형식·줄바꿈·암호화·권한 또는 라이브러리 조합에서 발생할 수 있습니다. `.pub` 파일 생성 여부만으로 개인 키의 정상 여부를 확정하지 않습니다.
+
+### 공개 키 사용 시 문제될 수 있는 점
 1. **잘못된 키 파일 참조**:
    - SSH 클라이언트가 `.pub` 파일(공개 키)을 잘못 참조하여 인증을 시도할 경우 오류가 발생합니다. 공개 키는 서버의 `~/.ssh/authorized_keys`에 저장되어야 하며, 클라이언트는 **개인 키**를 사용해 인증해야 합니다.
 
@@ -234,48 +240,46 @@ nmcli con add type ethernet \
 4. **libcrypto 관련 버그**:
    - OpenSSL 라이브러리(`libcrypto`)와 관련된 버그로 인해 인증 과정에서 오류가 발생할 수 있습니다. 특히 OpenSSL 버전과 SSH 버전 간 호환성 문제가 있는 경우 이러한 오류가 나타날 수 있습니다.
 
-## **문제 해결 방법**
-### 1. 개인 키와 공개 키 역할 확인
+### 문제 해결 방법
+#### 1. 개인 키와 공개 키 역할 확인
 - SSH 클라이언트는 개인 키를 사용하여 서버에 연결하며, 서버는 공개 키를 `authorized_keys`에 저장하여 인증합니다.
 - 클라이언트 설정에서 `.pub` 파일을 참조하지 않도록 확인합니다:
   ```bash
-  ssh -i ~/.ssh/id_rsa @
+  ssh -i ~/.ssh/id_rsa <user>@<host>
   ```
 
-### 2. 공개 키 유효성 확인
+#### 2. 공개 키 유효성 확인
 - 공개 키 파일이 올바르게 생성되었는지 확인합니다:
   ```bash
   ssh-keygen -l -f ~/.ssh/id_rsa.pub
   ```
 - 출력 결과가 정상적으로 표시되면 공개 키는 유효합니다.
 
-### 3. 권한 설정 수정
+#### 3. 권한 설정 수정
 - 서버에서 다음 명령으로 권한을 수정합니다:
   ```bash
   chmod 700 ~/.ssh
   chmod 600 ~/.ssh/authorized_keys
   ```
 
-### 4. OpenSSL 및 SSH 버전 확인
-- 서버와 클라이언트 모두 최신 버전의 OpenSSL 및 OpenSSH를 사용하는지 확인합니다:
+#### 4. OpenSSL 및 SSH 버전 확인
+- 재현 정보로 클라이언트와 서버의 OpenSSL 및 OpenSSH 버전을 기록합니다:
   ```bash
   openssl version
   ssh -V
   ```
 
-### 5. 서버 로그 분석
+#### 5. 서버 로그 분석
 - 서버에서 인증 실패 원인을 파악하기 위해 로그를 확인합니다:
   ```bash
   tail -f /var/log/auth.log | grep sshd
   ```
 
-### 추가 팁: libcrypto 오류 회피
-- 개인 키 파일 형식이 PEM 또는 DER로 저장되어야 하며, 암호화된 개인 키를 사용하는 경우 비밀번호를 제공해야 합니다.
-- 문제가 지속된다면 SSH 에이전트를 재시작하거나 OpenSSL 라이브러리를 재설치합니다:
+#### 추가 진단
+- `ssh-keygen -y -f <private-key>`가 공개 키를 파생할 수 있는지 확인하되 개인 키 출력이나 업로드는 하지 않습니다.
+- `ssh -vvv` 로그에서 실패가 로컬 키 로딩 단계인지 서버 인증 거부 단계인지 구분합니다. 패키지 재설치는 원인이 손상된 패키지로 확인된 경우에만 수행합니다.
   ```bash
   eval "$(ssh-agent -s)"
-  sudo apt-get install --reinstall openssl
   ```
 
 `.pub` 키 자체는 문제가 없더라도, 이와 연관된 개인 키 또는 환경 설정 문제로 인해 인증 실패가 발생할 수 있습니다. 위 단계를 통해 문제를 해결할 수 있을 것입니다.
-

@@ -2,6 +2,14 @@
 
 > 내부 정보: TLS 핸드셰이크가 키를 협상하는 방법, 해시 기능이 급증하는 방법, 버퍼 오버플로가 손상된 제어 흐름을 수행하는 방법, OAuth 토큰이 ID를 증명하는 방법(정확한 메모리 레이아웃, 상태 시스템 및 보안 메커니즘 뒤에 있는 수학적 연산).
 
+## 문서 범위와 검증 계약
+
+- **범위**: 방어자가 암호 프로토콜과 취약점의 원리를 이해하기 위한 학습 자료입니다. 공격 예시는 승인된 로컬 실습 환경에서만 사용하며 실제 시스템의 우회·침해 절차를 제공하지 않습니다.
+- **전제**: TLS, OAuth/OIDC, 인증서, 암호 기본 요소는 알고리즘 이름만으로 안전해지지 않습니다. 프로토콜 버전, 암호 스위트, nonce·키 수명, 클라이언트 유형, 신뢰 경계와 라이브러리 설정을 명시해야 합니다.
+- **근거 상태**: 표준 속성은 해당 RFC·NIST 표준·알고리즘 명세로 확인하고, 구현 완화책은 대상 OS·CPU·브라우저·라이브러리 버전에서 확인합니다. 처리량·지연·공격 비용 수치는 하드웨어와 파라미터가 없는 한 예시일 뿐입니다.
+- **실패/재시도**: 인증·서명·태그 검증 실패는 기본 거부하고 민감한 평문·토큰·키를 로그에 남기지 않습니다. 네트워크 재시도는 멱등성·nonce 재사용·0-RTT replay 위험을 검토한 뒤 제한된 횟수와 백오프로 수행합니다.
+- **완료 증거**: 설계 검토에는 위협 모델, 자산·행위자·신뢰 경계, 선택한 표준/버전, 키·토큰 수명, 실패 상태와 복구 경로를 남깁니다. 테스트는 정상 경로뿐 아니라 변조·만료·재생·키 회전·부분 장애가 기대대로 거부되는 로그와 결과를 포함해야 완료입니다.
+
 ---
 
 ## 1. 대칭 암호화: AES 내부 메커니즘
@@ -29,8 +37,8 @@ flowchart TD
 ### 하위 바이트: S-Box를 GF(2⁸) 곱셈 역원으로
 
 S-box는 임의적이지 않습니다. 각 바이트 `b`은 `b⁻¹ mod (x⁸+x⁴+x³+x+1)`(GF(2⁸)의 곱셈 역수)에 매핑된 다음 아핀 변환이 적용됩니다. 이는 다음을 제공합니다:
-- **비선형성**: 모든 선형 대수 공격을 중단합니다.
-- **눈사태**: 입력의 1비트 변경은 여러 라운드 후 출력 비트의 ~50%를 변경합니다.
+- **비선형성**: 단순 선형 관계를 깨고 알려진 선형·차분 분석에 대한 안전성 설계에 기여합니다. 이것만으로 모든 공격을 차단하는 것은 아닙니다.
+- **확산**: 입력 비트 변화가 여러 출력 비트로 퍼지도록 설계되었습니다. “약 50%”는 많은 표본에서 관찰하는 통계적 기대이지 개별 입력의 보장이 아닙니다.
 
 ### AES-GCM: 인증된 암호화
 
@@ -45,7 +53,7 @@ sequenceDiagram
     Note over AESGCM: 3. GHASH over AAD+ciphertext:\n   T = GHASH_H(AAD, CT) XOR AES_K(J0)
     AESGCM-->>App: (ciphertext, auth_tag T [16 bytes])
 
-    Note over App: Decrypt: verify tag FIRST\nbefore any plaintext output\n→ prevents padding oracle attacks
+    Note over App: Decrypt: authenticate before use\ndo not release unauthenticated plaintext\nnonce reuse breaks security
 ```
 
 ---
@@ -96,7 +104,7 @@ sequenceDiagram
     Note over A,B: Both derive same shared secret\nwithout ever transmitting it\nECDH security: finding a from a×G\nis the discrete log problem\ninfeasible on elliptic curves
 ```
 
-**NIST 곡선에 대한 Curve25519 이유**: Curve25519(GF(2²⁵⁵-19)에 대한 `y² = x³ + 486662x² + x`)에는 알려진 NIST 백도어가 없고 트위스트 보안이 적용되며 몽고메리 래더 구현은 일정 시간(타이밍 측면 채널 없음)입니다.
+**Curve25519/X25519의 설계 특성**: 몽고메리 형태와 래더는 비밀값에 따른 분기를 줄인 구현을 만들기 쉽게 하고, 입력 처리 특성도 명확히 정의합니다. 그러나 알고리즘 선택만으로 상수 시간이나 “타이밍 채널 없음”이 보장되지는 않습니다. 실제 라이브러리의 필드 연산, 컴파일러, CPU와 키 검증을 함께 점검해야 합니다.
 
 ---
 
@@ -133,7 +141,7 @@ HKDF-Extract(salt, IKM) = HMAC-SHA256(salt, IKM) → PRK (pseudorandom key)
 HKDF-Expand(PRK, info, L) = T(1) || T(2) || ... where T(i) = HMAC-SHA256(PRK, T(i-1)||info||i)
 ```
 
-**순방향 비밀성**: TLS 1.3에서는 임시 키 교환(X25519/P-256)을 요구합니다. 세션 키는 연결당 새로운 DH 교환에서 파생됩니다. 즉, 나중에 서버의 장기 개인 키가 손상되더라도 과거 트래픽을 해독할 수 없습니다.
+**순방향 비밀성**: TLS 1.3 연결에서 (EC)DHE가 협상되고 임시 비밀이 안전하게 폐기되면, 장기 인증 키가 나중에 유출되어도 기록된 과거 세션을 그 키만으로 복호화하기 어렵습니다. PSK-only 모드, 재개 설정, 엔드포인트 침해와 세션 키 보관은 별도 위협이므로 모든 TLS 1.3 연결이 자동으로 같은 속성을 갖는다고 가정하지 않습니다.
 
 ---
 
@@ -166,7 +174,7 @@ flowchart TD
 - `Ch(e,f,g) = (e AND f) XOR (NOT_e AND g)` — "선택" 기능
 - `Maj(a,b,c) = (a AND b) XOR (a AND c) XOR (b AND c)` — "다수" 함수
 
-이러한 비트 연산은 **눈사태 효과**를 생성합니다. 즉, 1개의 입력 비트를 뒤집으면 출력 비트의 ~50%가 변경됩니다.
+이 구조는 입력 변화가 출력 전체로 확산되도록 설계되었습니다. 무작위 함수 모델에서 기대하는 절반가량의 변화는 통계적 성질이며 특정 메시지 쌍마다 정확히 성립하는 규칙은 아닙니다.
 
 ---
 
@@ -176,14 +184,14 @@ flowchart TD
 flowchart TD
     subgraph "SHA-256 (WRONG for passwords)"
         SHA["SHA-256(password)"]
-        GPU["Modern GPU: 10¹⁰ SHA-256/sec\nBrute force 8-char password: seconds"]
+        GPU["Fast and highly parallelizable\nattack cost depends on GPU and password distribution"]
         SHA --> GPU
     end
     subgraph "bcrypt (Work Factor)"
         BCR["bcrypt(password, cost=12)"]
-        BLO["Blowfish key schedule:\n2^12 = 4096 iterations\nDeliberately slow: ~100ms per hash"]
+        BLO["Blowfish key schedule:\n2^cost expansion rounds\nlatency must be benchmarked per deployment"]
         BCR --> BLO
-        GPU2["GPU attack: ~10⁴ bcrypt/sec\n10M attempts: 1000 seconds\n(vs 1ms for SHA-256)"]
+        GPU2["Raises cost per guess\nthroughput depends on cost, implementation and hardware"]
         BLO --> GPU2
     end
     subgraph "Argon2id (Memory-Hard)"
@@ -195,7 +203,7 @@ flowchart TD
 
 ### Argon2 메모리 액세스 패턴
 
-Argon2는 메모리 블록 매트릭스(각각 1KB)를 할당합니다. 각 블록 계산은 의사 무작위 이전 블록에 따라 달라집니다. 즉, 메모리의 전체 행렬 없이는 병렬화가 불가능합니다.
+Argon2는 1KiB 블록으로 구성된 메모리 영역을 채우며 이전 블록 의존성을 사용해 시간-메모리 절충의 비용을 높입니다. `parallelism`에 따른 lane 병렬성은 존재하고 공격자도 제한된 절충을 시도할 수 있으므로 “병렬화 불가능”이 아니라 배포 환경에서 허용 가능한 메모리·시간 비용을 벤치마크해 선택하는 것이 핵심입니다.
 
 ---
 
@@ -285,6 +293,8 @@ sequenceDiagram
     RS-->>App: Protected resource data
 ```
 
+이 흐름의 JWT 형식과 15분/7일 수명은 예시입니다. Access Token은 opaque일 수도 있고 사용자 인증 사실은 OIDC ID Token과 인증 세션 맥락에서 판단합니다. 클라이언트는 `state`, PKCE, OIDC `nonce`와 redirect URI를 검증하고, Resource Server는 토큰 형식에 맞춰 서명 또는 introspection과 `iss`, `aud`, `exp`, 권한 범위를 확인해야 합니다.
+
 ### JWT 구조 및 서명 확인
 
 ```
@@ -300,7 +310,7 @@ Signature: RS256_sign(private_key, header.payload)
           = RSA-PKCS1v15-SHA256(private_key, base64(header)+"."+base64(payload))
           → base64url encoded
 
-Final: header.payload.signature (3 dots-separated parts)
+Final: header.payload.signature (3 parts separated by 2 dots)
 ```
 
 ---
@@ -324,7 +334,7 @@ flowchart TD
     end
 ```
 
-핵심: 파서 수준에서 매개변수화된 쿼리 **데이터와 별도의 코드**. SQL 엔진은 템플릿에서 구문 분석 트리를 구축한 다음 값을 데이터 리터럴로 대체합니다. 값은 트리 구조를 변경할 수 없습니다.
+핵심은 드라이버의 바인딩 API로 SQL 구조와 값을 분리하는 것입니다. 서버 측 준비, 클라이언트 측 바인딩과 캐시 방식은 DB/드라이버마다 다르지만 올바른 값 파라미터는 SQL 구문으로 다시 해석되지 않습니다. 테이블명·정렬 방향 같은 식별자와 구문 조각은 보통 바인딩할 수 없으므로 허용 목록으로 선택해야 합니다.
 
 ---
 
@@ -350,7 +360,7 @@ flowchart TD
     end
 ```
 
-**인증서 투명성(CT)**: 2018년부터 브라우저에서는 발급 전에 모든 TLS 인증서가 공개 CT 로그에 기록되도록 요구합니다. 리프 인증서에는 **서명된 인증서 타임스탬프(SCT)**가 포함되어 있어 CT 로그에 제출되었음을 증명합니다. 이렇게 하면 잘못 발급된 인증서가 숨겨지는 것을 방지할 수 있습니다.
+**인증서 투명성(CT)**: 주요 브라우저의 공개 신뢰 정책은 대상 인증서에 유효한 **서명된 인증서 타임스탬프(SCT)**를 요구할 수 있습니다. 적용 시점과 로그 수는 브라우저·CA 정책에 따라 다르며 사설 PKI까지 “모든 TLS 인증서”에 동일하게 적용되지는 않습니다. CT는 오발급 탐지를 돕지만 자동 차단·철회나 완전한 은폐 방지를 단독으로 보장하지 않습니다.
 
 ---
 
@@ -375,9 +385,9 @@ sequenceDiagram
 ```
 
 **완화**:
-- **메모리 안전 언어**: Rust 빌림 검사기는 컴파일 타임에 포인터가 매달리는 것을 방지합니다.
-- **AddressSanitizer**: 레드 존 + 섀도우 메모리가 런타임 시 사용 후 사용을 감지합니다(2-3배 속도 저하).
-- **tcmalloc/jemalloc 포인터 무작위화**: 재사용 주소 예측을 더 어렵게 만듭니다.
+- **메모리 안전 언어**: safe Rust의 소유권 검사는 여러 dangling-reference 경로를 막지만 `unsafe`, FFI와 논리적 수명 오류는 별도 검토가 필요합니다.
+- **AddressSanitizer**: 레드 존·섀도우 메모리로 실행된 경로의 여러 use-after-free를 탐지합니다. 오버헤드와 탐지 범위는 빌드·워크로드에 따라 측정합니다.
+- **할당자 강화**: 격리(quarantine), 메타데이터 보호, 주소 다양화 같은 기능은 구현별 보조 완화책이며 UAF 자체를 제거하지 않습니다.
 - **CFI**: 예상 클래스 계층 구조에 대해 vtable 호출 대상을 검증합니다.
 
 ---
@@ -393,12 +403,12 @@ flowchart TD
         S2["Attacker provides x = secret_address (OOB)"]
         S3["CPU speculatively executes:\nvalue = array1[x]  ← OOB read\ntemp = array2[value * 4096]  ← cache load"]
         S4["Branch misprediction detected\nSpeculative results discarded\nBut cache state persists!"]
-        S5["Attacker measures cache hit time:\nfor each byte b in 0..255:\n  time access to array2[b*4096]\n  cache hit (~50 cycles) → b was the secret byte"]
+        S5["Attacker measures cache timing:\nfor each candidate byte:\n  compare repeated access distributions\nthreshold is CPU/environment specific"]
         S1 --> S2 --> S3 --> S4 --> S5
     end
 ```
 
-**LFENCE 완화**: 경계 확인 후 `LFENCE`을 삽입하면 OOB 액세스의 추측 실행이 방지됩니다. **Retpoline**은 간접 분기(jmp [rax])를 분기 예측자를 혼동하는 반환 기반 트램펄린으로 대체하여 BTI(분기 대상 주입)를 방지합니다.
+**완화의 범위**: 적절히 배치된 직렬화 명령, 인덱스 마스킹과 컴파일러 완화는 특정 추측 실행 경로를 막을 수 있습니다. `retpoline`은 주로 일부 간접 분기 표적 주입 계열을 다루며 모든 Spectre 변종이나 CPU에 대한 완전한 방어가 아닙니다. CPU 마이크로코드와 컴파일러·OS 지침을 함께 적용하고 성능 영향을 측정해야 합니다.
 
 ---
 
@@ -409,19 +419,19 @@ sequenceDiagram
     participant P as Prover (knows secret x)
     participant V as Verifier
 
-    Note over P: Knows: x such that y = g^x mod p
+    Note over P: Knows: x such that y = g^x in a group of order q
     Note over V: Knows only: y, g, p
 
     P->>V: Commit: r = g^k mod p\n(k = random nonce)
     V->>P: Challenge: c = random bit (0 or 1)
-    P->>V: Response: s = k - c*x mod (p-1)
+    P->>V: Response: s = k - c*x mod q
 
     Note over V: Verify: g^s * y^c mod p == r\nIf c=0: g^k * 1 == r ✓\nIf c=1: g^(k-x) * g^x == g^k == r ✓
 
-    Note over P,V: Repeat 100 times → soundness: 2^(-100)\nVerifier learns nothing about x\n(any r,s,c triple is simulatable)
+    Note over P,V: Repetition reduces soundness error in this toy protocol\nformal zero-knowledge requires stated group and simulator assumptions
 ```
 
-**zk-SNARKs** (ZCash, Ethereum에서 사용됨): 증명자는 회로 `C(x, w) = 1`을 만족하는 증인 `w`을 알고 있습니다. 증명 크기는 O(1)(수백 바이트)이고 검증은 회로 복잡성에 관계없이 O(1)입니다. 이를 통해 금액을 공개하지 않고도 블록체인 거래를 확인할 수 있습니다.
+**zk-SNARK 계열**: 증명자는 관계 `C(x, w) = 1`을 만족하는 증인 `w`를 안다는 증명을 만듭니다. 증명 크기, 검증 시간, trusted setup과 양자 내성은 증명 시스템에 따라 다릅니다. 일부 시스템은 회로 크기에 대해 succinct하지만 검증 비용은 공개 입력과 곡선 연산 등에 의존하므로 보편적인 O(1)·수백 바이트로 단정하지 않습니다.
 
 ---
 
@@ -432,17 +442,17 @@ flowchart LR
     subgraph "0ms: TCP SYN/SYN-ACK/ACK"
         TCP["3-way handshake"]
     end
-    subgraph "~10ms: TLS ClientHello"
+    subgraph "after TCP: TLS ClientHello"
         CH["Random + supported ciphers\n+ X25519 ephemeral pubkey\n+ SNI hostname"]
     end
-    subgraph "~20ms: TLS ServerHello + Certificate"
+    subgraph "next flight: ServerHello + Certificate"
         SH["X25519 ephemeral pubkey\n+ certificate chain\n+ CertificateVerify\n+ Finished HMAC"]
     end
-    subgraph "~30ms: TLS Finished + First Request"
+    subgraph "client Finished + application data"
         FIN["Client Finished HMAC\n+ HTTP GET (0-RTT or 1-RTT)"]
     end
     subgraph "Keys Derived"
-        KEYS["ECDH shared secret\n→ HKDF early_secret\n→ handshake_secret\n→ master_secret\n→ client/server app keys\n(unique per connection,\nnever stored)"]
+        KEYS["ECDH/PSK input\n→ HKDF early_secret\n→ handshake_secret\n→ master_secret\n→ traffic secrets\nstorage/lifetime is implementation policy"]
     end
     TCP --> CH --> SH --> FIN
     SH --> KEYS
@@ -475,7 +485,7 @@ flowchart LR
 
 보안 시스템 설계에서 가장 근본적인 구조적 질문은 **"어디에 신뢰 경계를 설정할 것인가"**입니다. 전통적 경계 보안(perimeter security)은 내부 네트워크를 신뢰하고 외부만 차단하지만, 제로 트러스트 모델은 모든 요청을 검증 대상으로 봅니다.
 
-**대칭키 vs 비대칭키 구조 선택**은 보안 시스템의 기초 설계를 결정합니다. 대칭키(AES-256-GCM)는 처리 속도가 비대칭키(RSA-2048) 대비 약 1000배 빠르지만, N명의 참여자 간 키 배포에 O(N²)개의 키가 필요합니다. 비대칭키는 O(N)개의 키 쌍만 필요하나 연산 비용이 높습니다. 현대 TLS 1.3은 이 둘을 결합한 하이브리드 구조를 채택합니다.
+**대칭키 vs 비대칭키 구조 선택**은 보안 시스템의 기초 설계를 결정합니다. 대칭 암호는 일반적으로 벌크 데이터 처리에 유리하고 공개키 기법은 인증·키 합의에 유리하지만 실제 배수는 알고리즘·하드웨어·메시지 크기에 따라 달라집니다. 모든 참여자가 서로 다른 pairwise 대칭키를 직접 관리할 때는 키 관계가 O(N²)까지 늘 수 있지만 KMS나 계층형 키 관리에서는 다른 구조가 가능합니다. TLS는 키 합의/인증과 대칭 AEAD를 조합합니다.
 
 ```mermaid
 flowchart TD
@@ -499,7 +509,7 @@ flowchart TD
     end
 ```
 
-제로 트러스트에서 핵심은 **Policy Decision Point(PDP)**와 **Policy Enforcement Point(PEP)**의 분리입니다. PDP는 접근 정책을 평가하고, PEP는 실제 트래픽 경로에서 정책을 강제합니다. 이 분리를 통해 정책 변경이 트래픽 경로에 영향을 주지 않으며, 새로운 서비스 추가 시에도 일관된 보안 정책을 적용할 수 있습니다.
+제로 트러스트에서 **Policy Decision Point(PDP)**와 **Policy Enforcement Point(PEP)**를 분리하면 정책 평가와 집행 책임을 명확히 할 수 있습니다. 다만 정책 변경은 허용/거부 결과와 지연에 직접 영향을 줄 수 있고, PDP 장애·캐시 만료·정책 배포 불일치에 대한 fail-open/fail-closed 상태와 복구 절차가 필요합니다.
 
 ### 트레이드오프와 의사결정
 
@@ -562,8 +572,8 @@ flowchart TD
         CLIENT["클라이언트"]
         GW["API Gateway\n- JWT 검증\n- Rate Limiting\n- Request Sanitization\n- mTLS termination"]
         AUTH["Auth Service\n- Token 발급/갱신\n- Refresh Token Rotation\n- Blocklist 관리"]
-        SVC1["서비스 A\n비즈니스 로직만\n보안 로직 없음"]
-        SVC2["서비스 B\n비즈니스 로직만\n보안 로직 없음"]
+        SVC1["서비스 A\n도메인 로직 + 세분화된 인가\n게이트웨이 신뢰 검증"]
+        SVC2["서비스 B\n도메인 로직 + 세분화된 인가\n직접 경로도 보호"]
         CLIENT -->|"Access Token"| GW
         GW -->|"검증 요청"| AUTH
         GW -->|"인증된 컨텍스트 전달\nX-User-Id, X-Roles"| SVC1
@@ -578,7 +588,7 @@ flowchart TD
 
 **Secure by Default 패턴**은 시스템의 기본 상태가 가장 안전한 설정이어야 한다는 원칙입니다. 새로운 API 엔드포인트는 기본적으로 인증 필수이며, 공개가 필요한 경우 명시적으로 `@Public` 어노테이션을 추가해야 합니다. CORS는 기본 차단이며, 허용 도메인을 화이트리스트로 관리합니다.
 
-**감사 로그 패턴(Audit Trail Pattern)**도 보안 설계의 핵심입니다. 모든 인증/인가 이벤트, 데이터 접근, 설정 변경은 불변 로그로 기록하며, 로그 자체의 무결성도 해시 체인으로 보장합니다. 이는 사후 분석(forensics)과 컴플라이언스(SOC 2, ISO 27001) 요구사항을 동시에 충족합니다.
+**감사 로그 패턴(Audit Trail Pattern)**도 보안 설계의 핵심입니다. 위험 기반으로 정한 인증/인가 이벤트, 민감 데이터 접근과 설정 변경을 최소 필요 정보로 기록하고 접근 제어·보존·시간 동기화를 적용합니다. 해시 체인은 사후 변조 탐지에 도움을 주지만 키 보호와 외부 체크포인트 없이 무결성을 단독 보장하지 않으며, 로그를 남겼다는 사실만으로 특정 컴플라이언스를 충족하지도 않습니다.
 
 ## 연습 문제
 
@@ -604,7 +614,7 @@ flowchart TD
 
 <details><summary>힌트 보기</summary>
 
-TLS 1.2는 2-RTT가 필요하지만 TLS 1.3은 키 교환과 암호 스위트 협상을 동시에 수행하여 1-RTT로 줄입니다. 0-RTT는 이전 세션의 PSK(Pre-Shared Key)를 사용해 첫 요청에 데이터를 포함시키지만, 서버가 요청의 고유성을 보장할 수 없어 리플레이 공격에 취약합니다. 멱등하지 않은 요청(결제 등)에는 0-RTT를 사용해서는 안 됩니다.
+일반적인 전체 핸드셰이크에서 TLS 1.3은 TLS 1.2보다 왕복을 줄일 수 있지만 재개, HelloRetryRequest, 네트워크와 인증 설정에 따라 흐름이 달라집니다. 0-RTT는 이전 세션의 PSK로 조기 데이터를 보내므로 프로토콜 자체가 전역 유일 실행을 보장하지 않습니다. 상태 변경 요청은 기본 거부하고, 허용할 경우 애플리케이션 멱등성 키·replay 방어 범위와 실패 응답을 명시합니다.
 
 </details>
 
@@ -692,10 +702,10 @@ SHA-256은 빠른 해시 함수이므로 GPU로 초당 수십억 개의 해시�
 
 </details>
 
-**문제 4-3.** HTTPS 통신에서 대칭키 암호화와 비대칭키 암호화가 함께 사용되는 이유를 설명하세요. TLS 핸드셰이크에서 RSA/ECDHE로 키 교환을 수행한 뒤 AES-GCM으로 데이터를 암호화하는 하이브리드 방식의 설계 근거를 성능과 보안 관점에서 분석하고, Perfect Forward Secrecy(PFS)를 보장하려면 키 교환 알고리즘에 어떤 속성이 필요한지 설명하세요.
+**문제 4-3.** HTTPS 통신에서 대칭키 암호와 공개키 기반 인증·키 합의가 함께 사용되는 이유를 설명하세요. TLS 1.2의 정적 RSA 키 교환과 (EC)DHE, TLS 1.3의 (EC)DHE/PSK 모드를 구분하고, 협상된 트래픽 키로 AES-GCM 또는 ChaCha20-Poly1305를 사용하는 설계 근거를 분석하세요. 순방향 비밀성을 얻기 위한 모드와 키 폐기 전제도 설명하세요.
 
 <details><summary>힌트 보기</summary>
 
-비대칭키 암호화(RSA, ECDHE)는 키 교환에는 안전하지만 대용량 데이터 암호화에는 느립니다(약 1000배 차이). 대칭키(AES-GCM)는 빠르지만 키 공유 문제가 있습니다. 하이브리드 방식은 양쪽의 장점을 결합합니다. PFS는 서버의 장기 개인키가 유출되어도 과거 세션 키를 복호화할 수 없는 속성으로, 임시 키(ephemeral key)를 사용하는 DHE/ECDHE가 이를 보장합니다. 정적 RSA 키 교환은 PFS를 제공하지 못하므로 TLS 1.3에서 제거되었습니다.
+RSA는 암호화/서명 기법이고 ECDHE는 키 합의이므로 같은 범주로 묶지 않습니다. TLS는 인증·키 합의로 공유 비밀을 만들고 KDF로 트래픽 키를 유도한 뒤 효율적인 AEAD로 데이터를 보호합니다. 성능 차이는 대상 알고리즘과 하드웨어에서 측정합니다. 임시 DHE/ECDHE와 비밀 폐기는 장기 인증키 유출에 대한 순방향 비밀성을 제공하지만 엔드포인트나 세션 키 자체가 침해된 경우까지 막지는 않습니다. 정적 RSA 키 교환은 TLS 1.3 암호 스위트에서 제거되었습니다.
 
 </details>

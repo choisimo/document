@@ -3,9 +3,11 @@
 
 ---
 
+> **Reading contract:** This document is a conceptual survey for distributed-systems students and designers. Results apply only under their named process, network, timing, storage, membership, and fault models. Separate theorem statements from explanatory inference and from illustrative message counts or latency percentages. A design is complete only when safety, liveness, durability, retry/idempotency, recovery and observability evidence are stated for the target model. A timeout or suspicion is not proof of failure; ambiguous outcomes require status reconciliation before retry.
+
 ## 1. The Fundamental Problem: No Shared Clock, No Shared Memory
 
-A distributed system is a collection of autonomous processes connected by a network where **no process has direct access to another's memory** and **no global clock exists**. Every "fact" one process knows about another is inherently stale — the state observed was true at message-send time, not at message-receive time.
+In the message-passing model used here, autonomous processes do not directly access one another's private memory and have no perfectly shared clock. Observations about mutable remote state can become stale during transmission; immutable facts, leases, synchronized clocks and linearizable reads have narrower, explicitly defined guarantees.
 
 ```mermaid
 block-beta
@@ -24,8 +26,8 @@ block-beta
 ```
 
 Three fundamental impossibilities define the design space:
-- **FLP Impossibility**: No deterministic algorithm can solve consensus in an asynchronous system with even one crash failure
-- **CAP Theorem**: A distributed store cannot simultaneously guarantee Consistency, Availability, and Partition-tolerance
+- **FLP Impossibility**: No deterministic consensus algorithm guarantees termination in every fully asynchronous execution with even one possible crash; safety and practical progress under additional assumptions remain possible.
+- **CAP Theorem**: During a network partition, a replicated read/write service cannot guarantee both linearizable consistency and a successful response from every non-failing node for every request.
 - **Two Generals Problem**: No protocol over an unreliable channel can guarantee coordinated action with certainty
 
 ---
@@ -132,7 +134,7 @@ The channel state = messages received after initiator started but before MARKER 
 2. **Validity**: the decided value was proposed by some process  
 3. **Termination**: all correct processes eventually decide
 
-### 4.2 Paxos: Two-Phase Commit With Leader Election
+### 4.2 Paxos: Two-Phase Consensus With Ballots
 
 Paxos operates across three roles: **Proposers**, **Acceptors**, **Learners**.
 
@@ -239,7 +241,7 @@ flowchart LR
   style P1 fill:#f9f,stroke:#333
 ```
 
-Only token holder enters CS. **O(1)** messages when no contention; O(n) when all want CS simultaneously. Token loss requires regeneration protocol.
+Only the token holder enters the critical section. Message cost depends on whether and how the token circulates while idle and on requester position; a request may wait up to O(n) hops. Token loss and duplicate-token prevention require a recovery protocol.
 
 ### 5.2 Ricart-Agrawala: Timestamp-Based
 
@@ -326,7 +328,7 @@ sequenceDiagram
 
 ### 6.3 Three-Phase Commit (3PC)
 
-Adds a **PRE-COMMIT** phase to eliminate the blocking scenario:
+Adds a **PRE-COMMIT** phase to avoid the blocking scenario under stronger bounded-delay and failure assumptions:
 
 ```mermaid
 stateDiagram-v2
@@ -400,7 +402,7 @@ block-beta
   R1["Replica 1\nv=10 ts=5"] R2["Replica 2\nv=10 ts=5"] R3["Replica 3\nv=8 ts=3"] R4["Replica 4\nv=10 ts=5"] R5["Replica 5\nv=8 ts=3"]
 ```
 
-With `N=5, W=3, R=3`: Write contacts 3 replicas; Read contacts 3. Since `3+3>5`, at least one overlap → reader always sees latest write.
+With `N=5, W=3, R=3`, completed read and write quorums overlap. Seeing and returning the latest value also requires version ordering, successful completion semantics, response selection or read repair, and the stated failure model; overlap alone is not an end-to-end guarantee.
 
 ---
 
@@ -567,7 +569,7 @@ sequenceDiagram
     Note over CS: unmarshal → typed result
 ```
 
-**Marshaling overhead** dominates null-RPC cost (~60-80% of latency). Data copying between address spaces is second largest factor.
+Marshaling and data copies can dominate a null or small RPC, but the percentage and ranking depend on transport, payload, serialization, TLS, kernel bypass, language runtime and benchmark environment.
 
 ### 11.2 Lightweight RPC (LRPC) for Local Communication
 
@@ -630,7 +632,7 @@ flowchart TD
   end
 ```
 
-**Why P is not optional**: In any real network, partitions WILL happen. You must choose between C and A during a partition. After the partition heals, you can repair consistency.
+**Partition scope:** A design must state its behavior when messages are lost or delayed beyond its bound. During such a partition, CAP frames the choice between linearizable responses and availability as defined by the theorem; systems may reject, delay, degrade, or reconcile after healing.
 
 **PACELC refinement**: Even when no partition (else = E), there's a latency vs. consistency tradeoff. Cassandra: PA/EL (sacrifice consistency for availability + low latency). Spanner: PC/EC (consistency always, higher latency via TrueTime).
 
@@ -679,4 +681,4 @@ flowchart TD
   Election --> Leader
 ```
 
-The entire machinery — logical clocks to establish order, consensus to agree on log entries, quorums to tolerate failures, gossip to disseminate membership, DHT to route requests — exists to paper over the fundamental gap between "no shared memory, no shared clock" and the illusion of a coherent single system.
+These mechanisms solve different problems under different assumptions. A real system may use only a subset, and their composition does not automatically create a coherent single-system abstraction; the client-visible contract must be proved and observed end to end.

@@ -1,6 +1,6 @@
-<img src="https://r2cdn.perplexity.ai/pplx-full-logo-primary-dark%402x.png" class="logo" width="120"/>
-
 # 자바 메모리 관리, 람다, GC 및 OOP 개념 심층 분석
+
+JDK 17·21의 일반적인 HotSpot 동작을 중심으로 한 개념 문서입니다. Java 명세의 보장과 HotSpot/javac 구현 관찰을 구분하며, 다른 JVM·collector·압축 참조 옵션에서는 배치와 용어가 달라질 수 있습니다.
 
 ## 1. 객체 생성과 메모리 관리 구조
 
@@ -19,8 +19,8 @@ public class MemoryExample {
 }
 ```
 
-- **스택 저장**: 메서드 내 지역 변수(`localVar`)는 스택 프레임에 4/8바이트 참조 값 저장[^1][^9]
-- **힙 저장**: 인스턴스 변수(`instanceField`)는 해당 객체의 힙 메모리 구조 내부에 저장[^10]
+- **지역 변수**: 실행 프레임의 local-variable slot으로 다뤄집니다. 실제 참조 크기와 네이티브 배치는 JVM과 compressed oops 설정에 따라 달라집니다.
+- **인스턴스 필드**: 객체 상태의 일부이며 객체 레이아웃과 정렬은 JVM 구현에 따라 달라집니다.
 
 메모리 구조
 *(출처: JVM 메모리 구조 도식화)[^1]*
@@ -29,7 +29,7 @@ public class MemoryExample {
 
 ```java
 public class ReferenceLeak {
-    private static List&lt;byte[]&gt; leakList = new ArrayList&lt;&gt;();
+    private static List<byte[]> leakList = new ArrayList<>();
 
     public void generateData() {
         while(true) {
@@ -51,7 +51,7 @@ public class ReferenceLeak {
 | 특성 | Private 메서드 | Lambda 표현식 |
 | :-- | :-- | :-- |
 | 접근 제어 | 클래스 내부에서만 호출 가능 | 함수형 인터페이스 구현 |
-| 상태 접근 | 인스턴스 변수 직접 접근 | final/effective final 변수만 캡처[^14] |
+| 상태 접근 | 인스턴스 변수 직접 접근 | `this`와 필드 접근 가능. 캡처한 지역 변수만 final/effectively final 필요 |
 | 바이트코드 생성 | 일반 메서드로 컴파일 | invokedynamic 사용[^3][^11] |
 | 직렬화 | 기본 지원 | SAM 인터페이스 구현 필요 |
 
@@ -67,9 +67,9 @@ public class LambdaVsPrivate {
 
     public Runnable getLambda() {
         int localCounter = 0;
-        return () -&gt; {
-            // counter++;  // 컴파일 에러 (람다 캡처링 규칙 위반)
-            localCounter++;  // 컴파일 에러 (effective final 위반)
+        return () -> {
+            counter++;  // 인스턴스 필드는 수정 가능
+            // localCounter++;  // 캡처한 지역 변수 수정은 컴파일 오류
             System.out.println("Lambda executed");
         };
     }
@@ -97,17 +97,17 @@ E -- Major GC --> F
 ```
 
 - **Minor GC**: Young 영역 (Eden → Survivor)[^9]
-- **Major GC**: Old 영역 (Mark-Sweep-Compact)[^4]
-- **G1 GC**: 영역 분할과 예측 기반 수집 (Java 9+ 기본)
+- **Major/Full GC**: 용어와 mark·sweep·compact 단계는 collector마다 다르므로 실제 GC 로그로 해석
+- **G1 GC**: 많은 HotSpot JDK 9+ 서버 구성의 기본값이지만 옵션, 플랫폼, 공급업체에 따라 다름
 
 
 ### 3.2 GC 최적화 예시
 
 ```java
 // 비효율적 코드
-List&lt;Data&gt; processData(List&lt;RawData&gt; inputs) {
+List<Data> processData(List<RawData> inputs) {
     return inputs.stream()
-        .map(raw -&gt; new DataParser().parse(raw))  // 매번 parser 생성
+        .map(raw -> new DataParser().parse(raw))  // 매번 parser 생성
         .collect(Collectors.toList());
 }
 
@@ -115,7 +115,7 @@ List&lt;Data&gt; processData(List&lt;RawData&gt; inputs) {
 public class DataProcessor {
     private static final DataParser PARSER = new DataParser();  // 재사용
 
-    List&lt;Data&gt; optimizedProcess(List&lt;RawData&gt; inputs) {
+    List<Data> optimizedProcess(List<RawData> inputs) {
         return inputs.stream()
             .map(PARSER::parse)  // 정적 파서 재사용
             .collect(Collectors.toList());
@@ -131,14 +131,14 @@ public class DataProcessor {
 
 ```java
 // 제네릭 인터페이스
-public interface CrudRepository&lt;T, ID&gt; {
+public interface CrudRepository<T, ID> {
     T save(T entity);
-    Optional&lt;T&gt; findById(ID id);
+    Optional<T> findById(ID id);
 }
 
 // 구현 클래스
 @Service
-public class UserRepositoryImpl implements CrudRepository&lt;User, Long&gt; {
+public class UserRepositoryImpl implements CrudRepository<User, Long> {
     @Override
     public User save(User user) {
         // JPA/Hibernate 구현
@@ -147,9 +147,9 @@ public class UserRepositoryImpl implements CrudRepository&lt;User, Long&gt; {
 }
 
 // Spring Data JPA 활용
-public interface UserRepository extends JpaRepository&lt;User, Long&gt; {
+public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u FROM User u WHERE u.email = ?1")
-    Optional&lt;User&gt; findByEmail(String email);
+    Optional<User> findByEmail(String email);
 }
 ```
 
@@ -163,7 +163,7 @@ public class UserController {
     private final UserService userService;  // 생성자 주입
 
     @PostMapping("/users")
-    public ResponseEntity&lt;User&gt; createUser(@RequestBody UserDto dto) {
+    public ResponseEntity<User> createUser(@RequestBody UserDto dto) {
         return ResponseEntity.ok(userService.createUser(dto));
     }
 }
@@ -195,7 +195,7 @@ public class ReportGenerator {
 @RestController
 @RequiredArgsConstructor
 public class ReportController {
-    private final ObjectFactory&lt;ReportGenerator&gt; generatorFactory;
+    private final ObjectFactory<ReportGenerator> generatorFactory;
 
     @GetMapping("/report")
     public Report generate() {
@@ -233,7 +233,7 @@ public class UserService {
 
 | 구분 | 주요 내용 | 성능 영향 요소 |
 | :-- | :-- | :-- |
-| 메모리 관리 | 스택-힙 분리 저장, 참조 카운팅 기반 GC | 객체 생명주기 관리 |
+| 메모리 관리 | 스택·힙의 개념적 역할, GC root 도달 가능성 기반 추적 | 객체 생명주기와 도달 가능성 |
 | 람다 특성 | 캡처 변수의 불변성 유지, 함수형 인터페이스 구현 | 스택 트레이스 복잡도 증가 |
 | GC 전략 | 세대별 분리 수집, Stop-The-World 시간 최소화 | Full GC 발생 빈도 |
 | OOP 설계 | 인터페이스 분리 원칙(ISP), 의존성 역전(DIP) | 클래스 결합도 |
@@ -246,6 +246,10 @@ public class UserService {
 3. 스레드 풀 적절한 설정 (`TaskExecutor` 튜닝)
 4. JPA N+1 문제 방지 (페치 조인 사용)
 5. GC 로그 분석을 통한 힙 크기 조정
+
+## 근거, 완료 및 불확실성
+
+아래 링크 대부분은 2차 블로그입니다. 언어 규칙은 JLS/JVMS, collector는 대상 JDK 공식 문서와 JEP, Spring은 사용 버전의 공식 reference를 우선합니다. 성능 변경은 동일 부하에서 allocation rate, pause, p95/p99 지연, 처리량, 오류율을 전후 비교하고 회귀 시 되돌릴 수 있어야 완료입니다.
 
 <div style="text-align: center">⁂</div>
 

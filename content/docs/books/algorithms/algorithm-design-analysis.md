@@ -4,9 +4,11 @@
 
 ---
 
+> **Reading contract:** This note synthesizes Levitin 3rd edition and CTCI 4th edition; it does not claim coverage of later editions or every implementation. Treat a theorem as established only under its stated input domain and cost model, and treat stack, heap, cache, and instruction descriptions as implementation examples unless an ABI or language version is named. A section is complete when the algorithm variant, preconditions, invariant, termination argument, complexity measure, and source edition/location are identifiable. If any of those is missing, retain the claim as a heuristic or incomplete derivation rather than a universal result.
+
 ## 1. Algorithm Correctness — The Precision Imperative
 
-An algorithm must be unambiguous: every step must be executable by a mechanical device without further interpretation. The middle-school GCD procedure **fails** as an algorithm because "find prime factors" isn't defined mechanically — it implies a lookup table that itself requires an algorithm.
+An algorithm specification must make each step mechanically executable. The middle-school GCD procedure is **incomplete as written** when "find prime factors" is left undefined; it becomes an algorithm once a terminating factorization procedure and its input domain are supplied.
 
 ```mermaid
 flowchart LR
@@ -227,7 +229,7 @@ block-beta
     end
 ```
 
-**Stack allocation:** Compiler-determined. Frame size computed at compile time from local variable declarations. Push = decrement SP by frame_size. Pop = increment SP. No fragmentation.
+**Stack allocation (typical fixed-frame ABI case):** The compiler can determine a fixed frame from local declarations, adjust the stack pointer on entry, and restore it on return. Variable-length allocations, optimization, inlining, red zones, and ABI rules can change or eliminate this layout; "no fragmentation" is not a language-level guarantee.
 
 **Heap allocation:** Runtime-determined. `malloc(n)` searches free-list for block ≥ n bytes. Returns pointer; adds header (size, next-free pointer). `free(p)` marks block as available, coalesces adjacent free blocks.
 
@@ -248,7 +250,7 @@ int* g() {
 
 ## 7. CTCI: Bit Manipulation — Hardware Register Mechanics
 
-Bit operations execute in single CPU clock cycle (no memory access, pure ALU):
+The following bit operations are constant-time in the usual fixed-width word-RAM model. Actual instruction count, latency, and memory traffic depend on operand placement, compiler output, ISA, and word width:
 
 ```mermaid
 flowchart LR
@@ -477,7 +479,7 @@ With memoization — each unique subproblem solved once:
 - Stack depth still O(n) in worst case (during first descent)
 - Total work: O(n) (each of n subproblems solved exactly once)
 
-**Tail recursion optimization:** If the recursive call is the last operation before return (tail position), the compiler can reuse the current stack frame — O(1) stack space instead of O(n).
+**Tail-call optimization:** A compiler may reuse the current stack frame when the recursive call is in tail position, but C and C++ do not guarantee this transformation. Claim O(1) stack space only after checking the target compiler and generated code; otherwise retain the O(n) worst-case stack bound.
 
 ```
 // NOT tail recursive — addition happens after recursive return

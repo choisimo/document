@@ -1,12 +1,14 @@
-# 네트워킹 내부: 내부
+# 네트워킹 내부
 
 > 합성: Forouzan *Data Communications and Networking* 4th ed, Comer *Computer Networks and Internets* 5th ed, Barrett & Silverman *SSH: The Definitive Guide*, Bourke *Server Load Balancing* 및 지원 comp(24/28/37/38/344-355/467/496/501) 참조.
 
 ---
 
+> **읽기 계약:** 이 문서는 네트워크 표준의 개념 흐름과 특정 Linux·OpenSSH·로드밸런서 구현을 함께 설명합니다. RFC의 규범 요구, 커널 버전별 함수·자료구조, 공급자 기본값, 구성 예와 벤치마크를 같은 사실로 취급하지 않습니다. 재사용 시 RFC·Linux·OpenSSH·TLS·HTTP·BGP 구현 버전, 네임스페이스·오프로딩 설정, 토폴로지와 측정 환경을 식별합니다. 패킷 경로는 캡처·추적 또는 공식 소스로 확인하고, 성공 조건·타임아웃·재전송·보안 실패가 기록된 뒤 완료합니다. 조건이 달라지면 수치와 경로를 미확정 상태로 되돌립니다.
+
 ## 1. Linux 네트워크 스택 — sk_buff 흐름
 
-Linux의 모든 패킷은 커널을 통해 단일 힙 개체(`struct sk_buff`)로 이동합니다. 수명 주기를 이해하면 헤더가 추가/제거되는 위치, 체크섬 계산 및 라우팅 결정이 이루어지는 위치를 정확히 알 수 있습니다.
+전통적인 Linux 소켓 경로는 `struct sk_buff`를 핵심 패킷 메타데이터로 사용하지만, 하나의 패킷이 항상 단일 힙 객체로만 존재하는 것은 아닙니다. 복제·분할·GSO/GRO 조각과 XDP 같은 우회 경로가 있으며 함수명과 필드는 커널 버전에 따라 달라집니다.
 
 ```c
 struct sk_buff {
@@ -74,7 +76,7 @@ stateDiagram-v2
     CLOSING --> TIME_WAIT: recv ACK
     CLOSE_WAIT --> LAST_ACK: app close / send FIN
     LAST_ACK --> CLOSED: recv ACK
-    TIME_WAIT --> CLOSED: 2×MSL timeout (120s)
+    TIME_WAIT --> CLOSED: implementation-defined TIME_WAIT timeout
 ```
 
 ### TCP 3방향 핸드셰이크 - 커널 메모리 할당 타임라인
@@ -86,7 +88,7 @@ sequenceDiagram
     participant Accept_Queue
 
     Client->>Server_inet_csk: SYN (seq=x)
-    Note over Server_inet_csk: Half-open entry in syn_table<br/>SYN cookie generated (no full socket yet)
+    Note over Server_inet_csk: Track half-open request/backlog state<br/>SYN cookie may be used when configured and under pressure
     Server_inet_csk-->>Client: SYN-ACK (seq=y, ack=x+1)
     Client->>Server_inet_csk: ACK (ack=y+1)
     Note over Server_inet_csk: Full struct sock allocated<br/>tcp_sock, receive_buffer, send_buffer
@@ -98,7 +100,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-    A["Slow Start\ncwnd += 1 per ACK\n(exponential growth)"] -->|cwnd >= ssthresh| B["Congestion Avoidance\nCUBIC: W(t) = C·(t-K)³ + Wmax\nK = ³√(Wmax·β/C)"]
+    A["Slow Start\ncwnd grows per acknowledged data\n(approximately exponential by RTT)"] -->|cwnd >= ssthresh| B["Congestion Avoidance\nCUBIC model: W(t) = C·(t-K)³ + Wmax\nK depends on Wmax, C, and multiplicative decrease"]
     B -->|packet loss (3 dup ACKs)| C["Fast Recovery\nssthresh = cwnd × β(0.7)\nEnter CUBIC recovery probe"]
     C -->|new ACK| B
     B -->|RTO timeout| D["Slow Start\ncwnd = 1 MSS\nssthresh = cwnd/2"]
@@ -113,7 +115,7 @@ flowchart LR
 **CUBIC 수식 분석**:
 - `C` = 0.4(배율 인수)
 - `Wmax` = 마지막 정체 이벤트의 창 크기
-- `K = ³√(Wmax · β / C)` — 최저점에서 Wmax에 도달하는 시간
+- 표준 CUBIC 모델의 `K`는 `Wmax`, `C`와 곱셈 감소 후의 간격, 즉 보통 `1-β` 항에 의해 정해집니다. 기호 정의와 구현 버전을 확인합니다.
 - `t=K`에서 창은 Wmax와 같습니다. K를 넘어서면 초선형으로 성장합니다.
 - `β` = 0.7 (곱셈 감소 인자, Reno의 0.5보다 덜 공격적)
 
@@ -123,7 +125,7 @@ BtlBw = max delivery rate over RTprop window
 pacing_rate = BtlBw × pacing_gain
 cwnd = BtlBw × RTprop × cwnd_gain
 ```
-BBR은 별도의 PROBE_BW/PROBE_RTT/STARTUP/DRAIN 상태 시스템을 유지하며 손실에 직접 반응하지 않습니다.
+BBR은 STARTUP·DRAIN·PROBE_BW·PROBE_RTT 계열 상태로 대역폭과 RTT 모델을 갱신합니다. 손실 처리와 상태 세부사항은 BBR 버전에 따라 다르므로 "손실에 반응하지 않는다"는 절대적 설명으로 사용하지 않습니다.
 
 ---
 
@@ -252,7 +254,7 @@ Question: QNAME (labels) | QTYPE (2) | QCLASS (2)
 Answer RR: NAME | TYPE | CLASS | TTL(32) | RDLENGTH | RDATA
 ```
 
-DNSSEC는 **RRSIG**(RRset를 통한 서명), **DNSKEY**(영역 서명 키), **DS**(위임 서명자 해시) 및 **NSEC/NSEC3**(인증된 존재 거부)를 추가합니다. 검증 체인: 루트 KSK → TLD ZSK → 권한 있는 영역 ZSK → RRset 서명.
+DNSSEC는 **RRSIG**, **DNSKEY**, 부모 영역의 **DS**, **NSEC/NSEC3**를 사용합니다. 일반적인 분리에서는 KSK가 DNSKEY RRset을 서명하고 ZSK가 다른 RRset을 서명하지만 운영 방식은 달라질 수 있습니다. 검증기는 신뢰 앵커에서 DS와 자식 DNSKEY의 일치를 따라가며 각 RRset의 RRSIG를 검증합니다.
 
 ---
 
@@ -331,7 +333,7 @@ byte[m] random_padding     // random bytes
 byte[mac_len] MAC          // HMAC-SHA2-256(sequence_number || unencrypted_packet)
 ```
 
-`packet_length` 이후의 모든 필드는 AES-256-CTR 또는 ChaCha20-Poly1305로 암호화됩니다. MAC는 **일반 텍스트**를 통해 계산됩니다(Encrypt-then-MAC 또는 AEAD Poly1305가 모든 것을 다룹니다).
+SSH 패킷에서 암호화되는 필드와 길이 노출, MAC 입력·순서는 협상한 암호와 MAC 조합에 따라 다릅니다. AES-CTR+MAC, Encrypt-then-MAC, ChaCha20-Poly1305 같은 AEAD를 하나의 와이어 규칙으로 합치지 말고 해당 RFC와 협상 결과를 기준으로 해석합니다.
 
 ---
 
@@ -531,6 +533,8 @@ flowchart TD
 ---
 
 ## 네트워크 스택 성능 수치
+
+> 아래 값은 커널·NIC·오프로딩·CPU·MTU·토폴로지·부하가 없는 예시 범위입니다. 용량 계획이나 회귀 판정에는 같은 환경의 p50/p95/p99, 손실률과 동시 연결 수를 함께 측정합니다.
 
 | 운영 | 일반적인 지연 시간 | 메모 |
 |-----------|-----------------|-------|

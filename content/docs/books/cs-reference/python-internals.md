@@ -4,9 +4,21 @@
 
 ---
 
+## Scope, CPython Version, and Verification
+
+This document primarily describes CPython. Python language guarantees, CPython implementation details, build-time options, and observations from one interpreter process are explicitly separated.
+
+- **Scope:** Record Python and CPython version, build and ABI, platform and architecture, optimization or debug mode, allocator, garbage-collector settings, and concurrency build options.
+- **Guarantee boundary:** Object identity, interning, cache ranges, bytecode, dictionary layout, resizing, specialization, GIL behavior, and frame representation are implementation details unless the language reference says otherwise.
+- **Numeric assumptions:** Object sizes, opcode and call times, GC pauses, cache ranges, and allocation growth depend on build, workload, warmup, CPU, and measurement tool. The reference table is illustrative, not a performance contract.
+- **Evidence and uncertainty:** Use disassembly, interpreter and allocator statistics, GC callbacks, profiles, and repeatable benchmarks. `is` establishes identity, not value equality, and must not be used to infer an interning guarantee.
+- **Failure and completion:** Include exceptions, cycles, finalizers, cancellation, thread or process contention, memory pressure, and alternate interpreters. Completion requires correct semantics and a reproducible improvement without memory or tail-latency regression.
+
+---
+
 ## 1. CPython Object Model — Everything is a PyObject
 
-Every Python value, from integers to functions to classes, is a heap-allocated `PyObject`. This is the foundation of Python's runtime.
+At the Python language level values are objects; in the CPython versions modeled here, user-visible objects are represented through `PyObject`-compatible layouts. Allocation location, immortal or cached objects, internal temporaries, and alternate interpreters require version-specific qualification.
 
 ### PyObject Structure
 
@@ -45,7 +57,7 @@ flowchart TD
 
 ### Small Integer Cache
 
-CPython pre-allocates integer objects for values **-5 to 256**. All references to `x = 5` point to the **same** PyLongObject:
+Many CPython builds pre-allocate integer objects for **-5 through 256**, but this is an implementation detail rather than a Python guarantee. Identity observations can also be affected by compilation and constant folding; compare integer values with `==`, not `is`:
 
 ```python
 a = 256
@@ -70,7 +82,7 @@ flowchart LR
     C["c = 0"] --> INT0
 ```
 
-String interning: short identifier-like strings (alphanumeric, ≤20 chars typically) are interned in a global dict `interned`. `'hello' is 'hello'` → True. Arbitrary strings: no guarantee.
+String interning is a CPython implementation optimization whose automatic cases vary by version and compilation context. A length threshold such as 20 characters and the observation that two literals are identical are not portable guarantees; use `sys.intern()` only when profiling supports it and use `==` for value comparison.
 
 ---
 
@@ -118,7 +130,7 @@ flowchart TD
     end
 ```
 
-**GIL interaction**: Cyclic GC runs with GIL held (world stop). Large gen-2 collections on CPython can pause for 10-50ms — visible in latency-sensitive apps. Mitigation: `gc.disable()` + manual `gc.collect()` scheduling, or avoid reference cycles.
+**GC interaction**: In the referenced GIL-enabled CPython build, cyclic collection pauses Python execution while it examines tracked objects. A 10–50ms generation-2 pause is a workload-specific observation, not a bound. Disabling automatic GC can increase memory and defer larger work, so first measure cycles, pause distributions, and memory, then test any scheduling change under failure and load.
 
 ---
 
@@ -431,7 +443,7 @@ flowchart LR
     E["Collision: indices[3] already occupied"] --> F["linear probe: i = (i*5+1+H>>5) % 8\ntry next slot until empty or match"]
 ```
 
-**Dict resize**: When `size / capacity > 2/3`, resize to `capacity * 2`. Entire indices array rebuilt. All entries rehashed. Dict keeps insertion order (guaranteed since Python 3.7) via dense entries array maintaining insertion sequence.
+**Dict resize**: CPython dictionary load thresholds, growth factors, index widths, and rehash behavior are version-specific. Insertion order is a Python language guarantee for dictionaries in Python 3.7+, but the dense-table mechanism described here remains an implementation detail.
 
 ---
 
@@ -468,9 +480,9 @@ flowchart LR
 
 | Pattern | Why Slow | Fix |
 |---------|----------|-----|
-| `str += str` in loop | O(n²) — new allocation each concat | `''.join(list)` |
+| repeated string concatenation | Can approach O(n²), although some CPython cases are optimized | Prefer `''.join(parts)` when building from many pieces and benchmark the real path |
 | `[x for x in gen] * N` | Eagerly materializes | lazy iteration |
-| `dict[key]` in loop without `.get()` | KeyError exception path | `dict.get(key, default)` |
+| `dict[key]` versus `.get()` | Exception cost occurs only when a key is missing; semantics differ | Choose based on required missing-key behavior, then measure |
 | Global variable access | `LOAD_GLOBAL` → dict lookup | bind to local: `g = global_var` |
 | `append` vs `extend` | Repeated single-item inserts | batch with `extend` |
 | Pure Python loops | ~100 bytecodes/µs | numpy vectorization |
@@ -492,13 +504,15 @@ flowchart TD
 
 ## Python Runtime Numbers Reference
 
+> These values are illustrative observations from particular CPython builds and hardware, not interpreter guarantees. Use a pinned build, warmup, repeated trials, distributions, and memory measurements before drawing a performance conclusion.
+
 | Operation | Time | Notes |
 |-----------|------|-------|
 | Python bytecode execution | ~100 ns/opcode | per eval loop iteration |
 | Function call overhead | ~100-200 ns | frame create + locals setup |
 | Attribute lookup (dict) | ~50-100 ns | LOAD_ATTR + tp_getattro |
 | Method call (bound method) | ~200-300 ns | __get__ + call overhead |
-| List append | ~50 ns | amortized (capacity doubling) |
+| List append | illustrative only | amortized growth via CPython’s version-specific overallocation policy |
 | Dict lookup | ~50-100 ns | hash + index + compare |
 | GC cycle collection (gen-0) | ~100 µs | ~100 objects |
 | GC cycle collection (gen-2) | ~10-100 ms | thousands of objects |

@@ -1,8 +1,8 @@
 # LiteLLM + GitHub Copilot Auto-Auth Setup Guide
 
-This guide details how to set up **LiteLLM** to use **GitHub Copilot's models (GPT-4, Claude, Gemini)** by automatically injecting the authentication token (`ghu_...`) from your local VS Code environment.
+This guide documents an environment-specific experiment that forwards a local VS Code Copilot credential to LiteLLM. Model names and availability depend on the account, extension, provider, and current authorization terms.
 
-This method allows you to run LiteLLM with Docker Compose without manually updating tokens, as long as you are logged into GitHub Copilot in VS Code.
+Being logged into GitHub Copilot does not guarantee that this extraction method remains available or authorized. Credential storage, token scopes and expiry can change, so use a supported authentication path whenever one is provided.
 
 ## Prerequisites
 
@@ -10,6 +10,15 @@ This method allows you to run LiteLLM with Docker Compose without manually updat
 * **Docker & Docker Compose** installed
 * **VS Code** installed and logged in to **GitHub Copilot**
 * (Optional) `jq` installed for JSON parsing (alternative `grep` commands provided)
+
+---
+
+## Scope, Authorization, and Verification
+
+- **Scope:** This workflow depends on the installed VS Code Copilot extension, LiteLLM version, local credential-storage layout, account entitlement, and models available at that time. None of those interfaces is assumed stable.
+- **Authorization boundary:** A `ghu_...` value is a secret. Confirm that extracting and forwarding it is permitted by the current GitHub, Copilot, and organizational terms; never commit, log, publish, or expose it to an untrusted container or network listener.
+- **Assumptions and uncertainty:** Login state alone does not guarantee that a token can be found, accepted, refreshed, or authorized for a model. Storage paths, scopes, expiry, and provider routing can change without this guide changing.
+- **Failure and completion:** Treat missing or expired credentials, unauthorized models, accidental log output, non-local exposure, restart failure, and rate limits as explicit failures. Completion requires an authorized test request, confirmed token redaction, least-privilege network binding, expiry behavior, and a documented revocation path.
 
 ---
 

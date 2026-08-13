@@ -1,7 +1,16 @@
 # Proxmox VE 문제 해결 가이드
 
-> **Troubleshooting Guide for Proxmox VE 8.x**  
-> 일반적인 문제 상황과 해결 방법
+> **Diagnostic examples written for Proxmox VE 8.x; confirm deployed versions and state**  
+> 대표 증상, 수집할 증거와 조건부 복구 경로
+
+---
+
+## 문제 해결 범위와 증거 기준
+
+- **범위:** Proxmox VE·kernel·QEMU/LXC·Corosync·storage·Ceph 버전, node와 quorum, 직전 변경, 영향 resource와 발생 시각을 기록합니다.
+- **안전 전제:** current config, task·service log, cluster state와 backup을 수집한 뒤 한 번에 하나의 변경만 적용합니다. 강제 unlock, quorum override, process kill, storage repair는 영향 범위와 복구 console을 확보한 경우에만 사용합니다.
+- **사실과 추론:** timestamp가 맞는 log, service/resource status, config DB와 network/storage counter는 사실 근거입니다. 증상에 대응하는 명령 목록은 원인 증명이 아닙니다.
+- **실패·완료:** split-brain, data loss, guest outage 확대, authentication lockout와 reboot 후 재발을 실패로 봅니다. root cause와 수정이 증거로 연결되고 cluster·workload·backup/restore가 정상이며 rollback이 남아 있을 때 완료입니다.
 
 ---
 

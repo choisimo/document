@@ -1,7 +1,14 @@
 <!-- markdownlint-disable MD033 MD030 -->
 # Docker Compose Stacks
 
-서비스별 Docker Compose 스택을 카테고리로 정리했습니다. 각 페이지는 바로 실행할 수 있는 커맨드와 필요한 파일들을 함께 제공합니다.
+서비스별 Docker Compose 스택을 카테고리로 정리했습니다. 각 페이지의 명령은 검토를 시작하기 위한 예시이며 무조건 바로 실행할 운영 명령이 아닙니다.
+
+## 공통 실행 계약
+
+- `docker compose config`로 변수 치환과 최종 포트·볼륨·네트워크를 먼저 검토합니다.
+- 이미지 태그 또는 digest, 비밀 주입, 자원 한도, healthcheck, 로그 보존과 데이터 백업을 명시합니다.
+- 시작 성공, 준비 완료, 데이터 복구 가능, 외부 공개 안전을 서로 다른 검증 항목으로 기록합니다.
+- 업그레이드는 현재 데이터의 백업·복원 시험과 이전 이미지로의 롤백 조건을 만든 뒤 수행합니다.
 
 <div class="compose-hero" markdown>
 <span class="compose-kicker">Quick Start</span>

@@ -1,7 +1,16 @@
 
 # GitHub 원격 저장소와 로컬 브랜치 이름 불일치 해결 방법
 
-GitHub에서 로컬 브랜치와 원격 브랜치의 이름이 일치하지 않으면 push할 때마다 새로운 브랜치가 생성되는 문제가 발생할 수 있습니다. 이 문제를 해결하고 일관성을 유지하기 위한 여러 방법을 알아보겠습니다.
+local branch와 remote-tracking branch 이름이 달라도 upstream/refspec이 올바르면 매 push마다 새 branch가 생기지 않습니다. 의도하지 않은 생성은 `push.default`, upstream과 명시한 refspec의 조합에서 발생할 수 있습니다. 이 문제를 해결하고 일관성을 유지하기 위한 여러 방법을 알아보겠습니다.
+
+## 문서 범위와 운영 검증 기준
+
+- **범위:** 이 파일에는 Git upstream, HAProxy SFTP routing, lsyncd 비동기 복제와 monitoring이라는 독립 주제가 함께 있습니다. Git version·push policy와 HAProxy/lsyncd/SSH/filesystem version·topology를 각각 기록합니다.
+- **일관성 전제:** HAProxy는 connection을 선택할 뿐 file data를 복제하지 않습니다. lsyncd는 event 기반 비동기 전송이므로 동시 write, rename/delete, 재시도, loop, backlog와 conflict policy 없이는 강한 일관성을 제공하지 않습니다.
+- **사실과 추론:** Git ref/upstream, HAProxy stats, lsyncd log·queue, source/target checksum과 backup restore가 근거입니다. client stickiness, 지연·대역폭과 장애 시 가용성은 측정 전까지 가설입니다.
+- **실패·완료:** 잘못된 push target, backend 장애·session 재배치, partial upload, 복제 누락·충돌·삭제 전파와 backup 실패를 시험합니다. checksum, RPO/RTO, 재동기화와 독립 restore가 기준을 만족할 때 완료입니다.
+
+---
 
 ## 업스트림 브랜치 설정하기
 
@@ -83,7 +92,7 @@ git config --global branch.autoSetupMerge always
 
 ## 결론
 
-원격 브랜치와 로컬 브랜치의 이름 불일치 문제는 위의 방법들을 통해 해결할 수 있습니다. 가장 권장되는 방법은:
+선택은 이름 통일 여부, 팀 push policy와 기존 PR·automation에 따라 달라집니다. 현재 upstream과 target ref를 확인한 뒤 다음 방식 중 하나를 선택합니다:
 
 1. 브랜치 이름을 일치시키거나
 2. 업스트림 브랜치를 명시적으로 설정하거나
@@ -751,7 +760,7 @@ sudo systemctl start sftp-notify.service
     - 대용량 파일 전송을 위한 버퍼 크기 조정
     - 동시 연결 수 제한 설정으로 리소스 보호
 
-이 시스템은 HAProxy를 사용하여 SFTP 트래픽을 효율적으로 관리하고, 다중 서버 복제를 통해 데이터 안정성을 보장하며, 실시간 알림 기능으로 운영 효율성을 높일 수 있는 아키텍처입니다.
+이 시스템은 HAProxy를 사용하여 SFTP 트래픽을 효율적으로 관리하고, 비동기 복제 상태와 독립 backup을 함께 운영하여 장애 시 손실 범위를 줄이며, 실시간 알림 기능으로 운영 효율성을 높일 수 있는 아키텍처입니다.
 
 <div style="text-align: center">⁂</div>
 
@@ -990,7 +999,7 @@ sudo systemctl start sftp-notify.service
 
 ---
 
-# Lsyncd를 이용한 다중 파일 서버 간 일관성 유지 구현
+# Lsyncd를 이용한 다중 파일 서버 비동기 복제 예시
 
 Lsyncd(Live Synchronization Daemon)는 여러 리눅스 서버 간에 파일 시스템 변경사항을 실시간으로 동기화하기 위한 효과적인 도구입니다. 이 글에서는 세 대의 파일 서버 간에 데이터 일관성을 유지하기 위한 Lsyncd 설정 방법을 설명하겠습니다.
 
@@ -1202,11 +1211,11 @@ cat /var/log/lsyncd/lsyncd-status.log
 ## 성능 및 안정성 고려사항
 
 1. **리소스 사용량**: Lsyncd는 많은 파일을 감시할 때 메모리 사용량이 증가할 수 있으므로, 서버 리소스를 모니터링하세요[^3_6].
-2. **네트워크 대역폭**: 대용량 파일을 동기화할 때 네트워크 대역폭이 충분한지 확인하세요. 최소 100Mbit 네트워크가 권장되며, 대규모 스토리지의 경우 1Gbit 이상이 필요합니다[^3_5].
-3. **지연 시간**: Lsyncd는 기본적으로 약 1초의 최소 지연 시간이 있습니다[^3_3]. 이는 대부분의 사용 사례에 충분하지만, 밀리초 단위의 즉각적인 동기화가 필요하다면 다른 솔루션을 고려해야 할 수 있습니다.
+2. **네트워크 대역폭**: 대용량 파일을 동기화할 때 네트워크 대역폭이 충분한지 확인하세요. 필요 bandwidth는 변경률, file 크기, 목표 복제 지연과 recovery window로 산정하며 100Mbit·1Gbit는 예시입니다[^3_5].
+3. **지연 시간**: Lsyncd delay는 version과 configuration에 따른 batching 값이며 약 1초를 보편 최소값으로 보지 않습니다[^3_3]. 이는 대부분의 사용 사례에 충분하지만, 밀리초 단위의 즉각적인 동기화가 필요하다면 다른 솔루션을 고려해야 할 수 있습니다.
 4. **백업 전략**: Lsyncd만으로는 완전한 백업 솔루션이 될 수 없습니다. 정기적인 스냅샷이나 백업도 함께 구현하세요.
 
-이와 같은 구성을 통해 세 서버 간의 파일 일관성을 효과적으로 유지할 수 있으며, 서버 장애 시에도 데이터 가용성을 보장할 수 있습니다.
+이와 같은 구성을 통해 세 서버 간의 파일 일관성을 효과적으로 유지할 수 있으며, 장애 유형, healthy replica, 복제 backlog와 failover 절차가 가정한 범위에서 가용성을 높일 수 있습니다.
 
 <div style="text-align: center">⁂</div>
 
@@ -1315,7 +1324,7 @@ cat /var/log/lsyncd/lsyncd-status.log
 
 ---
 
-# HAProxy를 사용한 다중 파일 서버 간 일관성 유지 구현
+# HAProxy routing과 lsyncd file 복제 조합 예시
 
 HAProxy를 사용하여 여러 파일 서버 간에 파일 쓰기를 동기화하는 아키텍처를 구축하려면 두 가지 핵심 기능이 필요합니다: (1) 클라이언트 요청을 적절히 분배하는 로드 밸런싱과 (2) 서버 간 파일 일관성을 유지하는 실시간 동기화입니다. 아래에 구현 방법을 상세히 설명합니다.
 
@@ -1389,7 +1398,7 @@ backend sftp_servers
 이 설정의 핵심 요소:
 
 - `mode tcp`: 파일 전송 프로토콜(SFTP/FTP)은 TCP 레벨에서 처리[^4_3]
-- `stick on src`: 클라이언트 IP 기반 세션 고정으로 동일 클라이언트는 항상 같은 서버로 연결되도록 함[^4_2]
+- `stick on src`: table 유지·expiry, NAT, backend health와 reload 조건 안에서 client IP 기반 선택을 재사용[^4_2]
 - `option tcp-check`: 서버 상태 점검으로 가용성 확인[^4_6]
 
 
@@ -1452,7 +1461,7 @@ sync {
 }
 ```
 
-각 파일 서버에 유사한 설정을 적용하여 다른 모든 서버로 변경 사항을 전파합니다.
+양방향·다중 writer 복제는 loop와 conflict를 만들 수 있습니다. writer ownership, 방향, exclude/delete, retry와 resync 정책을 명시한 server에만 적용합니다.
 
 ## 3. SSH 키 인증 설정
 

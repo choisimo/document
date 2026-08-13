@@ -2,11 +2,17 @@
 
 > Under the Hood: How EC2 instances boot on bare metal, how S3 stores objects across failure domains, how VPCs route packets through virtual switches, how Lambda cold starts work — the exact hardware, network, and storage mechanics behind cloud infrastructure.
 
+## Evidence boundary
+
+AWS publishes service contracts, quotas, and selected architecture details, but not every storage layout, host implementation, timing, or control-plane algorithm shown below. Treat diagrams that name shard counts, quorum protocols, internal databases, overlay formats, or fixed latency as **illustrative models**, not verified AWS internals. A production decision is complete only when the relevant AWS documentation, Region, service tier, configuration, and an observed metric or test result are recorded.
+
 ---
 
 ## 1. Hypervisor Architecture: EC2 on Nitro
 
 AWS Nitro is a custom hypervisor offloading I/O and security to dedicated hardware cards rather than a host OS.
+
+This describes Nitro's public architectural direction. The CPU-overhead percentages, firmware path, boot firmware, and device details in the diagram are workload- and generation-specific assumptions; they are not portable EC2 guarantees.
 
 ```mermaid
 flowchart TD
@@ -110,7 +116,7 @@ stateDiagram-v2
     ConnTrack --> PassThrough: Return traffic (automatic)\nno inbound rule needed
 ```
 
-SGs are **stateful** (connection tracking via Linux conntrack tables in the Nitro hypervisor) — inbound rules are only checked for new connections, not return traffic.
+Security groups are **stateful**: response traffic for an allowed flow is tracked without requiring a symmetric rule. AWS does not contractually expose this as a Linux `conntrack` table inside the Nitro hypervisor, so that implementation detail should not be used for capacity or failure analysis.
 
 ---
 
@@ -134,7 +140,7 @@ flowchart TD
 
 ### Reed-Solomon Erasure Coding (RS 6+2)
 
-S3 splits objects into 6 data chunks and computes 2 parity chunks using Reed-Solomon coding over GF(2⁸):
+The following `RS(6,2)` layout is a teaching example for erasure coding. S3's public durability and availability commitments do not specify this exact shard count or placement, and two lost shards do not imply tolerance of two entire Availability Zone failures.
 
 ```
 Object → [d1, d2, d3, d4, d5, d6]  (data chunks)
@@ -172,7 +178,7 @@ sequenceDiagram
 
 ### S3 Consistency Model
 
-Since December 2020, S3 provides **strong read-after-write consistency** for all operations. Internally, this is achieved by the index service using a serializable metadata store — GET after PUT sees the new object guaranteed (previously only eventually consistent for overwrite).
+Since December 2020, S3 documents strong read-after-write consistency for object PUT/DELETE and related read/list operations. The serializable metadata store described here is a hypothesis; the observable guarantee does not reveal the internal metadata implementation.
 
 ---
 
@@ -211,6 +217,8 @@ flowchart LR
 ```
 
 **Cold start breakdown (Python 3.11, 256MB)**:
+
+The values below are an example measurement envelope, not an SLA. Record Region, architecture, package size, runtime version, VPC configuration, provisioned concurrency, sample count, and percentile before comparing cold starts.
 - Firecracker boot: ~125ms
 - Amazon Linux init: ~50ms  
 - Python interpreter start: ~100ms
@@ -240,7 +248,7 @@ flowchart TD
 
 ### DynamoDB LSM-Tree Storage Engine
 
-Each DynamoDB partition uses an LSM-tree (Log-Structured Merge-Tree) under the hood:
+The following LSM-tree diagram is a conceptual storage-engine model. DynamoDB does not expose a contractual per-partition LSM layout, SSTable size, Bloom-filter setting, or Paxos role assignment.
 
 ```mermaid
 flowchart TD
@@ -261,7 +269,7 @@ flowchart TD
 
 ### DynamoDB Auto-Partitioning (Adaptive Capacity)
 
-When a partition exceeds 1000 WCU/s or 3000 RCU/s, DynamoDB splits it:
+The following split algorithm is illustrative. Published per-partition throughput guidance does not mean a split occurs immediately at a fixed threshold or at the median key; adaptive capacity and partition management remain service-controlled.
 
 ```
 partition_id=abc → [abc_low, abc_high]
@@ -290,6 +298,8 @@ sequenceDiagram
 ```
 
 **EBS gp3 throughput**: 125 MB/s baseline, up to 1000 MB/s (provisioned). The Nitro card handles all NVMe protocol, encryption (AES-256 in hardware), and TCP networking to EBS fleet — zero host CPU for I/O.
+
+The sequence diagram's “Replicate to 2nd AZ (Multi-AZ gp3)” line is not a general EBS property. An EBS volume is an Availability Zone resource; cross-AZ durability requires a separate mechanism such as snapshots, application replication, or a service that explicitly provides Multi-AZ storage. Throughput limits also depend on volume size, provisioned settings, instance EBS bandwidth, and I/O shape.
 
 ---
 
@@ -327,7 +337,7 @@ flowchart TD
     P7 -->|no allow| DENY
 ```
 
-**Condition evaluation**: IAM conditions are evaluated using AND within a Condition block, OR across multiple Condition elements. `aws:RequestedRegion`, `aws:SourceVpc`, `aws:CurrentTime` are context keys injected at evaluation time by the service control plane.
+**Condition evaluation**: IAM combines condition operators and keys according to the policy grammar; multiple values, negated operators, set operators, and missing context keys change the result. Do not reduce evaluation to a universal “AND within, OR across” rule. Use the policy simulator or a denied test request with the exact principal, resource, action, and context keys.
 
 ---
 

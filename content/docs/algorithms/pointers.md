@@ -2,6 +2,10 @@
 
 # C/C++ 포인터 사용의 일반적인 실수 및 예방 방법과 고급 기법
 
+## 컴파일·소유권·실패 계약
+
+예제 적용 전 C 또는 C++ language version, compiler와 warning·sanitizer option, allocation owner와 해제 책임을 정한다. `malloc` 성공 확인은 사용뿐 아니라 실패 시 반환·정리 경로까지 포함해야 하며, 해제 뒤 한 local pointer를 `NULL`로 바꿔도 다른 alias의 dangling 상태는 해결되지 않는다. `restrict`는 compiler가 증명하는 보장이 아니라 호출자가 겹치지 않는 storage를 약속하는 계약이며 위반 시 undefined behavior가 될 수 있다. `cleanup` attribute는 C11 표준 RAII가 아니라 GCC/Clang extension이다. 완료는 compile warning, AddressSanitizer·UndefinedBehaviorSanitizer 결과, 정상·할당 실패·경계 입력의 자원 해제를 확인해 판정한다.
+
 ## 1. 초중급 개발자가 자주犯는 포인터 관련 실수
 
 ### 1.1 널 포인터 역참조 (Null Pointer Dereference)
@@ -173,12 +177,12 @@ void vector_add(int *restrict a,
 
 **최적화 효과:**
 
-- 컴파일러가 메모리 중복 접근 없음을 보장 → SIMD 최적화 가능
+- 호출자가 메모리 영역이 겹치지 않음을 보장하면 compiler가 alias 가능성을 줄여 SIMD 최적화를 적용할 수 있음
 
 
 ## 3. 효과적 메모리 관리 기법
 
-### 3.1 RAII 패턴 구현 (C11 확장)
+### 3.1 RAII 유사 패턴 (GCC/Clang `cleanup` 확장)
 
 ```c
 #define RAII_VARIABLE(type, name, init, dtor) \
@@ -222,7 +226,7 @@ void* pool_alloc(MemoryPool *pool) {
 | Dangling Pointer | 유효성 없는 메모리 접근 | 해제 후 NULL 할당 | RAII 패턴 적용 |
 | Memory Leak | 할당/해제 불균형 | `free` 쌍 검증 | 정적 분석 도구 활용 |
 | Invalid Pointer Arith | 잘못된 주소 계산 | 배열 범위 검증 | `size_t` 타입 사용 |
-| Buffer Overflow | 경계 검사 누락 | 안전한 라이브러리 사용(`strncpy`) | 컴파일러 경고 최대화 |
+| Buffer Overflow | 경계 검사 누락 | 대상 크기 검증과 종료 문자 보장 | 컴파일러 경고·sanitizer 활용 |
 
 <div style="text-align: center">⁂</div>
 

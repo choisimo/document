@@ -1,5 +1,12 @@
 # Kubernetes 클러스터 설정
 
+## 로컬 클러스터 범위와 안전 조건
+
+- minikube, kind와 Docker Desktop은 서로 다른 로컬 구현입니다. 하나를 선택하고 Kubernetes·kubectl 버전 호환성과 필요한 CPU·메모리를 기록합니다.
+- 다운로드 URL을 실행 시점의 `stable`에 맡기지 말고 수업/프로젝트 버전을 고정해 checksum 또는 패키지 서명을 확인합니다.
+- `kubectl` 변경 명령 전 현재 context, cluster, namespace와 대상 label을 출력합니다. 개인 kubeconfig와 운영 context를 실습에서 분리합니다.
+- 완료 기준은 API 응답뿐 아니라 노드 `Ready`, DNS, 기본 Pod scheduling/networking, 로그 조회와 클러스터 삭제 후 잔여 자원 확인입니다.
+
 ## 📖 개요
 
 로컬 환경에서 Kubernetes 클러스터를 설정하고 기본 명령어를 학습합니다. minikube, kind, Docker Desktop 세 가지 방법을 다룹니다.
@@ -15,7 +22,7 @@
 
 ### Linux
 ```bash
-# 최신 버전 다운로드
+# 프로젝트가 고정한 버전을 다운로드하고 checksum 검증
 curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 
 # 실행 권한 부여

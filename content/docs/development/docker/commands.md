@@ -1,11 +1,20 @@
-아래는 주어진 명령어와 관련된 설명과 예제를 포함한 `README.md` 파일 작성 예시입니다:
+이 문서는 Docker daemon 권한과 container restart policy를 설정할 때 확인할 범위와 예제를 설명합니다.
+
+---
+
+## 적용 범위와 안전 기준
+
+- **범위:** Docker Engine/Desktop 버전, Linux 배포판, rootful·rootless daemon, init system과 현재 restart policy를 확인합니다.
+- **권한 전제:** `docker` socket 접근은 일반적으로 host root에 준하는 권한을 줄 수 있습니다. group 추가와 광범위한 `sudo` 허용은 편의 설정이 아니라 보안 경계 변경으로 검토합니다.
+- **실패 조건:** 잘못된 `sudoers`, 기존 container policy 덮어쓰기, daemon 미기동, session에 반영되지 않은 group과 의도하지 않은 자동 재시작을 실패로 봅니다.
+- **완료 기준:** 최소 권한을 확인하고 새 session에서 대상 명령만 실행되며 daemon·host reboot 뒤 기대한 container만 재시작되는지 검증해야 완료입니다.
 
 ---
 
 # Docker 설치 후 사용자 권한 및 컨테이너 자동 재시작 설정
 
 ## 1. Docker 권한 설정: 사용자에게 Docker 그룹 권한 부여
-Docker 설치 후 기본적으로 **root** 사용자만 실행 권한을 가집니다. Docker를 비관리자 사용자도 실행할 수 있도록 하려면 해당 사용자를 `docker` 그룹에 추가해야 합니다.
+rootful Docker에서는 일반적으로 root 또는 Docker socket 접근 권한이 있는 사용자만 daemon을 제어합니다. rootless Docker와 Docker Desktop은 권한 모델이 다릅니다. Docker를 비관리자 사용자도 실행할 수 있도록 하려면 해당 사용자를 `docker` 그룹에 추가해야 합니다.
 
 ### 명령어:
 ```bash
@@ -39,7 +48,7 @@ docker run -d --restart always <container_name>
 
 ### 상세 설명:
 - **`-d`**: 컨테이너를 백그라운드에서 실행합니다.
-- **`--restart always`**: 컨테이너를 항상 재시작하도록 설정합니다.
+- **`--restart always`**: daemon이 관리하는 restart policy입니다. 수동 stop, daemon 상태와 Docker 버전의 policy semantics를 포함해 reboot·failure 시나리오에서 기대 동작을 확인합니다.
   - 예: 서버 재부팅 또는 컨테이너 오류 종료 시 자동으로 다시 시작됩니다.
 - `<container_name>`: 실행하려는 컨테이너의 이름입니다.
 
@@ -79,7 +88,7 @@ sudo visudo
 3. 파일을 저장하고 종료합니다.
 
 ### 예제:
-- 사용자 `john`에게 모든 `sudo` 권한을 부여하려면:
+- 사용자 `john`에게 광범위한 `sudo` 권한을 부여하는 예시입니다. 운영 환경에서는 필요한 명령만 allowlist하고 별도 계정·감사 정책을 우선 검토합니다:
   ```plaintext
   john ALL=(ALL:ALL) ALL
   ```

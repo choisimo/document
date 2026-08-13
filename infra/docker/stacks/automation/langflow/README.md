@@ -1,6 +1,15 @@
 # Langflow Stack
 
-Langflow와 PostgreSQL을 함께 실행하는 Docker Compose 스택입니다. 원본 `docs/services/langflow.md`에 있던 구성 의도를 유지하면서, 실제로 바로 실행할 수 있는 템플릿과 환경 변수 예시로 정리했습니다.
+Langflow와 PostgreSQL을 함께 실행하는 Docker Compose 스택입니다. 원본 `docs/services/langflow.md`에 있던 구성 의도를 유지하면서, 환경 값과 ownership을 검토한 뒤 실행하는 template과 환경 변수 예시로 정리했습니다.
+
+## Deployment Contract
+
+- **Scope:** Pin Langflow, PostgreSQL and init-container images, Compose version, database schema, container UID/GID and optional tunnel/proxy path.
+- **Assumptions:** Volume ownership repair is driver and image dependent. Limit the root init container to the named volume and keep database credentials outside tracked files.
+- **Evidence:** Rendered configuration, migration log, health endpoint, writable data path and restart persistence are required evidence.
+- **Failure and completion:** Test permission denial, database outage, partial migration, secret rotation, backup restore and rollback before deployment is complete.
+
+---
 
 ## 구성 요소
 

@@ -4,9 +4,11 @@
 
 ---
 
+> **Reading contract:** This document interprets a 2017 book for Java workloads. It is for JVM and platform engineers migrating or diagnosing applications, and it must not project JDK 8/11, cgroup v1, Docker, or Kubernetes defaults onto newer environments. Record JDK vendor/version, JVM flags, cgroup mode, container runtime, Kubernetes and networking/storage implementations. Completion evidence includes effective JVM settings, cgroup counters, pod events, probe history, digest, and rollback outcome. On OOM, probe, DNS, mount, or scaling failure, capture evidence before a bounded retry and roll back unsafe changes.
+
 ## 1. Docker Image Internals: Layered Filesystem Architecture
 
-Every Docker image is a stack of immutable, read-only **content-addressable layers** stored as compressed tar archives (OCI Image Format). When you build a Java application image, each Dockerfile instruction generates a new layer identified by its SHA-256 digest.
+An OCI/Docker image manifest references content-addressed layer blobs and configuration. Many filesystem-changing Dockerfile instructions create a layer, while metadata-only instructions, empty changes, and BuildKit optimizations need not map one-to-one to visible filesystem layers.
 
 ```mermaid
 flowchart BT
@@ -327,7 +329,7 @@ flowchart TD
     RETURN_IP --> DNAT --> TARGET_POD["Payment Service Pod"]
 ```
 
-**Environment variable injection**: Kubernetes also injects `SERVICE_NAME_SERVICE_HOST` and `SERVICE_NAME_SERVICE_PORT` environment variables for every service that existed when the pod started. These are a legacy mechanism; DNS is preferred because it works for services created after pod startup.
+**Environment variable injection**: Kubernetes can inject `SERVICE_NAME_SERVICE_HOST` and `SERVICE_NAME_SERVICE_PORT` for services present when the pod starts when service links are enabled. This is a configurable legacy mechanism; DNS is generally preferred for services created later and for avoiding large environment blocks.
 
 ---
 
@@ -473,7 +475,7 @@ flowchart TD
     CLOUD_LB["Cloud LoadBalancer\n(AWS NLB / GCP GLB)"] --> NODE_PORT
 ```
 
-**Session affinity**: Setting `service.spec.sessionAffinity: ClientIP` instructs kube-proxy to create iptables rules using the `-m recent` module to track client IP → backend pod mappings (default 10800s timeout). Java apps using sticky sessions (e.g., HTTP session state) need this to avoid request scattering across pods.
+**Session affinity**: `service.spec.sessionAffinity: ClientIP` asks the Service implementation for client-IP affinity for its configured timeout. The mechanism depends on iptables, IPVS, eBPF, proxies, and source-address preservation. Stateful Java sessions do not inherently require affinity; externalized session state is often safer during scaling and failover.
 
 ---
 
@@ -498,4 +500,4 @@ flowchart TD
     PIDNS -->|hosts| JVM
 ```
 
-The JVM must always be treated as a **cgroup-aware process**. Container resource limits are not hints — they are hard kernel enforcement boundaries. A JVM that ignores them will be OOM-killed by the kernel's memory reclaim machinery, not by a graceful Java exception.
+Treat the JVM as a process running under the effective cgroup and verify what the selected JDK detects. Hard memory limits can lead to allocation failure, reclaim, throttling, or a cgroup OOM kill depending on heap, native memory, policy, and pressure; an OOM kill is possible, not the only outcome.

@@ -3,6 +3,8 @@
 
 ---
 
+> **Reading contract:** This synthesis uses CLRS 3rd edition and Sedgewick & Wayne 4th edition. Names such as quicksort, Dijkstra, hash table, and counting sort refer to families of variants, so a bound is authoritative only after the pivot rule, graph assumptions, hash model, stability procedure, and machine model relevant to that bound are named. Mark proved bounds separately from implementation observations. A subsection is complete when it states preconditions, invariant, result, failure boundary, and source location; otherwise treat its conclusion as provisional.
+
 ## 1. Asymptotic Analysis: The Mathematical Foundation
 
 Algorithm analysis abstracts away hardware constants to capture **growth rate** — the relationship between input size `n` and resource consumption as `n → ∞`.
@@ -66,7 +68,7 @@ flowchart TD
 
 **Memory layout during merge**: merge requires O(n) auxiliary space. Two sorted subarrays `A[p..q]` and `A[q+1..r]` are copied into temp arrays `L[]` and `R[]`; then merged back into A with two-pointer comparison.
 
-**Why n log n is the optimal comparison lower bound**: In a decision tree of all possible comparison sequences, each permutation must be a distinct leaf. With n! permutations and a binary tree, height ≥ log₂(n!) = Θ(n log n) by Stirling's approximation.
+**Why n log n is the worst-case lower bound for deterministic comparison sorting**: In the decision-tree model, each distinguishable input permutation must reach a distinct leaf. With n! permutations and binary comparisons, height ≥ log₂(n!) = Θ(n log n) by Stirling's approximation. The claim does not apply to non-comparison methods with restricted key domains.
 
 ### 2.2 Quicksort: Partition Mechanics and Pivot Choice
 
@@ -220,7 +222,7 @@ flowchart TD
   C2 --> L7["[Y Z]"]
 ```
 
-**Search complexity**: With `n` keys, height h ≤ log_t((n+1)/2). For t=1000, n=10⁹ → h ≤ 3. Every non-root node is at least half-full → space efficiency guaranteed.
+**Search complexity**: With `n` keys and the stated B-tree minimum-degree invariant, height h ≤ log_t((n+1)/2). The t=1000, n=10⁹ illustration assumes that definition of `t` and ignores implementation metadata. Non-root occupancy is bounded by the insertion/deletion algorithm; practical space efficiency still depends on page size, key width, and workload.
 
 **Split on insert**: When inserting into a full node (2t-1 keys), split it into two nodes of t-1 keys each and push median up to parent. If root splits, tree height grows by 1 (only way height increases).
 
@@ -605,7 +607,7 @@ A **stable sort** preserves relative order of equal keys. This enables sorting b
 2. Sort by primary key (stable)
 → Result: sorted by primary, ties broken by secondary — without any multi-key comparison logic.
 
-This is why Counting Sort is used as the base in Radix Sort: it's inherently stable (right-to-left pass preserves original relative order).
+This is why a **stable implementation** of counting sort is commonly used as a radix-sort pass. Stability comes from the placement procedure, such as the shown right-to-left pass; counting sort is not inherently stable under every implementation.
 
 ```mermaid
 sequenceDiagram

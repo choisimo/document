@@ -1,5 +1,14 @@
 # 데이터베이스 및 애플리케이션 컨테이너화 및 호스트 설치 가이드
 
+> 이 명령들은 로컬 학습용 구성 예시이며 현재 배포판과 이미지에서 검증된 운영 절차가 아닙니다. 그대로 인터넷에 노출하지 마세요.
+
+## 실행 전 계약
+
+- 대상 OS, CPU 아키텍처, DB·컨테이너 이미지 버전과 신뢰할 저장소를 고정합니다. `latest` 또는 배포판 기본 버전은 재현 가능한 사양이 아닙니다.
+- 예시 암호, 자체 서명 인증서, `0.0.0.0/0`, 호스트 포트 공개는 운영 금지 항목입니다. 비밀 저장소, 조직 CA, 신뢰 CIDR과 방화벽 정책으로 교체합니다.
+- 설치 완료는 프로세스 기동이 아니라 인증된 TLS 연결, 최소 권한 계정, 영속 볼륨, 재시작, 백업·복원과 로그 확인까지 포함합니다.
+- 변경 전 기존 데이터 백업과 롤백 절차를 만들고, 실패한 단계에서 부분 생성된 컨테이너·사용자·인증서를 어떻게 정리할지 기록합니다.
+
 ## MySQL/MariaDB
 ### Docker 설치 (SSL 포함)
 ```bash
@@ -62,7 +71,8 @@ sudo chown postgres:postgres /etc/postgresql/15/main/*.pem
 sudo systemctl restart postgresql
 
 # pg_hba.conf 수정
-hostssl all all 0.0.0.0/0 md5 clientcert=verify-ca
+# <trusted-client-cidr>를 실제 사설 CIDR로 바꾸고 현재 PostgreSQL의 SCRAM 정책을 확인
+hostssl all all <trusted-client-cidr> scram-sha-256 clientcert=verify-ca
 ```
 
 ## Redis

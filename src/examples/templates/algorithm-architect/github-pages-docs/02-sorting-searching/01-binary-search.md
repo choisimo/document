@@ -8,6 +8,12 @@
 ## 원본 템플릿
 - Source: [02-sorting-searching/01-binary-search.md](../../02-sorting-searching/01-binary-search.md)
 
+## 적용 계약과 근거 경계
+
+- `arr`는 target과 같은 비교 규칙으로 오름차순 정렬된 random-access sequence여야 합니다.
+- 중복 값이 있으면 일치하는 인덱스 중 하나를 반환하며 first/last occurrence를 보장하지 않습니다. `-1`은 없음입니다.
+- 비교 횟수는 `O(log N)`, 추가 공간은 `O(1)`입니다. 정렬 비용은 포함하지 않습니다.
+
 ## 내부 메커니즘 (Flow)
 ```mermaid
 flowchart TD
@@ -74,7 +80,7 @@ def binary_search(arr, target):
 - **Termination**: 목표 도달, 범위 소진, 큐/스택 고갈, 사이클 검출 등으로 종료한다.
 
 ## 실전 적용 체크리스트
-- 입력 자료구조 형식(인접 리스트, 간선 리스트, 정렬 여부, 1-index/0-index)을 먼저 고정한다.
-- 시간 복잡도 한계에 맞게 자료구조를 교체한다 (`list.pop(0)` -> `deque.popleft` 등).
-- 실패/예외 경로를 명시한다 (도달 불가, 음수 사이클, 빈 결과, 사이클 존재).
-- 테스트는 최소 3개: 정상 케이스, 경계 케이스, 반례 케이스를 포함한다.
+- 정렬 방향과 비교 가능성, 중복 시 원하는 위치 정책을 고정합니다.
+- 빈 배열, 단일 원소, 양 끝, 중복, 범위 밖 target을 시험합니다.
+- 루프마다 target 후보 구간이 `[left, right]`에만 남는 불변식을 확인합니다.
+- Python `bisect` 또는 선형 검색과 무작위 정렬 배열 결과를 대조합니다.

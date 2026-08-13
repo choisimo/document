@@ -3,6 +3,7 @@
 - **상태**: Accepted
 - **날짜**: 2026-03-15
 - **결정자**: nodove
+- **검증 상태**: 아래 체크리스트의 실행 증거가 이 문서에는 첨부되지 않음
 
 ## 맥락
 
@@ -22,7 +23,7 @@
 
 ```
 apps/     — 실행 가능한 애플리케이션 (MkDocs 사이트 빌더)
-content/  — 사람이 읽는 모든 문서
+content/  — 편집·출판·보존 정책으로 분류한 문서 소스
 infra/    — 배포 및 운영 설정
 src/      — 실행 가능한 코드와 스크립트
 dist/     — 빌드 산출물 (gitignore 대상)
@@ -36,7 +37,7 @@ dist/     — 빌드 산출물 (gitignore 대상)
 |-----------|-----------|------|
 | `content/docs/` | 자유 편집 | MkDocs 출판 소스 |
 | `content/rendered/` | 원본만 수정 | 파생 산출물 |
-| `content/archive/legacy/` | 편집 금지 | 보관 전용 |
+| `content/archive/legacy/` | 보존 편집 | 기능 확장 대신 사실 오류, 안전 경고, 출처·마이그레이션 메타데이터만 보정 |
 | `content/prompts/` | 자유 편집 | AI 프롬프트 |
 | `content/notes/` | 자유 편집 | 개인 메모 |
 | `content/research/` | 자유 편집 | 리서치 문서 |
@@ -55,8 +56,9 @@ dist/     — 빌드 산출물 (gitignore 대상)
 
 ### C. 채택안: 복사 후 구 경로 단계적 제거
 - 1단계: 새 위치로 복사 + 설정 파일 경로 업데이트
-- 2단계: 빌드 검증
-- 3단계: 구 경로 제거
+- 2단계: 새 경로를 정본으로 전환하고 쓰기 주체를 하나로 제한
+- 3단계: 빌드·내부 링크·자동화 경로 검증
+- 4단계: 구 경로 참조가 0임을 확인한 뒤 제거
 
 ## 결과
 
@@ -75,7 +77,11 @@ dist/     — 빌드 산출물 (gitignore 대상)
 
 ## 검증 기준
 
+각 항목은 명령의 종료 코드와 실행 revision을 기록해야 완료로 표시합니다. 파일이 새 위치에 존재한다는 사실만으로 정본 전환이나 구 경로 제거가 끝났다고 판정하지 않습니다.
+
 - [ ] `cd apps/docs-site && mkdocs build --clean` 성공
 - [ ] CI `deploy-pages.yml` 로컬 경로 검증 통과
 - [ ] `src/automation/site/sync-extra-assets.sh` 정상 실행
 - [ ] `cargo test --manifest-path src/tools/docs-validator-rs/Cargo.toml` 통과
+- [ ] 저장소 설정·스크립트·문서에서 제거 대상 구 경로 참조가 없음
+- [ ] 외부 링크 리디렉션 또는 호환 경로의 유지·종료 정책 기록

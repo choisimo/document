@@ -4,9 +4,21 @@
 
 ---
 
+## Scope, Kernel Version, and Validation Contract
+
+This document uses Linux to illustrate operating-system mechanisms. Kernel structures, scheduler policies, field counts, trees, thresholds, and call paths are implementation details tied to a source revision and build configuration.
+
+- **Scope:** Record kernel release or commit, architecture, configuration, scheduler and cgroup settings, filesystem, storage device, CPU topology, page size, and enabled mitigations.
+- **Model boundary:** Separate general OS concepts such as virtual memory and scheduling from Linux-specific structures such as `task_struct`, VMA indexes, VFS caches, and allocator metadata.
+- **Numeric assumptions:** Timeslices, priorities, object sizes, cache counts, pipe capacities, and latency ranges vary with version, hardware, load, and instrumentation. Treat them as examples unless measured in the named environment.
+- **Evidence and uncertainty:** Confirm a proposed path with the matching source, symbols, tracepoints, counters, and call traces. A sampled stack or single counter supports a hypothesis but does not uniquely identify causality.
+- **Failure and completion:** Include memory pressure, races, signal interruption, I/O errors, starvation, priority inversion, and partial initialization. A claim is complete when its invariant and failure path are reproduced on the recorded kernel build.
+
+---
+
 ## 1. Linux Kernel Process Model: task_struct
 
-Every process/thread in Linux is represented by a `task_struct` — a ~1000-field structure in `include/linux/sched.h`.
+Each Linux task is represented by a `task_struct`. Its fields, size, layout, and enabled members depend on the kernel revision, architecture, and build configuration; “about 1000 fields” is only an illustrative source snapshot.
 
 ```mermaid
 flowchart TD
@@ -44,6 +56,8 @@ stateDiagram-v2
 ---
 
 ## 2. CFS Scheduler: Completely Fair Scheduler Internals
+
+> Scheduler data structures and selection rules change across kernel revisions. Treat this as a representative path and verify it against the exact source and configuration being analyzed.
 
 ```mermaid
 flowchart TD
@@ -85,6 +99,8 @@ sequenceDiagram
 ---
 
 ## 3. Virtual Memory: mm_struct and VMA Tree
+
+> `mm_struct` is stable terminology, but the data structure used to index VMAs is kernel-version specific; do not infer a particular tree implementation from the conceptual diagram alone.
 
 ```mermaid
 flowchart TD

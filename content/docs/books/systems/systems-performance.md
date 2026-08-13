@@ -1,20 +1,27 @@
 # Systems Performance — Under the Hood
 > Based on *Systems Performance: Enterprise and the Cloud, 2nd Edition* by Brendan Gregg
 
-This document maps the internal machinery of system performance analysis: how the CPU scheduler dispatches work, how memory pressure cascades through zones and swapping, how I/O requests traverse the software stack, and how observability tools like BPF/eBPF expose the exact latency paths inside the kernel. Everything is visualized as data flowing through kernel structures, CPU queues, and memory hierarchies.
+## Measurement contract
+
+- Start with a user-visible objective and time window, then name the resource, workload, host/container boundary and baseline.
+- Utilization, saturation and errors are signals, not verdicts. Correlate them with latency distributions, throughput, queueing and application traces.
+- Tool availability and field meaning depend on kernel, hardware, privileges, namespaces and sampling frequency. Record command, version, filters and loss counters.
+- A diagnosis is complete only when a controlled change predicts and produces the expected metric and user-impact change, with an explicit rollback condition.
+
+This document maps representative system-performance mechanisms and observability paths. BPF/eBPF and hardware counters provide sampled or instrumented evidence; they do not automatically expose every latency source exactly.
 
 ---
 
 ## 1. The USE Method: Resource Utilization Mental Model
 
-The **USE Method** (Utilization, Saturation, Errors) provides a systematic framework for diagnosing any resource bottleneck. Every physical resource maps to exactly three metrics:
+The **USE Method** (Utilization, Saturation, Errors) is a checklist for examining resources. A resource can have multiple candidate measures for each category, and the three categories do not replace workload- and application-level evidence.
 
 ```mermaid
 flowchart TD
   subgraph "USE Method for Every Resource"
     R["Resource\n(CPU, Memory, Disk, Network, Bus)"]
     U["Utilization\n= time busy / elapsed time\n100% → bottleneck candidate"]
-    S["Saturation\n= work that cannot be served\n(queue depth, wait time)\nAny > 0 → problem"]
+    S["Saturation\n= queued or delayed work\n(queue depth, wait time)\ncompare sustained level with baseline/SLO"]
     E["Errors\n= failed operations\n(retransmits, ECC errors, malloc failures)\nNon-zero → investigate"]
     R --> U
     R --> S

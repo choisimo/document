@@ -2,6 +2,10 @@
 
 > Operating system theory and concepts for computer science studies
 
+## Scope and use
+
+This index links to teaching models, not configuration advice for a specific kernel. Algorithm properties assume the workload stated in each guide; implementation claims and timings require an OS/kernel version, hardware, workload, and trace. A lab is complete only when inputs, assumptions, failure states, commands, and raw results are recorded. Retry failed experiments only after preserving the error and changing one controlled condition.
+
 ---
 
 ## Topics
@@ -117,15 +121,15 @@ stateDiagram-v2
 
 | Algorithm | Preemptive | Starvation | Best For |
 |-----------|------------|------------|----------|
-| **FCFS** | No | No | Batch systems |
-| **SJF** | Both | Yes | Short jobs |
-| **Priority** | Both | Yes | Real-time |
-| **Round Robin** | Yes | No | Time-sharing |
-| **MLFQ** | Yes | No | General purpose |
+| **FCFS** | No | Possible with an unbounded/unstable arrival model | Simple arrival-ordered workloads |
+| **SJF / SRTF** | SJF: No; SRTF: Yes | Yes, without aging/admission bounds | Workloads with known or estimated bursts |
+| **Priority** | Policy-dependent | Yes, without aging or reservation | Explicit service classes; not sufficient alone for real-time guarantees |
+| **Round Robin** | Yes | Avoided only under finite runnable set, positive quantum, and equal service class | Time-sharing |
+| **MLFQ** | Yes | Possible without periodic boost or allocation bounds | Adaptive general-purpose scheduling |
 
 ### Deadlock Conditions
 
-All four conditions must hold simultaneously:
+For the classic reusable, non-preemptible resource model, all four Coffman conditions are necessary for deadlock:
 
 1. **Mutual Exclusion** - Resource held exclusively
 2. **Hold and Wait** - Process holding while waiting
@@ -135,6 +139,8 @@ All four conditions must hold simultaneously:
 ---
 
 ## Quick Formulas
+
+These formulas use the simplified single-CPU examples in the guides. Waiting time equals turnaround minus CPU burst only when omitted I/O/service intervals and overhead are handled consistently. Address formulas assume integer page/frame numbering and the stated page size.
 
 ### CPU Scheduling
 

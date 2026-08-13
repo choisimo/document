@@ -4,10 +4,19 @@
 
 | 항목 | 설명 |
 |------|------|
-| **Use Case** | 정렬된 배열에서 O(log N) 탐색 |
+| **Use Case** | comparator 기준 정렬된 random-access sequence의 logarithmic comparison search |
 | **Components** | Left, Right 포인터, Mid |
 | **Constraint** | 배열이 정렬되어 있어야 함 |
-| **시간 복잡도** | O(log N) |
+| **시간 복잡도** | constant-cost comparator·access 기준 O(log N) comparisons |
+
+---
+
+## 적용 범위와 검증 기준
+
+- **범위:** comparator 기준으로 정렬되고 random access가 가능한 sequence를 가정합니다. `O(log N)`은 비교 횟수 bound이며 data access나 comparator 비용이 상수라는 전제가 필요합니다.
+- **전제:** closed/half-open interval, duplicate 처리, lower/upper bound 정의와 반환할 “없음” 값을 먼저 정합니다.
+- **실패 조건:** off-by-one, empty input, integer midpoint overflow, 정렬 기준 불일치와 NaN·custom comparator를 포함합니다.
+- **완료 증거:** empty·single·duplicate·boundary·absent key 입력을 linear reference와 비교하고 loop invariant와 종료를 확인합니다.
 
 ---
 

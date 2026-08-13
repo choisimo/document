@@ -4,9 +4,11 @@
 
 ---
 
+> **Reading contract:** This is a survey reference without an embedded bibliography or page map. Treat its formulas as provisional until linked to a named algorithm variant and source, especially for max-flow bounds, randomized success probabilities, approximation ratios, and suffix-array construction. Record input domain, computational model, parameter definitions, and failure probability separately from the conclusion. An entry is complete only when those identifiers and a proof or citation are present; an inconsistent figure or missing assumption returns it to an unresolved state.
+
 ## 1. Dynamic Programming: Subproblem DAG and Memoization
 
-DP works when problems have **optimal substructure** (optimal solution composed from optimal sub-solutions) and **overlapping subproblems** (same sub-problems solved multiple times).
+Dynamic programming is useful when a problem admits a finite acyclic state recurrence, often with **optimal substructure** for optimization problems and **overlapping subproblems** that make reuse valuable. Overlap is an efficiency opportunity rather than a universal correctness prerequisite, and not every DP computes an optimum.
 
 ```mermaid
 flowchart TD
@@ -183,7 +185,7 @@ flowchart TD
     subgraph "Bloom Filter with k hash functions, m bits, n elements"
         INSERT["Insert x:\n  Compute h₁(x), h₂(x), ..., hₖ(x)\n  Set bits at those positions"]
         QUERY["Query x:\n  Check ALL k bit positions\n  ALL 1 → MAYBE in set\n  ANY 0 → DEFINITELY not in set"]
-        FPR["False Positive Rate:\n  P(fp) = (1 - e^(-kn/m))^k\n  Optimal k = (m/n) × ln(2)\n  With k optimal: P(fp) ≈ (0.6185)^(m/n)\n  At m/n=10: P(fp) ≈ 0.82% (1.2% with 7 hashes)"]
+        FPR["False Positive Rate (independent uniform hashes, approximation):\n  P(fp) ≈ (1 - e^(-kn/m))^k\n  Optimal k ≈ (m/n) × ln(2)\n  With k optimal: P(fp) ≈ (0.6185)^(m/n)\n  At m/n=10 and k=7: P(fp) ≈ 0.82%"]
         INSERT --> QUERY --> FPR
     end
 ```

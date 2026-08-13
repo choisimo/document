@@ -109,3 +109,6 @@ VPN 연결 시작원격 서버에서 아래 명령어로 VPN 연결을 시작합
 # WireGuard 서버의 공인 IP 주소가 출력되어야 합니다.
 
 여기까지 성공했다면 속도 저하 없이 안정적인 VPN 연결이 완료된 것입니다.요약: 열어야 할 포트 및 설정항목포트/설정프로토콜목적비고SSH22 (기본)TCP서버 원격 관리보안을 위해 다른 포트로 변경 가능WG-Easy 웹 UI51821 (기본)TCP웹 기반 관리docker-compose.yml에서 변경 가능WireGuard 터널51821 (사용자 지정)UDP실제 VPN 데이터 통신docker-compose.yml에서 변경 가능포워딩 정책DEFAULT_FORWARD_POLICY="ACCEPT"-클라이언트 트래픽 전달 허용/etc/default/ufw 파일 수정NAT 규칙-j MASQUERADE-클라이언트 트래픽 주소 변환/etc/ufw/before.rules 파일 수정 (속도 저하 해결의 핵심)이 가이드의 3단계 방화벽 설정 부분, 특히 NAT 규칙 추가가 이전에 겪으셨던 문제를 해결하는 가장 중요한 부분이니 꼼꼼하게 진행하시기 바랍니다.
+## 구성값과 연결 판정
+
+`<PRIVATE_KEY>`, `<PUBLIC_KEY>`, `<ENDPOINT>`, 주소 대역은 예시 식별자이며 실제 값을 문서에 커밋하지 않습니다. 인터페이스가 올라왔다는 사실만으로 VPN 연결을 완료로 보지 않습니다. `wg show`의 latest handshake와 전송량, `ip route`의 대상 경로, 내부 주소에 대한 통신 결과를 각각 확인해 키 교환·라우팅·서비스 접근 상태를 구분합니다.

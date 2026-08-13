@@ -1,5 +1,7 @@
 # Using Raspberry Pi or NanoPi NEO3 as a Quorum Device for Proxmox Clusters
 
+This is an archived design note, not a version-independent installation procedure. Record the Proxmox VE, Corosync, `corosync-qdevice`, and `corosync-qnetd` versions before applying it. A QDevice participates in quorum arbitration; it does not by itself provide workload replication, fencing, storage redundancy, or complete high availability. In a two-node design, availability still depends on the failure mode and on those separate mechanisms.
+
 ## 1. Title
 Using Raspberry Pi or NanoPi NEO3 as a Quorum Device (QDevice) for Proxmox Cluster
 
@@ -17,13 +19,14 @@ You can connect a Raspberry Pi or NanoPi NEO3 to a Proxmox cluster as a quorum d
 sudo apt update
 sudo apt install corosync-qnetd
 sudo nano /etc/ssh/sshd_config
-# Set PermitRootLogin yes
+# If the selected Proxmox version needs temporary root SSH, restrict its source
+# and disable it after setup.
 sudo systemctl restart ssh
 sudo passwd root
 
 # On each Proxmox node
 apt install corosync-qdevice
-pvecm qdevice setup  -f
+pvecm qdevice setup <QNETD_IP>
 ```
 
 ### For NanoPi NEO3:
@@ -32,13 +35,13 @@ pvecm qdevice setup  -f
 sudo apt update
 sudo apt install corosync-qnetd
 sudo nano /etc/ssh/sshd_config
-# Set PermitRootLogin yes
+# Apply the same temporary, source-restricted authentication policy as above.
 sudo systemctl restart ssh
 sudo passwd root
 
 # On each Proxmox node
 apt install corosync-qdevice
-pvecm qdevice setup  -f
+pvecm qdevice setup <QNETD_IP>
 ```
 
 ## 5. Network Setting Detail

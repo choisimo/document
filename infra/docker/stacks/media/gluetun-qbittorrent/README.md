@@ -1,6 +1,12 @@
 # Gluetun + qBittorrent VPN Stack
 
-Secure torrent downloading through VPN tunnel using Gluetun.
+qBittorrent routing through a Gluetun VPN container, subject to verified network mode, kill-switch and leak tests.
+
+## Privacy and Network Contract
+
+Pin Gluetun and qBittorrent images, VPN provider/protocol, credentials, server region, Docker network mode, firewall/kill-switch, DNS and IPv6 policy. Routing through a VPN container is a configuration claim, not proof that every egress path is tunneled. Verify public IP, DNS/IPv6 leaks, port forwarding, tunnel-drop behavior and qBittorrent bind interface; rotate version-dependent default credentials and follow provider, network and content-use policies.
+
+---
 
 ## Quick Start
 
@@ -20,7 +26,7 @@ docker compose up -d
 
 ## Features
 
-- All traffic routed through VPN
+- Intended qBittorrent traffic shares the Gluetun network path; verify no alternate interface, DNS or IPv6 egress
 - Supports multiple VPN providers (NordVPN, Mullvad, etc.)
 - Kill switch (no VPN = no internet)
 - Health checks for VPN connectivity
@@ -39,4 +45,4 @@ See `.env.example` for configuration options.
 
 ## Default Credentials
 
-qBittorrent default login: admin / adminadmin
+qBittorrent initial credential is image/version dependent. Inspect startup logs or configured secret, then rotate it before exposing the WebUI.

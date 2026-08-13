@@ -1,6 +1,13 @@
-# Java 내부: 내부
+# Java 내부: JVM 실행 모델과 성능 경계
 
 > 다음에서 합성됨: Bloch *Effective Java* 3판, Oaks & Wong *Java Performance* 2판, Evans & Verburg *The Well-Grounded Java Developer*, Goetz *Java Concurrency in Practice* 및 comp(21/207-212/215-223/241/305/311/326/346/455/457) 자바 참조.
+
+## 적용 범위와 증거
+
+- Java 언어·JVM 명세의 보장과 HotSpot/OpenJDK의 구현을 구분한다. 클래스 로더, JIT, GC, 객체 배치는 JDK 배포판과 버전에 따라 달라진다.
+- 아래 시간·메모리 수치는 설명용 예시다. JDK 버전, GC, 힙, 워밍업, CPU와 OS를 고정한 JMH 또는 운영 프로파일 없이는 현재 시스템의 수치로 사용하지 않는다.
+- GC 선택과 플래그는 시작 가설이다. 목표 처리량, p99 지연, 최대 RSS, 할당률을 정한 뒤 GC 로그와 JFR로 성공 여부를 판정한다.
+- 동시성의 완료 증거는 "동작해 보임"이 아니라 happens-before 관계, 데이터 레이스 부재, 취소·종료 경로와 부하 조건에서의 관찰 결과다.
 
 ---
 
@@ -18,8 +25,8 @@ flowchart TD
         end
         subgraph Shared["Shared Across All Threads"]
             HEAP["Heap\nEden, S0, S1 (Young Gen)\nOld Gen (Tenured)\nGC-managed objects"]
-            METASPACE["Metaspace (Java 8+)\nClass metadata, method bytecode\nInterned strings (Java 7+: heap)\nNative memory (not GC'd by default)"]
-            CODECACHE["JIT Code Cache\nCompiled native code\n~256MB default"]
+            METASPACE["Metaspace (Java 8+)\nClass metadata\nNative memory; class unloading is conditional"]
+            CODECACHE["JIT Code Cache\nCompiled native code\nsize depends on JVM flags/version"]
         end
     end
 ```
@@ -192,7 +199,7 @@ while(flag == 0) {}  // volatile load → LoadLoad + LoadStore fence
 int x = data;        // guaranteed to see 42
 ```
 
-x86(TSO): 휘발성 로드 = 일반 로드. 휘발성 저장소 = `LOCK XCHG` 또는 `MFENCE`. ARM: 둘 다에 대해 `DMB SY`(완전 배리어).
+Java `volatile`의 acquire/release 및 동기화 순서를 어떤 명령으로 구현하는지는 ISA, JDK와 연산 문맥에 따라 달라진다. x86에서는 volatile load가 일반 load와 유사할 수 있지만 store와 StoreLoad 순서에는 별도 직렬화가 필요할 수 있다. ARM도 전용 acquire/release 명령 또는 선택적 배리어를 사용할 수 있으므로 고정된 명령 하나로 일반화하지 않는다.
 
 ---
 
@@ -259,7 +266,7 @@ flowchart TD
     PUT --> B2
 ```
 
-**트리화**: 버킷 체인 길이 ≥ 8 AND table.length ≥ 64인 경우 체인이 TreeNode(레드-블랙 트리)로 변환됩니다. O(n) 최악의 경우 → O(log n). 크기가 6 이하로 떨어지면 트리화되지 않습니다.
+**트리화**: 특정 OpenJDK `HashMap` 구현은 버킷 길이와 테이블 크기 임곗값을 사용해 트리 노드로 전환한다. `8`, `64`, `6`은 Java API 계약이 아니라 구현 상수이므로 사용 중인 JDK 소스로 확인한다. 트리화 이후 비용도 키 비교 가능성, 해시 분포와 충돌 형태에 따라 달라진다.
 
 **부하 계수 0.75**: 크기 조정 임계값 = 용량 × 0.75. 메모리와 충돌 확률의 균형을 맞춥니다. 0.75 로드에서 균일한 해시 분포 하에서 예상되는 체인 길이는 0-1입니다.
 
@@ -301,7 +308,7 @@ flowchart TD
     D --> E["Native code called\nno more reflection overhead"]
 ```
 
-반사 오버헤드: 처음 15회 호출 ~500ns. JIT 컴파일된 접근자 생성 후: ~5-10ns(가상 호출과 비교 가능) `MethodHandles.lookup().findVirtual()` → MethodHandle → 리플렉션보다 더 예측 가능한 JIT 최적화.
+리플렉션 호출 경로와 최적화는 JDK 버전에 따라 바뀌었다. "처음 15회 후 접근자 생성"과 고정 나노초 수치는 특정 과거 구현의 관찰값일 수 있으므로 현재 JDK의 구현 계약으로 사용하지 않는다. `MethodHandle`과 리플렉션은 실제 호출 형태, 접근 검사, 워밍업을 고정한 JMH 결과와 생성 코드로 비교한다.
 
 ---
 
@@ -396,13 +403,13 @@ sequenceDiagram
     JVM->>JVM: Load application main class → execute main()
 ```
 
-**AppCDS(애플리케이션 클래스-데이터 공유)**: 애플리케이션 클래스도 보관합니다. 시작 시간 감소: 일반적인 Spring Boot 앱의 경우 20-50%. GraalVM 네이티브 이미지는 이를 더욱 발전시켜 전체 앱을 네이티브 바이너리로 컴파일하여 JVM 시작을 완전히 제거합니다.
+**AppCDS(애플리케이션 클래스-데이터 공유)**는 애플리케이션 클래스 메타데이터 일부를 공유 아카이브에서 재사용할 수 있게 한다. 시작 시간과 RSS 개선 폭은 클래스 수, 아카이브 생성 방식과 배포 환경에서 측정한다. GraalVM Native Image는 애플리케이션 일부를 사전 컴파일해 전통적인 JVM의 클래스 로딩·JIT 워밍업을 줄이지만 런타임 초기화와 네이티브 이미지 고유 비용까지 제거하지는 않는다.
 
 ---
 
 ## JVM 성능 수치
 
-| 운영 | 시간 | 메모 |
+| 작업 | 예시 비용 | 측정 전제 |
 |-----------|------|-------|
 | TLAB 객체 할당 | ~1ns | 범프 포인터, 잠금 없음 |
 | Eden 할당(TLAB 없음) | ~10ns | Eden.top의 CAS |
@@ -418,7 +425,9 @@ sequenceDiagram
 | Thread.start() | ~50~200μs | OS 스레드 생성 |
 | 클래스 로딩(콜드) | ~1~50ms | 구문 분석 + 확인 + 초기화 |
 | 반사 호출(처음 15x) | ~500ns | 통역 |
-| 반사 호출(팽창 후) | ~5-10ns | JIT 컴파일된 접근자 |
+| 반사 호출(워밍업 후) | 구현별 상이 | JDK 버전, 호출 형태와 접근 검사 기록 |
+
+이 표는 서로 다른 환경에서 달라질 수 있는 크기 순서 예시다. 설계 임곗값으로 쓰기 전에 같은 하드웨어와 JDK에서 워밍업·포크·분포를 포함해 다시 측정한다.
 
 
 ---
@@ -433,7 +442,7 @@ JVM의 가비지 컬렉터 선택은 단순한 설정 변경이 아니라 **시�
 
 - **SerialGC**: 단일 스레드로 동작하며, 설계가 가장 단순하다. 임베디드 시스템이나 힙이 수백 MB 이하인 마이크로서비스에 적합하다. Stop-the-World 시간이 길지만 스레드 동기화 오버헤드가 없다.
 - **G1GC**: 힙을 리전(region) 단위로 분할하고, 가비지가 많은 리전을 우선 수집한다. 예측 가능한 일시정지 시간(-XX:MaxGCPauseMillis)을 목표로 설계되어, 범용 서버 애플리케이션의 기본 선택지다.
-- **ZGC**: 동시(concurrent) 수집을 극대화하여 일시정지를 10ms 이하로 유지한다. 컬러드 포인터(colored pointer)와 로드 배리어(load barrier)를 사용하여 애플리케이션 스레드와 GC 스레드가 동시에 동작한다.
+- **ZGC**: 대부분의 작업을 동시 수행해 짧은 일시정지를 목표로 한다. 컬러드 포인터와 배리어의 세부 구현은 JDK 세대에 따라 달라지며, 특정 지연시간 상한은 배포 환경의 SLO와 측정으로 확인한다.
 - **Shenandoah**: ZGC와 유사한 저지연 목표를 가지지만, 브룩스 포인터(Brooks pointer) 기반의 다른 구현 방식을 사용한다. OpenJDK에서 개발되어 더 넓은 플랫폼 지원을 제공한다.
 
 ```mermaid
@@ -508,7 +517,7 @@ sequenceDiagram
     Note over T1,T2: ✅ 올바른 설계: volatile 선언
     T1->>MEM: volatile flag = true (store barrier → 메인 메모리 플러시)
     MEM->>T2: flag 읽기 (load barrier → 캐시 무효화, true 반환)
-    Note over T2: happens-before 보장으로 즉시 감지
+    Note over T2: happens-before는 관찰 순서를 규정하며 시간 상한은 아님
 ```
 
 #### 가상 스레드(Project Loom) vs 플랫폼 스레드: I/O 집약 vs CPU 집약
@@ -538,8 +547,8 @@ flowchart LR
         CT2 --> CPU2
     end
     
-    PLATFORM -.->|"~4000 스레드 한계\n각 1MB 스택"| LIMIT1["메모리 제약"]
-    VIRTUAL -.->|"수백만 스레드 가능\n각 ~1KB 스택"| LIMIT2["I/O 대기 시 자동 양보"]
+    PLATFORM -.->|"OS 스레드와 스택 비용\n환경별 한계"| LIMIT1["메모리와 스케줄링 제약"]
+    VIRTUAL -.->|"더 많은 대기 작업 표현 가능\n작업별 상태 크기는 가변"| LIMIT2["지원되는 blocking에서 carrier 양보"]
 ```
 
 ### 리팩토링과 설계 원칙

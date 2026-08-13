@@ -4,9 +4,11 @@
 
 ---
 
+> **Reading contract:** This is a scenario analysis for ROS, MPC, Docker, and Kubernetes at the edge, not a flight-safety design or a general benchmark. The numerical comparison is evidence only for its original hardware, ROS version, topology, solver, workload, sample count, and percentile, none of which are fully recorded here. Readers must separate measured values from causal hypotheses. A control deployment is complete only after worst-case execution time, end-to-end age, jitter, deadline misses, actuator failsafe, recovery time, and rollback are demonstrated under load. A missed deadline is a safety failure, not a retry opportunity inside the same control period.
+
 ## 1. The Edge Computing Compute Model
 
-Edge computing positions compute resources physically adjacent to sensors and actuators — eliminating the round-trip latency to cloud datacenters that makes real-time closed-loop control impossible. For Unmanned Aerial Vehicles (UAVs) running Model Predictive Control (MPC), every millisecond in the control loop matters: the sum of `robot→edge + MPC_exec + edge→robot` latencies directly affects trajectory tracking stability.
+Edge computing places compute near sensors and actuators to reduce, not eliminate, network delay and jitter. Whether cloud or edge execution can support a closed loop depends on the control period, worst-case age of data, loss behavior, solver deadline, stability analysis, and onboard fallback.
 
 ```mermaid
 flowchart LR
@@ -195,7 +197,7 @@ flowchart LR
         HOST_NIC["Host NIC\neth0: 192.168.1.10"]
         POD2 -.->|"same netns"| HOST_NIC
     end
-    NOTE["ROS requires hostNetwork: true\nfor cross-device topic pub/sub\nvia actual network IP"]
+    NOTE["hostNetwork is one ROS 1 connectivity option\nroutable advertised addresses, overlays,\nor explicit networking may also work"]
     style DEFAULT_POD fill:#3a1a1a,color:#fff
     style HOST_NET_POD fill:#1a3a1a,color:#fff
 ```
@@ -265,7 +267,7 @@ block-beta
     V["Total RTT"]:1 W["47.9ms"]:1 X["39.5ms"]:1
 ```
 
-The K8s network RTT is **lower** than Docker's despite higher CPU overhead — likely because the K8s setup's Service/kube-proxy routing reduces ARP resolution overhead and the iptables DNAT chains are pre-warmed. However K8s overhead doubles CPU usage due to: kubelet polling loops, etcd heartbeats, kube-proxy iptables sync, and controller reconciliation goroutines.
+This sample reports lower Kubernetes RTT and higher CPU usage than its Docker run. The proposed ARP, iptables, and control-plane causes are **hypotheses**, not demonstrated explanations; topology, warm-up, host networking, sampling, background load, and variance must be controlled before attribution.
 
 ```mermaid
 flowchart TD
@@ -311,7 +313,7 @@ sequenceDiagram
     end
 ```
 
-The critical insight: ROS Master returns the publisher's **advertised IP** to subscribers. If the publisher is in a Docker container with a private IP (172.17.x.x), the subscriber cannot connect — hence `--network=host` is mandatory for cross-device ROS communication.
+ROS Master returns the publisher's advertised endpoint to subscribers. A non-routable container address will fail from another device, but `--network=host` is only one remedy; a routable CNI/overlay, correct `ROS_IP`/`ROS_HOSTNAME`, port reachability, or a gateway can satisfy the same requirement.
 
 ---
 
@@ -337,7 +339,7 @@ stateDiagram-v2
     }
 ```
 
-For production UAV control, K8s automatic pod restarts are critical: if the MPC container crashes mid-flight, K8s will attempt to restart it with exponential backoff — Docker requires external tooling (`--restart=always`) to achieve equivalent behavior, but with no health check or readiness probe support.
+Kubernetes restart and readiness behavior can restore a failed process, but exponential backoff is not a real-time flight-control failover. Production UAV control needs an onboard safe controller and explicit stale-command timeout; orchestration recovery is a slower secondary mechanism. Docker also supports restart and health-check features, though higher-level routing and readiness semantics differ.
 
 ---
 
@@ -386,7 +388,7 @@ flowchart LR
     style ONBOARD fill:#1a1a3a,color:#fff
 ```
 
-The 100Hz control rate with N=100 prediction horizon requires the full MPC solve to complete in <10ms. On a constrained UAV CPU (ARM Cortex-A57), the OSQP solver for this problem size takes ~50ms. On the edge Intel i5-8400, it takes 16ms — just within the 100Hz budget with network latency absorbed.
+A 100Hz period is 10ms, so the stated 16ms edge solve already misses that deadline before adding network delay; it is not "just within" the budget. These figures support a lower demonstrated control rate unless pipelining and a stability analysis define a different deadline model.
 
 ---
 

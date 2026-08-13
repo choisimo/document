@@ -1,6 +1,7 @@
 # BST - JavaScript Implementation
 
 > **Focus:** V8 엔진 최적화, Hidden Class, Event Loop 관점
+> Runtime scope: shapes, inline caches, JIT tiers and deoptimization are V8 details that change by version and workload. The diagrams are conceptual; profile the target Node/V8 before making an optimization claim.
 
 ---
 
@@ -148,8 +149,7 @@ Node 생성 흐름:
 │   └─────────────────────┘                                       │
 └─────────────────────────────────────────────────────────────────┘
 
-모든 Node 인스턴스는 같은 Hidden Class C3를 공유
-→ Inline Cache (IC) 활용 가능 → 빠른 프로퍼티 접근
+같은 생성 경로를 따른 Node 인스턴스는 shape를 공유할 가능성이 있어 inline cache가 활용될 수 있습니다. 실제 cache 상태와 성능은 profiler로 확인합니다.
 ```
 
 ### Inline Caching (IC)
@@ -228,9 +228,9 @@ class GoodNode {
 ### 2. undefined 대신 null 사용
 
 ```javascript
-// V8은 null을 더 잘 최적화함
-this.left = null;  // ✅ Preferred
-this.left = undefined;  // ❌ Avoid
+// null과 undefined 중 하나를 빈 자식 표현으로 정하고 API 전체에서 일관되게 사용한다.
+// 어느 값이 더 빠르다는 전제는 target V8의 benchmark 없이 두지 않는다.
+this.left = null;
 ```
 
 ### 3. 배열 기반 구현 (Cache Locality)

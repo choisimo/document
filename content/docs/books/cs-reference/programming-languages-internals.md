@@ -4,6 +4,18 @@
 
 ---
 
+## Scope, Semantic Guarantees, and Runtime Evidence
+
+This document compares language semantics with representative compiler and runtime implementations. A language rule, an optimization performed by one compiler, and a benchmark result must not be treated as the same kind of guarantee.
+
+- **Scope:** Record language edition, compiler or runtime version, target, optimization flags, garbage collector, standard library, and relevant feature flags.
+- **Semantic boundary:** Type safety, ownership, evaluation, and concurrency rules come from the language model. Stack layout, scheduler queues, object headers, JIT tiers, and lowering strategies are implementation details that may change.
+- **Complexity and numbers:** Stack sizes, pause times, dispatch costs, allocation sizes, and asymptotic bounds require the input representation and dense or sparse assumptions. They are examples until reproduced.
+- **Evidence and uncertainty:** Use compiler IR or assembly, runtime traces, allocation and GC profiles, race or sanitizer results, and statistically sound benchmarks. Infer an optimization only when the generated artifact shows it.
+- **Failure and completion:** Cover panic or exception paths, cancellation, races, FFI ownership, deoptimization, stack growth, and resource cleanup. Completion requires preserved semantics plus measured improvement under a fixed workload.
+
+---
+
 ## 1. Go Runtime: Goroutine Scheduler Internals
 
 Go's runtime implements M:N green-thread scheduling — N goroutines multiplexed over M OS threads using a work-stealing scheduler (GMP model).
@@ -26,7 +38,7 @@ flowchart TD
 
 ### Goroutine Stack Growth
 
-Goroutines start with a 2KB stack (vs OS thread 2MB). When the stack grows beyond capacity, the runtime performs a **stack copy**:
+A particular Go runtime version may start goroutines with an approximately 2KB stack and grow it by copying, while OS-thread stack reservations vary by OS and configuration and are not universally 2MB. Verify both values and the growth strategy against the target runtime:
 
 ```mermaid
 sequenceDiagram
@@ -43,7 +55,7 @@ sequenceDiagram
     RT-->>G: resume on new stack
 ```
 
-Stack frames are **not pinned to address** — all pointers on stack are rewritten on copy. This is why Go prohibits raw interior pointers to stack variables that escape.
+In Go runtimes that grow stacks by copying, stack-relative pointers known to the runtime are adjusted. This does not mean every arbitrary `unsafe.Pointer` pattern can be rewritten safely; Go’s pointer and escape rules, compiler metadata, cgo, and `unsafe` restrictions define the valid cases.
 
 ### Goroutine State Machine
 
@@ -447,7 +459,7 @@ GHC's `par`/`seq` spark pool enables speculative parallelism. The **STM (Softwar
 
 ## 9. Language Feature: Pattern Matching Compilation
 
-All ML-family languages compile pattern matching to **decision trees** for O(1) dispatch:
+Many ML-family compilers lower pattern matching to decision trees, jump tables, or mixed tests. Dispatch is not universally O(1); it depends on pattern form, constructor representation, guards, compiler strategy, and the path taken:
 
 ```mermaid
 flowchart TD
@@ -544,6 +556,8 @@ sequenceDiagram
 ---
 
 ## Summary: Language Runtime Internals Map
+
+> Sizes, thresholds, dispatch costs, and lowering strategies below are version-specific examples. Language-level guarantees remain valid only where the governing specification defines them.
 
 ```mermaid
 mindmap

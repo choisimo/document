@@ -2,6 +2,9 @@
 
 Organized automation scripts for backup, deployment, maintenance, and utilities.
 
+> Inventory note: this list may lag the current revision. Read the target script, inspect defaults and dependencies, and record the exact revision and arguments before execution.
+> Safety contract: use least privilege, canary or dry-run where implemented, exclusive locking for schedules, bounded retries, and a tested rollback. A directory category or filename does not establish safety.
+
 ## 📁 Directory Structure
 
 ### `backup/` - Backup & Synchronization
@@ -34,7 +37,7 @@ General-purpose utility scripts:
 
 Most scripts can be executed directly:
 ```bash
-./scripts/backup/rsync_nas_fetch.sh
+./src/automation/backup/rsync_nas_fetch.sh
 ```
 
 Ensure scripts have execute permissions:
@@ -51,9 +54,11 @@ chmod +x scripts/path/to/script.sh
 
 ### Script Categories
 
-**Automated (Safe to run regularly):**
+**Automation candidates (schedule only after review):**
 - Backup scripts
 - Monitoring scripts
+
+A scheduled backup is complete only when source/target manifests, exit status, retention, alert delivery, and a representative restore are checked.
 
 **Manual (Require review):**
 - Deployment scripts

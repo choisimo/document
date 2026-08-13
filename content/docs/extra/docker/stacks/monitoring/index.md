@@ -3,6 +3,12 @@
 
 모니터링/상태 확인을 위한 스택 모음입니다.
 
+## 모니터링 스택 점검 기준
+
+- 수집 대상, scrape 간격, label cardinality, 보존 기간과 예상 디스크 증가량을 먼저 계산합니다.
+- 대시보드 접속 인증과 테넌트 경계를 설정하고 로그·메트릭의 비밀·개인정보 포함 여부를 확인합니다.
+- 완료 기준은 의도적으로 만든 장애 신호가 수집, 쿼리, 알림 전송과 복구 알림까지 이어지는 것입니다.
+
 <div class="compose-hero" markdown>
 <span class="compose-kicker">Quick Start</span>
 

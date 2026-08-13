@@ -1,4 +1,13 @@
 # 5.1 파일 시스템 구조
+
+## 적용 범위와 검증 기준
+
+- **범위:** 이 장은 전통적인 Unix inode 모델과 Linux VFS를 중심으로 한 개념 설명입니다. 실제 layout은 filesystem, kernel, mount option, architecture와 on-disk format 버전에 따라 다릅니다.
+- **전제:** block size, inode·extent 방식, journaling, link·permission semantics, namespace와 process ABI를 명시합니다. ext 계열 설명을 Btrfs, XFS, ZFS, network 또는 pseudo filesystem에 전칭하지 않습니다.
+- **사실과 추론:** system call 결과와 matching kernel/filesystem 문서는 근거이고, cache·disk layout·성능 설명은 trace나 filesystem 도구로 확인하기 전까지 모델입니다.
+- **실패·완료:** permission denial, stale link, concurrent rename, full filesystem, I/O error와 crash recovery를 포함해 실험하고, `stat`·directory entry·link count와 실제 내용이 예상 invariant를 만족할 때 완료입니다.
+
+---
 - 부트블록 (Boot block)
 ```text
 파일 시스템 시작부에 위치하고 보통 첫 번째 섹터 차지
@@ -594,7 +603,7 @@ int rmdir(const char* path);
 // 비어있으면 삭제, 성공 (0), 실패 (-1)
 ```
 ## 디렉터리 구현
-- 디렉터리를 위한 구조는 따로 없다
+- Linux VFS에서 directory도 inode를 갖고, directory entry와 on-disk index 구조는 filesystem 구현에 따라 별도로 관리됩니다.
 ```text
 > 디렉터리도 일종의 파일로 다른 파일처럼 구현됨
 > 디렉터리도 다른 파일처럼 하나의 i-node 로 표현됨

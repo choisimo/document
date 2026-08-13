@@ -2,6 +2,13 @@
 
 > Project planning, architecture, and implementation documents
 
+## Index contract
+
+- "Active" means the project has a maintained planning or implementation document; it does not imply production availability.
+- Each project page should distinguish proposed, implemented, validated, deployed, and deprecated features.
+- Completion evidence belongs in the project page and should name the environment, acceptance path, known failures, owner, and next decision.
+- Update this index when a project changes status or path so the card and project document do not contradict each other.
+
 ---
 
 ## Active Projects

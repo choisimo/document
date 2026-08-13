@@ -2,10 +2,19 @@
 
 ## 문서 목적
 - `convert_md_to_pdf.sh` 스크립트의 실행 경로와 변환 파이프라인을 문서화합니다.
-- Markdown 파일을 PDF로 배치 변환할 때의 내부 메커니즘과 실패 지점을 시각화합니다.
+- linked script revision의 batch conversion 경로와 예상 failure 지점을 설명하며 실제 dependency·exit behavior는 실행 환경에서 확인합니다.
 
 ## 원본 스크립트
 - Source: [convert_md_to_pdf.sh](../convert_md_to_pdf.sh)
+
+## 적용 범위와 변환 증거
+
+- **범위:** 이 문서는 linked shell script의 특정 revision과 dependency pipeline을 해설합니다. shell, converter, Mermaid/browser/font packages와 OS version을 기록합니다.
+- **전제:** input discovery, filename quoting, output mapping, overwrite policy, temporary file, network·font access와 concurrent execution을 명시합니다.
+- **사실과 추론:** exit status, stderr, output file·page count와 rendered sample은 근거입니다. PDF 생성만으로 diagram, code wrapping, link, font와 accessibility가 정확하다고 볼 수 없습니다.
+- **실패·완료:** missing dependency, partial batch, output collision, malformed Markdown/Mermaid, timeout과 stale PDF를 시험합니다. 실패가 nonzero로 전파되고 대표 page visual diff와 output manifest가 맞을 때 완료입니다.
+
+---
 
 ## 실행 흐름 (Flow)
 ```mermaid

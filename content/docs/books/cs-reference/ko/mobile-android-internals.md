@@ -4,6 +4,8 @@
 
 ---
 
+> **읽기 계약:** 이 문서는 Android의 대표 데이터 흐름을 설명하는 학습 모델이며, Binder·ART·HWUI·Compose·LMK 구현은 Android 릴리스, API 수준, 커널, ART/JDK, 기기 공급자와 Compose Compiler 버전에 따라 달라집니다. 플랫폼 API가 보장하는 사실과 AOSP 구현 예, 기기별 임계값·메모리 수치를 분리합니다. 항목은 대상 빌드의 공식 문서·AOSP 태그·기기 측정에서 호출 경로와 실패 조건이 확인된 뒤 완료됩니다. 버전 변경이나 추적 결과가 다르면 해당 도식은 미확정으로 돌리고 호환 경로를 확인합니다.
+
 ## 1. 안드로이드 아키텍처: 레이어 스택
 
 ```mermaid
@@ -23,7 +25,7 @@ flowchart TD
 
 ## 2. 바인더 IPC: 커널 수준 메시지 전달
 
-바인더는 Android의 기본 IPC 메커니즘입니다. 모든 크로스 프로세스 호출(활동→서비스, 앱→시스템 서비스)은 바인더 커널 드라이버를 통과합니다.
+바인더는 Android 프레임워크의 주요 IPC 메커니즘입니다. AIDL 기반 앱·시스템 서비스 호출은 Binder를 사용하지만, 소켓·파이프·공유 메모리 등 다른 IPC 경로도 있으므로 모든 교차 프로세스 통신이 Binder를 통과한다고 일반화하지 않습니다.
 
 ```mermaid
 sequenceDiagram
@@ -43,7 +45,7 @@ sequenceDiagram
     Note over APP: Return from startActivity()
 ```
 
-### 바인더 메모리 매핑(Zero-Copy 설계)
+### 바인더 메모리 매핑(일반적인 one-copy 경로)
 
 ```mermaid
 flowchart LR
@@ -117,7 +119,7 @@ sequenceDiagram
     VT->>VT: performMeasure()\n  View.measure(): width/height spec propagation\n  MeasureSpec: EXACTLY|AT_MOST|UNSPECIFIED
     VT->>VT: performLayout()\n  View.layout(): position assignment\n  left, top, right, bottom\n  recursive DFS
     VT->>VT: performDraw()\n  Canvas commands → DisplayList\n  (not drawn yet — recorded!)
-    VT->>SF: queueBuffer() [via BufferQueue]\nSubmit DisplayList to GPU
+    VT->>VT: RenderThread/HWUI replays DisplayList\ninto a graphics buffer, then queueBuffer()
     Note over SF: Next Vsync: composite all layers\nSubmit frame to display
 ```
 
@@ -198,7 +200,7 @@ flowchart LR
 ```mermaid
 flowchart TD
     subgraph "App Memory Lifecycle"
-        FG["Foreground app\n(protected, never killed)"]
+        FG["Foreground app\nhighest protection class,\nbut not an absolute survival guarantee"]
         VIS["Visible (background but visible activity)"]
         CACHED["Cached (no visible activity)\n→ LMK target when pressure"]
         DEAD["Killed by LMK\n(process removed from process table)"]
@@ -406,7 +408,7 @@ flowchart LR
 
 ### 1. 시스템 구조와 모델링
 
-**문제 1-1.** 사용자가 안드로이드 앱에서 홈 버튼을 누르면 앱이 백그라운드로 전환됩니다. 이때 Activity의 생명주기 콜백이 `onPause → onStop → onSaveInstanceState` 순서로 호출되는 과정을 설명하세요. 시스템 메모리가 부족하여 백그라운드 앱의 프로세스가 종료된 후, 사용자가 다시 앱으로 돌아왔을 때 `onCreate(savedInstanceState)` → `onRestoreInstanceState`를 통한 상태 복원 과정을 단계별로 설명하세요. `ViewModel`이 이 과정에서 살아남는 이유와, `SavedStateHandle`이 필요한 이유도 함께 분석하세요.
+**문제 1-1.** 사용자가 안드로이드 앱에서 홈 버튼을 눌러 앱이 백그라운드로 전환된다고 가정합니다. `onPause`·`onStop`과 상태 저장 콜백의 관계를 대상 API 수준과 시스템 종료 시나리오에 맞춰 설명하되, `onSaveInstanceState`의 호출 여부나 `onStop`과의 고정 순서를 보장으로 가정하지 마세요. 프로세스 종료 후 `onCreate(savedInstanceState)`와 `onRestoreInstanceState`를 통한 복원, 구성 변경에서만 유지되는 `ViewModel`, 프로세스 재생성을 지원하는 `SavedStateHandle`의 역할을 구분하세요.
 
 <details><summary>힌트 보기</summary>
 

@@ -1,13 +1,20 @@
 # Linux Kernel Development — Under the Hood
 > Based on *Linux Kernel Development, 3rd Edition* by Robert Love
 
-This document maps the internal machinery of the Linux kernel: how processes flow through memory, how the scheduler dispatches CPU time, how system calls cross the privilege boundary, how synchronization primitives prevent races, and how the memory subsystem carves up physical RAM. The goal is to visualize every data path exactly — through `struct` fields, kernel stacks, CPU registers, and memory zones.
+## Historical and platform boundary
+
+- The book describes an older Linux generation. Structure fields, sizes, scheduler policy, page-cache indexes, syscall entry, memory zones and block I/O paths vary by kernel version and architecture.
+- Diagrams are teaching paths, not exact traces for every filesystem, cache state, security hook or device driver.
+- Before using a symbol or field, record the kernel release, architecture, configuration and source commit, then confirm it in that tree.
+- Runtime completion evidence combines tracepoints or BPF data, counters, return values and failure-path observations; a diagram alone is not proof.
+
+This document maps representative Linux kernel mechanisms: tasks, scheduling, system calls, synchronization, memory and I/O. It preserves the cited book's conceptual value while marking version-specific structures as historical examples.
 
 ---
 
 ## 1. Process Model: task_struct and the Task List
 
-Every runnable entity in the kernel — process or thread — is represented by `struct task_struct`, defined in `<linux/sched.h>`. At ~1.7 KB on 32-bit, it contains the complete runtime state of a process.
+Linux represents each task with `struct task_struct`, but its definition, size and related structures vary by release, architecture and configuration. The historical `~1.7 KB on 32-bit` figure is not a current invariant, and task state also references shared or external kernel objects rather than containing everything inline.
 
 ```mermaid
 block-beta
@@ -97,7 +104,7 @@ sequenceDiagram
 
 ## 2. Process Scheduling: CFS and the Runqueue
 
-The Completely Fair Scheduler (CFS) replaced O(1) scheduler in 2.6.23. It uses a red-black tree (`rbtree`) keyed by **virtual runtime** (`vruntime`) — how long the task has run, weighted by priority.
+Linux 2.6.23 introduced CFS in place of the earlier O(1) scheduler, using virtual-runtime ordering as a central model. Later kernels have changed fair-scheduling selection, including EEVDF-based behavior, so the red-black-tree explanation must be tied to the cited kernel era rather than treated as the current scheduler contract.
 
 ### CFS Data Structures
 
@@ -586,4 +593,4 @@ flowchart TD
   IRQ -->|"softirq / workqueue"| KRN
 ```
 
-Every `read()` call traces a path: user registers → `syscall` → `sys_read` frame on kernel stack → VFS → page cache radix tree lookup → (on miss) bio construction → I/O scheduler → DMA → IRQ → `bio_endio` → `copy_to_user` → `sysret` → user registers. The kernel stack, `current`, page frame flags, and zone allocator are the connective tissue throughout.
+A `read()` may traverse syscall entry, VFS, filesystem and page-cache logic, but the exact path branches on file type, cache state, direct I/O, asynchronous interfaces, filesystem, block stack and architecture. Modern kernels may use XArray rather than the historical radix-tree path. Capture a trace for the named kernel and workload before asserting that BIO, DMA, IRQ or `copy_to_user` occurred.

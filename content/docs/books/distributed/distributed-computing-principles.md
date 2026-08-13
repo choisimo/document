@@ -4,6 +4,8 @@
 
 ---
 
+> **Reading contract:** This is a theory-oriented reading of a 2008 textbook for readers who can track system and fault models. Every theorem or message bound must name synchrony, channel reliability and ordering, membership, crash or Byzantine faults, authentication, quorum construction, and termination assumptions. Proof sketches are **derivations**; product mappings and round-trip counts are **examples**. A protocol is complete only with safety and liveness arguments, recovery state, retry/idempotency rules, and fault-injection evidence for the claimed model. Outside that model, retain the result as unproven rather than extending it by analogy.
+
 ## 1. The Distributed Execution Model: Events, Causality, and Global State
 
 A distributed system is not a sequential machine. There is no global clock — each process has its own local clock and communicates only by message passing. The fundamental unit of analysis is an **event**: a local computation, a send, or a receive.
@@ -250,7 +252,7 @@ sequenceDiagram
 
 The **Fischer-Lynch-Paterson (FLP) impossibility theorem** (1985) is the most important result in distributed systems theory:
 
-> **It is impossible to solve consensus in an asynchronous distributed system where even a single process may crash.**
+> **FLP scope:** No deterministic consensus protocol can guarantee termination in every admissible execution of a fully asynchronous message-passing system with even one possible crash failure. The result does not say safety is impossible or that practical protocols never terminate under added timing assumptions.
 
 ```mermaid
 stateDiagram-v2
@@ -320,7 +322,7 @@ stateDiagram-v2
     }
 ```
 
-**Raft log commitment**: An entry is committed when the leader receives acknowledgment from a majority of nodes. Only then does the leader reply to the client. Uncommitted entries may be overwritten by a new leader — committed entries never are.
+**Raft log commitment:** Majority replication is necessary, but the current leader advances commit through the Raft commitment rules, including the restriction on directly committing entries from prior terms. Client reply timing is an implementation contract. Uncommitted entries may be overwritten; committed-entry durability still assumes the Raft storage and membership model.
 
 ---
 
@@ -421,7 +423,7 @@ sequenceDiagram
     Note over P1,P2: If coordinator crashes after PRE-COMMIT:\nnew coordinator queries participants.\nAll saw PRE-COMMIT → safe to COMMIT\n(all voted YES, none can abort)
 ```
 
-**Non-blocking guarantee**: 3PC requires at most `f` failures out of `n` nodes. It cannot tolerate network partitions — that requires Paxos/Raft. 3PC's "pre-commit" phase means: "I know everyone voted YES, so commit is safe."
+**Non-blocking scope:** 3PC's non-blocking argument requires bounded-delay or failure-detection assumptions and no partition that makes states indistinguishable. A bound on the number of crashes alone is insufficient. The pre-commit phase does not make arbitrary partitioned executions safe.
 
 ---
 
@@ -500,7 +502,7 @@ sequenceDiagram
 
 ## 11. Byzantine Fault Tolerance: Dealing with Liars
 
-In the Byzantine Generals Problem, up to `f` processes may send **arbitrary/malicious** messages. The system can tolerate Byzantine failures only if `n ≥ 3f + 1`.
+In the classic unauthenticated Byzantine agreement model, tolerating up to `f` arbitrary faulty processes requires `n ≥ 3f + 1`. Authentication, synchrony, quorum and protocol assumptions can change the exact resilience statement.
 
 ```mermaid
 sequenceDiagram
@@ -645,4 +647,4 @@ block-beta
     R7["Chandy-Lamport Snapshot"]:1 M7["O(e) — one per channel"]:1 D7["Non-blocking"]:1
 ```
 
-The fundamental tradeoff in distributed systems: **stronger guarantees (consistency, mutual exclusion, consensus) require more messages and higher latency**. Every real system (etcd, Kafka, Cassandra, ZooKeeper) is a carefully engineered point in this design space, trading correctness strength against performance.
+Stronger guarantees often add coordination, messages, or latency under the same fault and workload model, but batching, locality, hardware and weaker baseline implementations can change measured performance. The table is a model-specific comparison, not a universal ranking of etcd, Kafka, Cassandra, or ZooKeeper.

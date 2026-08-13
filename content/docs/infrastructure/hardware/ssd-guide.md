@@ -1,12 +1,19 @@
 # SSD/NVMe Health Analysis Guide
 
-> SMARTCTL-based drive analysis and management guide
+> SMARTCTL-based evidence collection and trend-analysis guide
+
+## Diagnostic boundary
+
+- SMART attributes and normalized raw values are vendor-, model-, firmware-, and interface-specific. Use the drive data sheet and vendor threshold before a generic table.
+- A `PASSED` summary does not predict continued operation, and a warning does not prove immediate failure. Correlate trends, self-tests, kernel errors, controller logs, workload, and backups.
+- Record device identity, firmware, power-on hours, temperature context, `smartctl` version, command, and timestamp for each sample.
+- Health review is complete only when current backups are restorable and replacement criteria, owner, spare, and maintenance window are defined.
 
 ---
 
 ## Overview
 
-This guide covers how to analyze SSD/NVMe drive health using `smartctl` and interpret the results for optimal storage management.
+This guide shows how to collect SSD/NVMe evidence with `smartctl` and interpret changes over time for storage decisions.
 
 ---
 
@@ -34,23 +41,23 @@ sudo smartctl -t long /dev/sdX
 
 ### SATA SSD Indicators
 
-| Indicator | Normal Value | Warning Threshold | Critical |
-|-----------|-------------|-------------------|----------|
-| **Reallocated Sectors** | 0 | > 0 | > 10 |
-| **Power-On Hours** | - | > 20,000h | > 40,000h |
-| **Temperature** | 30-50°C | > 60°C | > 70°C |
-| **Wear Leveling Count** | 100% | < 20% | < 10% |
-| **ATA Error Count** | 0 | > 0 | > 5 |
+| Indicator | Interpretation | Escalation evidence |
+|-----------|----------------|---------------------|
+| **Reallocated Sectors** | Model-specific media-remap counter | New growth, failed self-test, or uncorrectable I/O |
+| **Power-On Hours** | Context for age and duty cycle | No universal failure threshold; combine with warranty and workload |
+| **Temperature** | Compare with the model's operating specification | Sustained excursion, thermal throttling, or critical-temperature event |
+| **Wear Leveling Count** | Vendor-specific normalized or raw endurance signal | Trend toward the vendor threshold or rated write endurance |
+| **ATA Error Count** | Includes command/link events as well as possible media issues | Increasing correlated errors with timestamps and kernel logs |
 
 ### NVMe Indicators
 
-| Indicator | Normal Value | Warning Threshold | Critical |
-|-----------|-------------|-------------------|----------|
-| **Percentage Used** | < 10% | > 80% | > 95% |
-| **Available Spare** | 100% | < 20% | < 10% |
-| **Unsafe Shutdowns** | 0 | > 50 | > 200 |
-| **Media Errors** | 0 | > 0 | > 5 |
-| **Temperature** | 30-50°C | > 70°C | > 80°C |
+| Indicator | Interpretation | Escalation evidence |
+|-----------|----------------|---------------------|
+| **Percentage Used** | Controller estimate of rated endurance consumed | Approaching the organization's replacement policy or 100%, with workload trend |
+| **Available Spare** | Remaining spare capacity percentage | At or below the device's reported spare threshold |
+| **Unsafe Shutdowns** | Power-loss history, not a failure count by itself | Unexpected growth tied to power or filesystem events |
+| **Media Errors** | Detected unrecovered data-integrity errors | Any new error requires investigation; growth or data loss escalates replacement |
+| **Temperature** | Composite/sensor temperature | Warning/critical flag or model-specific limit, especially when sustained |
 
 ---
 
@@ -59,16 +66,15 @@ sudo smartctl -t long /dev/sdX
 ```mermaid
 flowchart TD
     A[Run smartctl -a] --> B{PASSED?}
-    B -->|Yes| C[Check Key Indicators]
-    B -->|No| D[Immediate Backup]
-    C --> E{Reallocated Sectors?}
-    E -->|0| F[Check Wear Level]
-    E -->|>0| G[Monitor Closely]
-    F --> H{< 20% remaining?}
-    H -->|Yes| I[Plan Replacement]
-    H -->|No| J[Normal Operation]
-    G --> K[Schedule Replacement]
-    D --> L[Replace Drive]
+    B -->|Yes| C[Review attributes and trend]
+    B -->|No| D[Protect data and capture evidence]
+    C --> E{New errors or vendor threshold?}
+    E -->|No| F[Continue scheduled sampling]
+    E -->|Yes| G[Run supported self-test and inspect logs]
+    G --> H{Data-integrity or critical evidence?}
+    H -->|Yes| I[Restore/backup and replace under plan]
+    H -->|No| J[Increase monitoring and set decision date]
+    D --> I
 ```
 
 ---

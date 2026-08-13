@@ -1,6 +1,8 @@
-# Bottom-Up 파싱 완전 정복: 개념부터 LR 파싱까지
+# Bottom-Up 파싱: 환원, 핸들, LR 판정
 
-Bottom-Up 파싱은 입력 문자열을 잎(leaves, 단말 기호)에서부터 시작 심볼(root)으로 환원해 나가는 방식으로, 오른쪽 최단 유도(Rightmost Derivation)를 역추적합니다.
+Bottom-Up 파싱은 입력 문자열을 문법의 시작 기호로 환원하며 **우측 유도(rightmost derivation)의 역순**을 구성합니다. 이 문서의 그림은 개념 흐름을 보여 주며, 실제 shift/reduce 결정은 현재 상태, lookahead 토큰, 파싱 테이블로 판정합니다.
+
+학습 완료 기준은 주어진 문법과 입력에 대해 스택·남은 입력·파서 행동을 단계별로 기록하고, 각 reduce가 유효한 핸들을 선택했는지 설명하는 것입니다. 단순히 스택에 시작 기호가 나타나는 것만으로 수락하지 않으며, 증강 문법의 수락 항목과 입력 끝 표시가 함께 맞아야 합니다.
 
 ---
 
@@ -23,7 +25,7 @@ flowchart LR
 flowchart LR
   SHIFT[Shift: 토큰을 스택에 push]
   REDUCE[Reduce: RHS → LHS 환원]
-  ACCEPT[Accept: 시작 심볼만 남으면 성공]
+  ACCEPT[Accept: 수락 항목과 입력 끝 표시 확인]
   ERROR[Error: 파싱 불가]
 
   SHIFT --> REDUCE
@@ -144,6 +146,8 @@ flowchart LR
   class SR,RR fill:#fdd,stroke:#900
   class Fix1,Fix2 fill:#dfd,stroke:#090
 ```
+
+우선순위 선언이나 문법 재작성은 가능한 해결 수단이지 자동 정답이 아닙니다. 선택한 규칙이 의도한 결합법칙과 우선순위를 보존하는지 충돌 문자열과 파스 트리로 확인합니다.
 
 ---
 

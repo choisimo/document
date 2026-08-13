@@ -1,10 +1,12 @@
 # Proxmox QDevice 투표 문제 해결 방법
 
-현재 Proxmox 클러스터의 QDevice가 구성되어 있지만 투표가 0으로 표시되어 제대로 작동하지 않고 있습니다. `pvecm status` 출력에서 "Qdevice (votes 0)"로 표시되는 것이 문제입니다. 이 문제를 해결하기 위한 단계별 가이드를 제공합니다.
+이 문서는 `pvecm status`에 `Qdevice (votes 0)`이 보였던 단일 사례의 진단 기록입니다. 현재 클러스터의 구성이나 원인을 입증하는 최신 상태 출력은 포함하지 않습니다. Proxmox VE와 Corosync 버전, 노드 수, `pvecm status`, `corosync-quorumtool -s`, qnetd 로그를 같은 시점에 수집한 뒤 적용 여부를 판단합니다.
+
+> **중단 조건:** 쿼럼을 잃은 상태, 다른 노드가 보이지 않는 상태, 백업·복구 경로가 확인되지 않은 상태에서는 QDevice 제거·재등록이나 `/etc/pve/corosync.conf` 수동 편집을 진행하지 않습니다. `votes` 값을 임의로 추가하는 것은 연결·인증 문제의 해결책이 아니며 클러스터 판정을 바꿀 수 있습니다.
 
 ## 현재 상황 분석
 
-현재 상태를 보면:
+이 기록이 가정한 상태는 다음과 같습니다. 실제 주소와 연결 상태는 실행 시 다시 확인해야 합니다.
 - Proxmox 노드(192.168.1.30)에 "nodove"라는 단일 노드 클러스터가 있음
 - QDevice는 구성되었지만 투표권이 없음(0 votes)
 - Raspberry Pi(192.168.1.55)와 Proxmox 노드 간 네트워크 연결은 정상
@@ -40,7 +42,7 @@ sudo apt reinstall corosync-qnetd
 
 # SSH 루트 로그인 허용 확인
 sudo nano /etc/ssh/sshd_config
-# PermitRootLogin yes 확인 후 저장
+# 설치 도구가 요구하는 인증 방식을 확인하고, 필요한 경우에만 제한된 기간 허용
 
 # SSH 서비스 재시작
 sudo systemctl restart ssh
@@ -55,7 +57,7 @@ sudo systemctl restart corosync-qnetd
 # Proxmox 노드에서 실행
 apt update
 apt install corosync-qdevice  # 이미 설치되어 있을 경우 skip
-pvecm qdevice setup 192.168.1.55 -f  # -f 옵션으로 강제 설정
+pvecm qdevice setup 192.168.1.55  # 대상 IP와 인증서를 확인한 뒤 실행
 ```
 
 ## QDevice 투표 문제 해결방법

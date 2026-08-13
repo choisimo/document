@@ -1,6 +1,17 @@
-# DevOps 및 Linux 내부: 내부
+# DevOps 및 Linux 내부
 
 > 합성: comp(36/103-178) DevOps, Linux 관리, CI/CD, 쉘 스크립팅, Ansible, Terraform, 모니터링 및 Wieers *Ansible for DevOps*, Morris *Infrastructure as Code*, Turnbull *The Docker Book*, 모니터링/경고 스택 및 전체 Linux 시스템 관리 커리큘럼을 포함한 인프라 자동화 참조.
+
+
+## 범위와 검증 계약
+
+이 문서는 Linux와 대표 DevOps 도구의 제어 흐름을 연결하는 내부 구조 안내서입니다. 명령의 의미와 운영 기본값은 배포판·커널·도구 버전·구성에 따라 달라질 수 있습니다.
+
+- **범위:** systemd, cgroup, 패키지 관리자, Ansible, Terraform, CI/CD, 셸, Prometheus, 로그 파이프라인, eBPF와 OCI 런타임의 대표 경로를 다룹니다. cgroup v1/v2와 각 제품 버전의 차이는 명시적으로 확인합니다.
+- **수치 전제:** pipe 크기, scrape 주기, 압축률, 빌드·시작 시간, 메모리·지연 오버헤드와 처리량은 예시 측정값입니다. 커널, CPU, 네트워크, 이미지, 캐시, 플러그인과 부하를 고정하지 않으면 다른 환경으로 일반화할 수 없습니다.
+- **사실·추론:** 커널/API의 제어 흐름은 지정 버전의 사실이고, 장애 원인·성능 개선·도구 우위는 로그와 메트릭으로 검증할 가설입니다.
+- **운영 보장:** 멱등성, 불변 인프라, GitOps와 선언적 계획은 drift나 변경 위험을 줄이지만 동일 결과, 무중단, 즉시 롤백을 단독으로 보장하지 않습니다. 외부 상태, admission mutation, 데이터 마이그레이션과 break-glass 절차를 포함해야 합니다.
+- **완료 기준:** 현재 상태·변경 diff·승인·단계별 검증 지표·실패 조건·rollback 명령과 소유자를 기록하고, staging 및 제한된 production 구간에서 SLO와 복구 절차를 확인해야 배포 완료로 판정합니다.
 
 ---
 
@@ -43,7 +54,7 @@ flowchart TD
     end
 ```
 
-systemd는 각 서비스를 cgroup 슬라이스에 매핑합니다. `systemctl set-property nginx.service CPUQuota=50%` → `50000 100000`을 cgroup의 `cpu.max` 파일에 기록 → 커널 CFS 대역폭 컨트롤러가 할당량을 적용합니다.
+systemd는 각 서비스를 cgroup 슬라이스에 매핑합니다. cgroup v2와 해당 systemd 버전의 한 예로 `systemctl set-property nginx.service CPUQuota=50%`가 `cpu.max`에 `50000 100000`에 해당하는 값을 기록 → 커널 CFS 대역폭 컨트롤러가 할당량을 적용합니다.
 
 ---
 
@@ -100,7 +111,7 @@ sequenceDiagram
     Ansible->>SSH: rm -f /tmp/ansible_xxx.py (cleanup)
 ```
 
-**Mitogen 백엔드**(2-3배 더 빠름): 작업당 Python 스크립트를 복사하는 대신 Mitogen은 SSH를 통해 대상에서 Python 인터프리터를 한 번 포크하고 이를 플레이의 모든 작업에 재사용합니다. 작업당 Python 시작(~50ms) 및 파일 복사 오버헤드를 절약합니다.
+**Mitogen 백엔드**(워크로드에 따라 더 빠를 수 있음): 작업당 Python 스크립트를 복사하는 대신 Mitogen은 SSH를 통해 대상에서 Python 인터프리터를 한 번 포크하고 이를 플레이의 모든 작업에 재사용합니다. 작업당 Python 시작 및 파일 복사 오버헤드를 절약합니다.
 
 **사실 수집**: `setup` 모듈은 `facter`과 유사한 시스템 검사를 실행합니다. `/proc`, `dmidecode`, `ip addr`, `df`, `uname`을 읽고 → JSON 사실 dict를 반환 → `hostvars[hostname]`에 저장됩니다.
 
@@ -215,7 +226,7 @@ flowchart TD
     D --> E["Execute: fork()+execve('echo', args)\nRedirect: open('/tmp/out.txt', O_WRONLY|O_CREAT|O_TRUNC)\ndup2(fd, STDOUT_FILENO)\nexecve('echo', ['echo', 'Hello alice, Thu Feb ...'], envp)"]
 ```
 
-**파이프 내부**: `cmd1 | cmd2` → `pipe(fds)` → 두 하위 항목 포크 → 하위 1: `dup2(fds[1], 1)`(쓰기 종료 → 표준 출력) → `execve(cmd1)` → 하위 2: `dup2(fds[0], 0)`(읽기 종료 → 표준 입력) → `execve(cmd2)`. 커널 파이프 버퍼: 64KB(`fcntl(fd, F_SETPIPE_SZ, n)`을 통해 조정 가능)
+**파이프 내부**: `cmd1 | cmd2` → `pipe(fds)` → 두 하위 항목 포크 → 하위 1: `dup2(fds[1], 1)`(쓰기 종료 → 표준 출력) → `execve(cmd1)` → 하위 2: `dup2(fds[0], 0)`(읽기 종료 → 표준 입력) → `execve(cmd2)`. 커널 파이프 용량은 커널·설정에 따라 달라지며 64KB는 한 예입니다. 허용되는 범위에서는 `fcntl(fd, F_SETPIPE_SZ, n)`로 조정할 수 있습니다
 
 ---
 
@@ -255,7 +266,7 @@ Sample 1: Δt1=(t1-t0), Δv using XOR delta-of-delta encoding
 Compression: typically 1.37 bytes/sample vs 16 bytes raw
 ```
 
-**XOR 델타 인코딩**(Gorilla 압축): 첫 번째 샘플: 전체 64비트 부동 소수점. 후속 샘플: 이전 값과 XOR. XOR=0(동일한 값)인 경우: 1비트. 그렇지 않은 경우: 제어 비트 + XOR 유효 비트. 천천히 변화하는 측정항목에 대해 10~100배 압축을 달성합니다.
+**XOR 델타 인코딩**(Gorilla 압축): 첫 번째 샘플: 전체 64비트 부동 소수점. 후속 샘플: 이전 값과 XOR. XOR=0(동일한 값)인 경우: 1비트. 그렇지 않은 경우: 제어 비트 + XOR 유효 비트. 천천히 변화하는 측정항목에서 압축 효율이 높을 수 있지만 압축률은 값 분포와 청크 구성으로 측정해야 합니다.
 
 ---
 
@@ -324,7 +335,7 @@ flowchart TD
     RUN --> USERSPACE["User-space reads BPF maps:\nbpf_map_lookup_elem(map_fd, key, &val)\nOr perf event ring buffer"]
 ```
 
-**XDP(eXpress Data Path)**: SK_BUFF 할당 전 NIC 드라이버의 수신 기능에 연결된 eBPF 프로그램입니다. 회선 속도(100GbE에서 최대 140Mpps)로 패킷을 삭제/리디렉션/통과할 수 있습니다. DDoS 완화, 로드 밸런싱(Cloudflare, Facebook)에 사용됩니다.
+**XDP(eXpress Data Path)**: SK_BUFF 할당 전 NIC 드라이버의 수신 기능에 연결된 eBPF 프로그램입니다. 특정 NIC·드라이버·패킷 크기의 실험에서는 100GbE에서 최대 140Mpps가 보고될 수 있으나, 일반적인 상한으로 보지 않고 실제 환경에서 패킷을 삭제/리디렉션/통과할 수 있습니다. DDoS 완화, 로드 밸런싱(Cloudflare, Facebook)에 사용됩니다.
 
 ---
 
@@ -349,6 +360,8 @@ flowchart TD
 ---
 
 ## DevOps 성능 수치 참조
+
+> 아래 값은 특정 환경의 설명용 관측 범위이며 SLA나 도구 고유 성능이 아닙니다. 버전·runner·캐시·네트워크·부하를 고정한 측정으로 갱신합니다.
 
 | 운영 | 시간 | 메모 |
 |-----------|------|-------|
@@ -396,9 +409,9 @@ flowchart LR
     end
 ```
 
-**불변 인프라(Immutable Infrastructure) vs 뮤터블 인프라**: 불변 인프라는 서버를 한 번 프로비저닝하면 절대 변경하지 않고, 업데이트가 필요하면 새 이미지를 빌드하여 교체한다. HashiCorp의 Packer로 AMI를 굽고, Terraform으로 배포하는 패턴이 대표적이다. 뮤터블 인프라는 Ansible/Chef로 기존 서버에 패치를 적용하는 방식이다.
+**불변 인프라(Immutable Infrastructure) vs 뮤터블 인프라**: 불변 인프라는 서버를 프로비저닝한 뒤 운영 정책상 인플레이스 변경하지 않고, 업데이트가 필요하면 새 이미지를 빌드하여 교체한다. HashiCorp의 Packer로 AMI를 굽고, Terraform으로 배포하는 패턴이 대표적이다. 뮤터블 인프라는 Ansible/Chef로 기존 서버에 패치를 적용하는 방식이다.
 
-불변 인프라의 핵심 이점은 **재현성(Reproducibility)**이다. 모든 서버가 동일한 이미지에서 시작하므로 "내 머신에서는 되는데" 문제가 원천적으로 차단된다. 그러나 이미지 빌드 시간(5-15분)이 필요하고, 핫픽스 배포가 느려지는 트레이드오프가 존재한다.
+불변 인프라의 핵심 이점은 **재현성(Reproducibility)**이다. 모든 서버가 동일한 이미지에서 시작하므로 "내 머신에서는 되는데" 문제와 configuration drift의 가능성이 줄어든다. 재현성을 얻으려면 이미지 입력과 외부 의존성도 고정해야 한다. 그러나 이미지 빌드 시간이 추가되며(본문의 5~15분은 예시), 핫픽스 배포가 느려지는 트레이드오프가 존재한다.
 
 ```mermaid
 flowchart TD
@@ -422,7 +435,7 @@ flowchart TD
 
 **Ansible(절차적) vs Terraform(선언적) IaC 선택 기준**: 두 도구는 종종 경쟁 관계로 인식되지만, 실제로는 **관심사의 레이어가 다르다**. Terraform은 인프라 프로비저닝(VM, 네트워크, 로드밸런서 생성)에 최적화되어 있고, Ansible은 구성 관리(패키지 설치, 설정 파일 배포)에 강하다.
 
-Terraform의 `terraform plan`은 현재 상태(state file)와 원하는 상태(HCL 코드)의 차이를 계산하여 **실행 계획을 미리 보여준다**. 이는 프로덕션 변경의 위험을 크게 줄인다. 반면 Ansible은 멱등성을 모듈 수준에서 보장하지만, 전체 플레이북의 결과를 미리 볼 수 없다(`--check` 모드는 근사값일 뿐이다).
+Terraform의 `terraform plan`은 현재 상태(state file)와 원하는 상태(HCL 코드)의 차이를 계산하여 **예상 실행 계획을 미리 보여준다**. 공급자 API의 외부 변경이나 apply 시점의 상태 차이는 남으므로 계획 검토와 정책 검사가 위험을 줄이는 조건입니다. 반면 Ansible 모듈은 선언된 상태와 외부 부작용이 적절히 모델링된 범위에서 멱등적으로 동작할 수 있지만, 전체 플레이북의 결과를 미리 볼 수 없다(`--check` 모드는 근사값일 뿐이다).
 
 실무에서 가장 효과적인 패턴은 **Terraform + Ansible 조합**이다: Terraform이 EC2 인스턴스를 생성하고, Ansible이 해당 인스턴스 내부를 구성한다. 혹은 Terraform + cloud-init으로 불변 인프라를 구현하면 Ansible 자체가 불필요해진다.
 
@@ -438,7 +451,7 @@ flowchart TD
     end
 ```
 
-**배포 전략 선택**: Blue/Green, Canary, Rolling 배포는 각각 고유한 트레이드오프를 가진다. Blue/Green은 즉시 롤백이 가능하지만 리소스를 2배 사용한다. Canary는 점진적으로 트래픽을 전환하여 위험을 최소화하지만 복잡한 트래픽 라우팅이 필요하다. Rolling은 리소스 효율적이지만 배포 중 구/신 버전이 공존하여 호환성 문제가 발생할 수 있다.
+**배포 전략 선택**: Blue/Green, Canary, Rolling 배포는 각각 고유한 트레이드오프를 가진다. Blue/Green은 전환 경로가 유지된 동안 빠르게 롤백할 수 있지만 두 환경을 병행하는 추가 용량이 필요하다. Canary는 점진적으로 트래픽을 전환하여 위험을 최소화하지만 복잡한 트래픽 라우팅이 필요하다. Rolling은 리소스 효율적이지만 배포 중 구/신 버전이 공존하여 호환성 문제가 발생할 수 있다.
 
 | 전략 | 롤백 속도 | 리소스 비용 | 위험도 | 복잡도 |
 |------|----------|-----------|-------|-------|
@@ -475,7 +488,7 @@ flowchart TD
 
 **사이드카 패턴(Sidecar Pattern)과 서비스 메시**: Kubernetes 환경에서 관찰 가능성, 보안, 트래픽 관리를 애플리케이션 코드와 분리하는 핵심 패턴이다. Envoy 프록시를 사이드카로 주입하여 mTLS, 서킷 브레이커, 리트라이, 분산 트레이싱을 애플리케이션 수정 없이 적용한다.
 
-이 패턴의 트레이드오프는 **리소스 오버헤드**이다. 각 Pod에 사이드카가 추가되면 메모리(~50-100MB)와 CPU가 추가로 소비되며, P99 지연시간이 ~1-3ms 증가한다. 대규모 클러스터(1000+ Pod)에서 이 오버헤드는 무시할 수 없다.
+이 패턴의 트레이드오프는 **리소스 오버헤드**이다. 각 Pod에 사이드카가 추가되면 메모리(~50-100MB)와 CPU가 추가로 소비되며, P99 지연시간이 증가할 수 있다(본문의 1~3ms는 특정 구성의 예시다). 대규모 클러스터(1000+ Pod)에서 이 오버헤드는 무시할 수 없다.
 
 Istio의 Ambient Mesh 모드는 이 문제를 해결하기 위해 사이드카 대신 노드 수준의 ztunnel + L7 waypoint 프록시를 사용한다. 이는 사이드카 패턴에서 **앰비언트 패턴으로의 설계 진화**를 보여준다.
 
@@ -521,7 +534,7 @@ flowchart LR
 
 <details><summary>힌트 보기</summary>
 
-Argo CD는 주기적으로(기본 3분) Git 저장소를 폴링하거나 Webhook을 통해 변경을 감지한다. 감지 후 `desired state`(Git)와 `live state`(클러스터)를 비교하여 Diff를 생성한다. Auto-Sync가 켜져 있으면 자동으로 `kubectl apply`에 해당하는 동기화를 수행하고, 꺼져 있으면 사용자가 수동으로 Sync 버튼을 눌러야 한다. Health Check와 Sync Wave/Hook도 고려하라.
+Argo CD는 설정된 주기로(예: 3분) Git 저장소를 폴링하거나 Webhook을 통해 변경을 감지한다. 감지 후 `desired state`(Git)와 `live state`(클러스터)를 비교하여 Diff를 생성한다. Auto-Sync가 켜져 있으면 자동으로 `kubectl apply`에 해당하는 동기화를 수행하고, 꺼져 있으면 사용자가 수동으로 Sync 버튼을 눌러야 한다. Health Check와 Sync Wave/Hook도 고려하라.
 
 </details>
 
@@ -547,7 +560,7 @@ Argo CD는 주기적으로(기본 3분) Git 저장소를 폴링하거나 Webhook
 
 <details><summary>힌트 보기</summary>
 
-Blue/Green은 즉시 전환/롤백이 가능하지만 인프라를 2배로 유지해야 한다. Canary는 트래픽의 1-5%만 먼저 노출하므로 위험이 분산되지만 롤백이 점진적이다. 결제 기능은 금전 손실 위험이 크므로 Canary의 점진적 노출이 안전할 수 있으나, 롤백 속도가 중요하다면 Blue/Green의 즉시 전환도 고려해야 한다. DB 스키마 변경이 있다면 두 버전이 동시에 동작해야 하므로 Expand-Contract 마이그레이션이 필수이다.
+Blue/Green은 전환 경로와 이전 환경이 유지된 동안 빠르게 전환·롤백할 수 있지만 병행 환경의 추가 용량이 필요하다. Canary는 트래픽의 1-5%만 먼저 노출하므로 위험이 분산되지만 롤백이 점진적이다. 결제 기능은 금전 손실 위험이 크므로 Canary의 점진적 노출이 안전할 수 있으나, 롤백 속도가 중요하다면 Blue/Green의 즉시 전환도 고려해야 한다. DB 스키마 변경이 있다면 두 버전이 동시에 동작해야 하므로 구·신 버전 공존 구간에는 Expand-Contract 같은 하위 호환 마이그레이션이 일반적으로 안전한 선택이다.
 
 </details>
 
@@ -563,7 +576,7 @@ Terraform은 인프라 리소스의 생명주기(생성, 수정, 삭제)를 Stat
 
 <details><summary>힌트 보기</summary>
 
-스타트업(5명)은 모놀리식 파이프라인이 유지보수 부담이 적고 충분하다. 대기업(200명)은 서비스 간 독립 배포가 필수이므로 서비스별 파이프라인이 필요하지만, 공통 빌드 단계(보안 스캔, 린트)는 공유 라이브러리로 추출해야 한다. Monorepo vs Polyrepo 전략에 따라서도 파이프라인 설계가 달라진다.
+5인 팀에서는 모놀리식 파이프라인이 유지보수 비용을 낮출 수 있지만, 저장소 결합도와 독립 배포 요구가 판단 기준입니다. 200인 조직도 인원수만으로 서비스별 파이프라인이 필수인 것은 아니며, 명확한 서비스 소유권과 독립 릴리스 경계가 있을 때 분리 이점이 커집니다. 공통 보안 스캔과 린트는 검증된 공유 구성으로 관리하고 Monorepo/Polyrepo 선택과 함께 평가합니다.
 
 </details>
 
@@ -581,7 +594,7 @@ Docker 빌드는 멀티스테이지 빌드 + BuildKit 캐시 마운트 + 레이�
 
 <details><summary>힌트 보기</summary>
 
-1단계: 현재 서버 설정을 Ansible로 코드화(현상 고정). 2단계: Packer로 골든 AMI/이미지를 빌드하는 파이프라인 구축. 3단계: Terraform으로 인프라를 코드로 관리하고, 변경 시 서버를 수정하지 않고 새 이미지로 교체(Blue/Green). 4단계: SSH 접근을 차단하고, 모든 변경을 Git PR → CI/CD → 자동 배포 경로로만 허용. 5단계: Drift Detection 도구로 선언 상태와 실제 상태의 불일치를 지속 감시한다.
+1단계: 현재 서버 설정을 Ansible로 코드화(현상 고정). 2단계: Packer로 골든 AMI/이미지를 빌드하는 파이프라인 구축. 3단계: Terraform으로 인프라를 코드로 관리하고, 변경 시 서버를 수정하지 않고 새 이미지로 교체(Blue/Green). 4단계: 일상적인 SSH 변경을 차단하고, 감사되는 최소 권한·시간 제한 break-glass 경로를 남긴 채 변경을 Git PR → CI/CD → 자동 배포 경로로 제한. 5단계: Drift Detection 도구로 선언 상태와 실제 상태의 불일치를 지속 감시한다.
 
 </details>
 
@@ -589,17 +602,17 @@ Docker 빌드는 멀티스테이지 빌드 + BuildKit 캐시 마운트 + 레이�
 
 <details><summary>힌트 보기</summary>
 
-OOMKilled는 컨테이너의 메모리 사용량이 `resources.limits.memory`를 초과했음을 의미한다. 먼저 실제 메모리 사용 패턴을 Prometheus/Metrics Server로 분석한다. Requests는 스케줄러의 노드 배치 기준이고, Limits는 cgroups의 실제 제한이다. Limits를 너무 낮게 설정했다면 상향 조정하되, 메모리 누수가 원인이라면 애플리케이션 프로파일링이 필요하다. VPA는 자동으로 적절한 리소스 값을 추천하고, HPA는 Pod 수를 늘려 부하를 분산한다.
+`OOMKilled`는 커널 OOM 종료가 관측되었다는 뜻이며 컨테이너 cgroup limit 초과가 흔한 원인이지만, 노드 메모리 압박과 런타임·커널 조건도 함께 확인해야 합니다. Pod 이벤트, 종료 상태, cgroup 지표와 노드 OOM 로그로 원인을 구분합니다. Requests는 스케줄러의 배치 기준이고 Limits는 cgroup 제한에 반영됩니다. limit 조정 전에 peak/RSS/working set과 누수를 측정하고, VPA 추천과 HPA의 대상 메트릭이 실제 병목을 완화하는지 검증합니다.
 
 </details>
 
 ### 4. 개념 간의 연결성
 
-**문제 4-1.** eBPF를 활용하여 커널 수준에서 애플리케이션의 레이턴시, 에러율, TCP 재전송 등을 관찰하고, 이 데이터를 Prometheus 메트릭으로 노출하는 관찰 가능성(Observability) 파이프라인을 설계하시오. 애플리케이션 코드를 전혀 수정하지 않고도 이것이 가능한 이유를 eBPF의 커널 훅(kprobe, tracepoint, XDP) 메커니즘과 연결하여 설명하시오.
+**문제 4-1.** eBPF를 활용하여 커널 수준에서 애플리케이션의 레이턴시, 에러율, TCP 재전송 등을 관찰하고, 이 데이터를 Prometheus 메트릭으로 노출하는 관찰 가능성(Observability) 파이프라인을 설계하시오. 커널에서 관측 가능한 범위라면 애플리케이션 코드를 수정하지 않고도 이것이 가능한 이유를 eBPF의 커널 훅(kprobe, tracepoint, XDP) 메커니즘과 연결하여 설명하시오.
 
 <details><summary>힌트 보기</summary>
 
-eBPF 프로그램은 커널의 kprobe(함수 진입/종료), tracepoint(사전 정의 이벤트), XDP(네트워크 패킷 최초 수신 시점) 등에 부착된다. 예를 들어 `tcp_sendmsg` kprobe로 TCP 전송 지연을, `sock:inet_sock_set_state`로 연결 상태 변화를 추적할 수 있다. Cilium Hubble이나 bpftrace가 이를 Prometheus exporter 형태로 노출한다. 이 방식은 사이드카 프록시 없이도 L3/L4 수준 관찰이 가능하여 성능 오버헤드가 매우 낮다.
+eBPF 프로그램은 커널의 kprobe(함수 진입/종료), tracepoint(사전 정의 이벤트), XDP(네트워크 패킷 최초 수신 시점) 등에 부착된다. 예를 들어 `tcp_sendmsg` kprobe로 TCP 전송 지연을, `sock:inet_sock_set_state`로 연결 상태 변화를 추적할 수 있다. Cilium Hubble이나 bpftrace가 이를 Prometheus exporter 형태로 노출한다. 이 방식은 사이드카 프록시 없이도 L3/L4 수준 관찰이 가능하여 오버헤드를 낮게 유지할 수 있지만 probe 수·빈도·수집량에 따라 측정해야 한다.
 
 </details>
 
@@ -615,6 +628,6 @@ eBPF 프로그램은 커널의 kprobe(함수 진입/종료), tracepoint(사전 �
 
 <details><summary>힌트 보기</summary>
 
-Istio의 사이드카 주입은 MutatingAdmissionWebhook으로 Pod 생성 시 자동으로 Envoy를 추가한다. 이는 Git에 저장된 매니페스트(사이드카 없음)와 실제 클러스터 상태(사이드카 있음)가 달라져 Argo CD가 항상 "OutOfSync"로 표시하는 문제를 일으킬 수 있다. 해결책은 Argo CD의 `ignoreDifferences` 설정이나, Istio Ambient 모드(사이드카 없는 메시)로 전환하는 것이다. PeerAuthentication, AuthorizationPolicy를 Git으로 관리하여 보안 정책도 GitOps로 선언한다.
+Istio의 사이드카 주입은 MutatingAdmissionWebhook으로 생성 객체를 변경합니다. Git의 입력 매니페스트와 API 서버가 저장한 객체에는 차이가 생기지만, Argo CD의 정규화·추적·diff 설정에 따라 이것이 항상 `OutOfSync`를 뜻하지는 않습니다. 실제 diff를 확인한 뒤 필요한 필드만 `ignoreDifferences`로 제한하거나 Ambient 모드를 평가합니다. `PeerAuthentication`과 `AuthorizationPolicy`는 Git으로 관리하되 적용 결과와 인증 실패 경로를 검증합니다.
 
 </details>

@@ -2,6 +2,10 @@
 
 > Synthesized from: Bloch *Effective Java* 3rd ed, Oaks & Wong *Java Performance* 2nd ed, Evans & Verburg *The Well-Grounded Java Developer*, Goetz *Java Concurrency in Practice*, and comp(21/207-212/215-223/241/305/311/326/346/455/457) Java references.
 
+## JVM/version scope
+
+This chapter primarily describes HotSpot and mixes Java 8-era mechanisms with Java 9+ and newer collectors. JVM Specification guarantees must be separated from HotSpot implementation choices. For operational use, record JDK vendor/build, collector, heap and compressed-pointer settings, architecture, flags, warm-up state, and the diagnostic output or benchmark that supports a claim.
+
 ---
 
 ## 1. JVM Architecture — Class Loading to Execution
@@ -25,6 +29,8 @@ flowchart TD
 ```
 
 ### Class Loading Lifecycle
+
+The diagram's `rt.jar`, extension directory, and `ExtClassLoader` names describe Java 8. Java 9+ uses the module runtime image and a platform class loader; loading, linking, and initialization remain the specification-level lifecycle.
 
 ```mermaid
 flowchart TD
@@ -67,6 +73,8 @@ Stack Frame for method: int compute(int x, int y)
 
 ### Execution Tiers (Java 8+ HotSpot)
 
+Tier thresholds, inlining limits, compilation policy, and speed multipliers are HotSpot flags and workload-dependent observations, not Java guarantees. Deoptimization normally resumes in the interpreter or less-optimized compiled code at a reconstructed program state; it does not imply a method restarts from its first bytecode.
+
 ```mermaid
 flowchart TD
     A["Method invoked first time\nTier 0: Interpreter\n~100 ns/bytecode"] 
@@ -79,6 +87,8 @@ flowchart TD
 ```
 
 ### Escape Analysis — Heap Allocation Elimination
+
+HotSpot commonly uses scalar replacement and allocation elimination for non-escaping objects. “Stack allocation” in the diagrams is shorthand: an object may cease to exist as an allocation rather than being materialized as an ordinary stack object, and escape to a callee does not automatically require heap allocation if interprocedural optimization proves otherwise.
 
 ```java
 // This code:
@@ -108,6 +118,8 @@ flowchart TD
 ---
 
 ## 4. Garbage Collection — Generational GC
+
+Eden/survivor/old layout and a tenure threshold of 15 describe a common generational configuration, not every collector. ZGC, Shenandoah, G1, Serial, and Parallel collectors differ by JDK release and flags; object age, region size, pause phase, and “Full GC” meaning must be read from the active collector's logs.
 
 ### Object Lifecycle Through Generations
 
@@ -194,6 +206,8 @@ int x = data;        // guaranteed to see 42
 
 On x86 (TSO): volatile load = regular load. volatile store = `LOCK XCHG` or `MFENCE`. On ARM: `DMB SY` (full barrier) for both.
 
+The JMM specifies ordering and visibility, not exact opcodes. HotSpot chooses barriers from operation context, architecture, and JDK version; an x86 volatile store is not universally compiled to `MFENCE` or `LOCK XCHG`, and ARM may use acquire/release instructions rather than a full `DMB SY` for every access. Inspect generated code only when instruction selection itself matters.
+
 ---
 
 ## 6. Java Thread and Monitor Internals
@@ -213,6 +227,8 @@ GC mark:      [...              | 11]
 ```
 
 ### Lock Escalation Path
+
+Biased locking is a historical HotSpot state: it was disabled by default in JDK 15 and removed in later JDKs. On those runtimes the biased transitions and safepoint revocation shown below do not occur. Object-header layouts also depend on compressed class pointers, GC, architecture, and JDK project work.
 
 ```mermaid
 stateDiagram-v2
@@ -288,6 +304,8 @@ flowchart TD
 
 ### Reflection Method Invocation Path
 
+The 15-call inflation path describes older HotSpot reflection. Modern JDKs changed core reflection implementation, notably with method-handle-based reflection in JDK 18+, so accessor generation thresholds and nanosecond figures require a specific JDK and benchmark.
+
 ```java
 Method m = Foo.class.getDeclaredMethod("bar", int.class);
 m.invoke(fooInstance, 42);
@@ -344,7 +362,7 @@ flowchart TD
     DBB -->|"write(DirectByteBuffer)\nzero-copy: native buf address directly\npassed to sendfile/write syscall"| SOCK
 ```
 
-`ByteBuffer.allocateDirect(n)` → `Unsafe.allocateMemory(n)` → `malloc(n)` in C. Address stored as `long address` in `DirectByteBuffer`. GC cannot relocate it (off-heap). Freed when `DirectByteBuffer` GC'd → `Cleaner` (PhantomReference) callback calls `free()`.
+`ByteBuffer.allocateDirect(n)` obtains off-heap storage whose lifecycle is normally connected to a `Cleaner`; allocation and release paths are JDK-specific and reclamation is not prompt unless explicitly managed through supported ownership APIs. Direct buffers avoid an intermediate heap-to-native staging copy, but a normal socket `write` still copies bytes into kernel networking buffers. `sendfile` is a separate file-to-socket path, not a property of every direct-buffer write.
 
 **Memory-mapped files** (`FileChannel.map()`): `mmap()` syscall → pages mapped directly into JVM process address space → zero-copy reads/writes via DirectByteBuffer accessing OS page cache.
 
@@ -365,7 +383,7 @@ class String {
 // "日本語" → value=[...UTF16 bytes...], coder=1
 ```
 
-**String pool** (interned strings): Hash table in Metaspace (Java 7+: heap). `String.intern()` adds string to pool. String literals automatically interned at class load time.
+**String pool**: Interned `String` objects live on the Java heap in modern HotSpot; the VM's StringTable is an implementation data structure and should not be described as the objects living in Metaspace. `String.intern()` returns the canonical pooled reference, and literals are resolved through the runtime constant pool when used.
 
 ```mermaid
 flowchart LR
@@ -377,6 +395,8 @@ flowchart LR
 ---
 
 ## 12. JVM Startup and ClassData Sharing (CDS)
+
+Java 9+ loads runtime classes from the modular runtime image rather than `rt.jar`. CDS does not universally eliminate parsing or verification, fixed-address mapping is platform/version-dependent, and startup savings must be measured for the exact archive, class path/module path, and application.
 
 ```mermaid
 sequenceDiagram
@@ -401,6 +421,8 @@ sequenceDiagram
 ---
 
 ## JVM Performance Numbers
+
+These are illustrative ranges, not JVM contracts. Replace them with a reproducible JMH or application trace that records JDK build, flags, CPU/power policy, collector/heap, warm-up and compilation state, allocation/live set, contention, forks/iterations, sample count, and distribution; sub-nanosecond entries usually indicate inlining or benchmark elimination rather than a standalone call cost.
 
 | Operation | Time | Notes |
 |-----------|------|-------|

@@ -1,7 +1,11 @@
-# Module 4: Compute Virtualization - KVM & LXC Deep Dive
+# Module 4: Compute Virtualization - KVM & LXC 운영 가이드
+
+> 적용 범위: 이 문서의 명령과 출력은 Proxmox VE 8.x 계열의 예시다. 실행 전 `pveversion -v`와 각 명령의 `--help`로 현재 버전의 옵션을 확인한다.
+> 안전 경계: `stop`, `destroy`, 디스크 확장, 마이그레이션, bind mount는 서비스 중단이나 데이터 손실을 일으킬 수 있다. 대상 VMID/CTID, 백업, 유지보수 창, 복구 담당자를 먼저 확정한다.
+> 표기 규칙: `$`가 붙은 줄은 셸 예시이고, PID·경로·버전·출력값은 샘플이다. 샘플 출력이 그대로 나타나는 것을 성공 조건으로 사용하지 않는다.
 
 ## 학습 목표
-이 모듈을 완료하면 다음을 이해할 수 있습니다:
+이 모듈은 다음 주제를 다룹니다:
 - QEMU/KVM 가상화의 커널 레벨 동작 원리
 - VM이 Linux 프로세스로서 어떻게 실행되는지
 - LXC 컨테이너의 namespace와 cgroup 격리 메커니즘
@@ -73,7 +77,7 @@
 
 ### 1.2 VM은 Linux 프로세스다
 
-Proxmox VE에서 각 VM은 **하나의 QEMU 프로세스**로 실행됩니다. 이것이 의미하는 바:
+Proxmox VE에서 각 VM은 일반적으로 **하나의 주 QEMU 프로세스와 그 내부 스레드**로 관찰됩니다. 스레드 수와 보조 프로세스는 장치, 기능, 버전에 따라 달라지므로 다음 출력은 구조를 설명하기 위한 예시입니다.
 
 ```bash
 # VM 100이 실행 중일 때 프로세스 확인
@@ -352,9 +356,9 @@ uptime: 86400
 $ qm shutdown 100
 # Guest OS가 ACPI 전원 버튼 이벤트를 받아 정상 종료
 
-# VM 강제 종료 (immediate)
+# VM 강제 종료 (guest의 정상 종료 절차를 보장하지 않음)
 $ qm stop 100
-# QEMU 프로세스에 SIGTERM → 즉시 종료
+# 데이터 손실 가능성이 있으므로 qm shutdown의 실패 원인을 확인한 뒤 사용
 
 # VM 리부팅
 $ qm reboot 100
@@ -423,22 +427,23 @@ $ qm agent 100 get-fsinfo
 $ qm agent 100 exec -- ls -la /root
 $ qm agent 100 exec -- systemctl status nginx
 
-# 파일 시스템 freeze (백업 전 일관성 확보)
+# 파일 시스템 freeze (파일 시스템 관점의 쓰기 정지; 애플리케이션 일관성은 별도 보장 필요)
 $ qm agent 100 fsfreeze-freeze
 $ # 백업 수행...
 $ qm agent 100 fsfreeze-thaw
+# 실패 경로에서도 thaw가 실행됐는지 확인하고, 장시간 freeze 상태로 두지 않는다.
 ```
 
 ### 3.5 VM 마이그레이션
 
 ```bash
-# 온라인 마이그레이션 (실시간)
+# 온라인 마이그레이션 (최종 전환 시 짧은 중단이 발생할 수 있음)
 $ qm migrate 100 node2
 # 단계:
 # 1. 대상 노드에서 QEMU 시작 (incoming mode)
 # 2. 메모리 페이지 복사 시작
 # 3. Dirty page 추적 및 반복 전송
-# 4. 최종 전환 (downtime 최소화)
+# 4. 최종 전환 (중단 시간은 메모리 변경률·네트워크·스토리지에 따라 측정)
 # 5. 소스 VM 종료
 
 # 오프라인 마이그레이션 (VM 정지 후)
@@ -667,8 +672,8 @@ $ pct create 100 local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst \
     --net0 name=eth0,bridge=vmbr0,ip=dhcp \
     --rootfs local-lvm:8 \
     --password \
-    --unprivileged 1 \
-    --features nesting=1
+    --unprivileged 1
+# nesting은 격리 범위를 넓히므로 실제 중첩 워크로드가 있을 때만 별도로 활성화한다.
 
 # 생성된 설정 확인
 $ pct config 100
@@ -697,7 +702,7 @@ status: running
 
 # 종료
 $ pct shutdown 100  # graceful (init에 signal)
-$ pct stop 100      # force (즉시 종료)
+$ pct stop 100      # force; 애플리케이션의 정상 종료를 보장하지 않음
 
 # 리부팅
 $ pct reboot 100
@@ -754,6 +759,7 @@ $ pct set 100 --mp0 local-lvm:50,mp=/data
 
 # Bind mount (호스트 디렉토리 공유)
 $ pct set 100 --mp1 /mnt/shared,mp=/shared
+# 적용 전 host 경로의 소유권 매핑, 백업 포함 여부, 컨테이너의 쓰기 권한을 확인한다.
 ```
 
 ### 5.6 컨테이너 마이그레이션
@@ -916,6 +922,8 @@ $ pct list
 
 ### 8.1 VM 최적화
 
+아래 항목은 일괄 적용할 기본값이 아니라 검토 후보입니다. 변경 전후에 같은 워크로드로 지연 시간, 처리량, CPU 사용량과 오류를 측정하고, 라이브 마이그레이션 호환성도 함께 확인합니다.
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                        VM 성능 최적화 체크리스트                            │
@@ -989,7 +997,7 @@ $ pct list
 | 명령어 | 설명 |
 |--------|------|
 | `qm create <vmid>` | VM 생성 |
-| `qm destroy <vmid>` | VM 삭제 |
+| `qm destroy <vmid>` | VM과 연결 리소스 삭제 가능; 대상·백업 확인 후 실행 |
 | `qm start <vmid>` | VM 시작 |
 | `qm stop <vmid>` | VM 강제 종료 |
 | `qm shutdown <vmid>` | VM 정상 종료 |
@@ -1009,7 +1017,7 @@ $ pct list
 | 명령어 | 설명 |
 |--------|------|
 | `pct create <ctid>` | 컨테이너 생성 |
-| `pct destroy <ctid>` | 컨테이너 삭제 |
+| `pct destroy <ctid>` | 컨테이너와 연결 리소스 삭제 가능; 대상·백업 확인 후 실행 |
 | `pct start <ctid>` | 시작 |
 | `pct stop <ctid>` | 강제 종료 |
 | `pct shutdown <ctid>` | 정상 종료 |
@@ -1026,7 +1034,13 @@ $ pct list
 
 ---
 
-## 10. 다음 단계
+## 10. 완료 기준
+
+- `pveversion -v`, 대상의 `qm config/status` 또는 `pct config/status`, 스토리지와 노드 상태를 작업 기록에 남겼다.
+- 변경 전 예상 영향과 rollback 조건을 적고, 변경 후 guest 상태·네트워크·스토리지 I/O를 실제 명령 출력으로 확인했다.
+- 강제 종료나 마이그레이션이 실패했다면 성공으로 간주하지 않고 task 로그와 guest 상태를 보존해 후속 조치로 넘겼다.
+
+## 11. 다음 단계
 
 Module 5에서는 **High Availability & Cluster Orchestration**을 다룹니다:
 - Corosync 클러스터 통신 메커니즘

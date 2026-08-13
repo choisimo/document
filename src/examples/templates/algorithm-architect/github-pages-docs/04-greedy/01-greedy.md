@@ -8,6 +8,12 @@
 ## 원본 템플릿
 - Source: [04-greedy/01-greedy.md](../../04-greedy/01-greedy.md)
 
+## 적용 계약과 근거 경계
+
+- 아래 코드는 일반 greedy가 아니라 `(start, end)` interval 중 겹치지 않는 최대 개수를 고르는 종료 시각 정렬 알고리즘입니다.
+- 각 interval은 `start <= end`이고 같은 endpoint 접촉을 허용한다고 가정합니다. 입력은 수정하지 않습니다.
+- 정렬 때문에 시간 `O(n log n)`, 결과 공간 `O(n)`입니다. 최적성은 가장 이른 종료 interval로 교환 가능한 논증에 의존합니다.
+
 ## 내부 메커니즘 (Flow)
 ```mermaid
 flowchart TD
@@ -42,17 +48,20 @@ sequenceDiagram
 # Components: Sorting (대부분), Selection Logic
 # Constraint: 매 순간 최선의 선택이 전체 최적해 보장해야 함
 
-def greedy_template(items):
+def select_intervals(items):
+    if any(len(item) < 2 or item[0] > item[1] for item in items):
+        raise ValueError("each interval must satisfy start <= end")
+
     # 1. 정렬 레이어 (Sorting Layer)
     #    - 그리디 기준에 따라 정렬
-    items.sort(key=lambda x: x[1])  # 예: 종료 시간 기준
+    sorted_items = sorted(items, key=lambda x: x[1])
     
     # 2. 초기화 (Initialization)
     result = []
     last_selected = None
     
     # 3. 순차 선택 (Sequential Selection)
-    for item in items:
+    for item in sorted_items:
         # 4. 선택 조건 (Selection Condition)
         #    - 탐욕적 규칙에 부합하는지 확인
         if is_valid(item, last_selected):
@@ -76,7 +85,7 @@ def is_valid(item, last_selected):
 - **Termination**: 목표 도달, 범위 소진, 큐/스택 고갈, 사이클 검출 등으로 종료한다.
 
 ## 실전 적용 체크리스트
-- 입력 자료구조 형식(인접 리스트, 간선 리스트, 정렬 여부, 1-index/0-index)을 먼저 고정한다.
-- 시간 복잡도 한계에 맞게 자료구조를 교체한다 (`list.pop(0)` -> `deque.popleft` 등).
-- 실패/예외 경로를 명시한다 (도달 불가, 음수 사이클, 빈 결과, 사이클 존재).
-- 테스트는 최소 3개: 정상 케이스, 경계 케이스, 반례 케이스를 포함한다.
+- endpoint 접촉, 동일 종료 시각, 포함 관계, 빈 입력과 잘못된 interval을 시험합니다.
+- 선택 결과가 pairwise compatible인지 확인합니다.
+- 작은 입력은 모든 부분 집합 중 최대 compatible 개수와 대조합니다.
+- 가중 interval scheduling에는 이 규칙이 최적을 보장하지 않으므로 DP로 전환합니다.

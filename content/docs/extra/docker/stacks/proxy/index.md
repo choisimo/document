@@ -3,6 +3,12 @@
 
 리버스 프록시/정적 웹 서비스용 스택 모음입니다.
 
+## 프록시 스택 점검 기준
+
+- DNS, 인증서 발급·갱신, 80/443 포트 소유권과 upstream 네트워크를 시작 전에 확인합니다.
+- 신뢰할 proxy hop, 전달 헤더, 요청 크기, timeout과 WebSocket/HTTP 버전 요구를 서비스별로 명시합니다.
+- 완료 기준은 외부 TLS 검증, 의도한 라우팅, 인증 우회 차단, 갱신 시험과 upstream 장애 응답 확인입니다.
+
 <div class="compose-hero" markdown>
 <span class="compose-kicker">Quick Start</span>
 

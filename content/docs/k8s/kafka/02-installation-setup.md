@@ -1,5 +1,12 @@
 # Kafka 로컬 설치 및 실행
 
+## 로컬 실습 경계
+
+- 아래 ZooKeeper 기반 Compose는 역사적 학습 예시입니다. 현재 Kafka의 KRaft 구성, 이미지 변수와 지원 버전은 공식 릴리스 문서에서 확인합니다.
+- 단일 호스트·평문 listener·예시 자격 증명은 프로덕션에 사용하지 않습니다. 외부 공개, TLS/SASL, 권한, persistent volume과 복제 장애는 별도 범위입니다.
+- 다운로드와 이미지는 버전과 checksum/digest를 고정하고, `down -v`와 로그 디렉터리 삭제가 지우는 데이터를 먼저 확인합니다.
+- 완료 기준은 broker process가 아니라 topic 생성, produce/consume, consumer group 상태, 재시작 후 데이터와 의도한 정리 결과입니다.
+
 ## 📖 개요
 
 로컬 환경에서 Kafka를 설치하고 실행하는 방법을 학습합니다. Docker와 네이티브 설치 두 가지 방법을 모두 다룹니다.
@@ -11,7 +18,7 @@
 - 기본 명령어 실습
 - 모니터링 도구 사용
 
-## 📦 방법 1: Docker Compose (권장)
+## 📦 방법 1: ZooKeeper 기반 Docker Compose 학습 예시
 
 ### 전체 구성 파일
 
@@ -175,7 +182,7 @@ services:
 ### Linux/macOS 설치
 
 ```bash
-# Kafka 다운로드 (최신 버전)
+# 문서와 호환되는 Kafka 버전을 고정하고 checksum을 확인
 wget https://downloads.apache.org/kafka/3.6.0/kafka_2.13-3.6.0.tgz
 
 # 압축 해제

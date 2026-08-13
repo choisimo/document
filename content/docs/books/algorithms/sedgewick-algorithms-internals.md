@@ -5,11 +5,13 @@
 
 ---
 
+> **Reading contract:** Scope is Sedgewick & Wayne 4th edition (2011) and its Java-oriented implementations. JVM object layout, `String` storage, cache-line size, allocation cost, and collection internals are versioned implementation facts, not Java or algorithm guarantees. Complexity claims must name the algorithm variant and input model; measured layout claims must name JDK, VM, architecture, and flags. A subsection is complete when invariant, preconditions, failure boundary, source chapter, and runtime version are present. If a newer runtime invalidates a layout, retire that example rather than carrying its conclusion forward.
+
 ## 1. Union-Find: Weighted Quick-Union with Path Compression
 
 ### 1.1 Memory Layout of the `id[]` / `sz[]` Arrays
 
-Union-Find maintains two integer arrays of size N. In the JVM, each `int[]` costs `24 + 4N` bytes (16-byte object header + 4-byte length field + 4N data bytes, padded to 8 bytes).
+Union-Find maintains two integer arrays of size N. In one assumed JVM layout, an `int[]` can be estimated as `24 + 4N` bytes after alignment. The header, length field, compression mode, and alignment are VM-specific, so confirm them with a layout tool before using this as a memory bound.
 
 ```
 int[] id  →  [ heap header (16B) | N (4B) | pad(4B) | id[0] | id[1] | ... | id[N-1] ]
@@ -104,7 +106,7 @@ block-beta
   end
 ```
 
-Cache lines are typically 64 bytes = 16 ints. Mergesort's sequential scan **always fills cache lines** fully. Quicksort's partition phase scans sequentially (good) but recursive calls on random subranges cause **TLB misses** on large N.
+On a machine with 64-byte cache lines and 4-byte integers, a line holds 16 integers. Mergesort's sequential scan generally has strong spatial locality, but alignment, boundaries, and competing traffic prevent an "always full" guarantee. Large quicksort subranges can incur TLB misses; the rate is workload- and machine-dependent.
 
 ### 2.3 Quicksort Partition: 3-Way (Dijkstra Dutch Flag)
 
@@ -669,7 +671,7 @@ block-beta
   end
 ```
 
-**String substring O(1) sharing**: `genome.substring(6, 3)` creates a new 40-byte String object but reuses the **same** `char[]` backing array — only the `offset` and `count` fields differ. This makes substring creation O(1) time and O(1) space, which is the foundation of O(N) KMP and O(N log N) suffix sort algorithms.
+**Historical `String.substring` layout:** Older JDK implementations could share a backing array through offset/count fields. Modern JDKs copy the requested range, and object size depends on the runtime; use a valid range such as `genome.substring(6, 9)` and verify the target JDK. KMP's O(N) bound follows from its automaton/failure-function invariant, not from substring sharing.
 
 ---
 

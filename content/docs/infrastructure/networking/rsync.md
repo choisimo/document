@@ -1,10 +1,10 @@
 # Rsync와 SSH 커스텀 포트 사용법
 
-rsync로 파일을 동기화할 때 SSH 커스텀 포트를 지정하는 방법을 설명합니다.
+GNU rsync를 OpenSSH 원격 셸 위에서 실행할 때 SSH 포트를 지정하고 결과를 판정하는 방법입니다. rsync 버전, 양쪽 파일 시스템, 권한, 링크와 ACL/xattr 요구사항을 먼저 확인하세요.
 
 ## 개요
 
-rsync는 파일 동기화의 표준 도구이지만, SSH 커스텀 포트 사용 시 올바른 문법을 사용해야 합니다. 많은 사용자가 `--port` 옵션을 잘못 사용하여 연결 오류를 경험합니다.
+`user@host:/path` 형식에서 `--port`는 SSH 포트 옵션이 아닙니다. `-e "ssh -p PORT"` 또는 `~/.ssh/config`를 사용합니다.
 
 ```mermaid
 graph LR
@@ -47,6 +47,9 @@ sudo rsync -avz -e "ssh -p 2722" /source/* user@host:/destination/
 | `-P` | 진행률 표시 + 부분 전송 유지 |
 | `--delete` | 소스에 없는 파일 삭제 |
 | `--dry-run` | 실제 전송 없이 테스트 |
+
+!!! danger "삭제와 일관성"
+    `--delete`는 대상의 추가 파일을 제거합니다. 먼저 `--dry-run --itemize-changes`로 대상과 trailing slash 의미를 확인하세요. 변경 중인 데이터베이스나 VM 이미지는 rsync만으로 시점 일관성이 보장되지 않습니다.
 
 ## 커스텀 SSH 포트 사용
 
@@ -131,16 +134,22 @@ SOURCE="/var/www/html/"
 DEST="/backups/web/$(date +%Y%m%d)/"
 LOG="/var/log/backup.log"
 
-rsync -avz --delete \
+if rsync -avz --delete \
   -e "ssh -p 2722" \
   --exclude='*.log' \
   --exclude='cache/' \
-  "$SOURCE" "$REMOTE:$DEST" >> "$LOG" 2>&1
-
-echo "Backup completed: $(date)" >> "$LOG"
+  "$SOURCE" "$REMOTE:$DEST" >> "$LOG" 2>&1; then
+  echo "Backup completed: $(date -Is)" >> "$LOG"
+else
+  status=$?
+  echo "Backup failed with exit $status: $(date -Is)" >> "$LOG"
+  exit "$status"
+fi
 ```
 
-### 양방향 동기화
+### 전송 방향 선택
+
+아래 두 명령은 각각 단방향 복사이며, 둘을 연속 실행해도 충돌 탐지와 삭제 병합을 제공하는 양방향 동기화가 되지 않습니다.
 
 ```bash
 # 로컬 → 원격
@@ -220,6 +229,10 @@ graph TD
 | **scp** | 간단함 | 전체 파일 전송 | 단일 파일 복사 |
 | **sftp** | 인터랙티브 | 자동화 어려움 | 수동 파일 관리 |
 | **rclone** | 클라우드 지원 | 로컬 전용 복잡 | 클라우드 동기화 |
+
+## 완료, 재시도 및 복구 증거
+
+종료 코드와 부분 성공 코드를 보존하고 파일 수·총 바이트·표본 체크섬을 비교합니다. 중요한 백업은 별도 위치로 실제 복원해 애플리케이션이 열리는지 확인해야 완료입니다. `-P`의 부분 파일은 재시도 수단일 뿐 완료 증거가 아니며, 잘못된 `--delete`는 rsync로 되돌릴 수 없으므로 대상 측 스냅샷이나 버전 보존이 필요합니다.
 
 ## 관련 문서
 

@@ -1,6 +1,12 @@
 # Custom Docker Images
 
-커스텀 Docker 이미지 저장소입니다.
+Custom Docker image source와 build entry point의 index입니다. 실제 tag·digest와 registry publication은 build 결과에서 확인합니다.
+
+## Image Build Contract
+
+This directory is an index of custom image sources. Pin base-image digests, build platform, package repositories, build arguments and the repository revision; an image name or successful build does not prove provenance, vulnerability status or runtime compatibility. Completion requires reproducible build output, SBOM or dependency inventory, scoped secrets, smoke tests and a rollback tag.
+
+---
 
 ## Directory Structure
 

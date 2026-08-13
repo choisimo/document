@@ -1,5 +1,8 @@
-GitHub Pages 사용자 정의 도메인 연결 및 Cloudflare DNS 설정 가이드
-이 가이드에서는 GitHub Pages로 호스팅되는 웹사이트에 개인 도메인을 연결하고, Cloudflare를 사용하여 DNS 설정을 구성하는 방법을 단계별로 안내합니다.
+# GitHub Pages 사용자 정의 도메인과 Cloudflare DNS 설정
+
+> **적용 범위:** Apex 도메인과 `www` 하위 도메인을 GitHub Pages에 연결하는 절차입니다. GitHub의 IP 범위, Pages 화면, Cloudflare 옵션은 변경될 수 있으므로 적용 시점의 공식 문서와 대시보드 값을 기준으로 삼습니다.
+
+완료 상태는 DNS 조회 결과, GitHub Pages의 사용자 정의 도메인 검사, HTTPS 인증서, 대표 도메인 리디렉션을 각각 확인했을 때입니다. DNS 전파만으로 전체 구성이 완료된 것은 아닙니다.
 
 1단계: GitHub Pages IP 주소 확인
 GitHub Pages는 특정 IP 주소를 사용합니다. 이 IP 주소들을 사용하여 DNS 설정에서 A 레코드를 생성해야 합니다. 현재 GitHub Pages에서 사용하는 IP 주소는 다음과 같습니다 (항상 최신 정보를 GitHub 공식 문서에서 확인하는 것이 좋습니다):
@@ -94,8 +97,8 @@ Cloudflare 프록시: 만약 '프록시됨(Proxied)' 상태에서 문제가 발�
 
 GitHub Pages 오류 메시지: GitHub 저장소의 Pages 설정 화면에서 오류 메시지가 표시되는지 확인하고, 해당 메시지에 따라 조치합니다.
 
-CNAME 파일: 과거에는 저장소 루트에 CNAME이라는 파일을 만들고 그 안에 도메인 이름을 적는 방식도 사용되었지만, 현재는 GitHub Pages 설정 화면에서 직접 입력하는 것이 표준입니다. 이 파일이 있다면 GitHub 설정과 일치하는지 확인하거나, 설정 화면을 통해 관리하는 것이 좋습니다.
+CNAME 파일: Pages 설정 화면에서 도메인을 저장하면 게시 소스에 `CNAME` 파일이 생성되거나 갱신될 수 있습니다. 배포 도구가 이 파일을 덮어쓰지 않는지 확인하고, 파일 값과 Pages 화면의 대표 도메인을 일치시킵니다.
 
-Cloudflare SSL/TLS 설정: Cloudflare의 SSL/TLS 암호화 모드가 'Off'로 되어 있지 않은지 확인하세요. 일반적으로 'Flexible' 또는 'Full'을 사용합니다. 'Flexible'은 브라우저와 Cloudflare 간의 연결만 암호화하고, 'Full'은 브라우저-Cloudflare 및 Cloudflare-원본 서버(GitHub Pages) 간의 연결을 모두 암호화합니다. GitHub Pages에서 HTTPS가 활성화되어 있다면 'Full'을 사용하는 것이 더 안전합니다.
+Cloudflare SSL/TLS 설정: `Flexible`은 Cloudflare와 원본 사이를 암호화하지 않으므로 정상 운영의 완료 상태로 사용하지 않습니다. GitHub Pages에서 인증서가 발급되고 원본 HTTPS가 정상임을 확인한 뒤 원본 인증서를 검증하는 모드를 선택합니다. 프록시 문제를 분리할 때는 먼저 `DNS only` 상태에서 GitHub Pages 직접 연결을 확인합니다.
 
 이 가이드가 GitHub Pages에 사용자 정의 도메인을 성공적으로 연결하는 데 도움이 되기를 바랍니다.

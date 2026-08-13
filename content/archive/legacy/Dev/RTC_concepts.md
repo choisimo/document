@@ -1918,3 +1918,6 @@ Writing WebSocket client applications - Web APIs | MDN, 6월 11, 2025에 액세�
 RabbitMQ Web STOMP Plugin, 6월 11, 2025에 액세스, https://www.rabbitmq.com/docs/next/web-stomp
 WebSockets vs. Server-Sent events/EventSource - Codemia, 6월 11, 2025에 액세스, https://codemia.io/knowledge-hub/path/websockets_vs_server-sent_eventseventsource
 Scaling Pub/Sub with WebSockets and Redis - Ably Realtime, 6월 11, 2025에 액세스, https://ably.com/blog/scaling-pub-sub-with-websockets-and-redis
+## 문서 범위와 근거 수준
+
+이 문서는 RTC의 구성 요소와 데이터 흐름을 설명하는 개념 자료다. 표준으로 정의된 동작, 구현별 선택, 특정 환경에서 관찰한 결과를 같은 수준의 사실로 취급하지 않는다. 제품, 브라우저, 네트워크 조건에 따라 달라지는 항목은 적용 조건이 확인된 경우에만 운영 판단에 사용한다.

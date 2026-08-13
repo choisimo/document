@@ -1,11 +1,12 @@
-아래는 요청하신 내용을 기반으로 작성된 Markdown 파일입니다.
-
-```markdown
 # Guacamole Docker Compose 설정 및 Nginx Reverse Proxy 구성
 
 이 문서는 Guacamole을 Docker Compose로 설치하고, Nginx Reverse Proxy를 설정하여 8080 포트를 매핑하는 방법을 설명합니다. 또한, 데이터베이스 비밀번호를 변경하는 방법도 포함되어 있습니다.
 
 ---
+
+## Compose 출처와 자격 증명 변경 경계
+
+이 예시는 제3자 저장소의 `prepare.sh`와 Compose 구성을 사용하므로 실행 전에 commit을 고정하고 스크립트·이미지·노출 포트를 검토한다. 기존 MySQL 데이터 볼륨에서는 `MYSQL_ROOT_PASSWORD`나 `MYSQL_PASSWORD` 환경 변수만 바꾸고 컨테이너를 재시작해도 저장된 계정 비밀번호가 자동으로 회전한다고 가정하지 않는다. 데이터베이스에서 자격 증명을 변경하고 Guacamole 연결 설정을 같은 변경 단위로 갱신하며 실패 시 복원할 백업을 준비한다. 기본 `guacadmin` 계정은 첫 로그인 즉시 교체하고 TLS를 구성한다. 완료는 `nginx -t`, HTTPS 로그인, 데이터베이스 재연결, 원격 세션, 재시작 후 지속성을 확인해 판정한다.
 
 ## 1. Guacamole Docker Compose 설치
 

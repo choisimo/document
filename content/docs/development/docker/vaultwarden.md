@@ -4,6 +4,15 @@ Vaultwarden을 다양한 환경에서 안전하게 배포하기 위한 Docker Co
 
 ---
 
+## 적용 범위와 보안 검증 기준
+
+- **범위:** Vaultwarden·database·proxy·tunnel·backup image의 version 또는 digest, Docker/Compose, domain, TLS 종료 지점과 외부 노출 경계를 기록합니다.
+- **보안 전제:** secret은 repository와 image에서 분리하고 registration·admin endpoint·2FA·rate limit·proxy header·ACL을 위협 모델에 맞게 설정합니다. 예제 구성이 production readiness를 보장하지 않습니다.
+- **근거와 불확실성:** image health, HTTPS 접속과 backup 생성은 일부 근거일 뿐입니다. proxy chain, mail, WebSocket, update 호환성, third-party backup image와 restore 가능성은 별도 검증합니다.
+- **실패·완료:** 인증 우회, 잘못된 header 신뢰, secret 노출, database 손상, backup 유실과 update rollback을 시험합니다. 암호화된 backup의 독립 restore와 계정 복구까지 성공해야 배포 완료입니다.
+
+---
+
 ## 목차
 
 1. [배포 시나리오 선택](#배포-시나리오-선택)
@@ -31,7 +40,7 @@ Vaultwarden을 다양한 환경에서 안전하게 배포하기 위한 Docker Co
 
 ## 1. 기본 구성 (Vaultwarden Only)
 
-가장 단순한 구성으로 내부 네트워크에서만 접근 가능합니다.
+구성이 단순한 예시이지만 실제 접근 범위는 published port, host firewall, bind address와 주변 network 정책으로 결정됩니다.
 
 ### 빠른 시작
 
@@ -178,7 +187,7 @@ docker logs vaultwarden-tunnel
 
 ## 4. 전체 통합 구성 (Nginx + Cloudflare Tunnel)
 
-프로덕션 환경을 위한 완전한 구성입니다.
+Nginx와 tunnel을 결합한 예시이며 production readiness는 version 고정, 위협 모델, secret, monitoring, backup·restore와 update 정책을 추가로 검증해야 합니다.
 
 ### 설치 및 실행
 
@@ -234,10 +243,10 @@ echo -n "your-password" | argon2 "$(openssl rand -base64 32)" -e -id -k 65540 -t
 
 ### 자동 백업
 
-모든 구성에 `bruceforce/vaultwarden-backup` 컨테이너가 포함되어 있습니다.
+이 문서의 일부 예시는 third-party `bruceforce/vaultwarden-backup` container를 사용합니다. 공급망, version/digest, 권한과 독립 restore를 검토합니다.
 
 - **기본 스케줄**: 매일 새벽 4시
-- **보존 기간**: 30일 (설정 가능)
+- **보존 기간**: 본문의 30일은 예시입니다. 복구 시점 목표, 변경 빈도, 저장 비용과 규정에 따라 설정합니다.
 - **백업 위치**: `./backups/`
 
 ### 수동 백업
@@ -282,7 +291,7 @@ docker compose up -d
 
 ### 추가 권장 사항
 
-- **2FA 활성화**: 모든 사용자가 2단계 인증 사용
+- **2FA 정책**: 지원 version과 계정 복구 절차를 확인하고, 위험 수준에 따라 사용자별 또는 조직 차원의 2단계 인증 적용을 검증
 - **IP 제한**: 관리자 페이지 접근 시 IP 화이트리스트
 - **로그 모니터링**: 의심스러운 활동 감시
 - **정기 업데이트**: Vaultwarden 이미지 정기 업데이트

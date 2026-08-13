@@ -4,9 +4,11 @@
 
 ---
 
+> **Reading contract:** This guide is for operators tracing a conventional Kubernetes control plane. Record Kubernetes and etcd versions, managed-service behavior, feature gates, CRI/CNI/CSI, proxy mode, scheduler profile, and controller flags. API guarantees are facts; component paths and timeout values are versioned implementation examples. An operation is complete only when the intended object revision is persisted, controllers converge, endpoints are Ready, traffic and SLOs are observed, and rollback is exercised. Watch closure, stale resource versions, admission rejection, scheduling, image, probe, volume, and node failures require bounded retry with backoff and an explicit escalation point.
+
 ## 1. The Control Plane: etcd as the Ground Truth
 
-Every decision Kubernetes makes flows through a single source of truth: **etcd**, a distributed key-value store implementing the **Raft consensus algorithm**. When you `kubectl apply` a manifest, the journey begins not at the scheduler or kubelet — it begins at etcd.
+Durable Kubernetes API state is normally persisted by kube-apiserver in etcd, while components make decisions from API objects, caches, local state, and external systems. A `kubectl apply` request begins at the API server and reaches storage only after authentication, authorization, admission, validation, and mutation succeed.
 
 ```mermaid
 flowchart TD
@@ -23,7 +25,7 @@ flowchart TD
     CRI --> CGROUP["Linux cgroup namespace\nPID/Net/Mount isolation"]
 ```
 
-The apiserver **never** writes to the scheduler or kubelet directly. Everything is **event-driven watch loops** — each component watches etcd for objects whose state it is responsible for reconciling.
+The API server does not invoke scheduler or kubelet work directly. Components list and watch the **API server**, not etcd, and must relist or retry after watch closure, compaction, authorization changes, or network failure. Some loops also poll local or external state.
 
 ### etcd Raft Internals
 
@@ -50,7 +52,7 @@ sequenceDiagram
     L->>F2: Commit notification
 ```
 
-If the leader dies mid-write, Raft guarantees the partially-written entry is rolled back — the cluster elects a new leader and replays only committed log entries.
+If an etcd leader fails mid-write, an uncommitted entry is not applied as committed state and may later be overwritten during log repair. Calling this a rollback hides the distinction between local WAL presence, commitment, client uncertainty, and a safe idempotent retry.
 
 ---
 
@@ -103,7 +105,7 @@ stateDiagram-v2
 
 ## 3. kubelet: The Node Agent's Internal Loop
 
-The kubelet is the most complex component — it runs on every node and bridges the Kubernetes API with the container runtime (containerd/CRI-O) and Linux kernel.
+The kubelet is a major node component that bridges Kubernetes API intent with the container runtime and host facilities. "Most complex" is not a measurable property and varies with the deployed integrations.
 
 ```mermaid
 flowchart TD
@@ -147,7 +149,7 @@ block-beta
 
 ## 4. Container Runtime Interface (CRI): The Abstraction Layer
 
-kubelet speaks **gRPC** to the CRI shim — it never calls Docker or containerd directly. The CRI defines two services: `RuntimeService` (pods/containers) and `ImageService` (pull/list/remove).
+kubelet uses the **CRI gRPC API** exposed by a runtime endpoint such as containerd or CRI-O. It does not rely on Docker's legacy API; whether a separate shim exists is runtime- and version-dependent.
 
 ```mermaid
 sequenceDiagram
@@ -491,7 +493,7 @@ sequenceDiagram
     KUBELET2->>CRI2["containerd (new node)"]: Start containers
 ```
 
-The 5-minute default eviction timeout means a node failure takes ~6 minutes to detect + reschedule. Tuning `node-monitor-period`, `node-monitor-grace-period`, and `pod-eviction-timeout` trades false-positive evictions against recovery speed.
+Node detection, tainting, eviction, endpoint removal, and replacement timing depend on Kubernetes version, controller flags, tolerations, disruption rules, storage, and workload shutdown. Treat the shown five-minute value as a configuration example and measure end-to-end recovery rather than adding nominal timers.
 
 ---
 
@@ -514,4 +516,4 @@ flowchart TD
     KPROXY -->|Route packets| APP
 ```
 
-Every API call is authenticated, authorized, admitted, persisted to etcd, and then propagated through watch streams to the relevant controllers and node agents — no component holds authoritative state except etcd.
+Mutating API requests that pass the configured chain are persisted; reads, dry runs, rejected requests, subresources, and aggregated APIs differ. etcd is normally authoritative for Kubernetes API storage, while external clouds, volumes, identities, and node runtime state remain authoritative in their own domains.

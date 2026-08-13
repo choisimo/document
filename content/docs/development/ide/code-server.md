@@ -1,6 +1,15 @@
 # Code-Server 설치 및 설정 가이드
 
-VS Code를 브라우저에서 사용할 수 있게 해주는 code-server 설치 및 설정 가이드입니다.
+code-server의 한 가지 설치·proxy·service 구성 경로를 설명합니다. 명령과 기본값은 대상 version과 OS에서 공식 문서와 대조합니다.
+
+---
+
+## 적용 범위와 보안 검증 기준
+
+- **범위:** code-server, OS, 설치 방식, service manager, extension과 reverse proxy 버전을 기록합니다. installer URL, 설정 키와 기본 인증 동작은 변경될 수 있습니다.
+- **노출 전제:** bind address, TLS 종료, WebSocket forwarding, 인증·SSO, proxy header 신뢰, firewall와 update 정책을 먼저 정합니다. 인터넷 노출 시 password 하나만으로 충분하다고 가정하지 않습니다.
+- **근거와 불확실성:** process 실행과 login 화면은 일부 근거입니다. extension 호환성, remote filesystem 권한, terminal 권한과 장시간 연결은 별도 검증합니다.
+- **실패·완료:** 인증 우회, 잘못된 외부 bind, certificate·WebSocket 오류, restart 실패와 extension 공급망 위험을 확인하고 최소 권한·reboot 후 접속·log·rollback이 검증될 때 완료입니다.
 
 ---
 

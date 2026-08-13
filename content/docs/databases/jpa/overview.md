@@ -2,6 +2,13 @@
 
 Java Persistence API(JPA)의 기본 개념과 복합키 매핑 방법을 설명합니다.
 
+## 적용 범위와 검증 기준
+
+- JPA 명세의 계약과 Hibernate 같은 구현체의 동작을 구분하고, Jakarta/Javax 패키지와 구현 버전을 고정합니다.
+- 기본키 생성 전략과 SQL은 데이터베이스 dialect, 시퀀스·identity 지원, 배치 요구에 따라 선택합니다.
+- 복합키 클래스는 명세가 요구하는 생성자·직렬화 가능성·`equals`/`hashCode` 계약을 만족해야 합니다. Lombok은 구현 수단 중 하나일 뿐입니다.
+- 매핑 완료는 애플리케이션 기동이 아니라 스키마, insert/find/delete, 프록시 경계, 쿼리 수와 트랜잭션 롤백을 통합 테스트로 확인한 상태입니다.
+
 ---
 
 ## 📋 JPA란?
@@ -94,7 +101,7 @@ flowchart TB
 @Embeddable
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode  // 필수!
+@EqualsAndHashCode  // 예시: 식별자 필드만 계약에 맞게 포함
 public class AlarmReadsId implements Serializable {
     
     @Column(name = "alarm_id")
@@ -296,7 +303,7 @@ boolean exists = alarmReadsRepository.existsById(
 
 ## ⚠️ 주의사항
 
-### equals()와 hashCode() 필수 구현
+### equals()와 hashCode() 계약 구현
 
 ```java
 @Embeddable

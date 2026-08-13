@@ -1,6 +1,9 @@
 # NetworkManager를 사용한 Static IP 설정 방법
 
-NetworkManager는 RHEL 7부터 도입된 네트워크를 모니터링하고 관리하는 데몬으로, 네트워크의 변경 사항을 탐지하고 설정해주는 역할을 수행합니다[1]. 다양한 리눅스 배포판에서 네트워크 관리를 위해 사용됩니다. 여기서는 NetworkManager를 통해 고정 IP(static IP)를 설정하는 다양한 방법을 알아보겠습니다.
+NetworkManager가 실제 렌더러인 Linux 호스트에서 고정 IPv4 주소를 설정하는 방법입니다. RHEL 7 계열부터 기본 관리자로 널리 쓰였지만 Ubuntu의 netplan은 NetworkManager 또는 `systemd-networkd`를 선택할 수 있습니다.
+
+!!! danger "원격 변경 전제"
+    주소·게이트웨이 변경은 현재 SSH 경로를 끊을 수 있습니다. 콘솔이나 별도 관리망, 이전 프로파일, 주소 충돌 검사, 자동 롤백 수단을 확보하고 설치된 NetworkManager/netplan 버전을 기록하세요.
 
 ## nmcli를 이용한 고정 IP 설정
 
@@ -54,9 +57,9 @@ nmtui
 
 ### Ubuntu 18.04 이상
 
-Ubuntu 18.04부터는 netplan을 사용하여 네트워크를 설정합니다:
+Ubuntu 18.04 이후 설치에서는 netplan 구성이 일반적이지만 실제 렌더러와 파일명은 이미지·설치 방식에 따라 다릅니다:
 
-1. 이더넷 이름 확인: `ifconfig -a`
+1. 인터페이스와 실제 관리자를 확인: `ip link`, `networkctl status`, `nmcli device status`
 2. netplan 설정 파일 수정:
 ```
 sudo nano /etc/netplan/01-network-manager-all.yaml
@@ -71,7 +74,9 @@ network:
     ens33:  # 네트워크 인터페이스 이름
       dhcp4: no
       addresses: [192.168.59.100/24]  # 고정 IP 주소/서브넷 마스크
-      gateway4: 192.168.59.1  # 게이트웨이 주소
+      routes:
+        - to: default
+          via: 192.168.59.1
       nameservers:
         addresses: [8.8.8.8, 8.8.4.4]  # DNS 서버
 ```
@@ -101,7 +106,10 @@ networkctl list
 ## 주의사항
 
 1. IP 주소를 할당하지 않고 ipv4.method를 manual로 변경하면 에러가 발생합니다[1].
-2. 설정 후 네트워크를 재시작하거나 시스템을 재부팅해야 변경사항이 적용될 수 있습니다[3].
+2. 활성 연결을 다시 올리면 대개 적용되며, 재부팅은 일반적인 첫 조치가 아닙니다. 원격 시스템에서는 전체 네트워크 서비스 재시작을 피하세요.
 3. Ubuntu의 netplan 설정 파일에서는 띄어쓰기와 문장 간격이 매우 중요하므로 주의해야 합니다[7].
 
 이 방법들을 사용하면 NetworkManager를 통해 리눅스 시스템에서 고정 IP를 설정할 수 있습니다.
+## 완료 및 롤백 증거
+
+`ip address`, `ip route`, `resolvectl status` 또는 `nmcli device show`로 적용값을 확인하고 게이트웨이, DNS, 관리 엔드포인트를 각각 시험합니다. 재부팅 후에도 같은 프로파일과 경로가 유지되어야 완료입니다. 실패하면 콘솔에서 이전 프로파일이나 백업한 netplan 파일을 복원합니다.

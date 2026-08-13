@@ -6,8 +6,17 @@
 |------|------|
 | **Use Case** | 정렬된 배열에서 합/차 찾기, 부분 배열 |
 | **Components** | Left, Right 포인터 |
-| **Constraint** | 정렬 필수 (대부분) |
-| **시간 복잡도** | O(N) |
+| **Constraint** | inward search는 주로 정렬 필요; same-direction pattern은 별도 monotonic invariant 사용 |
+| **시간 복잡도** | 두 pointer가 단조 이동하는 한 pass는 O(N); 3Sum 등 전체 algorithm은 다를 수 있음 |
+
+---
+
+## 적용 범위와 검증 기준
+
+- **범위:** 두 index가 단조롭게 이동하며 각 element를 제한된 횟수 처리하는 pattern에서 `O(N)`이 가능합니다. 모든 two-pointer 문제나 3Sum 전체가 `O(N)`인 것은 아닙니다.
+- **전제:** sortedness가 필요한 inward-pointer 문제와 정렬 없이 가능한 same-direction/window 문제를 구분합니다. sort 비용과 original index 보존도 포함합니다.
+- **실패 조건:** duplicate skip, pointer 미진행, empty/short input, overflow와 음수 때문에 깨지는 monotonic condition을 포함합니다.
+- **완료 증거:** brute-force pair/triple/subarray reference와 비교하고 누락·중복 result, ordering과 pointer invariant를 확인합니다.
 
 ---
 

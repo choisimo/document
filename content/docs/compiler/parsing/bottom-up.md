@@ -1,6 +1,13 @@
 # Bottom-Up 파싱 완전 정복: 개념부터 LR 파싱까지
 
-Bottom-Up 파싱은 입력 문자열을 잎(leaves, 단말 기호)에서부터 시작 심볼(root)으로 환원해 나가는 방식으로, 오른쪽 최단 유도(Rightmost Derivation)를 역추적합니다.
+Bottom-Up 파싱은 입력 문자열을 잎(leaves, 단말 기호)에서 시작 심볼(root)로 환원하며 최우단 유도(Rightmost Derivation)의 역과정을 구성합니다.
+
+## 범위와 완료 조건
+
+- 입력은 증강 문법, 토큰 스트림과 EOF이며 산출물은 shift/reduce/accept/error 행동을 결정하는 상태 또는 표입니다.
+- 스택 위 RHS 모양만으로 임의 환원을 선택하지 않습니다. LR 계열에서는 상태와 lookahead에 대한 ACTION/GOTO 항목이 행동을 정합니다.
+- shift/reduce 또는 reduce/reduce 충돌은 숨기지 않고 상태, 항목, lookahead와 선택한 해결 규칙을 기록합니다.
+- 수용 완료는 입력 전체와 EOF를 소비하고 증강 시작 규칙의 accept 행동에 도달한 경우입니다.
 
 ---
 
@@ -23,7 +30,7 @@ flowchart LR
 flowchart LR
   SHIFT[Shift: 토큰을 스택에 push]
   REDUCE[Reduce: RHS → LHS 환원]
-  ACCEPT[Accept: 시작 심볼만 남으면 성공]
+  ACCEPT[Accept: EOF에서 증강 시작 항목의 accept 행동]
   ERROR[Error: 파싱 불가]
 
   SHIFT --> REDUCE

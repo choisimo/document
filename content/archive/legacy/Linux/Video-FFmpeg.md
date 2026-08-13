@@ -117,4 +117,7 @@ ffmpeg -i input.mp4 -c copy -map 0 -segment_time 280 -f segment -reset_timestamp
 특정 구간 1개 자르기	ffmpeg -i input.mp4 -ss [시작] -t [길이] -c copy output.mp4	가장 일반적. 화질 손실 없고 빠름.
 일정한 시간 간격으로 모두 쪼개기	ffmpeg -i input.mp4 -c copy -f segment -segment_time [초] ... output_%03d.mp4	긴 동영상을 여러 개로 나눌 때 편리.
 정확한 시간/프레임에 맞춰 자르기	-c copy 옵션 제거	재인코딩으로 느리지만 정확함.
+## 적용 범위와 완료 기준
+
+이 문서의 명령은 입력 컨테이너와 코덱, 설치된 FFmpeg의 빌드 옵션에 따라 결과가 달라진다. 실행 전 `ffmpeg -i <입력>`으로 스트림을 식별하고, 완료 후 종료 코드와 출력 스트림의 코덱 및 재생 가능 여부를 확인한다. 예시 명령의 경로, 파일명, 코덱 조건은 현재 환경에 맞게 치환해야 한다.
 

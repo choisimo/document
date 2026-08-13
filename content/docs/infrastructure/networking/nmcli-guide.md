@@ -4,7 +4,10 @@ description: nmcli를 사용한 Linux 네트워크 설정 및 고정 IP 구성 �
 
 # nmcli 네트워크 설정 가이드
 
-`nmcli`(Network Manager CLI)를 사용하여 Linux에서 네트워크를 설정하는 방법을 정리합니다.
+NetworkManager가 해당 인터페이스를 관리하는 Linux에서 `nmcli`로 연결 프로파일을 구성하는 방법입니다. 속성 지원과 재적용 가능 여부는 NetworkManager 및 배포판 버전에 따라 다릅니다.
+
+!!! danger "원격 변경 안전 조건"
+    현재 SSH 경로를 바꾸기 전에 콘솔·별도 관리망, 이전 프로파일, 주소 충돌 검사와 자동 롤백 수단을 확보하세요.
 
 ## 기본 명령어
 
@@ -68,7 +71,7 @@ sudo nmcli connection modify "연결이름" \
 sudo nmcli connection down "Wired connection 1"
 sudo nmcli connection up "Wired connection 1"
 
-# 또는 한 번에 (SSH 접속 중일 때 유용)
+# 일부 재적용 가능한 속성만 활성 연결에 반영
 sudo nmcli device reapply ens33
 ```
 
@@ -142,7 +145,7 @@ nmcli device wifi list
 
 ```bash
 # 기본 연결 (DHCP)
-sudo nmcli device wifi connect "SSID명" password "비밀번호"
+sudo nmcli --ask device wifi connect "SSID명"
 
 # 고정 IP로 Wi-Fi 연결
 sudo nmcli connection add \
@@ -254,12 +257,11 @@ sudo nmcli connection modify "Wired connection 1" \
 
 ### 변경사항이 적용되지 않을 때
 
-```bash
-# NetworkManager 서비스 재시작
-sudo systemctl restart NetworkManager
+대상 프로파일과 journal을 먼저 확인합니다. NetworkManager 재시작이나 `nmcli networking off`는 모든 관리 연결을 끊을 수 있으므로 콘솔이 확보된 마지막 복구 단계에서만 사용합니다.
 
-# 또는 네트워크 재시작
-sudo nmcli networking off && sudo nmcli networking on
+```bash
+sudo nmcli connection up "연결이름"
+journalctl -u NetworkManager --since "-10 min"
 ```
 
 ### DNS가 작동하지 않을 때
@@ -285,6 +287,10 @@ nmcli -p connection show "Wired connection 1"
 ```
 
 ---
+
+## 완료 및 실패 판정
+
+`nmcli connection show --active`, `ip address`, `ip route get <관리서버IP>`로 프로파일과 실제 송신 경로를 확인하고 DNS와 관리 서비스를 별도로 시험합니다. 재부팅 후 자동 연결까지 유지되어야 완료이며, 실패하면 기존 프로파일을 다시 올립니다. 기존 프로파일 삭제는 검증 후 수행합니다.
 
 ## 참고 자료
 
