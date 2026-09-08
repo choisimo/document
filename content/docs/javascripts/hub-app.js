@@ -336,7 +336,7 @@
     $('#stack-count').textContent = `${stacks.length}개 스택`;
     $('#stack-results').innerHTML = stacks.length ? `<div class="stack-list">${stacks.map(s => `<a class="stack-row" href="#/stack/${s.id}" data-stack="${s.id}">${stackGlyph(s)}<div class="stack-copy"><span class="small muted">${h(s.group)}</span><h3>${h(s.title)}</h3><p>${h(s.desc)}</p></div><span class="stack-count">${readableServiceCount(s)}</span>${icon('arrow')}</a>`).join('')}</div>` : empty('스택을 찾지 못했어요.', '검색어를 지우거나 다른 유형을 선택해 보세요.', 'layers', btn('조건 초기화', 'stack-reset', '', 'soft'));
   }
-  function syntaxLine(raw) {    
+  function syntaxLine(raw) {
 if (/^\s*(#|--)/.test(raw)) return `<span class="syntax-comment">${h(raw)}</span>`;
     const regex = /("[^"\n]*"|'[^'\n]*'|\b\d+(?:\.\d+)*\b|\b(?:auto|iface|static|address|gateway|bridge|apiVersion|kind|metadata|name|namespace|spec|type|selector|ports|port|targetPort|services|image|global|scrape_interval|scrape_configs|job_name|static_configs|targets|SELECT|FROM|WHERE|ORDER|BY|LIMIT|EXPLAIN)\b)/g;
     let out = '', last = 0; for (const m of raw.matchAll(regex)) { out += h(raw.slice(last, m.index)); const cls = /^["']/.test(m[0]) ? 'syntax-str' : /^\d/.test(m[0]) ? 'syntax-num' : 'syntax-key'; out += `<span class="${cls}">${h(m[0])}</span>`; last = m.index + m[0].length; } return out + h(raw.slice(last));
@@ -379,7 +379,7 @@ if (/^\s*(#|--)/.test(raw)) return `<span class="syntax-comment">${h(raw)}</span
   function rememberDocument(id) {
     if(!byId(id))return;state.lastDoc=id;recents=[id,...recents.filter(current=>current!==id)].slice(0,10);save('recents',recents);
   }
-  function loadPane(i, id, anchor = '') {    
+  function loadPane(i, id, anchor = '') {
 if (id !== null && !byId(id)) return; if(id)rememberDocument(id);capturePaneScroll(); const s = session(), p = s.panes[i]; if (!p) return;
     if (entry(s, i).id === id && entry(s, i).anchor === anchor) { activatePane(i); if (anchor) { const scroll = $(`.pane-scroll[data-pane="${i}"]`); revealAnchor(scroll,anchor,scroll); } return; }
     p.history = p.history.slice(0, p.cursor + 1); p.history.push({ id, anchor, positioned:false, scroll: 0 }); if (p.history.length > 30) p.history.shift(); p.cursor = p.history.length - 1; s.active = i; saveWorkspace(); setMain(workspacePage()); setupWorkspace();
@@ -476,7 +476,7 @@ if (id !== null && !byId(id)) return; if(id)rememberDocument(id);capturePaneScro
     if (commandItems.length) current.setAttribute('aria-activedescendant', 'command-opt-' + commandIndex); else current.removeAttribute('aria-activedescendant');
   }
   function moveCommand(delta) { if (!commandItems.length) return; commandIndex = (commandIndex + delta + commandItems.length) % commandItems.length; $$('.command-item').forEach((el, i) => { el.setAttribute('aria-selected', String(i === commandIndex)); const k = $('kbd', el); if (k) k.remove(); if (i === commandIndex) el.insertAdjacentHTML('beforeend', '<kbd>↵</kbd>'); }); $('#command-input').setAttribute('aria-activedescendant', 'command-opt-' + commandIndex); $('#command-opt-' + commandIndex)?.scrollIntoView({ block: 'nearest' }); }
-  function chooseCommand(index) {    
+  function chooseCommand(index) {
 const item = commandItems[index]; if (!item) return; $('#command-dialog').close();
     if (item.type === 'history') { capturePaneScroll(); const p = session().panes[commandMode.index]; p.cursor = item.historyIndex; session().active = commandMode.index; saveWorkspace(); setMain(workspacePage()); setupWorkspace(); }
     else if (item.type === 'nav') navigate('#/' + item.id);
@@ -506,7 +506,7 @@ const item = commandItems[index]; if (!item) return; $('#command-dialog').close(
     toast(had ? '보관함에서 뺐습니다. 원본 문서는 그대로 남습니다.' : '보관함에 저장했습니다.');
   }
 
-  function sessionForm(rename = false) {    
+  function sessionForm(rename = false) {
 if (!rename && sessions.length >= 8) { toast('한 탭에서 최대 8개 세션을 만들 수 있습니다.', 'info'); return; }
     openModal(rename ? '워크스페이스 이름 변경' : '새 워크스페이스', `<form id="session-form" data-mode="${rename ? 'rename' : 'new'}"><div class="field"><label for="new-session-name">세션 이름</label><input id="new-session-name" name="name" value="${h(rename ? session().name : '워크스페이스 ' + (sessions.length + 1))}" maxlength="40" required autofocus><small>문서 원본이 아니라 열린 창과 읽기 위치를 저장합니다.</small></div><p class="field-error" id="session-error" role="alert"></p></form>`, btn('취소', 'modal-close') + `<button class="btn primary" type="submit" form="session-form">${rename ? '이름 저장' : '새 세션 만들기'}</button>`);
   }
@@ -900,7 +900,7 @@ if (!rename && sessions.length >= 8) { toast('한 탭에서 최대 8개 세션�
     'skip-main': (b, e) => { e.preventDefault(); $('#main').focus(); $('#main').scrollIntoView({ block: 'start' }); },
     'menu': toggleNav, 'tour': openTour,
     'modal-close': closeModal, 'command-close': () => $('#command-dialog').close(), 'tour-route': closeModal,
-    
+
     'set-theme': b => { settings.theme = b.dataset.id === 'dark' ? 'dark' : 'light'; persistSettings(); renderTopbar(); $('#main').innerHTML = settingsPage(); $('[data-action="set-theme"][data-id="' + settings.theme + '"]')?.focus(); },
     'density': b => { settings.density = b.dataset.id === 'compact' ? 'compact' : 'comfortable'; persistSettings(); $('#main').innerHTML = settingsPage(); $('[data-action="density"][data-id="' + settings.density + '"]')?.focus(); },
     'motion': b => { settings.motion = settings.motion === 'reduce' ? 'normal' : 'reduce'; persistSettings(); b.setAttribute('aria-checked', String(settings.motion === 'reduce')); },
@@ -932,9 +932,9 @@ if (!rename && sessions.length >= 8) { toast('한 탭에서 최대 8개 세션�
      'split-doc': b => splitDoc(b.dataset.id), 'bookmark': b => toggleBookmark(b.dataset.id),
     'library-view': b => { state.libraryView = b.dataset.id === 'grid' ? 'grid' : 'list'; syncViewURL(); updateLibrary(); },
     'library-reset': () => { state.libraryQ = ''; state.libraryCategory = 'all'; syncViewURL(); route(); },
-    
+
     'stack-reset': () => { state.stackQ = ''; state.stackGroup = 'all'; $('#stack-search').value = ''; $('#stack-group').value = 'all'; syncViewURL(); lastStackURL = currentViewKey; updateStacks(); },
-    
+
     'code-copy': b => { const code = codeStore.get(b.dataset.id); if (typeof code === 'string') copyText(code, b); },
     'code-wrap': b => { const el = document.getElementById(b.dataset.id); if (!el) return; el.classList.toggle('wrap'); b.setAttribute('aria-pressed', String(el.classList.contains('wrap'))); },
     'code-collapse': b => { const el = document.getElementById(b.dataset.id); if (!el) return; el.classList.toggle('collapsed'); b.setAttribute('aria-expanded', String(!el.classList.contains('collapsed'))); b.setAttribute('aria-label', el.classList.contains('collapsed') ? '코드 펼치기' : '코드 접기'); },
@@ -1052,7 +1052,15 @@ if (!rename && sessions.length >= 8) { toast('한 탭에서 최대 8개 세션�
   $('#mobile-scrim').addEventListener('click', () => { closeNav(); $('.mobile-menu-btn')?.focus(); });
   for (const dialog of [$('#modal'), $('#command-dialog')]) {
     dialog.addEventListener('click', event => { if (event.target !== dialog) return; const r = dialog.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dialog.close(); });
-    dialog.addEventListener('close', () => { if (dialog.id === 'modal' && $('#assistant-form')) { assistantSequence++;window.aiClient?.abort?.(); } if (!$('dialog[open]')) document.body.classList.remove('dialog-open'); if (!$('dialog[open]') && restoreTarget?.isConnected && !restoreTarget.closest('dialog') && !restoreTarget.closest('[inert]')) restoreTarget.focus({ preventScroll: true }); });
+    dialog.addEventListener('close', () => {
+      if (dialog.id === 'modal' && $('#assistant-form')) { assistantSequence++; window.aiClient?.abort?.(); }
+      if ($('dialog[open]')) return;
+      document.body.classList.remove('dialog-open');
+      // The close event is queued. Keep focus if the user has already moved on.
+      const active = document.activeElement;
+      const needsRestore = !active || active === document.body || dialog.contains(active);
+      if (needsRestore && restoreTarget?.isConnected && !restoreTarget.closest('dialog') && !restoreTarget.closest('[inert]')) restoreTarget.focus({ preventScroll: true });
+    });
   }
   const onLocationChange=()=>{if(location.href!==lastRoutedURL)route();};
   window.addEventListener('hashchange',onLocationChange);

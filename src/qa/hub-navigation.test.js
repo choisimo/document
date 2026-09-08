@@ -99,6 +99,23 @@ test('reference application reads the actual published corpus and preserves brow
     assert.equal(await page.locator('.result-row').count(), 0);
   });
 
+  await t.test('a queued dialog close does not steal focus from the next search', async st => {
+    const { page } = await setup(st);
+    await page.goto(base);
+    await page.locator('.quick-search').click();
+    await page.locator('#command-dialog[open]').waitFor();
+    const activeId = await page.evaluate(() => new Promise(resolve => {
+      const dialog = document.querySelector('#command-dialog');
+      dialog.addEventListener('close', () => resolve(document.activeElement.id), { once: true });
+      dialog.close();
+      document.querySelector('#home-search').focus();
+    }));
+    assert.equal(activeId, 'home-search');
+    await page.keyboard.type('Docker');
+    await page.keyboard.press('Enter');
+    await page.locator('.result-row').first().waitFor();
+  });
+
   await t.test('catalog, actual reader content, source links, bookmarks and workspace share a document', async st => {
     const { page } = await setup(st);
     await page.goto(base + '#/library');
@@ -187,7 +204,7 @@ test('reference application reads the actual published corpus and preserves brow
     await pendingPage.locator('.article-header h1').waitFor();
     const next = catalog.docs.find(doc => doc.source === 'security/ssh/configuration.md');
     await pendingPage.evaluate(id => { location.hash = '#/doc/' + id; }, next.id);
-    await pendingPage.locator(`.hub-document-body[data-document-id="${next.id}"] pre`).first().waitFor();
+    await pendingPage.locator(`.hub-document-body[data-document-id="${next.id}"]`).first().waitFor();
     release();
     await (await received).finished();
     await pendingPage.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
@@ -197,7 +214,10 @@ test('reference application reads the actual published corpus and preserves brow
 
   await t.test('body-only search terms are found after an index failure and retry without losing the query', async st => {
     const { context, page } = await setup(st);
-    const term = 'ExpandNonterminal';
+    const metadata = [document.title, document.description, document.topic, ...document.tags].join(' ').toLowerCase();
+    const body = JSON.parse(fs.readFileSync(path.join(SITE, document.contentUrl), 'utf8'));
+    const term = body.html.replace(/<[^>]*>/g, ' ').match(/[A-Za-z]{7,}/g).find(word => !metadata.includes(word.toLowerCase()));
+    assert.ok(term, 'the real article contains a searchable body-only term');
     assert.ok(![document.title, document.description, document.topic, ...document.tags].join(' ').includes(term));
     const fail = route => route.abort('failed');
     await context.route('**/search/search_index.json', fail);

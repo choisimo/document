@@ -575,7 +575,9 @@ fn is_single_line_html_comment(trimmed: &str) -> bool {
 }
 
 fn is_fence_close(trimmed: &str, delim: &str) -> bool {
-    trimmed.starts_with(delim)
+    let marker = delim.chars().next().unwrap_or('`');
+    let run = trimmed.chars().take_while(|&ch| ch == marker).count();
+    run >= delim.len() && trimmed[run..].trim().is_empty()
 }
 
 fn extract_markdown_links(line: &str) -> Vec<String> {
@@ -1185,5 +1187,25 @@ Bad anchor link: [Bad Anchor](target.md#does-not-exist)
         .expect("validate");
 
         assert!(!report.issues.iter().any(|i| i.kind == CheckKind::Format));
+    }
+
+    #[test]
+    fn fence_content_with_language_label_does_not_hide_later_anchors() {
+        let dir = tempdir().expect("tempdir");
+        let docs = dir.path().join("docs");
+        fs::create_dir_all(&docs).expect("mkdir");
+        fs::write(
+            docs.join("nested.md"),
+            "# Example\n\n[Result](#result)\n\n```text\n```python\nprint(1)\n```\n\n## Result\n",
+        ).expect("write source");
+        let report = validate(&ValidationOptions {
+            source_root: docs.clone(),
+            docs_base: docs,
+            link_root: None,
+            check_mermaid: false,
+            check_links: true,
+            check_format: false,
+        }).expect("validate");
+        assert!(report.issues.is_empty(), "{:?}", report.issues);
     }
 }
