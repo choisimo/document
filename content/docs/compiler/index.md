@@ -1,3 +1,49 @@
+---
+title: "컴파일러"
+---
+
+# 컴파일러 {#_1}
+
+<nav class="hub-directory" aria-label="컴파일러 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">어휘 분석</h2>
+
+- [NFA](lexical/nfa.md)
+- [DFA와 최소화](lexical/dfa.md)
+- [NFA to DFA 변환](lexical/nfa-to-dfa.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">구문 분석</h2>
+
+- [Context-Free Grammar](parsing/cfg.md)
+- [LL Parser](parsing/ll-parser.md)
+- [LR Parser](parsing/lr-parser.md)
+- [Bottom-Up Parsing](parsing/bottom-up.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">함께 읽기</h2>
+
+- [알고리즘](../algorithms/index.md)
+- [운영체제](../os/index.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>기존 문서 안내</summary>
+
 # 컴파일러 이론 문서
 
 컴파일러 설계와 구현에 관한 학습 자료입니다.
@@ -229,3 +275,5 @@ flowchart TD
 - **Tiger Book** - Modern Compiler Implementation
 - **Engineering a Compiler** - Keith Cooper
 - [JFLAP](https://www.jflap.org/) - 오토마타 시각화 도구
+
+</details>

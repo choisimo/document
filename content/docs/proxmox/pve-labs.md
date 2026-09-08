@@ -632,6 +632,8 @@ journalctl -u pve-ha-lrm -f
 
 ---
 
+<a id="lab-7-백업--복원"></a>
+
 ## Lab 7: 백업 & 복원
 
 ### 목표
@@ -822,6 +824,8 @@ journalctl -k | grep pve-fw
 - [ ] Security Group 작동하는가?
 
 ---
+
+<a id="lab-9-사용자--권한-관리"></a>
 
 ## Lab 9: 사용자 & 권한 관리
 

@@ -102,14 +102,19 @@
          * @returns {string}
          */
         normalizeUrl(url) {
-            let fullUrl = url;
-            if (!url.startsWith('http') && !url.startsWith('/')) {
-                fullUrl = '/' + url;
+            if (typeof url !== 'string' || !url.trim() || url.length > 4096) {
+                throw new Error('문서 주소가 올바르지 않습니다');
             }
-            if (!fullUrl.endsWith('.html') && !fullUrl.endsWith('/') && !fullUrl.includes('.')) {
-                fullUrl = fullUrl + '/';
+            const path = url.startsWith('/') || /^[a-z][a-z\d+.-]*:/i.test(url) ? url : '/' + url;
+            const parsed = new URL(path, window.location.origin);
+            if (!['http:', 'https:'].includes(parsed.protocol) ||
+                parsed.origin !== window.location.origin || parsed.username || parsed.password) {
+                throw new Error('이 사이트의 문서만 열 수 있습니다');
             }
-            return fullUrl;
+            if (!parsed.pathname.endsWith('/') && !parsed.pathname.split('/').pop().includes('.')) {
+                parsed.pathname += '/';
+            }
+            return parsed.href;
         },
 
         /**
@@ -141,8 +146,102 @@
         mobileLayout: '1x1',
         mobileBreakpoint: 768,
         minPaneSize: 150,
-        storageKey: 'splitview-state',
+        legacyStorageKey: 'splitview-state',
+        layoutStorageKey: 'splitview-layout',
+        sessionStorageKey: 'splitview-session',
+        storageVersion: 1,
+        maxHistoryItems: 100,
+        maxStoredChars: 2000000,
         searchDebounceMs: 300
+    };
+
+    // Persistence accepts only explicitly selected fields. Document state belongs
+    // to this browser tab; localStorage must never contain it, even during migration.
+    const StateStorage = {
+        remove(area, key) {
+            try { window[area].removeItem(key); } catch (_) { /* Storage can be denied. */ }
+        },
+
+        read(area, key) {
+            try {
+                const raw = window[area].getItem(key);
+                if (raw === null) return null;
+                if (raw.length > CONFIG.maxStoredChars) throw new Error('Oversized state');
+                const value = JSON.parse(raw);
+                if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid state');
+                return value;
+            } catch (_) {
+                this.remove(area, key);
+                return null;
+            }
+        },
+
+        write(area, key, value) {
+            try { window[area].setItem(key, JSON.stringify(value)); } catch (_) { /* Keep the in-memory workspace. */ }
+        },
+
+        layout(value) {
+            const layout = typeof value?.layout === 'string' && Object.hasOwn(CONFIG.layouts, value.layout)
+                ? value.layout : CONFIG.defaultLayout;
+            const { rows, cols } = CONFIG.layouts[layout];
+            const sizes = (items, count) => {
+                if (!Array.isArray(items) || items.length !== count ||
+                    !items.every(size => Number.isFinite(size) && size > 0 && size <= 100) ||
+                    Math.abs(items.reduce((sum, size) => sum + size, 0) - 100) > 0.1) {
+                    return Array(count).fill(100 / count);
+                }
+                const total = items.reduce((sum, size) => sum + size, 0);
+                return items.map(size => size * 100 / total);
+            };
+            return {
+                version: CONFIG.storageVersion,
+                layout,
+                paneSizes: { rows: sizes(value?.paneSizes?.rows, rows), cols: sizes(value?.paneSizes?.cols, cols) }
+            };
+        },
+
+        documentUrl(value) {
+            try {
+                const url = new URL(ContentPipeline.normalizeUrl(value));
+                return url.pathname + url.search + url.hash;
+            } catch (_) { return null; }
+        },
+
+        session(value) {
+            if (!value || typeof value.id !== 'string' || !/^session-[1-4]$/.test(value.id)) return null;
+            const text = (input, limit) => typeof input === 'string' ? input.slice(0, limit) : '';
+            const rawHistory = Array.isArray(value.history) ? value.history : [];
+            const offset = Math.max(0, rawHistory.length - CONFIG.maxHistoryItems);
+            const entries = rawHistory.slice(offset).flatMap((item, index) => {
+                const url = this.documentUrl(item?.url);
+                return url ? [{ url, title: text(item.title, 1024), index: index + offset }] : [];
+            });
+            const requestedIndex = Number.isInteger(value.historyIndex) ? value.historyIndex : rawHistory.length - 1;
+            const matchedIndex = entries.findLastIndex(item => item.index <= requestedIndex);
+            return {
+                id: value.id,
+                url: this.documentUrl(value.url),
+                title: text(value.title, 1024),
+                query: text(value.query, 2048),
+                view: ['welcome', 'search', 'document'].includes(value.view) ? value.view : (value.url ? 'document' : 'welcome'),
+                history: entries.map(({ url, title }) => ({ url, title })),
+                historyIndex: entries.length ? Math.max(0, matchedIndex) : -1
+            };
+        },
+
+        workspace(value) {
+            if (value?.version !== CONFIG.storageVersion || !Array.isArray(value.sessions)) return null;
+            const sessions = [];
+            for (const item of value.sessions.slice(0, 4)) {
+                const session = this.session(item);
+                if (session && !sessions.some(saved => saved.id === session.id)) sessions.push(session);
+            }
+            return {
+                ...this.layout(value),
+                activeSession: sessions.some(session => session.id === value.activeSession) ? value.activeSession : null,
+                sessions
+            };
+        }
     };
 
     // =====================================================
@@ -157,6 +256,7 @@
             this.currentTitle = '';
             this.searchQuery = '';
             this.searchResults = [];
+            this.view = 'welcome';
             this.scrollPosition = 0;
             this.history = [];
             this.historyIndex = -1;
@@ -165,7 +265,8 @@
         addToHistory(url, title = '') {
             if (this.history[this.historyIndex]?.url !== url) {
                 this.history = this.history.slice(0, this.historyIndex + 1);
-                this.history.push({ url, title, timestamp: Date.now() });
+                this.history.push({ url, title });
+                this.history = this.history.slice(-CONFIG.maxHistoryItems);
                 this.historyIndex = this.history.length - 1;
             }
         }
@@ -215,11 +316,15 @@
             this.originalPageTitle = null;
             this.contentObservers = new Map();
             this.searchRequestIds = new Map();
+            this._searchTimeouts = new Map();
+            this._saveTimeout = null;
+            this._suspendPersistence = false;
+            this._stateCleared = false;
 
             // Per-session AbortControllers: cancel stale fetches when a new load starts
             this._fetchAbortControllers = new Map();
 
-            // Session restore data from localStorage; applied after panes are created in open()
+            // Tab-scoped restore data; applied only after panes are created in open().
             this._savedSessionData = null;
 
             // Drag resize state
@@ -240,6 +345,7 @@
             this.loadSearchIndex();
             this.bindKeyboardShortcuts();
             this.restoreState();
+            window.addEventListener('pagehide', () => this.saveState());
         }
 
         captureCurrentPage() {
@@ -296,7 +402,7 @@
               </svg>
               <span class="split-view-current-page">${this.escapeHtml(this.originalPageTitle || 'Current Page')}</span>
             </button>
-            <select class="split-view-layout-select">
+            <select class="split-view-layout-select" aria-label="패널 배치">
               <option value="1x1">1×1</option>
               <option value="1x2">1×2 (가로)</option>
               <option value="2x1">2×1 (세로)</option>
@@ -304,6 +410,8 @@
             </select>
           </div>
           <div class="split-view-toolbar-right">
+            <button type="button" class="split-view-toolbar-btn split-view-reset" data-action="reset"
+              title="이 탭의 문서·검색 기록과 저장된 배치 초기화" aria-label="이 탭의 문서·검색 기록과 저장된 배치 초기화">초기화</button>
             <button class="split-view-close" title="닫기 (ESC)">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
@@ -328,24 +436,41 @@
             this.container.querySelector('[data-action="load-current"]')
                 .addEventListener('click', () => this.loadCurrentPageToActiveSession());
 
+            this.container.querySelector('[data-action="reset"]')
+                .addEventListener('click', () => this.resetState());
+
             this.grid = this.container.querySelector('.split-view-grid');
             this.gridWrapper = this.container.querySelector('.split-view-grid-wrapper');
             this.observeGridResize();
 
-            // Global capture-phase guard: prevent MkDocs instant-navigation from intercepting
-            // any internal link click that originates inside the split-view container.
-            // This runs before MkDocs' document-level click handler (navigation.instant).
+            // Handle pane links here before MkDocs instant-navigation. Merely stopping
+            // propagation would suppress the pane handler but still allow full-page navigation.
             document.addEventListener('click', (e) => {
-                if (!this.isOpen) return;
+                if (!this.isOpen || e.defaultPrevented || e.button > 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
                 if (!this.container.contains(e.target)) return;
                 const link = e.target.closest('a[href]');
-                if (!link) return;
+                if (!link || link.target === '_blank' || link.hasAttribute('download')) return;
+                const pane = link.closest('.split-view-pane');
+                const session = this.sessions.get(pane?.dataset.sessionId);
+                if (!session) return;
                 const href = link.getAttribute('href');
                 if (!href) return;
-                if (!href.startsWith('http') || href.includes(window.location.hostname)) {
-                    e.stopImmediatePropagation();
+                let url;
+                try {
+                    url = new URL(href, session.currentUrl ? ContentPipeline.normalizeUrl(session.currentUrl) : window.location.href);
+                } catch (_) { return; }
+                if (url.origin !== window.location.origin || !['http:', 'https:'].includes(url.protocol)) return;
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                if (href.startsWith('#')) {
+                    let id;
+                    try { id = decodeURIComponent(url.hash.slice(1)); } catch (_) { return; }
+                    const target = pane.querySelector(`[id="${CSS.escape(id)}"]`);
+                    target?.scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    this.loadContent(url.pathname + url.search + url.hash, session.id);
                 }
-            }, true); // capture=true so this runs before MkDocs' document-level handler
+            }, true);
         }
 
         // ----- Load Current Page Feature -----
@@ -361,8 +486,11 @@
         }
 
         // ----- Layout Management -----
-        setLayout(layoutType) {
-            if (!CONFIG.layouts[layoutType]) return;
+        setLayout(layoutType, { persist = true, paneSizes } = {}) {
+            if (typeof layoutType !== 'string' || !Object.hasOwn(CONFIG.layouts, layoutType)) return;
+
+            const wasSuspended = this._suspendPersistence;
+            this._suspendPersistence = true;
 
             this.currentLayout = layoutType;
             const { rows, cols } = CONFIG.layouts[layoutType];
@@ -370,16 +498,19 @@
             // Clear existing grid
             this.grid.innerHTML = '';
             this.sessions.clear();
+            this.activeSessionId = null;
+            this._searchTimeouts.forEach(timeout => clearTimeout(timeout));
+            this._searchTimeouts.clear();
+            this.searchRequestIds.clear();
+            this.contentObservers.forEach(observer => observer.disconnect());
+            this.contentObservers.clear();
 
             // Cancel any in-flight fetches for sessions being discarded
             this._fetchAbortControllers.forEach(ctrl => { ctrl.abort(); });
             this._fetchAbortControllers.clear();
 
-            // Reset sizes for new layout
-            this.paneSizes = {
-                rows: Array(rows).fill(100 / rows),
-                cols: Array(cols).fill(100 / cols)
-            };
+            this.paneSizes = StateStorage.layout({ layout: layoutType, paneSizes }).paneSizes;
+            this.container.querySelector('.split-view-layout-select').value = layoutType;
 
             this.updateGridTemplate();
 
@@ -396,7 +527,8 @@
             const firstSession = this.sessions.keys().next().value;
             if (firstSession) this.selectSession(firstSession);
 
-            this.saveState();
+            this._suspendPersistence = wasSuspended;
+            if (persist) this.scheduleSave();
         }
 
         updateGridTemplate() {
@@ -545,7 +677,7 @@
                 }
                 document.body.style.cursor = '';
                 document.body.classList.remove('split-view-resizing');
-                this.saveState();
+                this.scheduleSave();
             };
 
             handle.addEventListener('pointerdown', onPointerDown);
@@ -596,7 +728,7 @@
           </div>
         </div>
         <div class="split-view-search-bar">
-          <input type="text" class="split-view-search-input" placeholder="검색... (Ctrl+/)">
+          <input type="text" class="split-view-search-input" aria-label="Session ${index} 문서 검색" placeholder="검색... (Ctrl+/)">
           <svg class="split-view-search-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path fill="currentColor" d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"/>
           </svg>
@@ -629,6 +761,9 @@
             this.sessions.set(sessionId, session);
 
             // Bind events
+            pane.addEventListener('focusin', () => {
+                if (this.activeSessionId !== sessionId) this.selectSession(sessionId, { focus: false });
+            });
             pane.addEventListener('click', (e) => {
                 if (!e.target.closest('.split-view-pane-btn') &&
                     !e.target.closest('.split-view-load-current-btn')) {
@@ -637,17 +772,21 @@
             });
 
             const searchInput = pane.querySelector('.split-view-search-input');
-            let searchTimeout;
             searchInput.addEventListener('input', (e) => {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => {
+                clearTimeout(this._searchTimeouts.get(sessionId));
+                session.searchQuery = e.target.value;
+                session.view = e.target.value.trim() ? 'search' : 'welcome';
+                this.scheduleSave();
+                this._searchTimeouts.set(sessionId, setTimeout(() => {
+                    this._searchTimeouts.delete(sessionId);
                     this.search(e.target.value, sessionId);
-                }, CONFIG.searchDebounceMs);
+                }, CONFIG.searchDebounceMs));
             });
 
             searchInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
-                    clearTimeout(searchTimeout);
+                    clearTimeout(this._searchTimeouts.get(sessionId));
+                    this._searchTimeouts.delete(sessionId);
                     this.search(e.target.value, sessionId);
                 }
             });
@@ -666,19 +805,6 @@
             const content = pane.querySelector('.split-view-content');
             if (content) {
                 this.observeContentMutations(content);
-                // Persistent capture-phase guard for this pane's content area.
-                // Stops MkDocs instant-navigation from acting on any internal link
-                // click inside loaded content. Bound once here (not on every load).
-                content.addEventListener('click', (e) => {
-                    const link = e.target.closest('a[href]');
-                    if (!link) return;
-                    const href = link.getAttribute('href');
-                    if (!href) return;
-                    if (!href.startsWith('http') || href.includes(window.location.hostname)) {
-                        e.stopPropagation();
-                        e.stopImmediatePropagation();
-                    }
-                }, true);
             }
 
             // Select first pane by default
@@ -735,7 +861,8 @@
             }
         }
 
-        selectSession(sessionId) {
+        selectSession(sessionId, { focus = true } = {}) {
+            if (!this.sessions.has(sessionId)) return;
             this.grid.querySelectorAll('.split-view-pane').forEach(pane => {
                 pane.classList.toggle('active', pane.dataset.sessionId === sessionId);
             });
@@ -743,12 +870,13 @@
             this.activeSessionId = sessionId;
 
             const activePane = this.grid.querySelector(`[data-session-id="${sessionId}"]`);
-            if (activePane) {
+            if (activePane && focus) {
                 const input = activePane.querySelector('.split-view-search-input');
                 if (input) input.focus();
             }
 
             this.updateHistoryButtons(sessionId);
+            this.scheduleSave();
         }
 
         // ----- Search Functionality -----
@@ -771,6 +899,10 @@
             if (!session || !pane) return;
 
             session.searchQuery = query;
+            session.view = query.trim() ? 'search' : 'welcome';
+            this._fetchAbortControllers.get(sessionId)?.abort();
+            this._fetchAbortControllers.delete(sessionId);
+            this.scheduleSave();
             const content = pane.querySelector('.split-view-content');
             const status = pane.querySelector('.split-view-status-text');
             const requestId = (this.searchRequestIds.get(sessionId) || 0) + 1;
@@ -802,13 +934,13 @@
                 this.searchIndex = window.DocSearchEngine._indexData || this.searchIndex;
             } catch (error) {
                 console.warn('Split View: search failed', error);
-                if (this.searchRequestIds.get(sessionId) !== requestId) return;
+                if (this.sessions.get(sessionId) !== session || this.searchRequestIds.get(sessionId) !== requestId) return;
                 content.innerHTML = '<div class="split-view-error">검색 중 오류가 발생했습니다</div>';
                 status.textContent = '검색 실패';
                 return;
             }
 
-            if (this.searchRequestIds.get(sessionId) !== requestId) {
+            if (this.sessions.get(sessionId) !== session || this.searchRequestIds.get(sessionId) !== requestId) {
                 return;
             }
 
@@ -934,6 +1066,10 @@
             const status = pane.querySelector('.split-view-status-text');
             const sessionName = pane.querySelector('.split-view-session-name');
 
+            clearTimeout(this._searchTimeouts.get(sessionId));
+            this._searchTimeouts.delete(sessionId);
+            this.searchRequestIds.set(sessionId, (this.searchRequestIds.get(sessionId) || 0) + 1);
+
             status.textContent = '로딩 중...';
             content.innerHTML = '<div class="split-view-loading"><div class="split-view-spinner"></div></div>';
 
@@ -950,7 +1086,8 @@
 
                 // Stage 2: fetch and parse
                 const doc = await ContentPipeline.fetchAndParse(fullUrl, abortController.signal);
-                this._fetchAbortControllers.delete(sessionId);
+                if (abortController.signal.aborted || this.sessions.get(sessionId) !== session ||
+                    this._fetchAbortControllers.get(sessionId) !== abortController) return;
 
                 // Stage 3: extract title and content root
                 const title = MkDocs.extractTitle(doc);
@@ -971,43 +1108,29 @@
                 this.processMermaidDiagrams(content);
                 this.processCodeBlocks(content);
 
-                // Stage 8: bind internal links to load in same pane
-                content.querySelectorAll('a[href]').forEach(link => {
-                    const href = link.getAttribute('href');
-                    if (href && !href.startsWith('http') && !href.startsWith('#') && !href.startsWith('mailto:')) {
-                        link.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            e.stopImmediatePropagation();
-                            // Resolve relative URLs against the page that was loaded
-                            const resolvedUrl = new URL(href, fullUrl).pathname;
-                            this.loadContent(resolvedUrl, sessionId);
-                        }, true); // capture phase: runs before MkDocs document-level handler
-                    } else if (href && href.startsWith('#')) {
-                        link.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            e.stopImmediatePropagation();
-                            const target = content.querySelector(href);
-                            if (target) target.scrollIntoView({ behavior: 'smooth' });
-                        }, true);
-                    }
+                // Internal links use the shared capture handler; external tabs get no opener.
+                content.querySelectorAll('a[target="_blank"]').forEach(link => {
+                    link.relList.add('noopener', 'noreferrer');
                 });
 
-                session.currentUrl = url;
+                session.currentUrl = StateStorage.documentUrl(fullUrl);
                 session.currentTitle = title;
+                session.view = 'document';
 
                 if (addToHistory) {
-                    session.addToHistory(url, title);
+                    session.addToHistory(session.currentUrl, title);
                 }
 
                 sessionName.textContent = title.length > 30 ? title.substring(0, 30) + '...' : title;
                 status.textContent = url;
                 this.updateHistoryButtons(sessionId);
+                this.scheduleSave();
 
             } catch (error) {
                 // Ignore aborted requests (user navigated away before fetch completed)
-                if (error.name === 'AbortError') return;
+                if (error.name === 'AbortError' || abortController.signal.aborted ||
+                    this.sessions.get(sessionId) !== session ||
+                    this._fetchAbortControllers.get(sessionId) !== abortController) return;
 
                 console.error('Split View: Error loading content', error);
                 content.innerHTML = `
@@ -1020,6 +1143,10 @@
           </div>
         `;
                 status.textContent = 'Error';
+            } finally {
+                if (this._fetchAbortControllers.get(sessionId) === abortController) {
+                    this._fetchAbortControllers.delete(sessionId);
+                }
             }
         }
 
@@ -1436,8 +1563,14 @@
                 const effectiveLayout = window.innerWidth <= CONFIG.mobileBreakpoint
                     ? CONFIG.mobileLayout
                     : this.currentLayout;
-                this.setLayout(effectiveLayout);
-                this._applySavedSessionData();
+                this._suspendPersistence = true;
+                try {
+                    this.setLayout(effectiveLayout, { persist: false, paneSizes: this.paneSizes });
+                    this._applySavedSessionData();
+                } finally {
+                    this._suspendPersistence = false;
+                }
+                this.saveState();
             }
 
             this.positionResizeHandles();
@@ -1556,48 +1689,76 @@
         }
 
         // ----- State Persistence -----
+        scheduleSave() {
+            if (this._suspendPersistence) return;
+            this._stateCleared = false;
+            clearTimeout(this._saveTimeout);
+            this._saveTimeout = setTimeout(() => this.saveState(), 150);
+        }
+
         saveState() {
-            const state = {
-                layout: this.currentLayout,
+            clearTimeout(this._saveTimeout);
+            this._saveTimeout = null;
+            if (this._suspendPersistence || this._stateCleared || this.sessions.size === 0) return;
+            const layout = StateStorage.layout({ layout: this.currentLayout, paneSizes: this.paneSizes });
+            const workspace = StateStorage.workspace({
+                ...layout,
                 activeSession: this.activeSessionId,
-                paneSizes: this.paneSizes,
                 sessions: Array.from(this.sessions.entries()).map(([id, s]) => ({
                     id,
                     url: s.currentUrl,
                     title: s.currentTitle,
                     query: s.searchQuery,
+                    view: s.view,
                     history: s.history,
                     historyIndex: s.historyIndex
                 }))
-            };
+            });
 
-            try {
-                localStorage.setItem(CONFIG.storageKey, JSON.stringify(state));
-            } catch (e) {
-                console.warn('Split View: Could not save state', e);
-            }
+            StateStorage.remove('localStorage', CONFIG.legacyStorageKey);
+            StateStorage.write('localStorage', CONFIG.layoutStorageKey, layout);
+            StateStorage.write('sessionStorage', CONFIG.sessionStorageKey, workspace);
         }
 
         restoreState() {
-            try {
-                const state = JSON.parse(localStorage.getItem(CONFIG.storageKey));
-                if (!state) return;
+            // Migrate only the two layout fields. Never pass legacy sessions to restore.
+            const legacy = StateStorage.read('localStorage', CONFIG.legacyStorageKey);
+            const storedLayout = StateStorage.read('localStorage', CONFIG.layoutStorageKey);
+            let layout = StateStorage.layout(storedLayout?.version === CONFIG.storageVersion ? storedLayout : legacy);
+            StateStorage.remove('localStorage', CONFIG.legacyStorageKey);
+            if (storedLayout || legacy) StateStorage.write('localStorage', CONFIG.layoutStorageKey, layout);
 
-                // Restore layout and pane sizes immediately (needed before setLayout is called in open())
-                const isMobile = window.innerWidth <= CONFIG.mobileBreakpoint;
-                this.currentLayout = isMobile
-                    ? CONFIG.mobileLayout
-                    : (state.layout || CONFIG.defaultLayout);
-                if (state.paneSizes) {
-                    this.paneSizes = state.paneSizes;
-                }
-                const select = this.container?.querySelector('.split-view-layout-select');
-                if (select) select.value = this.currentLayout;
+            const rawWorkspace = StateStorage.read('sessionStorage', CONFIG.sessionStorageKey);
+            const workspace = StateStorage.workspace(rawWorkspace);
+            if (rawWorkspace && !workspace) StateStorage.remove('sessionStorage', CONFIG.sessionStorageKey);
+            if (workspace) {
+                // Each tab restores its own layout even if another tab changed the shared preference.
+                layout = StateStorage.layout(workspace);
+                StateStorage.write('sessionStorage', CONFIG.sessionStorageKey, workspace);
+            }
+            if (window.innerWidth <= CONFIG.mobileBreakpoint) {
+                layout = StateStorage.layout({ layout: CONFIG.mobileLayout });
+            }
+            this.currentLayout = layout.layout;
+            this.paneSizes = layout.paneSizes;
+            this.container.querySelector('.split-view-layout-select').value = this.currentLayout;
+            this._savedSessionData = workspace;
+        }
 
-                // Defer session content restore until panes are created in open()
-                this._savedSessionData = state;
-            } catch (e) {
-                console.warn('Split View: Could not restore state', e);
+        resetState() {
+            clearTimeout(this._saveTimeout);
+            this._saveTimeout = null;
+            this._savedSessionData = null;
+            this._stateCleared = true;
+            const layout = window.innerWidth <= CONFIG.mobileBreakpoint ? CONFIG.mobileLayout : CONFIG.defaultLayout;
+            this.setLayout(layout, { persist: false });
+            StateStorage.remove('localStorage', CONFIG.legacyStorageKey);
+            StateStorage.remove('localStorage', CONFIG.layoutStorageKey);
+            StateStorage.remove('sessionStorage', CONFIG.sessionStorageKey);
+            const status = this.grid.querySelector('.split-view-status-text');
+            if (status) {
+                status.setAttribute('role', 'status');
+                status.textContent = '문서·검색 기록과 저장된 배치를 초기화했습니다';
             }
         }
 
@@ -1608,6 +1769,7 @@
          */
         _applySavedSessionData() {
             const saved = this._savedSessionData;
+            this._savedSessionData = null;
             if (!saved?.sessions?.length) return;
 
             for (const savedSession of saved.sessions) {
@@ -1620,9 +1782,14 @@
                 session.currentUrl = savedSession.url || null;
                 session.currentTitle = savedSession.title || '';
                 session.searchQuery = savedSession.query || '';
+                session.view = savedSession.view;
+                const pane = this.grid.querySelector(`[data-session-id="${savedSession.id}"]`);
+                pane.querySelector('.split-view-search-input').value = session.searchQuery;
 
                 // Reload the last viewed URL if one was saved
-                if (savedSession.url) {
+                if (savedSession.view === 'search' && savedSession.query) {
+                    this.search(savedSession.query, savedSession.id);
+                } else if (savedSession.view === 'document' && savedSession.url) {
                     this.loadContent(savedSession.url, savedSession.id, false);
                 }
 
@@ -1633,8 +1800,6 @@
             if (saved.activeSession && this.sessions.has(saved.activeSession)) {
                 this.selectSession(saved.activeSession);
             }
-
-            this._savedSessionData = null;
         }
 
         // ----- Utilities -----

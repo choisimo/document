@@ -295,4 +295,4 @@ du -h --max-depth=1 | sort -hr
 
 - [Tmux 가이드](../tools/terminal/tmux.md)
 - [Vim 가이드](../tools/terminal/vim.md)
-- [쉘 스크립팅](../tools/terminal/linux-commands.md#쉘-환경-및-스크립팅)
+- [리눅스 명령어 참조](../tools/terminal/linux-commands.md)

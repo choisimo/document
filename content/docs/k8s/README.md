@@ -7,33 +7,33 @@ Terraform, Ansible, Kafka, Kubernetes의 기본 흐름을 로컬 또는 격리�
 ### 1. Terraform - 인프라스트럭처 as Code
 - [기본 설정 및 첫 리소스 생성](terraform/01-basic-setup.md)
 - [AWS EC2 실습 예제](terraform/02-aws-ec2-example.md)
-- [상태 관리와 모듈화](terraform/03-state-management.md)
-- [변수와 출력](terraform/04-variables-outputs.md)
+- 상태 관리와 모듈화 (문서 준비 중)
+- 변수와 출력 (문서 준비 중)
 
 ### 2. Ansible - 자동화 및 설정 관리
 - [설치 및 초기 설정](ansible/01-installation-setup.md)
-- [Inventory 작성 방법](ansible/02-inventory-basics.md)
-- [Playbook 작성 실습](ansible/03-playbook-examples.md)
-- [Role과 재사용성](ansible/04-roles.md)
+- Inventory 작성 방법 (문서 준비 중)
+- Playbook 작성 실습 (문서 준비 중)
+- Role과 재사용성 (문서 준비 중)
 
 ### 3. Kafka - 분산 이벤트 스트리밍
 - [개념 및 아키텍처](kafka/01-concepts-architecture.md)
 - [로컬 설치 및 실행](kafka/02-installation-setup.md)
-- [Producer/Consumer 실습](kafka/03-producer-consumer.md)
-- [토픽과 파티션 관리](kafka/04-topics-partitions.md)
+- Producer/Consumer 실습 (문서 준비 중)
+- 토픽과 파티션 관리 (문서 준비 중)
 
 ### 4. Kubernetes - 컨테이너 오케스트레이션
 - [클러스터 설정 (minikube)](kubernetes/01-cluster-setup.md)
 - [Pod와 Deployment](kubernetes/02-pods-deployments.md)
-- [Service와 네트워킹](kubernetes/03-services-networking.md)
-- [ConfigMap과 Secret](kubernetes/04-configmap-secret.md)
-- [StatefulSet과 영구 스토리지](kubernetes/05-statefulset-storage.md)
+- Service와 네트워킹 (문서 준비 중)
+- ConfigMap과 Secret (문서 준비 중)
+- StatefulSet과 영구 스토리지 (문서 준비 중)
 
 ### 5. 통합 시나리오
 - [전체 DevOps 파이프라인 구성](integration/01-devops-pipeline.md)
-- [Terraform으로 K8s 클러스터 프로비저닝](integration/02-terraform-k8s.md)
-- [Kubernetes에서 Kafka 운영](integration/03-k8s-kafka.md)
-- [마이크로서비스 배포 시나리오](integration/04-microservices-deployment.md)
+- Terraform으로 K8s 클러스터 프로비저닝 (문서 준비 중)
+- Kubernetes에서 Kafka 운영 (문서 준비 중)
+- 마이크로서비스 배포 시나리오 (문서 준비 중)
 
 ## 🚀 학습 순서 추천
 

@@ -52,6 +52,8 @@ graph TB
 
 ---
 
+<a id="️-기본-개념과-프로세스-상태"></a>
+
 ## 🎯 개요와 핵심 개념
 
 > **CPU 스케줄링**은 실행 가능한 작업에 CPU 시간을 배분하는 운영체제 메커니즘입니다. 처리량, 지연, 공정성, 에너지와 deadline은 서로 충돌할 수 있으므로 정책 선택만으로 효율이나 공정성이 자동 보장되지는 않습니다.
@@ -326,6 +328,8 @@ gantt
 - 다중 프로그래밍: 이 예제는 I/O 대기가 완전히 겹친다고 가정해 100%로 계산합니다. 실제로는 idle gap, 스케줄링·I/O 병목 때문에 보장되지 않습니다.
 
 ---
+
+<a id="️-cpu-스케줄러와-디스패처"></a>
 
 ## 5.3 CPU 스케줄러 (CPU Scheduler)
 
@@ -891,6 +895,8 @@ graph TD
 
 ---
 
+<a id="-스케줄링-기준과-성능-지표"></a>
+
 ## 5.6 스케줄링 기준 (Scheduling Criteria)
 
 ### 5.6.1 성능 지표 (Performance Metrics)
@@ -1029,6 +1035,8 @@ gantt
 - **평균 대기 시간**: (0+2+8)/3 = 3.33ms (55% 개선!)
 
 ---
+
+<a id="-스케줄링-알고리즘-심화"></a>
 
 ## 5.7 스케줄링 알고리즘 (Scheduling Algorithms)
 
@@ -1939,6 +1947,8 @@ graph TD
 
 ---
 
+<a id="-다중처리기-스케줄링"></a>
+
 ## 5.8 다중처리기 스케줄링 (Multiprocessor Scheduling)
 
 다중 CPU 환경에서의 복잡한 스케줄링 문제를 다룹니다.
@@ -2390,6 +2400,8 @@ void* load_balancer_thread(void* arg) {
 ```
 
 ---
+
+<a id="️-실시간-cpu-스케줄링"></a>
 
 ## 5.9 실시간 CPU 스케줄링 (Real-Time CPU Scheduling)
 
@@ -2947,6 +2959,8 @@ graph TD
 
 ---
 
+<a id="️-실제-운영체제-사례"></a>
+
 ## 5.10 Operating Systems Examples
 
 ### 5.10.1 Linux Scheduling
@@ -2982,6 +2996,8 @@ vruntime += delta_exec * (NICE_0_LOAD / weight);
 - priority 범위와 dispatch table은 Solaris 릴리스·class 설정에 의존하므로 역사적 예시로 다룹니다.
 
 ---
+
+<a id="-연습-문제와-시뮬레이션"></a>
 
 ## 5.11 Practice Problems
 
@@ -3088,6 +3104,8 @@ void age_processes(Process processes[], int n) {
 ```
 
 ---
+
+<a id="-핵심-요약과-추가-학습"></a>
 
 ## 5.12 Summary
 

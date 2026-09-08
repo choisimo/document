@@ -1,3 +1,41 @@
+---
+title: "보안 Compose 스택"
+---
+
+# 보안 Compose 스택 {#security-docker-stacks}
+
+<nav class="hub-directory" aria-label="보안 Compose 스택 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">컬렉션 탐색</h2>
+
+- [Compose 스택](../index.md)
+- [Docker Compose 컬렉션](../../index.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">vaultwarden</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/security/vaultwarden/docker-compose.yaml)
+- [docker-compose.nginx.yaml](/extra/docker/stacks/security/vaultwarden/docker-compose.nginx.yaml)
+- [docker-compose.cloudflared.yaml](/extra/docker/stacks/security/vaultwarden/docker-compose.cloudflared.yaml)
+- [docker-compose.full.yaml](/extra/docker/stacks/security/vaultwarden/docker-compose.full.yaml)
+- [.env.example](/extra/docker/stacks/security/vaultwarden/.env.example)
+- [vaultwarden.conf](/extra/docker/stacks/security/vaultwarden/nginx/vaultwarden.conf)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>기존 문서 안내</summary>
+
 <!-- markdownlint-disable MD033 MD030 -->
 # Security Stacks
 
@@ -55,3 +93,5 @@ docker compose up -d
   </div>
 
 </div>
+
+</details>

@@ -1,3 +1,80 @@
+---
+title: "인프라 운영"
+---
+
+# 인프라 운영 {#_1}
+
+<nav class="hub-directory" aria-label="인프라 운영 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">Proxmox</h2>
+
+- [Proxmox QDevice 투표 문제 해결](proxmox/cluster.md)
+- [Proxmox 이메일 알림 설정 기준](proxmox/email-alerts.md)
+- [SBC를 Proxmox QDevice로 쓰는 기준](proxmox/cluster-with-sbc.md)
+- [Proxmox와 OPNsense VLAN 104 연결 기준](proxmox/opnsense_vlan_setup.md)
+- [Proxmox 스냅샷, 백업, 템플릿 기준](proxmox/snapshot-backup-template.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">네트워크</h2>
+
+- [리눅스 고정 IP 설정 기준](networking/network-settings.md)
+- [rsync와 SSH 포트 사용 기준](networking/rsync.md)
+- [리눅스 서버 이메일 발송 설정](networking/email-config.md)
+- [nmcli 네트워크 설정 가이드](networking/nmcli-guide.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">모니터링</h2>
+
+- [Prometheus, Grafana, Loki 관측 스택](monitoring/prometheus-grafana-loki.md)
+- [백그라운드 프로세스 관리](monitoring/process-management.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-4" markdown="1">
+
+<h2 id="directory-group-4">스토리지</h2>
+
+- [리눅스 디스크 영구 마운트 기준](storage/mounting.md)
+- [리눅스 디스크 초기화와 파일시스템 확장 기준](storage/disk-format.md)
+- [SSHFS 원격 디렉터리 마운트 기준](storage/sshfs.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-5" markdown="1">
+
+<h2 id="directory-group-5">하드웨어</h2>
+
+- [NanoPi NEO3 초기 접속 및 네트워크 설정](hardware/nano-pi-neo3.md)
+- [SSD 및 NVMe 상태 점검](hardware/ssd-guide.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-6" markdown="1">
+
+<h2 id="directory-group-6">함께 읽기</h2>
+
+- [Docker 설치 가이드](../development/docker/installation.md)
+- [보안](../security/index.md)
+- [Nginx](../nginx/index.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>기존 문서 안내</summary>
+
 # 인프라 문서
 
 서버 구성, 네트워크 설정, 스토리지 관리, 모니터링에 관한 종합 가이드입니다.
@@ -239,3 +316,5 @@ pvecm expected 1
 - [Docker 설치](../development/docker/installation.md)
 - [보안 설정](../security/index.md)
 - [Nginx 설정](../nginx/index.md)
+
+</details>

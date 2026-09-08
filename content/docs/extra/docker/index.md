@@ -1,3 +1,36 @@
+---
+title: "Docker Compose 컬렉션"
+---
+
+# Docker Compose 컬렉션 {#docker-compose}
+
+<nav class="hub-directory" aria-label="Docker Compose 컬렉션 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">카테고리</h2>
+
+- [Compose 스택](stacks/index.md)
+- [데이터베이스 Compose 스택](stacks/databases/index.md)
+- [자동화 Compose 스택](stacks/automation/index.md)
+- [개발 도구 Compose 스택](stacks/devtools/index.md)
+- [보안 Compose 스택](stacks/security/index.md)
+- [미디어 Compose 스택](stacks/media/index.md)
+- [스토리지 Compose 스택](stacks/storage/index.md)
+- [모니터링 Compose 스택](stacks/monitoring/index.md)
+- [프록시 Compose 스택](stacks/proxy/index.md)
+- [기타 서비스 Compose 스택](stacks/misc/index.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>기존 문서 안내</summary>
+
 <!-- markdownlint-disable MD033 MD030 -->
 # Docker Compose 컬렉션
 
@@ -120,3 +153,5 @@
 
 !!! note "정적 파일 접근"
     `/extra/docker/` 경로는 GitHub Pages에 정적 파일로 배포됩니다. 브라우저에서 바로 열거나 `curl`로 다운로드할 수 있습니다.
+
+</details>

@@ -1,3 +1,29 @@
+---
+title: "프롬프트"
+---
+
+# 프롬프트 {#prompts}
+
+<nav class="hub-directory" aria-label="프롬프트 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">주요 문서</h2>
+
+- [📝 근거 중심 문서 편집 지침](docs-editor.md)
+- [Database Education Prompt](database.md)
+- [Architecture Design Prompts](architecture.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>기존 문서 안내</summary>
+
 # Prompts & Templates
 
 > AI prompt engineering resources and templates for documentation
@@ -103,3 +129,5 @@ Show sample inputs and expected outputs
 - [MkDocs Material Documentation](https://squidfunk.github.io/mkdocs-material/)
 - [Diátaxis Framework](https://diataxis.fr/)
 - [C4 Model](https://c4model.com/)
+
+</details>

@@ -1,3 +1,42 @@
+---
+title: "운영체제"
+---
+
+# 운영체제 {#operating-systems}
+
+<nav class="hub-directory" aria-label="운영체제 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">주요 문서</h2>
+
+- [CPU Scheduling](cpu-scheduling.md)
+- [Synchronization Tools](synchronization.md)
+- [Deadlocks](deadlocks.md)
+- [Main Memory](memory.md)
+- [Process Management](process.md)
+- [Virtualization](virtualization.md)
+- [Distributed Deadlocks](distributed-deadlocks.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">함께 읽기</h2>
+
+- [백그라운드 프로세스 관리](../infrastructure/monitoring/process-management.md)
+- [컴파일러](../compiler/index.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>기존 문서 안내</summary>
+
 # Operating Systems
 
 > Operating system theory and concepts for computer science studies
@@ -166,3 +205,5 @@ Physical Address = (Frame Number × Page Size) + Offset
 
 - [Linux Process Management](../infrastructure/monitoring/process-management.md)
 - [Compiler Theory](../compiler/index.md)
+
+</details>

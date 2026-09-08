@@ -1,3 +1,47 @@
+---
+title: "자동화 Compose 스택"
+---
+
+# 자동화 Compose 스택 {#automation-docker-stacks}
+
+<nav class="hub-directory" aria-label="자동화 Compose 스택 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">컬렉션 탐색</h2>
+
+- [Compose 스택](../index.md)
+- [Docker Compose 컬렉션](../../index.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">n8n</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/automation/n8n/docker-compose.yaml)
+- [docker-compose.simple.yaml](/extra/docker/stacks/automation/n8n/docker-compose.simple.yaml)
+- [README.md](/extra/docker/stacks/automation/n8n/README.md)
+- [.env.example](/extra/docker/stacks/automation/n8n/.env.example)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">kimai</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/automation/kimai/docker-compose.yaml)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>기존 문서 안내</summary>
+
 <!-- markdownlint-disable MD033 MD030 -->
 # Automation Stacks
 
@@ -71,3 +115,5 @@ docker compose up -d
   </div>
 
 </div>
+
+</details>

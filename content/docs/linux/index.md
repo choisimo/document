@@ -1,3 +1,68 @@
+---
+title: "Linux"
+---
+
+# Linux {#linux}
+
+<nav class="hub-directory" aria-label="Linux 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">주요 문서</h2>
+
+- [Linux 명령어 참조](commands.md)
+- [Linux 파일시스템과 파일 I/O](filesystem.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">Arch Linux</h2>
+
+- [Arch Linux UEFI 수동 설치](arch/installation.md)
+- [KDE Plasma 테마와 설정 관리](arch/kde-theme.md)
+- [Arch Linux 문제 해결](arch/troubleshooting.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">Proxmox</h2>
+
+- [Proxmox 물리 디스크 VM 연결](proxmox/drive-mount.md)
+- [Proxmox OS 디스크 마이그레이션](proxmox/migration.md)
+- [Proxmox 환경 WireGuard VPN](proxmox/wireguard-vpn.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-4" markdown="1">
+
+<h2 id="directory-group-4">미디어</h2>
+
+- [FFmpeg 동영상 분할](multimedia/ffmpeg.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-5" markdown="1">
+
+<h2 id="directory-group-5">함께 읽기</h2>
+
+- [Proxmox QDevice 투표 문제 해결](../infrastructure/proxmox/cluster.md)
+- [리눅스 고정 IP 설정 기준](../infrastructure/networking/network-settings.md)
+- [SSH Configuration](../security/ssh/configuration.md)
+- [Vim](../tools/terminal/vim.md)
+- [Tmux](../tools/terminal/tmux.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>기존 문서 안내</summary>
+
 # Linux 문서
 
 Linux 시스템 관리, 배포판별 가이드, 멀티미디어 도구에 관한 문서입니다.
@@ -221,3 +286,5 @@ UUID=xxx-xxx      /data      ext4    defaults        0      2
 - [Linux Documentation Project](https://tldp.org/)
 - [Proxmox Wiki](https://pve.proxmox.com/wiki/Main_Page)
 - [Linux Journey](https://linuxjourney.com/) - 초보자용 튜토리얼
+
+</details>

@@ -52,56 +52,37 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Test docs validator tooling
-        run: cargo test -q --manifest-path src/tools/docs-validator-rs/Cargo.toml
+      - name: Setup Node for documentation tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
 
-      - name: Inject AI configuration from secrets
-        env:
-          AI_API_BASE_URL: ${{ secrets.AI_API_BASE_URL }}
-          AI_API_TOKEN: ${{ secrets.AI_API_TOKEN }}
-          AI_MODEL_NAME: ${{ secrets.AI_MODEL_NAME }}
-          OPEN_NOTEBOOK_ENABLED: ${{ secrets.OPEN_NOTEBOOK_ENABLED }}
-          OPEN_NOTEBOOK_URL: ${{ secrets.OPEN_NOTEBOOK_URL }}
-          OPEN_NOTEBOOK_TOKEN: ${{ secrets.OPEN_NOTEBOOK_TOKEN }}
+      - name: Install browser test dependencies
+        working-directory: src
         run: |
-          CONFIG_FILE="content/docs/javascripts/ai-config.js"
+          npm ci
+          npx playwright install --with-deps chromium
 
-          if [ -n "$AI_API_BASE_URL" ]; then
-            if [[ "$AI_API_BASE_URL" != https://* ]]; then
-              echo "::error::AI_API_BASE_URL must be an absolute https:// URL. Got: '${AI_API_BASE_URL}'"
-              exit 1
-            fi
-            if [[ "$AI_API_BASE_URL" != */v[0-9]* ]]; then
-              echo "::warning::AI_API_BASE_URL does not contain a version segment (e.g. /v1). Got: '${AI_API_BASE_URL}'. The JS client appends /chat/completions directly — ensure the backend routes unversioned paths, or add /v1 to the secret."
-            fi
-            if [[ "$AI_API_BASE_URL" == */ ]]; then
-              echo "::warning::AI_API_BASE_URL ends with a trailing slash. Got: '${AI_API_BASE_URL}'. The JS client strips it at runtime — please fix the secret to remove the trailing slash."
-            fi
-          fi
+      - name: Test public AI configuration boundary
+        run: node --test src/qa/public-ai-config.test.js
 
-          if [ -f "$CONFIG_FILE" ]; then
-            if [ -n "$AI_API_BASE_URL" ]; then
-              sed -i "s|%%AI_API_BASE_URL%%|${AI_API_BASE_URL}|g" "$CONFIG_FILE"
-            fi
-            if [ -n "$AI_API_TOKEN" ]; then
-              sed -i "s|%%AI_API_TOKEN%%|${AI_API_TOKEN}|g" "$CONFIG_FILE"
-            fi
-            if [ -n "$AI_MODEL_NAME" ]; then
-              sed -i "s|%%AI_MODEL_NAME%%|${AI_MODEL_NAME}|g" "$CONFIG_FILE"
-            fi
-            if [ -n "$OPEN_NOTEBOOK_ENABLED" ]; then
-              sed -i "s|%%OPEN_NOTEBOOK_ENABLED%%|${OPEN_NOTEBOOK_ENABLED}|g" "$CONFIG_FILE"
-            fi
-            if [ -n "$OPEN_NOTEBOOK_URL" ]; then
-              sed -i "s|%%OPEN_NOTEBOOK_URL%%|${OPEN_NOTEBOOK_URL}|g" "$CONFIG_FILE"
-            fi
-            if [ -n "$OPEN_NOTEBOOK_TOKEN" ]; then
-              sed -i "s|%%OPEN_NOTEBOOK_TOKEN%%|${OPEN_NOTEBOOK_TOKEN}|g" "$CONFIG_FILE"
-            fi
-            echo "AI configuration injected successfully"
-          else
-            echo "Warning: AI config file not found at $CONFIG_FILE"
-          fi
+      - name: Test published document data generation
+        run: python -m unittest discover -s apps/docs-site/hooks/tests -v
+
+      - name: Test docs validator tooling
+        run: cargo test --locked -q --manifest-path src/tools/docs-validator-rs/Cargo.toml
+
+      - name: Generate public AI configuration
+        env:
+          PUBLIC_AI_API_BASE_URL: ${{ vars.PUBLIC_AI_API_BASE_URL }}
+          PUBLIC_AI_API_TOKEN: ${{ vars.PUBLIC_AI_API_TOKEN }}
+          PUBLIC_AI_MODEL_NAME: ${{ vars.PUBLIC_AI_MODEL_NAME }}
+          PUBLIC_OPEN_NOTEBOOK_ENABLED: ${{ vars.PUBLIC_OPEN_NOTEBOOK_ENABLED }}
+          PUBLIC_OPEN_NOTEBOOK_URL: ${{ vars.PUBLIC_OPEN_NOTEBOOK_URL }}
+          PUBLIC_OPEN_NOTEBOOK_TOKEN: ${{ vars.PUBLIC_OPEN_NOTEBOOK_TOKEN }}
+        run: >-
+          python src/automation/site/render-public-ai-config.py
+          content/docs/javascripts/ai-public-config.js
 
       - name: Clean previous build artifacts
         run: |
@@ -111,7 +92,7 @@ jobs:
       - name: Build MkDocs site (clean build)
         working-directory: apps/docs-site
         run: |
-          mkdocs build --clean
+          mkdocs build --clean --strict
           echo "Build completed at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
       - name: Add build metadata
@@ -130,6 +111,17 @@ jobs:
       - name: Copy extra static content to site (post-build)
         run: |
           bash src/automation/site/sync-extra-assets.sh dist/site/extra
+
+      - name: Validate documentation and generated resource links
+        run: >-
+          cargo run --locked --manifest-path src/tools/docs-validator-rs/Cargo.toml --
+          --root content/docs --docs-base content/docs --link-root dist/site
+          --check links --list-files
+
+      - name: Verify documentation navigation in Chromium
+        env:
+          HUB_SITE_DIR: ${{ github.workspace }}/dist/site
+        run: npm --prefix src run qa:test
 
       - name: Create CNAME file
         run: echo 'docs.nodove.com' > dist/site/CNAME
@@ -168,16 +160,18 @@ jobs:
           echo "  JS files: $(find dist/site -name '*.js' | wc -l)"
           echo "  HTML files: $(find dist/site -name '*.html' | wc -l)"
 
-          if [ -f "dist/site/stylesheets/extra.css" ]; then
-            echo "extra.css exists ($(wc -l < dist/site/stylesheets/extra.css) lines)"
+          if [ -f "dist/site/stylesheets/hub-app.css" ]; then
+            echo "hub-app.css exists ($(wc -l < dist/site/stylesheets/hub-app.css) lines)"
           else
-            echo "WARNING: extra.css not found!"
+            echo "::error::hub-app.css not found!"
+            exit 1
           fi
 
-          if [ -f "dist/site/javascripts/ai-chatbot.js" ]; then
-            echo "ai-chatbot.js exists"
+          if [ -f "dist/site/javascripts/hub-app.js" ]; then
+            echo "hub-app.js exists"
           else
-            echo "WARNING: ai-chatbot.js not found!"
+            echo "::error::hub-app.js not found!"
+            exit 1
           fi
 
       - name: Setup Pages

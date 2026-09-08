@@ -441,8 +441,8 @@ ansible all -m raw -a "apt install -y python3" --become
 
 ## 📚 다음 단계
 
-- [Inventory 작성 방법](02-inventory-basics.md)
-- [Playbook 작성 실습](03-playbook-examples.md)
+- Inventory 작성 방법 (문서 준비 중)
+- Playbook 작성 실습 (문서 준비 중)
 
 ## 🔗 참고 자료
 

@@ -621,8 +621,8 @@ kubectl delete namespace <namespace-name>
 
 ## 📚 다음 단계
 
-- [Service와 네트워킹](03-services-networking.md)
-- [ConfigMap과 Secret](04-configmap-secret.md)
+- Service와 네트워킹 (문서 준비 중)
+- ConfigMap과 Secret (문서 준비 중)
 
 ## 🔗 참고 자료
 

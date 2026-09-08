@@ -1,3 +1,38 @@
+---
+title: "실전 알고리즘"
+---
+
+# 실전 알고리즘 {#algorithm-architect-visual-docs}
+
+<nav class="hub-directory" aria-label="실전 알고리즘 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">주요 문서</h2>
+
+- [Algorithm Architect 전체 색인](README.md)
+- [BFS 너비 우선 탐색](01-graph/01-bfs.md)
+- [Binary Search 이진 탐색](02-sorting-searching/01-binary-search.md)
+- [1D Dynamic Programming](03-dynamic-programming/01-dp-1d.md)
+- [Greedy 탐욕 알고리즘](04-greedy/01-greedy.md)
+- [Tree Traversal 트리 순회](05-tree/01-tree-traversal.md)
+- [Union-Find Disjoint Set](06-union-find/01-union-find.md)
+- [Two Pointers 투 포인터](07-two-pointers/01-two-pointers.md)
+- [Sliding Window 슬라이딩 윈도우](08-sliding-window/01-sliding-window.md)
+- [Backtracking 백트래킹](09-backtracking/01-backtracking.md)
+- [Topological Sort 위상 정렬](10-topological-sort/01-topological-sort.md)
+- [Bit Masking 비트 마스킹](11-bit-masking/01-bit-masking.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>기존 문서 안내</summary>
+
 # Algorithm Architect Visual Docs
 
 `code/templates/algorithm-architect`의 템플릿들을 GitHub/MkDocs에서 읽기 좋게 재구성한 시각화 문서입니다.
@@ -27,3 +62,5 @@
 - 원본 코드 템플릿 링크와 핵심 코드 블록을 함께 제공합니다.
 - 레이어 단위 해설과 실전 체크리스트를 통해 문제 적용 포인트를 고정합니다.
 
+
+</details>

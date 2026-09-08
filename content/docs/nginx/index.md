@@ -1,3 +1,38 @@
+---
+title: "Nginx"
+---
+
+# Nginx {#nginx}
+
+<nav class="hub-directory" aria-label="Nginx 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">주요 문서</h2>
+
+- [Nginx 설정 가이드](configuration.md)
+- [Nginx Proxy Manager 운영](proxy-manager.md)
+- [Nginx Docker와 Kubernetes 배포](docker-k8s-deployment.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">함께 읽기</h2>
+
+- [Docker 네트워킹](../development/docker/networking.md)
+- [SSH Configuration](../security/ssh/configuration.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>기존 문서 안내</summary>
+
 # Nginx Documentation
 
 > Entry point for version-specific Nginx configuration, measurement, and proxy management
@@ -154,4 +189,6 @@ tail -f /var/log/nginx/error.log
 
 - [Docker Networking](../development/docker/networking.md)
 - [SSL/TLS Configuration](../security/ssh/configuration.md)
-- [HAProxy Configuration](../../configs/haproxy/)
+- HAProxy Configuration (구성 파일 미포함)
+
+</details>

@@ -576,7 +576,7 @@ kind delete cluster --name my-cluster
 ## 📚 다음 단계
 
 - [Pod와 Deployment](02-pods-deployments.md)
-- [Service와 네트워킹](03-services-networking.md)
+- Service와 네트워킹 (문서 준비 중)
 
 ## 🔗 참고 자료
 

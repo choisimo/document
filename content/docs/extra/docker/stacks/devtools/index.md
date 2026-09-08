@@ -1,3 +1,55 @@
+---
+title: "개발 도구 Compose 스택"
+---
+
+# 개발 도구 Compose 스택 {#devtools-docker-stacks}
+
+<nav class="hub-directory" aria-label="개발 도구 Compose 스택 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">컬렉션 탐색</h2>
+
+- [Compose 스택](../index.md)
+- [Docker Compose 컬렉션](../../index.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">gitea</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/devtools/gitea/docker-compose.yaml)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">sourcebot</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/devtools/sourcebot/docker-compose.yaml)
+- [README.md](/extra/docker/stacks/devtools/sourcebot/README.md)
+- [env.example](/extra/docker/stacks/devtools/sourcebot/env.example)
+- [config.json](/extra/docker/stacks/devtools/sourcebot/config.json)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-4" markdown="1">
+
+<h2 id="directory-group-4">termix</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/devtools/termix/docker-compose.yaml)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>기존 문서 안내</summary>
+
 <!-- markdownlint-disable MD033 MD030 -->
 # Devtools Stacks
 
@@ -89,3 +141,5 @@ docker compose up -d
   </div>
 
 </div>
+
+</details>
