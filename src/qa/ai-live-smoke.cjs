@@ -38,6 +38,16 @@ const assert = require('node:assert/strict');
   const browser = await chromium.launch({ headless: true });
   try {
     const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+    if (!probe && process.env.GITHUB_SHA) {
+      let deployedCommit;
+      for (let attempt = 0; attempt < 12; attempt++) {
+        const response = await context.request.get('https://docs.nodove.com/build-info.json?verify=' + Date.now());
+        if (response.ok()) deployedCommit = (await response.json()).commit;
+        if (deployedCommit === process.env.GITHUB_SHA) break;
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
+      assert.equal(deployedCommit, process.env.GITHUB_SHA, 'Verify the released commit, not a cached deployment');
+    }
     const page = await context.newPage();
     const transport = [];
     page.on('response', response => {
