@@ -700,7 +700,7 @@ EMAIL="admin@example.com"
 LOG_FILE="/var/log/sftp-notify.log"
 
 # Slack 웹훅 URL (선택사항)
-SLACK_WEBHOOK_URL="REDACTED"
+SLACK_WEBHOOK_URL="https://hooks.slack.com/services/EXAMPLE/EXAMPLE/REPLACE_WITH_WEBHOOK_TOKEN"
 
 inotifywait -m "$WATCH_DIR" -e close_write |
 while read path action file; do
