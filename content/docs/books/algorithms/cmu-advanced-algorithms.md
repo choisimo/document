@@ -72,11 +72,12 @@ sequenceDiagram
     end
 ```
 
-**Why log* n phases?** With threshold `t = 2^(2^(phase))` (Ackermann-like growth), the number of phases before all components merge is bounded by `log* n` — the number of times you can take log₂ before reaching 1.
+**Why log* n phases?** With threshold `t = 2^(2^(phase))` (Ackermann-like growth), the number of phases before all components merge is bounded by `log* n` — the number of repeated log₂ applications needed to reach 1.
 
 ### 1.4 The Ackermann Function and Its Inverse
 
 The Ackermann function `A(k, n)` is defined by double recursion:
+
 ```
 A(1, n) = 2n
 A(k, 1) = A(k-1, 2)       for k ≥ 2
@@ -146,14 +147,14 @@ flowchart TD
 ```mermaid
 sequenceDiagram
     participant G as Greedy solution (sorted by weight, descending)
-    participant OPT as Optimal solution
+    participant OptimalSolution as Optimal solution
     
-    Note over G,OPT: Suppose G ≠ OPT
-    G->>OPT: Find first element e in G not in OPT
-    OPT->>OPT: OPT + {e} has a cycle C (by matroid circuit property)
-    G->>OPT: ∃ f in C ∩ OPT with w(f) ≤ w(e)
-    Note over OPT: OPT' = OPT + {e} - {f} is also independent
-    Note over OPT: w(OPT') ≥ w(OPT) — contradicts optimality of OPT
+    Note over G,OptimalSolution: Suppose G ≠ OPT
+    G->>OptimalSolution: Find first element e in G not in OPT
+    OptimalSolution->>OptimalSolution: OPT + {e} has a cycle C (by matroid circuit property)
+    G->>OptimalSolution: ∃ f in C ∩ OPT with w(f) ≤ w(e)
+    Note over OptimalSolution: OPT' = OPT + {e} - {f} is also independent
+    Note over OptimalSolution: w(OPT') ≥ w(OPT) — contradicts optimality of OPT
 ```
 
 **Kruskal's correctness** is exactly this matroid greedy theorem applied to the graphic matroid — adding the lightest edge that doesn't form a cycle is the greedy step on the independent sets (forests) of the graphic matroid.
@@ -164,13 +165,13 @@ sequenceDiagram
 
 ### 3.1 Schwartz-Zippel Lemma
 
-For a non-zero polynomial `p(x₁,...,xₙ)` of degree ≤ d, if we sample each `xᵢ` uniformly from a set `S`:
+For a non-zero polynomial `p(x₁,...,xₙ)` of degree ≤ d, if each `xᵢ` is sampled uniformly from a set `S`:
 
 ```
 Pr[p(R₁,...,Rₙ) = 0] ≤ d/|S|
 ```
 
-This is the engine of randomized algebraic algorithms: if we evaluate the polynomial at random points and get 0, it's probably the zero polynomial (i.e., no matching exists).
+This is the engine of randomized algebraic algorithms: if polynomial evaluation at random points returns 0, the polynomial is probably the zero polynomial (i.e., no matching exists).
 
 ```mermaid
 flowchart TD
@@ -215,7 +216,7 @@ sequenceDiagram
 
 ### 4.1 The JL Lemma — High-Dimensional Geometry
 
-For n points in ℝ^d, we can project them to ℝ^k (with `k = O(ε⁻² log n)`) such that all pairwise distances are preserved within factor `(1 ± ε)`:
+For n points in ℝ^d, projection to ℝ^k (with `k = O(ε⁻² log n)`) can preserve all pairwise distances within factor `(1 ± ε)`:
 
 ```mermaid
 flowchart LR
@@ -303,7 +304,9 @@ stateDiagram-v2
     Observe --> UpdateWeights : w_i ← w_i × (1-ε)^ℓᵢ
     UpdateWeights --> Normalize : W ← ΣW_i
     Normalize --> SelectExpert
-    Note: after T rounds, regret ≤ ε·T + ln(n)/ε
+    note right of Normalize
+        after T rounds, regret ≤ ε·T + ln(n)/ε
+    end note
 ```
 
 **Regret bound**: Choosing `ε = √(ln(n)/T)` gives regret ≤ `2√(T ln n)`. Total loss ≤ OPT + 2√(T ln n).
@@ -327,7 +330,7 @@ sequenceDiagram
     Note over MWU: Output average of all iterates → (1+ε)-approx solution
 ```
 
-**Key**: This converts a separation oracle into an approximate optimization algorithm. Any problem where you can check feasibility efficiently can be approximately optimized via MWU.
+**Key**: This converts a separation oracle into an approximate optimization algorithm. Any problem with efficient feasibility checking can be approximately optimized via MWU.
 
 ---
 
@@ -468,8 +471,8 @@ sequenceDiagram
 
 ```mermaid
 stateDiagram-v2
-    [*] --> FindCheapest : For each non-root vertex v:\npick cheapest incoming edge
-    FindCheapest --> CheckCycle : Union-Find: does selection form a directed cycle?
+    [*] --> FindCheapest : For each non-root vertex v#58;<br/>pick cheapest incoming edge
+    FindCheapest --> CheckCycle : Union-Find#58; does selection form a directed cycle?
     CheckCycle --> ReturnTree : NO → spanning arborescence found
     CheckCycle --> Contract : YES → contract cycle to single super-node
     Contract --> ReweightEdges : Adjust weights of edges entering super-node

@@ -128,7 +128,7 @@ BACKTRACK(partial_solution S, choices remaining C):
           S.pop(c)                   ← undo (key operation)
 ```
 
-The `pop` step is what distinguishes backtracking from greedy — we **undo** the choice and try alternatives:
+The `pop` step is what distinguishes backtracking from greedy — it **undoes** the choice and tries alternatives:
 
 ```mermaid
 sequenceDiagram
@@ -248,16 +248,16 @@ sequenceDiagram
     participant DFS_B as DFS(B)
     participant DFS_C as DFS(C)
 
-    DFS_A->>DFS_A: pre[A] = clock++; color[A] = GRAY
+    DFS_A->>DFS_A: pre[A] = clock++#59; color[A] = GRAY
     DFS_A->>DFS_B: neighbor B is WHITE → recurse
-    DFS_B->>DFS_B: pre[B] = clock++; color[B] = GRAY
+    DFS_B->>DFS_B: pre[B] = clock++#59; color[B] = GRAY
     DFS_B->>DFS_C: neighbor C is WHITE → recurse
-    DFS_C->>DFS_C: pre[C] = clock++; no unvisited neighbors
-    DFS_C->>DFS_C: post[C] = clock++; color[C] = BLACK
+    DFS_C->>DFS_C: pre[C] = clock++#59; no unvisited neighbors
+    DFS_C->>DFS_C: post[C] = clock++#59; color[C] = BLACK
     DFS_C-->>DFS_B: return
-    DFS_B->>DFS_B: post[B] = clock++; color[B] = BLACK
+    DFS_B->>DFS_B: post[B] = clock++#59; color[B] = BLACK
     DFS_B-->>DFS_A: return
-    DFS_A->>DFS_A: post[A] = clock++; color[A] = BLACK
+    DFS_A->>DFS_A: post[A] = clock++#59; color[A] = BLACK
 ```
 
 **Topological sort = reverse postorder:** vertices are written to output array in order of **decreasing** post time → O(V+E) single DFS pass.

@@ -9,7 +9,7 @@ Self-hosted file storage server with web interface.
 
 ```bash
 cp .env.example .env
-# Edit .env with your settings
+# Edit .env with environment-specific settings
 mkdir -p config files
 docker compose config
 docker compose up -d

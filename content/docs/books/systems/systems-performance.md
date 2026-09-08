@@ -51,16 +51,16 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-  subgraph "M/M/1 Queue Model"
-    λ["λ = arrival rate"]
-    μ["μ = service rate"]
-    ρ["ρ = λ/μ = utilization"]
+  subgraph QueueModel["M/M/1 Queue Model"]
+    ArrivalRate["λ = arrival rate"]
+    ServiceRate["μ = service rate"]
+    Utilization["ρ = λ/μ = utilization"]
     W["Mean wait time W = ρ / (μ(1-ρ))"]
-    λ --> ρ
-    μ --> ρ
-    ρ --> W
+    ArrivalRate --> Utilization
+    ServiceRate --> Utilization
+    Utilization --> W
   end
-  NOTE["At ρ=0.6: wait = 1.5× service time\nAt ρ=0.8: wait = 4× service time\nAt ρ=0.9: wait = 9× service time\nAt ρ→1.0: wait → ∞"]
+  NOTE["At ρ=0.6: wait = 1.5× service time<br/>At ρ=0.8: wait = 4× service time<br/>At ρ=0.9: wait = 9× service time<br/>At ρ→1.0: wait → ∞"]
   W --> NOTE
 ```
 
@@ -163,10 +163,12 @@ flowchart LR
 ```
 
 The off-CPU stack trace for a MySQL binary log sync:
+
 ```
 finish_task_switch → schedule → jbd2_log_wait_commit → ext4_sync_file
 → vfs_fsync_range → MYSQL_BIN_LOG::sync_binlog_file()
 ```
+
 This reveals that MySQL off-CPU time is dominated by **ext4 journal commits**, not lock contention or CPU starvation.
 
 ### BPF/eBPF Observability Architecture

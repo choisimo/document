@@ -72,29 +72,71 @@ algorithm-study/
 
 ## Quick Start
 
+각 코드 블록은 저장소의 `src/examples/` 디렉터리에서 시작한다.
+
 ### Python
 ```bash
-cd data-structures/tree/binary-search-tree/01_python
+cd data-structures/tree/binary-search-tree/python
 python bst.py
 ```
 
 ### JavaScript
 ```bash
-cd data-structures/tree/binary-search-tree/02_javascript
+cd data-structures/tree/binary-search-tree/javascript
 node bst.js
 ```
 
 ### Java
 ```bash
-cd data-structures/tree/binary-search-tree/03_java
+cd data-structures/tree/binary-search-tree/java
 javac BinarySearchTree.java
 java BinarySearchTree
 ```
 
 ### Rust
 ```bash
-cd data-structures/tree/binary-search-tree/04_rust
+cd data-structures/tree/binary-search-tree/rust
 cargo run
+```
+
+### Java 기초 문제: 표준 입력
+
+아래 세 프로그램은 각각 `Solution.java`와 `public class Solution`을 사용한다. 같은 이름의 독립 프로그램이므로 각 문제 디렉터리에서 따로 컴파일하고 실행한다. 입력은 공백 또는 줄바꿈으로 구분한다.
+
+| 문제 | 입력 | 출력과 중복 처리 |
+| --- | --- | --- |
+| BST 삽입 | `n`, 이어서 삽입할 정수 `n`개 | 모든 삽입의 재귀 호출 횟수. 중복 키는 오른쪽에 삽입하며 `n <= 0`이면 `0` 출력 |
+| BST 삭제 | `n`, 초기 정수 `n`개, `m`, 이어서 `순회번호 삭제키` 쌍 `m`개 | 삭제마다 한 줄 출력. `0` 전위·`1` 중위·`2` 후위. 초기 중복 키는 무시하며 없는 키의 삭제는 트리를 유지 |
+| 해시 테이블 | `n`, 이어서 삽입할 정수 `n`개 | 크기가 `2n` 이상인 최소 소수인 테이블에서 선형 탐사 충돌 횟수. 음수 키를 처리하며 중복도 별도 항목으로 삽입 |
+
+BST 삽입 예시의 출력은 `11`이다.
+
+```bash
+cd competitive-programming/basics/bst-insertion/java
+javac Solution.java
+printf '5\n5 3 7 1 4\n' | java Solution
+```
+
+BST 삭제 예시의 출력은 아래와 같다. 빈 트리의 순회 결과는 빈 줄이다.
+
+```bash
+cd competitive-programming/basics/bst-deletion/java
+javac Solution.java
+printf '5\n5 3 7 1 4\n3\n0 3\n1 5\n2 99\n' | java Solution
+```
+
+```text
+5 4 1 7
+1 4 7
+1 4 7
+```
+
+해시 테이블 예시의 출력은 `10`이다.
+
+```bash
+cd competitive-programming/basics/hash-table/java
+javac Solution.java
+printf '5\n1 12 23 34 45\n' | java Solution
 ```
 
 ---

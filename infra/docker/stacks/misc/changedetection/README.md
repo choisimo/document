@@ -12,7 +12,7 @@ Pin ChangeDetection and Playwright images, browser sandbox, storage, notificatio
 
 ```bash
 cp .env.example .env
-# Edit .env with your settings
+# Edit .env with environment-specific settings
 mkdir -p datastore
 docker compose up -d
 ```

@@ -9,7 +9,7 @@ Open-source time tracking application.
 
 ```bash
 cp .env.example .env
-# Edit .env with your settings
+# Edit .env with environment-specific settings
 mkdir -p kimai/db/mysql kimai/host/data kimai/host/plugins
 docker compose config
 docker compose up -d

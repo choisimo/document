@@ -1,9 +1,6 @@
----
-description: 포트포워딩 없이 외부에서 내부 서버에 안전하게 접속하는 방법
----
+# Tailscale VPN
 
-# Tailscale VPN 상세 가이드
-
+Tailscale은 WireGuard 기반의 메시 VPN으로, 각 장치를 tailnet에 등록해 NAT 뒤에서도 장치 간 암호화 통신을 쉽게 구성하게 해준다.
 
 ## 적용 범위와 운영 계약
 
@@ -19,299 +16,153 @@ description: 포트포워딩 없이 외부에서 내부 서버에 안전하게 �
 
 포트포워딩 없이 외부에서 내부 서버에 접속하고 실제 연결 경로와 접근 정책을 검증하는 방법을 정리합니다.
 
-## 방법 비교
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-| 방법 | 속도 | 설정 난이도 | 특징 |
-|-----|------|-----------|------|
-| **Tailscale** | ⭐⭐⭐⭐⭐ | 쉬움 | P2P 직접 연결, 가장 추천 |
-| Cloudflare Tunnel | ⭐⭐⭐⭐ | 보통 | Cloudflare 경유, 무료 |
-| WireGuard (직접) | ⭐⭐⭐⭐⭐ | 어려움 | 포트포워딩 필요 |
-| IPv6 | ⭐⭐⭐⭐⭐ | 환경 의존 | 별도 설정 불필요 |
+내부 서버에 외부에서 접속하려고 SSH, RDP, NAS, 관리 UI 포트를 직접 열면 공격면이 커진다. WireGuard를 직접 운영할 수도 있지만 peer 관리, NAT traversal, ACL, 기기 인증을 직접 설계해야 한다.
 
----
+Tailscale은 이 복잡성을 서비스형 control plane과 클라이언트로 줄여준다. 다만 "연결이 된다"와 "접근이 허용된다"는 다르다. 라우트 광고, admin console 승인, grants/ACL, 장치 key 만료를 따로 이해해야 한다.
 
-## Tailscale이란?
+## 2. 현재 나의 상태 (Baseline)
 
-![Tailscale 개념도](https://tailscale.com/files/images/tailscale-how-it-works.svg)
+흔한 출발점은 다음과 같다.
 
-- **WireGuard** 기반의 메시 VPN
-- **NAT Traversal(홀 펀칭)** 기술로 방화벽 통과
-- 가능한 경우 P2P로 직접 연결하며 실제 성능은 NAT, 경로, MTU, 암호화와 호스트 부하에 따라 달라짐
+- Tailscale IP가 생기면 모든 내부망에 접근할 수 있다고 생각한다.
+- subnet router와 exit node를 같은 기능으로 본다.
+- ACL이 라우트 주입 자체를 제어한다고 오해한다.
+- Tailscale SSH가 일반 SSH 포트와 완전히 같은 방식이라고 생각한다.
+- 서버 장치 key expiry를 놓쳐 광고한 route가 어느 날 도달 불가능해진다.
+- tailnet에 초대한 장치의 접근 범위를 세밀하게 제한하지 않는다.
 
-### 핵심 개념
+## 3. 도달하고 싶은 목표 (Target State)
 
+목표는 Tailscale을 "연결성"과 "접근 정책"으로 분리해 운영하는 것이다.
+
+- tailnet, device, MagicDNS, node key 개념을 설명한다.
+- direct 연결과 DERP relay 연결의 차이를 이해한다.
+- subnet router는 내부 subnet 접근용, exit node는 인터넷 egress 라우팅용임을 구분한다.
+- route advertisement와 grants/ACL packet filtering이 다른 계층임을 설명한다.
+- Tailscale SSH의 제한과 policy를 이해한다.
+- 서버 장치에는 tags, key expiry, route approval, access control을 함께 설계한다.
+
+## 4. 시스템 번역 (Data Flow)
+
+기본 장치 간 연결 흐름은 다음과 같다.
+
+```text
+device logs into tailnet
+  -> receives Tailscale IP and node identity
+  -> control plane coordinates peer discovery
+  -> peers attempt direct WireGuard path
+  -> if direct path fails, traffic may use DERP relay
+  -> grants or ACLs decide whether traffic is allowed
 ```
-┌─────────────────────────────────────────────────────┐
-│                 Tailscale Network                    │
-│                   (Tailnet)                          │
-├──────────┬──────────┬──────────┬───────────────────┤
-│ 내 PC    │ 홈 서버   │ 클라우드  │    NAS           │
-│ 100.x.x.1│ 100.x.x.2│ 100.x.x.3│    100.x.x.4     │
-└──────────┴──────────┴──────────┴───────────────────┘
-        ↑              ↑
-        └──── P2P 직접 연결 (암호화) ────┘
+
+subnet router 흐름은 다음과 같다.
+
+```text
+router device advertises 192.168.1.0/24
+  -> admin approves route
+  -> clients receive route injection
+  -> access policy allows or denies packets
+  -> router forwards traffic to LAN
 ```
 
-- 모든 기기에 `100.x.x.x` 대역의 고정 IP 부여
-- 기기 간 직접 통신 (중계 서버 최소화)
+## 5. 핵심 구성요소 (Building Blocks)
 
----
+- Tailnet: 한 조직 또는 계정의 Tailscale 사설 네트워크.
+- Device: tailnet에 등록된 노드.
+- Tailscale IP: tailnet 안에서 장치에 부여되는 주소.
+- MagicDNS: 장치 이름으로 Tailscale IP를 해석하는 기능.
+- DERP: direct 연결이 어려울 때 쓰이는 relay 경로.
+- Subnet router: Tailscale이 설치되지 않은 내부 subnet으로 가는 gateway.
+- Exit node: tailnet 장치의 인터넷 트래픽을 특정 장치로 내보내는 egress gateway.
+- Grants/ACLs: tailnet에서 누가 어떤 목적지와 포트에 접근할 수 있는지 정하는 policy.
+- Tags: 사람 계정 대신 서버 역할에 권한을 붙이기 위한 장치 라벨.
+- Tailscale SSH: Tailscale identity와 policy로 SSH 접근을 제어하는 기능.
 
-## Tailscale 설치
+## 6. 상태 전이 (State Transition)
 
-### Linux (Ubuntu/Debian)
+subnet router의 상태는 다음처럼 관리된다.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Installed
+    Installed --> LoggedIn: tailscale up
+    LoggedIn --> RouteAdvertised: advertise-routes
+    RouteAdvertised --> RouteApproved: admin console approval
+    RouteApproved --> RouteInjected: clients accept routes
+    RouteInjected --> AccessAllowed: grants or ACL permit traffic
+    RouteInjected --> AccessDenied: policy blocks traffic
+```
+
+라우트가 주입되어도 access control이 막으면 패킷은 허용되지 않는다.
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- subnet router와 exit node는 목적이 다르므로 대체해서 쓰면 안 된다.
+- route advertisement는 접근 허용이 아니라 도달 경로 제공이다.
+- 새 정책의 ACL/grants 형식은 현재 지원 기능과 요구에 맞게 선택한다. 기존 정책은 동작·거부 시험과 단계적 변경 계획 없이 강제 변환하지 않는다.
+- 서버나 라우터 장치는 tags와 key expiry 정책을 명확히 해야 한다.
+- auth key는 문서, Git, 로그에 남기지 않는다.
+- Tailscale SSH는 대상 장치와 policy opt-in이 필요하며 모든 비-Tailscale 장치에 적용되는 기능이 아니다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+장치 연결:
 
 ```bash
-# 공식 스크립트로 설치
-curl -fsSL https://tailscale.com/install.sh | sh
-
-# 또는 수동 설치
-curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/jammy.noarmor.gpg | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
-curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/jammy.tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list
-sudo apt update
-sudo apt install tailscale
-```
-
-### Linux (Arch Linux)
-
-```bash
-sudo pacman -S tailscale
-sudo systemctl enable --now tailscaled
-```
-
-### Linux (RHEL/CentOS/Rocky)
-
-```bash
-sudo dnf config-manager --add-repo https://pkgs.tailscale.com/stable/rhel/9/tailscale.repo
-sudo dnf install tailscale
-sudo systemctl enable --now tailscaled
-```
-
-### macOS
-
-```bash
-brew install --cask tailscale
-# 또는 App Store에서 Tailscale 설치
-```
-
-### Windows
-
-[Tailscale 다운로드 페이지](https://tailscale.com/download)에서 설치 파일 다운로드
-
----
-
-## Tailscale 설정
-
-### 1단계: 로그인 및 연결
-
-```bash
-# 로그인 (브라우저 인증)
 sudo tailscale up
-
-# 백그라운드에서 실행 확인
-sudo tailscale status
+tailscale status
+: "${TAILSCALE_PEER:?set reviewed peer name or address}"
+tailscale ping "$TAILSCALE_PEER"
 ```
 
-**출력 예시:**
-```
-100.100.100.1   my-laptop        tagged-devices linux   -
-100.100.100.2   home-server      tagged-devices linux   idle, 5m ago
-                                  direct 192.168.1.100:41641
-```
-
-!!! success "Direct 연결 확인"
-    direct는 P2P 경로가 성립했다는 뜻이며 포트포워딩과 동일한 성능을 보장하지는 않습니다.
-
-!!! warning "Relay 연결"
-    `relay`로 표시되면 중계 서버 경유 중 (속도 저하 가능)
-
-### 2단계: SSH 접속
+현재 client의 `tailscale set --help`를 확인하고 router의 IP forwarding, firewall, DNS·return path와 허용 subnet을 준비한다. 아래는 subnet router의 증분 설정 예시다.
 
 ```bash
-# Tailscale IP로 접속
-ssh user@100.100.100.2
-
-# 또는 MagicDNS 이름으로 접속
-ssh user@home-server
+sudo tailscale set --advertise-routes=192.168.1.0/24
 ```
 
-### 3단계: 서비스 자동 시작
+그 다음 admin console에서 route를 승인하고, Linux 클라이언트에서는 필요하면 route 수락을 켠다.
 
 ```bash
-# 부팅 시 자동 시작
-sudo systemctl enable tailscaled
-
-# 항상 연결 유지
-sudo tailscale up --operator=$USER
+sudo tailscale set --accept-routes
 ```
 
----
-
-## 고급 설정
-
-### Exit Node (전체 트래픽 라우팅)
-
-특정 기기를 통해 모든 인터넷 트래픽을 라우팅합니다.
+exit node 예시:
 
 ```bash
-# 서버에서 Exit Node 활성화
-sudo tailscale up --advertise-exit-node
-
-# 클라이언트에서 Exit Node 사용
-sudo tailscale up --exit-node=home-server
+sudo tailscale set --advertise-exit-node
 ```
 
-### Subnet Router (내부 네트워크 전체 접근)
+exit node도 admin 승인과 클라이언트 opt-in이 필요하다.
 
-Tailscale이 설치되지 않은 내부 기기에도 접근 가능:
+## 9. 실패 사례 (What could go wrong?)
 
-```bash
-# 서버에서 서브넷 광고
-sudo tailscale up --advertise-routes=192.168.1.0/24
+- route를 광고했지만 admin console에서 승인하지 않아 클라이언트에 경로가 주입되지 않는다.
+- Linux 클라이언트가 `--accept-routes`를 켜지 않아 subnet route를 쓰지 않는다.
+- grants/ACL이 너무 넓어 모든 사용자가 내부 subnet 전체에 접근한다.
+- exit node를 의도치 않게 사용해 모든 인터넷 트래픽이 특정 서버로 나간다.
+- 서버 key가 만료되어 subnet route가 남아 있어도 실제 연결이 실패한다.
+- Tailscale SSH policy의 `autogroup:nonroot` 의미를 잘못 이해해 원치 않는 로컬 사용자 접근을 허용한다.
 
-# Tailscale 관리 콘솔에서 해당 라우트 승인 필요
-```
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-### SSH 키 없이 Tailscale SSH 사용
+- tailnet policy file의 `grants`, `ssh`, `tagOwners`, `autoApprovers`, `tests`를 단계적으로 도입한다.
+- 서버는 개인 계정보다 tag 기반으로 관리하고 tag owner를 제한한다.
+- subnet router를 고가용성으로 구성할 때 route 우선순위와 장애 시 동작을 검토한다.
+- Tailscale SSH와 기존 OpenSSH key 관리 방식을 함께 쓸지 분리할지 결정한다.
+- 공식 문서의 subnet routers, exit nodes, Tailscale SSH, ACL/grants 문서를 기준으로 정책을 업데이트한다.
 
-```bash
-# 서버에서 Tailscale SSH 활성화
-sudo tailscale up --ssh
+## 11. 최종 체크리스트 (Definition of Done)
 
-# 클라이언트에서 접속 (Tailscale 인증 사용)
-ssh home-server
-```
+- [ ] tailnet 장치 목록과 역할이 정리되어 있다.
+- [ ] subnet router와 exit node 목적이 구분되어 있다.
+- [ ] route 광고, admin 승인, client accept-routes가 확인되었다.
+- [ ] grants/ACL이 필요한 destination과 port만 허용한다.
+- [ ] 서버 장치의 tag와 key expiry 정책이 정해져 있다.
+- [ ] `tailscale status`, `tailscale ping`, `tailscale netcheck`로 연결 상태를 확인했다.
 
-!!! tip "Tailscale SSH의 장점"
-    - SSH 키 관리 불필요
-    - Tailscale 계정으로 인증
-    - 접속 로그 자동 기록
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
----
-
-## 연결 문제 해결
-
-### Direct 연결이 안 될 때
-
-```bash
-# 상세 연결 정보 확인
-tailscale netcheck
-
-# DERP(중계) 서버 연결 확인
-tailscale ping home-server
-```
-
-**일반적인 원인:**
-
-1. **이중 NAT (Double NAT)**: 공유기가 2개 이상 중첩
-2. **엄격한 방화벽**: UDP 홀펀칭 차단
-3. **CGNAT**: 통신사 공유 IP 사용
-
-### 속도 최적화
-
-```bash
-# 설정을 바꾸기 전에 연결 경로와 UDP 가능 여부를 진단
-tailscale netcheck
-
-# 광고 라우트를 사용하지 않는 클라이언트에서만 선택
-sudo tailscale set --accept-routes=false
-```
-
-### 연결 초기화
-
-```bash
-# 로그아웃 후 재연결
-sudo tailscale logout
-sudo tailscale up
-```
-
----
-
-## Tailscale vs 다른 방법
-
-### Cloudflare Tunnel과 비교
-
-| 항목 | Tailscale | Cloudflare Tunnel |
-|-----|-----------|-------------------|
-| **연결 방식** | P2P 직접 | Cloudflare 경유 |
-| **지연 시간** | 낮음 | 약간 높음 |
-| **계정 필요** | Tailscale 계정 | Cloudflare 계정 |
-| **사용 한도** | 현재 플랜에서 확인 | 현재 플랜과 제품 정책에서 확인 |
-| **웹 노출** | tailnet 전용이 기본이며 Serve/Funnel은 별도 검토 | Tunnel 정책에 따라 가능 |
-
-!!! tip "언제 무엇을 선택?"
-    - **SSH/RDP/내부 서비스** → Tailscale
-    - **웹사이트 공개** → Cloudflare Tunnel
-
-### IPv6 직접 연결
-
-ISP와 클라이언트 모두 IPv6 지원 시:
-
-```bash
-# IPv6 주소 확인
-ip -6 addr show
-
-# IPv6로 SSH 접속
-ssh user@2001:db8::1
-```
-
-**장점:** 양 끝의 IPv6 경로가 안정적이면 직접 연결 가능  
-**주의:** 양 끝의 IPv6 지원과 방화벽 정책이 필요하며 서비스가 공인 주소에 직접 노출될 수 있음
-
----
-
-## 실용적인 사용 사례
-
-### 1. 회사에서 → 집 서버 접속
-
-```bash
-# 집 서버에 Tailscale 설치 후
-ssh user@home-server  # MagicDNS로 바로 접속
-```
-
-### 2. 외부에서 → NAS 파일 접근
-
-```bash
-# NAS의 Tailscale IP로 SMB 마운트
-mount -t cifs //100.100.100.3/share /mnt/nas -o user=admin
-```
-
-### 3. 게임 서버 호스팅
-
-```bash
-# 친구들도 Tailscale 설치 후 Tailnet 초대
-# 게임 서버 IP를 Tailscale IP로 설정
-```
-
----
-
-## 보안 설정
-
-### ACL (Access Control List)
-
-Tailscale 관리 콘솔에서 접근 제어:
-
-```json
-{
-  "acls": [
-    {"action": "accept", "src": ["group:admins"], "dst": ["*:*"]},
-    {"action": "accept", "src": ["group:ssh-users"], "dst": ["tag:servers:22"]}
-  ]
-}
-```
-
-### 서버 등록 키와 장치 만료 관리
-
-```bash
-# 짧은 수명의 등록 키를 secret 파일에서 읽는 예시
-sudo tailscale up --authkey=file:/run/secrets/tailscale_authkey --operator=$USER
-```
-
----
-
-## 참고 자료
-
-- [Tailscale 공식 문서](https://tailscale.com/kb/)
-- [Tailscale 다운로드](https://tailscale.com/download)
-- [Tailscale GitHub](https://github.com/tailscale/tailscale)
-- [WireGuard 프로토콜](https://www.wireguard.com/)
+Tailscale의 연결 경로와 인가는 별도 검증 대상이다. 라우트 승인, ACL/grants, 장치 수명주기와 실제 허용·거부 시험을 함께 유지한다.

@@ -234,6 +234,7 @@ stateDiagram-v2
 ```
 
 **ObjectMonitor**(헤비급):
+
 ```c
 class ObjectMonitor {
     void*   _owner;          // owning thread
@@ -428,7 +429,6 @@ sequenceDiagram
 | 반사 호출(워밍업 후) | 구현별 상이 | JDK 버전, 호출 형태와 접근 검사 기록 |
 
 이 표는 서로 다른 환경에서 달라질 수 있는 크기 순서 예시다. 설계 임곗값으로 쓰기 전에 같은 하드웨어와 JDK에서 워밍업·포크·분포를 포함해 다시 측정한다.
-
 
 ---
 
@@ -628,6 +628,7 @@ classDiagram
     GCPolicy <|.. G1GC
     GCPolicy <|.. ZGC
     JVM_Runtime --> GCPolicy: strategy 패턴\n런타임에 교체 가능
+```
 
 ## 연습 문제
 
@@ -694,12 +695,14 @@ Java 7의 `HashMap.resize()`는 연결 리스트를 **헤드 삽입(head inserti
 </details>
 
 **문제 3-2.** 다음 코드가 반복 호출되는 핫 경로에 있다:
+
 ```java
 String result = "";
 for (int i = 0; i < 10000; i++) {
     result = result + data[i] + ",";
 }
 ```
+
 이 코드의 성능 문제를 JIT 컴파일러의 인라이닝, 이스케이프 분석, String pool 관점에서 분석하라. `StringBuilder`로 전환하면 JVM 내부에서 어떤 차이가 발생하는가?
 
 <details><summary>힌트 보기</summary>
@@ -719,6 +722,7 @@ Metaspace는 클래스 메타데이터(클래스 구조, 메서드 바이트코�
 ### 4. 개념 간의 연결성
 
 **문제 4-1.** 다음은 Double-Checked Locking 기반 싱글턴 패턴이다:
+
 ```java
 public class Singleton {
     private static Singleton instance;
@@ -734,6 +738,7 @@ public class Singleton {
     }
 }
 ```
+
 Java Memory Model(JMM)에서 `volatile` 키워드 없이 이 패턴이 깨지는 이유를 명령어 재정렬(instruction reordering) 관점에서 설명하라. `instance = new Singleton()`이 실제로 어떤 단계로 분해되며, 다른 스레드가 "부분 초기화된" 객체를 볼 수 있는 시나리오를 구체적으로 기술하라.
 
 <details><summary>힌트 보기</summary>

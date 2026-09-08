@@ -1,88 +1,131 @@
-# Preparing for a Database Exam with an AI Tutor
+# 데이터베이스 시험 대비 AI 프롬프트 패턴
 
-This guide provides prompt templates for practising database concepts. An AI response is a study aid, not an authoritative answer key. Check SQL syntax against the DBMS and version named in your course, and check conceptual answers against the syllabus or assigned textbook.
+> **학습 계약:** AI 답변은 연습용 피드백이며 권위 있는 정답지가 아니다. 교과목·시험 범위·강의계획서 개정일·DBMS와 버전·제외 주제·현재 수준·출력 형식·합격 기준을 먼저 정한다. 논쟁적인 답은 지정 교재·공식 DBMS 문서와 대조하고 불확실한 내용은 표시한다.
 
-## Define the study contract
+데이터베이스 시험 대비에 AI를 활용할 때는 개념 설명, 문제 생성, 답안 평가, 오답 분석을 반복하는 피드백 루프가 효과적이다. 프롬프트는 역할, 범위, 출력 형식, 평가 기준을 명확히 포함한다.
 
-Before requesting questions, provide these boundaries:
+## 기본 구성 요소
 
-- **Course or exam**: exact name and, if applicable, exam date or syllabus revision.
-- **Scope**: included chapters, SQL dialect, and explicitly excluded topics.
-- **Current level**: concepts already understood and recent mistakes.
-- **Task**: generate questions, explain a concept, review an answer, or run a timed simulation.
-- **Format**: question count, answer type, difficulty progression, and feedback timing.
-- **Evidence rule**: identify the source for disputed claims and mark uncertainty instead of inventing an answer.
-- **Completion condition**: for example, two independent attempts scoring at least 80% with every wrong answer explained.
+1. **역할 정의**: 데이터베이스 과목 강사, SQL 튜터, 시험 채점자 등 AI의 역할을 지정한다.
+2. **학습 맥락 지정**: 강의계획서, 시험 범위, 교재 목차, 약한 주제를 제공한다.
+3. **출력 형식 지정**: 객관식, 서술형, SQL 실습, 채점표, 해설 형식을 지정한다.
+4. **피드백 루프 구성**: 답안을 제출하고, AI가 채점과 오답 원인 분석을 제공하도록 한다.
+5. **난이도 조절**: 현재 이해 수준에 맞춰 쉬운 문제에서 응용 문제로 확장한다.
 
-## Reusable prompt
+## 기본 템플릿
 
 ```text
-ROLE
-Act as a database instructor for [COURSE OR EXAM].
-
-SCOPE
-- Syllabus revision: [REVISION OR DATE]
-- DBMS and version: [FOR EXAMPLE, PostgreSQL 17]
-- Included topics: [EXACT LIST]
-- Excluded topics: [EXACT LIST]
-- My current level: [BEGINNER / INTERMEDIATE / ADVANCED]
-
-TASK
-[CREATE QUESTIONS / EXPLAIN A CONCEPT / REVIEW SQL / RUN A MOCK EXAM]
-
-OUTPUT
-- Use [QUESTION COUNT] questions at [DIFFICULTY].
-- Present one question at a time and wait for my answer.
-- Do not reveal the answer before I respond.
-- After each response, separate: observed error, governing rule, corrected reasoning,
-  and one transfer question.
-- For SQL, state the expected schema and dialect before judging correctness.
-- If an answer depends on an unstated assumption, ask for it or show the alternatives.
-
-COMPLETION
-End with a table of topics tested, correct/incorrect results, recurring error patterns,
-and the next three topics to review.
+역할: 데이터베이스 시험 대비 강사
+시험 범위: [시험 범위 또는 강의계획서]
+목표: [개념 이해 / SQL 작성 / 정규화 / 트랜잭션 / 인덱스 등]
+난이도: [기초 / 중급 / 고급]
+출력 형식:
+1. 핵심 개념 요약
+2. 연습 문제 5개
+3. 내가 답안을 제출한 뒤 정답·근거·해설 제공
+4. 자주 틀리는 포인트
+5. 추가 학습 항목
 ```
 
-## Relational-model practice
+## 문제 생성 프롬프트
 
 ```text
-Use the study contract above. Test only entity relationships, keys, functional
-dependencies, and normalization through 3NF. Create five scenario-based questions.
-For each answer, distinguish a candidate key from a chosen primary key and show the
-functional dependencies used in any normalization judgment. Wait for my response
-after each question.
+다음 범위에서 데이터베이스 시험 문제를 생성한다.
+
+범위: [예: 정규화, 함수 종속성, 트랜잭션 격리 수준]
+문제 유형: [객관식 / 서술형 / SQL 작성 / ERD 분석]
+문항 수: [숫자]
+난이도: [기초 / 중급 / 고급]
+
+문항을 하나씩 제시하고 내 답을 기다린다. 답안 제출 후 정답, 근거, 해설, 관련 개념과 새로운 전이 문제를 제공한다.
 ```
 
-## SQL practice
+## SQL 코드 리뷰 프롬프트
 
 ```text
-Use [DBMS VERSION]. Define two or three related tables with keys, nullability, and
-five sample rows per table. Give me three tasks covering joins, grouping, and a
-subquery. For each of my attempts:
-1. Check the result against the supplied rows.
-2. Identify dialect-specific syntax.
-3. Explain null and duplicate-row behaviour.
-4. Offer an alternative only when it changes clarity, correctness, or measured cost.
-5. Do not call a query faster without an execution plan or stated assumptions.
+다음 SQL 쿼리를 지정한 DBMS·버전·스키마·키·NULL 허용 여부·표본 데이터에 대해 검토한다. 빠진 조건은 먼저 확인한다.
+
+쿼리:
+[SQL_QUERY]
+
+검토 기준:
+1. 문법 오류
+2. 실행 결과의 정확성
+3. NULL·중복 행·경계 데이터에서의 결과
+4. 실행 계획이나 명시적 가정이 있는 성능·인덱스 분석
+5. 더 명확한 표현
+
+출력은 관찰된 문제, 적용 규칙과 출처, 수정 쿼리, 수정 이유 순서로 작성한다. 실행하지 않았다면 실행 검증했다고 표현하지 않는다.
 ```
 
-## Timed mock exam
+## 답안 평가 프롬프트
 
 ```text
-Create a [MINUTES]-minute mock exam from [TOPIC LIST] with [QUESTION COUNT]
-questions. Match this weighting: [WEIGHTS]. Do not provide hints during the exam.
-After I submit all answers, score them against an explicit rubric. Separate facts,
-dialect-dependent answers, and ambiguous questions. Re-score any ambiguous item only
-after stating the assumption used.
+아래 문제와 답안을 채점한다.
+
+문제:
+[QUESTION]
+
+제출 답안:
+[ANSWER]
+
+채점 기준:
+1. 핵심 개념 포함 여부
+2. 논리 전개
+3. 용어 정확성
+4. 예시의 적절성
+
+출력 형식:
+- 점수: 0~10
+- 맞은 부분
+- 틀린 부분
+- 보완 답안
+- 추가 학습 주제
 ```
 
-## Review loop
+## 오답 분석 프롬프트
 
-1. Attempt each item without asking for the answer.
-2. Record the reason for the chosen answer, not only the option or query.
-3. Compare feedback with the course source when a claim affects scoring.
-4. Turn each error into one rule and one new example.
-5. Repeat with changed data or wording; memorising the original answer is not mastery.
+```text
+다음 오답 목록에서 반복되는 약점을 분석한다.
 
-The session is complete when the agreed score threshold is met on unseen questions and the remaining uncertainties are listed with sources to check.
+오답 목록:
+[WRONG_ANSWERS]
+
+분석 항목:
+1. 자주 틀리는 개념
+2. 문제 유형별 약점
+3. 우선 학습 순서
+4. 보충 문제 예시
+```
+
+## 학습 루프
+
+1. 시험 범위와 강의계획서를 입력한다.
+2. AI가 주제별 연습 문제를 생성한다.
+3. 학습자가 먼저 답안을 작성한다.
+4. AI가 명시한 채점 기준으로 피드백을 주고, 점수에 영향을 주는 사실은 강의 자료·교재·DBMS 문서와 대조한다.
+5. 약한 개념에 대해 추가 문제를 생성한다.
+6. 같은 개념을 SQL 작성, 서술형, 객관식 등 여러 형식으로 반복한다.
+
+이 방식은 단순 정답 확인보다 개념 적용과 오류 교정에 초점을 둔다.
+
+## 관계 모델과 SQL 연습 보충
+
+```text
+위 학습 계약에 따라 키, 함수 종속성, 3NF까지의 정규화를 연습한다.
+시나리오 문제 5개를 하나씩 제시하고 내 답을 기다린다.
+후보 키와 선택한 기본 키를 구분하고 정규화 판정에 사용한 함수 종속성을 적는다.
+SQL 연습은 DBMS와 버전, 관련 테이블의 키와 NULL 제약, 표본 행을 먼저 정의한다.
+조인·그룹화·서브쿼리 결과를 표본 데이터에서 검증하고 중복·NULL 동작을 설명한다.
+```
+
+## 시간 제한 모의시험
+
+```text
+[주제 목록]에서 [문항 수]개를 만들고 [시간]분의 제한과 [주제별 가중치]를 적용한다.
+시험 중 정답·힌트를 주지 않고 모든 답안 제출 뒤 명시한 채점표로 평가한다.
+확정된 사실, DBMS별 차이, 가정이 필요한 문항을 분리한다.
+모호한 문항은 적용 가정을 먼저 밝힌 뒤 다시 평가한다.
+```
+
+완료는 새로운 문제에서 사전에 정한 성취 기준을 충족하고 남은 불확실성과 확인 출처를 기록했을 때로 정한다. 예를 들어 독립된 두 번의 시도에서 80% 이상을 얻고 모든 오답을 설명하도록 정할 수 있으며, 같은 답을 외운 결과와 구분한다.

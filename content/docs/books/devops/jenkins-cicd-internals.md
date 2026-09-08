@@ -377,15 +377,19 @@ The **visual pipeline editor** in Blue Ocean serializes a Declarative Jenkinsfil
 ## 14. Scaling Jenkins: Controller Bottlenecks and Mitigation
 
 ```mermaid
-block-fibonacci
+block-beta
   columns 1
-  block:BOTTLENECK["Jenkins Controller Bottlenecks"]:1
-    columns 3
-    B1["Build Queue: single JVM\nO(N) queue scan per poll cycle\n→ use priority queue plugin"]
-    B2["Remoting channels: one TCP connection per agent\nO(N) agent connections saturate controller threads\n→ WebSocket agents, agent pools"]
-    B3["$JENKINS_HOME IOPS: build history writes\nat build completion overwhelm NFS\n→ SSD-backed local storage"]
-    B4["Plugin classloader: hundreds of plugins\nfull GC pauses in large JVM heaps\n→ JVM tuning: -XX:+UseG1GC -Xmx8g"]
-    B5["SCM polling: H/5 * * * * × 1000 jobs\n= 200 ls-remote calls/minute to Git server\n→ replace with webhooks"]
+  block:BOTTLENECK:1
+    columns 1
+    BOTTLENECKTitle["Jenkins Controller Bottlenecks"]:1
+    block:BOTTLENECKItems:1
+      columns 3
+      B1["Build Queue: single JVM<br/>O(N) queue scan per poll cycle<br/>→ use priority queue plugin"]
+      B2["Remoting channels: one TCP connection per agent<br/>O(N) agent connections saturate controller threads<br/>→ WebSocket agents, agent pools"]
+      B3["$JENKINS_HOME IOPS: build history writes<br/>at build completion overwhelm NFS<br/>→ SSD-backed local storage"]
+      B4["Plugin classloader: hundreds of plugins<br/>full GC pauses in large JVM heaps<br/>→ JVM tuning: -XX:+UseG1GC -Xmx8g"]
+      B5["SCM polling: H/5 * * * * × 1000 jobs<br/>= 200 ls-remote calls/minute to Git server<br/>→ replace with webhooks"]
+    end
   end
 ```
 

@@ -18,15 +18,15 @@ Traditional architectures can place a shared database at the center, while a log
 ```mermaid
 flowchart LR
     subgraph "Traditional: Database-Centric"
-        S1[Service A] -->|read/write| DB[(Shared DB)]
-        S2[Service B] -->|read/write| DB
-        S3[Service C] -->|read/write| DB
+        S1["Service A"] -->|"read/write"| DB[("Shared DB")]
+        S2["Service B"] -->|"read/write"| DB
+        S3["Service C"] -->|"read/write"| DB
     end
     subgraph "Event-Driven: Log-Centric"
-        P1[Service A] -->|publish events| LOG[("Event Log\n(Kafka Topic)\nImmutable append-only")]
-        LOG -->|subscribe + materialize| V1[(Service B's DB\nderived view)]
-        LOG -->|subscribe + materialize| V2[(Service C's DB\nderived view)]
-        LOG -->|subscribe + materialize| V3[(Analytics Store)]
+        P1["Service A"] -->|"publish events"| LOG[("Event Log<br/>(Kafka Topic)<br/>Immutable append-only")]
+        LOG -->|"subscribe + materialize"| V1[("Service B's DB<br/>derived view")]
+        LOG -->|"subscribe + materialize"| V2[("Service C's DB<br/>derived view")]
+        LOG -->|"subscribe + materialize"| V3[("Analytics Store")]
     end
 ```
 

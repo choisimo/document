@@ -614,7 +614,7 @@ classDiagram
     ASTVisitor <|.. CodeGenerator
     ASTVisitor <|.. Optimizer
     PassManager --> PassManager: 파이프라인 패턴\n각 pass를 순차적 실행\npass간 순서 의존성 관리
-
+```
 
 ## 연습 문제
 
@@ -629,6 +629,7 @@ V8은 함수 호출 빈도를 카운트하여 "핫(hot)" 함수를 식별한다.
 </details>
 
 **문제 1-2.** 다음 코드를 SSA(Static Single Assignment) 형태로 변환하라:
+
 ```
 x = 1
 if (condition) {
@@ -638,11 +639,13 @@ if (condition) {
 }
 y = x + 1
 ```
+
 SSA 변환 후 각 변수에 고유한 번호를 부여하고, 합류 지점(merge point)에서 `φ`(phi) 노드가 어디에 필요한지 설명하라. SSA가 컴파일러 최적화(상수 전파, 사류 코드 제거)에 왜 유리한지 설명하라.
 
 <details><summary>힌트 보기</summary>
 
 SSA 변환:
+
 ```
 x1 = 1
 if (condition) {
@@ -653,6 +656,7 @@ if (condition) {
 x4 = φ(x2, x3)       // 합류 지점에서 phi 노드
 y1 = x4 + 1
 ```
+
 `φ` 노드는 제어 흐름에 따라 `x2` 또는 `x3` 중 하나를 선택한다. SSA의 장점: 각 변수가 정확히 한 번만 정의되므로, def-use 체인 분석이 간단해진다. 상수 전파(constant propagation) 시 `x1 = 1`이므로 `x2 = 3`, `x3 = 3`으로 확정할 수 있고, 두 브랜치 모두 3이면 `φ` 노드 자체를 상수 3으로 대체할 수 있다.
 
 </details>
@@ -694,6 +698,7 @@ LLVM의 핵심 설계는 **3단계 분리(three-phase design)**다. 프론트엔
 ### 3. 문제 해결 및 리팩토링
 
 **문제 3-1.** 다음 코드는 성능이 중요한 행렬 곱셈 루프이다:
+
 ```c
 for (int i = 0; i < N; i++) {
     double scale = computeScale(config);  // config는 루프 내에서 불변
@@ -702,6 +707,7 @@ for (int i = 0; i < N; i++) {
     }
 }
 ```
+
 `computeScale(config)` 호출이 루프 내 불변 계산(loop-invariant computation)임에도 N번 반복 실행된다. LICM(Loop-Invariant Code Motion) 최적화가 이를 어떻게 처리하는지 설명하고, 컴파일러가 `computeScale`이 순수 함수(pure function)인지 확인할 수 없을 때 이 최적화가 제한되는 이유를 설명하라.
 
 <details><summary>힌트 보기</summary>
@@ -737,6 +743,7 @@ Strict aliasing 룰: 서로 다른 타입의 포인터는 동일 메모리를 �
 </details>
 
 **문제 4-2.** JVM이 `new` 키워드로 생성한 객체를 힙 대신 스택에 할당할 수 있는 조건을 데이터 흐름 분석과 탈출 분석(Escape Analysis) 관점에서 설명하라. 다음 코드에서 어떤 객체가 스택 할당 대상이 될 수 있고, 어떤 객체는 불가능한지 판단하라:
+
 ```java
 public int compute(int x) {
     Point p = new Point(x, x+1);    // (A)

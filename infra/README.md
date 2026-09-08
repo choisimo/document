@@ -4,8 +4,8 @@
 
 > 변경 계약: 대상 환경, 승인된 diff, secret 주입 경로, backup/rollback과 검증 명령을 작업 기록에 남긴 뒤 실행합니다. `plan`, lint 또는 syntax check 통과는 실제 서비스 정상 동작의 증거와 구분합니다.
 
-> **규칙**: 이 디렉터리에는 실행 가능한 설정/매니페스트만 두세요.  
-> 설명 문서(`.md` 가이드)는 `content/docs/infrastructure/`에 두세요.
+> **규칙**: 이 디렉터리에는 실행 가능한 설정/매니페스트만 둔다.
+> 설명 문서(`.md` 가이드)는 `content/docs/infrastructure/`에 둔다.
 
 ## 디렉터리 구조
 

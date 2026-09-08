@@ -1,104 +1,83 @@
 # GitHub Pages 사용자 정의 도메인과 Cloudflare DNS 설정
 
-> **적용 범위:** Apex 도메인과 `www` 하위 도메인을 GitHub Pages에 연결하는 절차입니다. GitHub의 IP 범위, Pages 화면, Cloudflare 옵션은 변경될 수 있으므로 적용 시점의 공식 문서와 대시보드 값을 기준으로 삼습니다.
+> **적용 범위:** GitHub Pages에 apex와 `www` 도메인을 연결하는 예시다. IP·대시보드·프록시 옵션은 적용 시점의 공식 문서를 따른다. DNS 조회, Pages 도메인 검사, 원본과 방문자 측 HTTPS, 대표 도메인 리디렉션이 각각 확인되어야 완료다.
 
-완료 상태는 DNS 조회 결과, GitHub Pages의 사용자 정의 도메인 검사, HTTPS 인증서, 대표 도메인 리디렉션을 각각 확인했을 때입니다. DNS 전파만으로 전체 구성이 완료된 것은 아닙니다.
+GitHub Pages로 호스팅되는 웹사이트에 사용자 정의 도메인을 연결하고 Cloudflare에서 DNS 레코드를 구성하는 절차다.
 
-1단계: GitHub Pages IP 주소 확인
-GitHub Pages는 특정 IP 주소를 사용합니다. 이 IP 주소들을 사용하여 DNS 설정에서 A 레코드를 생성해야 합니다. 현재 GitHub Pages에서 사용하는 IP 주소는 다음과 같습니다 (항상 최신 정보를 GitHub 공식 문서에서 확인하는 것이 좋습니다):
+## GitHub Pages IP 주소
 
+Apex 도메인에는 GitHub Pages의 A 레코드 대상 IP가 필요하다. 이 문서의 예시 IP는 다음과 같다.
+
+```text
 185.199.108.153
-
 185.199.109.153
-
 185.199.110.153
-
 185.199.111.153
+```
 
-이 IP 주소들은 Apex 도메인(예: yourdomain.com)을 설정할 때 필요합니다.
+GitHub Pages IP는 변경될 수 있으므로 실제 적용 전 GitHub 공식 문서의 Pages DNS 항목을 확인한다.
 
-2단계: Cloudflare에서 DNS 레코드 설정
-Cloudflare 대시보드에 로그인하여 해당 도메인을 선택한 후, DNS 설정 섹션으로 이동합니다.
+## Cloudflare DNS 레코드
 
-Apex 도메인 설정 (예: yourdomain.com)
-Apex 도메인의 경우, 위에서 언급된 GitHub Pages IP 주소를 가리키는 A 레코드 4개를 추가해야 합니다.
+Cloudflare 대시보드에서 해당 도메인을 선택한 뒤 DNS 설정 섹션으로 이동한다.
 
-유형(Type): A
+### Apex 도메인
 
-이름(Name): @ (루트 도메인을 의미) 또는 yourdomain.com (본인 도메인 입력)
+예: `example.com`
 
-IPv4 주소(IPv4 address):
+| 항목 | 값 |
+| --- | --- |
+| Type | `A` |
+| Name | `@` 또는 `example.com` |
+| IPv4 address | `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153` |
+| Proxy status | 초기 연결 확인 시 `DNS only`, 확인 후 필요에 따라 `Proxied` |
+| TTL | `Auto` 또는 1시간 |
 
-첫 번째 레코드: 185.199.108.153
+### WWW 하위 도메인
 
-두 번째 레코드: 185.199.109.153
+예: `www.example.com`
 
-세 번째 레코드: 185.199.110.153
+| 항목 | 값 |
+| --- | --- |
+| Type | `CNAME` |
+| Name | `www` |
+| Target | `username.github.io` |
+| Proxy status | 초기 연결 확인 시 `DNS only`, 확인 후 필요에 따라 `Proxied` |
+| TTL | `Auto` 또는 1시간 |
 
-네 번째 레코드: 185.199.111.153
+조직 소유 저장소는 `orgname.github.io` 형태를 사용할 수 있다. 프로젝트 페이지는 `username.github.io/repository-name` 경로를 사용하므로, Apex 도메인 A 레코드와 `www` CNAME 또는 리디렉션 구성을 함께 검토한다.
 
-프록시 상태(Proxy status): 초기 설정 시에는 'DNS 전용(DNS only)'으로 설정하여 연결을 먼저 확인하는 것이 좋습니다. 연결이 확인된 후 '프록시됨(Proxied)'으로 변경하여 Cloudflare의 추가 기능(CDN, SSL 등)을 활용할 수 있습니다.
+Cloudflare의 `Proxied` 상태를 사용하면 방문자에게 Cloudflare IP가 노출되고 CDN, SSL/TLS, 보안 기능을 적용할 수 있다.
 
-TTL: 자동(Auto) 또는 1시간
+## GitHub 저장소 설정
 
-[Cloudflare DNS 설정 화면 예시 이미지]
+도메인 소유권과 현재 DNS 구성을 확인하고 GitHub Pages 설정에 대표 도메인을 등록한 뒤 필요한 DNS 레코드를 구성한다. 전파 시간은 TTL·캐시·인증서 발급 상태에 따라 다르므로 고정된 최대 시간만으로 완료를 판단하지 않는다.
 
-WWW 하위 도메인 설정 (예: www.yourdomain.com)
-www와 같은 하위 도메인의 경우, GitHub Pages 사용자 이름(또는 조직 이름)과 GitHub 저장소 이름을 가리키는 CNAME 레코드를 추가하는 것이 일반적입니다.
+1. GitHub 저장소의 `Settings` 탭으로 이동한다.
+2. 왼쪽 사이드바에서 `Pages`를 선택한다.
+3. `Custom domain` 섹션에 `www.example.com` 또는 `example.com`을 입력하고 저장한다.
+4. 양쪽 DNS를 올바르게 구성하면 대표 도메인이 apex일 때 `www`에서 apex로, 대표 도메인이 `www`일 때 apex에서 `www`로 리디렉션되는지 확인한다.
+5. `Enforce HTTPS` 옵션이 활성화 가능하면 체크한다.
 
-유형(Type): CNAME
+GitHub Pages의 원본 HTTPS 인증서가 대상 호스트명과 일치하고 유효한지 먼저 확인한다. Cloudflare 프록시를 사용하는 경우 원본 인증서까지 검증하는 `Full (strict)`로 구성한다. `Flexible`은 원본 구간을 암호화하지 않고 `Full`만으로는 원본 인증서 검증을 보장하지 않으므로 정상 완료 기준을 낮추는 대안으로 사용하지 않는다. [Cloudflare Full (strict)](https://developers.cloudflare.com/ssl/origin-configuration/ssl-modes/full-strict/)의 인증서 조건을 확인한다.
 
-이름(Name): www (또는 다른 원하는 하위 도메인)
+## 설정 확인
 
-대상(Target): username.github.io (여기서 username은 본인의 GitHub 사용자 이름 또는 조직 이름으로 변경)
+DNS 전파 상태는 터미널 또는 온라인 DNS 조회 도구로 확인한다.
 
-만약 조직 소유의 저장소라면 orgname.github.io 형태가 됩니다.
+```bash
+nslookup example.com
+dig example.com
+```
 
-프로젝트 페이지의 경우(예: username.github.io/repository-name), Apex 도메인에 A 레코드를 설정하고, www는 Apex 도메인으로 리디렉션하거나, username.github.io로 CNAME을 설정한 후 GitHub Pages 설정에서 www.yourdomain.com을 기본으로 지정할 수 있습니다.
+A 레코드가 GitHub Pages IP를 가리키고, CNAME 레코드가 `username.github.io`를 가리키는지 확인한다. 이후 브라우저에서 `http://example.com` 또는 `https://www.example.com`으로 접속해 사이트 표시와 HTTPS 적용 상태를 확인한다.
 
-프록시 상태(Proxy status): Apex 도메인과 마찬가지로 초기에는 'DNS 전용(DNS only)'으로 설정했다가, 연결 확인 후 '프록시됨(Proxied)'으로 변경하는 것을 권장합니다.
+## 문제 해결
 
-TTL: 자동(Auto) 또는 1시간
+- DNS 변경 사항은 전파 지연이 있을 수 있다.
+- Cloudflare `Proxied` 상태에서 문제가 발생하면 일시적으로 `DNS only`로 변경하여 GitHub Pages 직접 연결을 확인한다.
+- GitHub Pages 설정 화면의 오류 메시지를 확인하고 해당 메시지에 맞춰 조치한다.
+- 게시 방식이 `CNAME` 파일을 사용하는 경우 파일 값·게시 소스·Pages 설정의 대표 도메인이 일치하고 배포 도구가 덮어쓰지 않는지 확인한다.
+- 원본 인증서 오류나 프록시 문제는 `DNS only` 직접 연결로 분리해 진단한다. 원본 HTTPS를 복구한 뒤 인증서 검증 모드로 전환하고 인증서 갱신도 확인한다.
 
-참고:
-
-username.github.io 대신 GitHub Pages 설정에서 지정한 사용자 정의 도메인(예: yourdomain.com)을 CNAME 대상으로 사용할 수도 있습니다. 하지만 GitHub의 권장 사항은 username.github.io를 사용하는 것입니다.
-
-Cloudflare의 '프록시됨(Proxied)' 상태를 사용하면 IP 주소가 Cloudflare의 IP로 마스킹되어 DDoS 공격 방어 및 성능 향상에 도움이 됩니다.
-
-3단계: GitHub 저장소 설정
-DNS 레코드가 전파되려면 시간이 다소 걸릴 수 있습니다 (몇 분에서 최대 48시간). DNS 설정이 완료되었다고 판단되면, GitHub 저장소로 이동하여 사용자 정의 도메인을 설정합니다.
-
-GitHub 저장소에서 Settings 탭으로 이동합니다.
-
-왼쪽 사이드바에서 Pages를 선택합니다.
-
-Custom domain 섹션에 구매한 도메인 주소(예: www.yourdomain.com 또는 yourdomain.com)를 입력하고 Save 버튼을 클릭합니다.
-
-Apex 도메인(yourdomain.com)을 입력하면, GitHub는 자동으로 www.yourdomain.com으로의 리디렉션을 시도할 수 있습니다 (또는 그 반대).
-
-만약 www.yourdomain.com을 주 도메인으로 사용하고 싶다면, 해당 주소를 입력합니다.
-
-Enforce HTTPS 옵션이 있다면 체크합니다. GitHub Pages는 사용자 정의 도메인에 대해 HTTPS를 지원하며, Cloudflare를 통해서도 SSL/TLS 암호화를 설정할 수 있습니다. Cloudflare의 SSL/TLS 설정이 'Flexible' 또는 'Full'로 되어 있는지 확인하세요. 'Full (Strict)'를 사용하려면 GitHub Pages에서 HTTPS가 완전히 활성화된 후에 설정해야 합니다.
-
-[GitHub Pages 사용자 정의 도메인 설정 화면 예시 이미지]
-
-4단계: 설정 확인
-DNS 전파 확인: nslookup yourdomain.com 또는 dig yourdomain.com (터미널/명령 프롬프트) 명령어나 온라인 DNS 조회 도구(예: whatsmydns.net)를 사용하여 DNS 레코드가 올바르게 전파되었는지 확인합니다. A 레코드가 GitHub IP 주소들을 가리키고, CNAME 레코드가 username.github.io를 가리키는지 확인합니다.
-
-웹사이트 접속: 브라우저에서 사용자 정의 도메인(예: http://yourdomain.com 또는 https://www.yourdomain.com)으로 접속하여 웹사이트가 정상적으로 표시되는지 확인합니다.
-
-HTTPS 확인: GitHub Pages 설정에서 'Enforce HTTPS'가 활성화되고, Cloudflare의 SSL/TLS 설정이 적절하게 구성되어 있다면, https://로 접속되는지 확인합니다.
-
-문제 해결 팁
-DNS 전파 시간: DNS 변경 사항이 전 세계적으로 전파되는 데는 시간이 걸릴 수 있습니다. 최대 48시간까지 기다려야 할 수도 있습니다.
-
-Cloudflare 프록시: 만약 '프록시됨(Proxied)' 상태에서 문제가 발생하면, 일시적으로 'DNS 전용(DNS only)'으로 변경하여 GitHub Pages와 직접 연결되는지 확인해 보세요. 연결이 확인되면 다시 '프록시됨'으로 변경하고 Cloudflare 설정을 점검합니다.
-
-GitHub Pages 오류 메시지: GitHub 저장소의 Pages 설정 화면에서 오류 메시지가 표시되는지 확인하고, 해당 메시지에 따라 조치합니다.
-
-CNAME 파일: Pages 설정 화면에서 도메인을 저장하면 게시 소스에 `CNAME` 파일이 생성되거나 갱신될 수 있습니다. 배포 도구가 이 파일을 덮어쓰지 않는지 확인하고, 파일 값과 Pages 화면의 대표 도메인을 일치시킵니다.
-
-Cloudflare SSL/TLS 설정: `Flexible`은 Cloudflare와 원본 사이를 암호화하지 않으므로 정상 운영의 완료 상태로 사용하지 않습니다. GitHub Pages에서 인증서가 발급되고 원본 HTTPS가 정상임을 확인한 뒤 원본 인증서를 검증하는 모드를 선택합니다. 프록시 문제를 분리할 때는 먼저 `DNS only` 상태에서 GitHub Pages 직접 연결을 확인합니다.
-
-이 가이드가 GitHub Pages에 사용자 정의 도메인을 성공적으로 연결하는 데 도움이 되기를 바랍니다.
+DNS 값과 대표 도메인 방향은 [GitHub Pages 사용자 정의 도메인 관리](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site)를 기준으로 확인한다. 변경 전 DNS·Pages·Cloudflare 설정을 기록하고 실패하면 마지막 정상 구성으로 복구한다.

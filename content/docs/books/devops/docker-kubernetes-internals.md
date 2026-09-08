@@ -202,7 +202,7 @@ flowchart LR
   CMP -- "count == 3" --> IDLE["no action — desired state met"]
 ```
 
-This label-based ownership means: if you **manually label** an unrelated pod with `app: nginx, version: v2`, the ReplicaSet will **adopt it** and potentially delete one of your intentional pods to maintain count=3.
+This label-based ownership means: if an unrelated pod is **manually labeled** with `app: nginx, version: v2`, the ReplicaSet will **adopt it** and potentially delete one intended pod to maintain count=3.
 
 ---
 
@@ -347,13 +347,20 @@ stateDiagram-v2
     p1: pod-abc12
     p2: pod-def34
     p3: pod-ghi56
-    note: random names, any pod replaceable
+    note right of p1
+      random names, any pod replaceable
+    end note
   }
   state "StatefulSet (stateful)" as STS {
     s0: mysql-0 (persistent identity)
     s1: mysql-1
     s2: mysql-2
-    note: ordered creation 0→1→2\nordered deletion 2→1→0\nstable DNS: mysql-0.mysql.ns.svc.cluster.local\npersistent PVC bound to each ordinal
+    note right of s0
+      ordered creation 0→1→2
+      ordered deletion 2→1→0
+      stable DNS: mysql-0.mysql.ns.svc.cluster.local
+      persistent PVC bound to each ordinal
+    end note
   }
 ```
 
@@ -455,11 +462,11 @@ flowchart LR
 stateDiagram-v2
   [*] --> Pending: pod created, scheduled to node
   Pending --> Init: init containers start (sequential)
-  Init --> Running: all init containers exit 0\nmain containers start
+  Init --> Running: all init containers exit 0<br/>main containers start
   Running --> Succeeded: all containers exit 0 (Job)
-  Running --> Failed: container exits non-zero\nrestartPolicy=Never
-  Running --> Running: container restarts\n(restartPolicy=Always/OnFailure)\nExponential backoff: 10s→20s→40s→...→5min
-  Running --> Terminating: SIGTERM sent\nterminationGracePeriodSeconds countdown
+  Running --> Failed: container exits non-zero<br/>restartPolicy=Never
+  Running --> Running: container restarts<br/>(restartPolicy=Always/OnFailure)<br/>Exponential backoff#58; 10s→20s→40s→...→5min
+  Running --> Terminating: SIGTERM sent<br/>terminationGracePeriodSeconds countdown
   Terminating --> [*]: SIGKILL if grace period exceeded
 ```
 

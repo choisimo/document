@@ -43,6 +43,7 @@ Lamport (1978) observed that processes don't need wall-clock agreement — they 
 - `e → f` if there exists `g` such that `e → g → f`
 
 **Scalar clock algorithm:**
+
 ```
 On local event: LC[i]++
 On send(m):     LC[i]++; attach LC[i] to m
@@ -114,9 +115,9 @@ sequenceDiagram
     Note over P1: Record local state S1
     P1->>P2: MARKER (on all output channels)
     P1->>P3: MARKER
-    Note over P2: On 1st MARKER receipt:<br/>Record S2; start recording<br/>channel from P3
+    Note over P2: On 1st MARKER receipt:<br/>Record S2#59; start recording<br/>channel from P3
     P2->>P3: MARKER (forward)
-    Note over P3: On 1st MARKER receipt:<br/>Record S3; start recording<br/>channel from P1 and P2
+    Note over P3: On 1st MARKER receipt:<br/>Record S3#59; start recording<br/>channel from P1 and P2
     Note over P2: On MARKER from P3:<br/>Stop recording that channel
     Note over P3: On MARKER from P2:<br/>Stop recording that channel
 ```
@@ -277,9 +278,9 @@ flowchart TD
     P1 --- P2 --- P4 --- P1
   end
   subgraph Q2["Quorum Set R2 = {P2,P3,P5}"]
-    P2' --- P3 --- P5 --- P2'
+    P2Replica["P2'"] --- P3 --- P5 --- P2Replica
   end
-  P2 -.->|"R1 ∩ R2 = {P2}"| P2'
+  P2 -.->|"R1 ∩ R2 = {P2}"| P2Replica
 ```
 
 ---
@@ -594,12 +595,12 @@ Single copy (into shared argument stack) replaces 4 copies of traditional RPC. S
 ```mermaid
 sequenceDiagram
     participant C as Client
-    participant AS as Auth Server (KDC)
+    participant AuthServer as Auth Server (KDC)
     participant TGS as Ticket Granting Server
     participant SV as Service Server
 
-    C->>AS: I am Alice, give me TGT
-    AS-->>C: {TGT}_{K_alice} + {session_key}_{K_alice}
+    C->>AuthServer: I am Alice, give me TGT
+    AuthServer-->>C: {TGT}_{K_alice} + {session_key}_{K_alice}
     Note over C: Decrypt with K_alice (password-derived)
 
     C->>TGS: TGT + Authenticator(ts, client_id) + service_id
@@ -615,7 +616,7 @@ The key insight: the service ticket `{...}_{K_server}` is **opaque to the client
 
 ---
 
-## 13. CAP Theorem: Why You Can't Have Everything
+## 13. CAP Theorem: Why All Guarantees Cannot Coexist
 
 ```mermaid
 flowchart TD

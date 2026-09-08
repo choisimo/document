@@ -1,110 +1,165 @@
-# DevOps 도구 실습 가이드
+# DevOps 도구 실습 문서
 
-Terraform, Ansible, Kafka, Kubernetes의 기본 흐름을 로컬 또는 격리된 학습 환경에서 실습하기 위한 인덱스입니다. 프로덕션 보안·가용성 기준을 보장하지 않습니다. OS, 아키텍처, 런타임, kubectl, 클러스터, Terraform provider, Ansible, Kafka 버전을 먼저 기록하세요.
+이 섹션은 Terraform, Ansible, Kafka, Kubernetes를 하나의 운영 흐름으로 학습하기 위한 문서 묶음이다. 목표는 도구별 명령을 외우는 것이 아니라 “인프라 생성, 서버 설정, 애플리케이션 배포, 이벤트 흐름”의 경계를 이해하는 것이다.
 
-## 📚 학습 목차
+이 문서군은 로컬 또는 격리된 학습 환경을 대상으로 한다. OS·아키텍처·컨테이너 런타임·kubectl·클러스터·Terraform/provider·Ansible/collection·Kafka 버전을 기록한다. 자원 요구량은 동시 실행 규모와 데이터 보존량으로 정하며, 실습 완료를 운영 보안·가용성 검증으로 확대하지 않는다.
 
-### 1. Terraform - 인프라스트럭처 as Code
-- [기본 설정 및 첫 리소스 생성](terraform/01-basic-setup.md)
-- [AWS EC2 실습 예제](terraform/02-aws-ec2-example.md)
-- 상태 관리와 모듈화 (문서 준비 중)
-- 변수와 출력 (문서 준비 중)
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-### 2. Ansible - 자동화 및 설정 관리
-- [설치 및 초기 설정](ansible/01-installation-setup.md)
-- Inventory 작성 방법 (문서 준비 중)
-- Playbook 작성 실습 (문서 준비 중)
-- Role과 재사용성 (문서 준비 중)
+현대 DevOps 환경에서는 하나의 도구로 전체 배포를 끝내기 어렵다. Terraform은 클라우드 리소스를 만들고, Ansible은 서버 설정을 맞추고, Kubernetes는 컨테이너를 배포하고, Kafka는 서비스 간 이벤트 흐름을 담당한다.
 
-### 3. Kafka - 분산 이벤트 스트리밍
-- [개념 및 아키텍처](kafka/01-concepts-architecture.md)
-- [로컬 설치 및 실행](kafka/02-installation-setup.md)
-- Producer/Consumer 실습 (문서 준비 중)
-- 토픽과 파티션 관리 (문서 준비 중)
+이 도구들의 경계를 모르면 Terraform으로 애플리케이션 설정까지 밀어 넣거나, Ansible로 Kubernetes 선언형 상태를 반복 적용하거나, Kafka를 단순 queue처럼 잘못 운영하게 된다.
 
-### 4. Kubernetes - 컨테이너 오케스트레이션
-- [클러스터 설정 (minikube)](kubernetes/01-cluster-setup.md)
+## 2. 현재 나의 상태 (Baseline)
+
+기존 README는 Terraform, Ansible, Kafka, Kubernetes, 통합 시나리오를 넓게 소개한다. 하지만 실제 repository에는 다음 문서만 존재한다.
+
+- [Terraform 기본 설정](terraform/01-basic-setup.md)
+- [AWS EC2 예제](terraform/02-aws-ec2-example.md)
+- [Ansible 설치 및 설정](ansible/01-installation-setup.md)
+- [Kafka 개념과 아키텍처](kafka/01-concepts-architecture.md)
+- [Kafka 설치와 실행](kafka/02-installation-setup.md)
+- [Kubernetes 클러스터 설정](kubernetes/01-cluster-setup.md)
 - [Pod와 Deployment](kubernetes/02-pods-deployments.md)
-- Service와 네트워킹 (문서 준비 중)
-- ConfigMap과 Secret (문서 준비 중)
-- StatefulSet과 영구 스토리지 (문서 준비 중)
+- [DevOps 파이프라인 통합](integration/01-devops-pipeline.md)
 
-### 5. 통합 시나리오
-- [전체 DevOps 파이프라인 구성](integration/01-devops-pipeline.md)
-- Terraform으로 K8s 클러스터 프로비저닝 (문서 준비 중)
-- Kubernetes에서 Kafka 운영 (문서 준비 중)
-- 마이크로서비스 배포 시나리오 (문서 준비 중)
+존재하지 않는 링크는 제거하고, 현재 있는 문서 기준으로 학습 경로를 잡아야 한다.
 
-## 🚀 학습 순서 추천
+## 3. 도달하고 싶은 목표 (Target State)
 
-### 초급: 개별 도구 이해
-1. Terraform 기본 → AWS 리소스 생성 실습
-2. Kubernetes 기본 → Pod, Deployment 실습
-3. Ansible 기본 → 간단한 Playbook 실행
+목표는 각 도구의 책임을 분리한 뒤 하나의 배포 흐름으로 연결하는 것이다.
 
-### 중급: 도구 조합
-1. Terraform + Kubernetes 통합
-2. Ansible로 서버 설정 자동화
-3. Kubernetes에서 Kafka 배포
+- Terraform으로 cloud/network/compute resource를 선언한다.
+- Ansible로 host package, config, service 상태를 맞춘다.
+- Kubernetes로 container workload의 desired state를 관리한다.
+- Kafka로 비동기 event stream과 consumer group 흐름을 이해한다.
+- 통합 문서에서 CI/CD와 운영 검증 경계를 연결한다.
 
-### 고급: 전체 파이프라인
-1. 이벤트 기반 마이크로서비스 아키텍처
-2. CI/CD 파이프라인 구축
-3. 프로덕션 환경 모니터링
+## 4. 시스템 번역 (Data Flow)
 
-## 💡 실습 환경 요구사항
+이 문서 묶음의 전체 흐름은 다음과 같다.
 
-### 필수 설치 도구
-- Docker Desktop 또는 로컬 클러스터가 지원하는 컨테이너 런타임의 검증된 버전
-- 클러스터 minor version과 호환되는 kubectl
-- minikube 또는 kind (로컬 K8s 클러스터)
-- Terraform CLI
-- Ansible
+```text
+Terraform
+  -> infrastructure resources
+  -> Ansible inventory or host targets
+  -> configured runtime nodes
+  -> Kubernetes cluster
+  -> workloads and services
+  -> Kafka topics and consumers
+  -> CI/CD feedback
+```
 
-### 클라우드 계정 (선택사항)
-- AWS Free Tier 계정
-- Azure 또는 GCP 계정
+모든 도구가 모든 일을 하지 않는다. 중요한 것은 “어떤 상태를 누가 소유하는가”를 정하는 것이다.
 
-### 시스템 요구사항 예시
-- 소규모 로컬 실습 시작점: CPU 4코어, RAM 8GB, 여유 디스크 20GB
-- 실제 요구량은 동시 VM·Pod·Kafka broker, 이미지와 보존 데이터에 따라 달라짐
+## 5. 핵심 구성요소 (Building Blocks)
 
-## 📖 각 도구의 역할
+Terraform은 provider API를 통해 인프라 리소스를 생성하고 state로 추적한다.
 
-| 도구 | 역할 | 사용 시점 |
-|------|------|-----------|
-| **Terraform** | 인프라 프로비저닝 | 클라우드 리소스, 네트워크, 스토리지 생성 |
-| **Ansible** | 설정 관리 및 자동화 | 서버 설정, 패키지 설치, 파일 배포 |
-| **Kubernetes** | 컨테이너 오케스트레이션 | 애플리케이션 배포, 스케일링, 관리 |
-| **Kafka** | 이벤트 스트리밍 | 마이크로서비스 간 비동기 통신 |
+Ansible은 inventory의 host에 접속해 module을 실행한다. package, file, service 전용 module의 반복 적용 결과를 확인하고, command·shell·외부 API의 멱등성을 별도로 설계한다.
 
-## 🎯 학습 목표
+Kubernetes는 API server에 선언한 desired state를 controller가 계속 reconcile하는 구조다.
 
-각 실습은 다음 동작을 관측 증거와 함께 설명하는 것을 완료 목표로 합니다:
+Kafka는 topic partition에 event를 저장하고 consumer group이 offset을 관리하는 분산 로그다.
 
-- ✅ 코드로 인프라스트럭처를 정의하고 관리
-- ✅ 서버 설정을 자동화하여 일관성 유지
-- Kubernetes rollout, readiness 실패와 rollback 결과 확인
-- Kafka 메시지 키·offset·중복 가능성 설명
-- 네 도구를 연결한 학습 파이프라인과 프로덕션 전 추가 요구사항 식별
+CI/CD는 build, test, image publish, deploy, rollback을 연결하는 자동화 흐름이다.
 
-## 📝 학습 방법
+## 6. 상태 전이 (State Transition)
 
-각 섹션은 다음 구조로 구성됩니다:
+학습 순서는 다음 상태로 진행한다.
 
-1. **개념 설명**: 핵심 개념과 아키텍처
-2. **실습 예제**: 직접 실행해볼 수 있는 코드
-3. **패턴 분석**: 실무에서 사용되는 베스트 프랙티스
-4. **트러블슈팅**: 자주 발생하는 문제와 해결 방법
+```text
+local tools installed
+  -> Terraform basics
+  -> Ansible basics
+  -> Kubernetes local cluster
+  -> Pod and Deployment
+  -> Kafka concepts
+  -> Kafka local run
+  -> integrated pipeline
+```
+
+운영 관점에서는 다음 상태를 목표로 한다.
+
+```text
+manual setup
+  -> reproducible infrastructure
+  -> repeatable configuration
+  -> declarative deployment
+  -> observable event flow
+  -> automated delivery
+```
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- Terraform state는 민감 정보와 drift 위험을 가진 운영 자산이다.
+- Ansible playbook은 반복 실행해도 결과가 안정적이어야 한다.
+- Kubernetes manifest는 현재 cluster API version과 맞아야 한다.
+- Kafka topic partition과 retention은 나중에 쉽게 바꾸기 어려운 운영 계약이다.
+- Secret은 Git에 평문으로 넣지 않는다.
+- 실습 명령은 local과 cloud 비용 경계를 구분해서 실행한다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+로컬 도구 버전을 확인한다.
+
+```bash
+terraform version
+ansible --version
+kubectl version --client
+docker version
+```
+
+Kubernetes local cluster를 확인한다.
+
+```bash
+kubectl cluster-info
+kubectl get nodes
+```
+
+Kafka나 cloud 실습은 비용과 리소스 정리 절차를 먼저 확인한 뒤 실행한다.
+
+```text
+plan
+  -> apply
+  -> verify
+  -> destroy or cleanup
+```
+
+## 9. 실패 사례 (What could go wrong?)
+
+Terraform으로 만든 리소스를 콘솔에서 직접 수정하면 state와 실제 인프라가 drift된다.
+
+Ansible task의 changed 표시와 실제 상태 변경은 구분한다. 두 번째 실행에서도 예상하지 않은 변경이 발생하면 module 선택, changed_when과 대상 상태를 확인한다.
+
+Kubernetes manifest의 `apiVersion`이 cluster에서 지원되지 않으면 apply가 실패한다. 실습 전 cluster version과 공식 API 문서를 확인한다.
+
+Kafka를 단일 broker로만 실습하고 production 감각으로 옮기면 replication, ISR, retention, consumer lag 문제를 놓친다.
+
+Cloud 실습 후 destroy를 하지 않으면 비용이 계속 발생할 수 있다.
+
+## 10. 뇌 확장하기 (Evolution & Variants)
+
+Terraform과 Ansible은 겹치는 영역이 있지만 책임을 분리하는 편이 유지보수에 유리하다. Terraform은 인프라 생명주기, Ansible은 OS와 서비스 설정에 집중한다.
+
+Kubernetes는 application desired state를 관리하지만, cluster 자체 provisioning은 Terraform, Cluster API, managed service 도구가 담당할 수 있다.
+
+Kafka는 Kubernetes 위에서 운영할 수도 있지만 stateful workload이므로 storage, broker identity, rolling update, backup, monitoring을 더 엄격히 설계해야 한다.
 
 ## 실습 완료 및 실패 증거
 
 Kubernetes는 rollout과 이벤트, Terraform은 plan/state, Ansible은 두 번째 실행 recap, Kafka는 생산·소비 offset을 기록합니다. 명령 성공만으로 서비스 정상이나 데이터 정합성을 단정하지 않습니다. 실패 시 부분 생성 리소스와 외부 비용, 재실행의 멱등성을 확인하고 마지막에 클라우드 리소스, 로컬 volume과 자격 증명을 정리합니다.
 
-## 🤝 기여하기
+## 11. 최종 체크리스트 (Definition of Done)
 
-이 가이드는 계속 발전합니다. 개선 사항이나 추가할 내용이 있다면 PR을 보내주세요!
+- [ ] 현재 README의 링크가 실제 파일과 일치한다.
+- [ ] Terraform, Ansible, Kubernetes, Kafka의 책임을 구분한다.
+- [ ] local 실습과 cloud 실습의 비용 경계를 알고 있다.
+- [ ] 각 도구의 상태 저장 위치를 알고 있다.
+- [ ] Secret을 Git에 넣지 않는 원칙을 세웠다.
+- [ ] 실습 후 cleanup 또는 destroy 절차를 확인했다.
+- [ ] 통합 파이프라인 문서로 다음 학습 흐름을 이어갈 수 있다.
 
----
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-**시작하기**: [Terraform 기본 설정](terraform/01-basic-setup.md)부터 시작하세요!
+DevOps 도구 묶음의 핵심은 “모든 도구로 모든 일을 하기”가 아니라 상태 소유권을 나누는 것이다. Terraform은 인프라, Ansible은 설정, Kubernetes는 workload, Kafka는 event stream을 담당한다.

@@ -85,7 +85,7 @@ flowchart LR
 
 ### Resource Bin-Packing vs. Spreading
 
-`LeastAllocated` scores nodes higher when they have *more* free resources — this spreads pods. `MostAllocated` scores nodes with *less* free resources — this bins-packs. The scheduler plugin framework lets you swap these.
+`LeastAllocated` scores nodes higher when they have *more* free resources — this spreads pods. `MostAllocated` scores nodes with *less* free resources — this bins-packs. The scheduler plugin framework makes these strategies swappable.
 
 ```mermaid
 stateDiagram-v2
@@ -274,7 +274,7 @@ flowchart TD
 
 ### Deployment Controller Deep Dive
 
-When you update a Deployment's image, the Deployment Controller orchestrates a **rolling update** by managing ReplicaSets:
+When a Deployment image is updated, the Deployment Controller orchestrates a **rolling update** by managing ReplicaSets:
 
 ```mermaid
 sequenceDiagram
@@ -320,7 +320,7 @@ stateDiagram-v2
 
     state pod0_Running {
         [*] --> VolumeMount: PVC data-pod-0 bound
-        VolumeMount --> NetworkID: DNS: pod-0.svc.ns.svc.cluster.local
+        VolumeMount --> NetworkID: DNS#58; pod-0.svc.ns.svc.cluster.local
     }
 ```
 
@@ -477,6 +477,10 @@ sequenceDiagram
     participant KL as kubelet (on node)
     participant API as kube-apiserver
     participant NCM as Node Controller
+    participant ETCD
+    participant SCHED as kube-scheduler
+    participant KUBELET2 as kubelet (new node)
+    participant CRI2 as containerd (new node)
 
     KL->>API: NodeHeartbeat (every 10s)
     Note over NODE: Node crashes / network partition
@@ -485,12 +489,12 @@ sequenceDiagram
     NCM->>NCM: Wait 5min (pod-eviction-timeout)
     NCM->>API: Delete pods on Unknown node
     API->>ETCD: Delete pod objects
-    SCHED["kube-scheduler"]-->API: Watch: pods Pending (no node)
+    SCHED-->API: Watch: pods Pending (no node)
     SCHED->>SCHED: Filter/Score healthy nodes
     SCHED->>API: Bind pod → new node
     API->>ETCD: Update pod.spec.nodeName
-    KUBELET2["kubelet (new node)"]-->API: Watch: pod bound to me
-    KUBELET2->>CRI2["containerd (new node)"]: Start containers
+    KUBELET2-->API: Watch: pod bound to me
+    KUBELET2->>CRI2: Start containers
 ```
 
 Node detection, tainting, eviction, endpoint removal, and replacement timing depend on Kubernetes version, controller flags, tolerations, disruption rules, storage, and workload shutdown. Treat the shown five-minute value as a configuration example and measure end-to-end recovery rather than adding nominal timers.

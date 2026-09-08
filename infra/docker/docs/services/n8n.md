@@ -22,7 +22,7 @@ POSTGRES_DB=n8n
 # n8n 설정
 N8N_USER=admin
 N8N_PASS=adminpass
-N8N_ENCRYPTION_KEY=your-encryption-key-here
+N8N_ENCRYPTION_KEY=CHANGE_ME_ENCRYPTION_KEY
 
 # Redis 설정
 REDIS_PASSWORD=redispass

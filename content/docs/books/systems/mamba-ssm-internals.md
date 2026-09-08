@@ -1,5 +1,4 @@
-# Mamba: Linear-Time Sequence Modeling with Selective State Spaces — Under the Hood
-> Source: *Mamba: Linear-Time Sequence Modeling with Selective State Spaces* — Albert Gu & Tri Dao (arXiv:2312.00752v2, CMU + Princeton)
+# Mamba SSM Internals 학습 및 기록 노트
 
 ## Paper and measurement boundary
 
@@ -8,417 +7,125 @@
 - GPU SRAM/HBM capacity and bandwidth figures are hardware examples. Record GPU model, precision, kernel, batch, sequence length and warm-up for performance claims.
 - Distinguish equations derived from the paper, implementation observations, and empirical quality results. Reproduce the named benchmark before generalizing a result.
 
-## Overview
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-Mamba replaces self-attention blocks with input-dependent selective state-space layers and presents algorithms whose work scales linearly with sequence length for fixed dimensions. Standard full attention has quadratic score computation in sequence length, while actual memory and latency depend on training versus autoregressive inference, kernels and model shape. The paper's hardware-aware scan reduces selected HBM traffic; it does not imply that all expanded state lives only in SRAM throughout every implementation.
+Transformer attention은 긴 sequence에서 context를 잘 선택하지만 attention cache와 계산량이 sequence length에 따라 커진다. 전통적인 state space model은 fixed-size hidden state로 빠르게 동작하지만 입력별로 무엇을 기억하고 잊을지 선택하기 어렵다. Mamba는 selective state space model(S6)과 hardware-aware selective scan으로 이 trade-off를 깨려는 구조다.
 
----
+이 문서는 Gu와 Dao의 *Mamba: Linear-Time Sequence Modeling with Selective State Spaces* 원문을 state compression, selective parameter, GPU memory data flow 중심으로 재작성한다.
 
-## 1. The Fundamental Tradeoff: Context Compression
+## 2. 현재 나의 상태 (Baseline)
 
-The following diagram contrasts simplified representatives; hybrids and optimized attention variants need separate analysis.
+- Transformer attention, RNN hidden state, SSM이라는 이름은 알고 있다.
+- Continuous SSM의 `A`, `B`, `C`, `Delta`가 discrete recurrence로 바뀌는 흐름을 더 명확히 해야 한다.
+- S4의 time-invariant kernel과 Mamba S6의 input-dependent parameter 차이를 이해해야 한다.
+- Selective scan이 왜 단순 sequential recurrence를 병렬화할 수 있는지 정리해야 한다.
+- GPU HBM/SRAM 차이가 Mamba 구현 성능에 왜 중요한지 설명해야 한다.
 
-```mermaid
-flowchart LR
-    subgraph Transformer
-        attn["Self-Attention\nStores full KV cache\nO(L) memory per layer\nO(L²) compute\nCan selectively attend anywhere"]
-    end
-    subgraph RNN
-        rnn["Recurrence\nFixed-size hidden state h\nO(1) memory per step\nO(L) compute\nCannot selectively forget"]
-    end
-    subgraph Mamba
-        ssm["Selective SSM\nInput-dependent state transitions\nO(1) inference memory\nO(L) compute\nCAN selectively remember/forget"]
-    end
+## 3. 도달하고 싶은 목표 (Target State)
 
-    Transformer -->|"too slow"| gap["efficiency gap"]
-    RNN -->|"too rigid"| gap
-    gap -->|"solved by"| Mamba
-```
+- Attention, RNN, SSM을 context compression 관점으로 비교한다.
+- Continuous SSM이 ZOH discretization을 거쳐 recurrence로 실행되는 과정을 설명한다.
+- Mamba에서 `B`, `C`, `Delta`는 input-dependent이고 `A`는 fixed로 남는 이유를 이해한다.
+- Expanded state `(B, L, D, N)`를 HBM에 materialize하지 않는 fused selective scan의 의미를 설명한다.
+- Training scan path와 inference recurrent path의 memory/compute trade-off를 구분한다.
 
-The efficiency vs. effectiveness axis can be understood as a **state compression problem**:
-- Attention: does not compress (stores all context) → effective but O(L²)
-- LTI SSM: compresses to fixed-size state → fast but cannot select relevant content
-- Mamba (S6): input-dependent compression → fast AND content-aware
-
----
-
-## 2. State Space Model Mathematics
-
-### 2.1 The Continuous System
-
-A structured SSM maps a 1D input sequence x(t) → y(t) through a hidden state h(t):
-
-```
-h'(t) = A·h(t) + B·x(t)    (state update)
-y(t)  = C·h(t)              (output projection)
-```
-
-Where **A ∈ ℝᴺˣᴺ** is the state transition matrix, **B ∈ ℝᴺˣ¹** is the input projection, **C ∈ ℝ¹ˣᴺ** is the output projection.
-
-### 2.2 Discretization — ZOH Rule
-
-The continuous parameters (Δ, A, B) are converted to discrete parameters (Ā, B̄) using Zero-Order Hold:
-
-```
-Ā = exp(Δ·A)
-B̄ = (Δ·A)⁻¹ · (exp(Δ·A) − I) · Δ·B
-```
-
-**Δ (timescale/step size)** is a learnable parameter that controls how much the model "samples" from the input at each discrete time step. Large Δ → more weight on current input; small Δ → rely more on hidden state.
+## 4. 시스템 번역 (Data Flow)
 
 ```mermaid
-flowchart LR
-    cont_params["Continuous params\n(Δ, A, B)"]
-    zoh["Zero-Order Hold:\nĀ = exp(Δ·A)\nB̄ = ZOH formula"]
-    disc_params["Discrete params\n(Ā, B̄, C)"]
-    recurrence["Recurrence mode:\nhₜ = Ā·hₜ₋₁ + B̄·xₜ\nyₜ = C·hₜ"]
-    convolution["Convolution mode:\ny = x * K\nK = (CB, CAB, ..., CᴬᵏB, ...)"]
-
-    cont_params --> zoh --> disc_params
-    disc_params --> recurrence
-    disc_params --> convolution
-    recurrence -->|inference| out["O(1) per step"]
-    convolution -->|training| train["O(L log L) parallel"]
+flowchart TD
+    A[Input x: B,L,D] --> B[Linear projections]
+    B --> C[B_t, C_t, Delta_t]
+    C --> D[Discretize with fixed A]
+    D --> E[Selective scan in GPU SRAM]
+    E --> F[Hidden state h_t]
+    F --> G[Output y_t = C_t h_t]
+    G --> H[Write B,L,D output to HBM]
+    E -. expanded state not written .-> I[No HBM materialization of B,L,D,N]
 ```
 
-### 2.3 Dual Computation Paths
+Mamba의 hardware-aware scan은 input-dependent parameter와 state recurrence를 kernel 안에서 결합해 선택된 HBM traffic을 줄인다. 전체 expanded state `(B, L, D, N)`를 매 step 저장하지 않는 것이 핵심이며, 모든 중간 상태가 모든 구현에서 오직 SRAM에만 존재하거나 output 외에는 HBM에 쓰지 않는다는 보장은 아니다.
+
+## 5. 핵심 구성요소 (Building Blocks)
+
+| 구성요소 | 역할 | 핵심 상태 |
+| --- | --- | --- |
+| Continuous SSM | sequence를 hidden state dynamics로 표현 | `h'(t)=Ah(t)+Bx(t)` |
+| ZOH discretization | continuous parameter를 discrete recurrence로 변환 | `A_bar`, `B_bar`, `Delta` |
+| 학습된 `A` | Mamba에서 시간에 따라 입력 의존적으로 바뀌지 않는 parameter | discretized `A_bar_t`는 input-dependent `Delta_t`에 따라 달라질 수 있다. |
+| Selective `B` | 현재 input을 state에 쓰는 방식 결정 | input-dependent projection |
+| Selective `C` | state에서 output을 읽는 방식 결정 | input-dependent projection |
+| Selective `Delta` | 기억/리셋 timescale 조절 | softplus gated step size |
+| Parallel prefix scan | recurrence를 병렬 merge로 계산 | associative operator |
+| Fused kernel | discretize, scan, output 계산을 결합 | 전체 expanded state의 반복 materialization을 피하는 HBM traffic 절감; 구체 저장 위치는 kernel별 확인 |
+| Recomputation | backward에서 state를 다시 계산 | memory 절약, compute 증가 |
+| Mamba block | conv, S6, gate, projection 결합 | residual stream |
+
+## 6. 상태 전이 (State Transition)
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Mode
-    Mode --> ConvMode: Training (full sequence visible)
-    Mode --> RecMode: Inference (token-by-token)
-    ConvMode --> Parallel: Compute global kernel K\nFFT-based O(L log L)\nAll tokens processed simultaneously
-    RecMode --> Sequential: Maintain hidden state h\nO(1) per new token\nOnly h + xₜ needed
+    [*] --> InputToken
+    InputToken --> SelectParams: B_t/C_t/Delta_t 계산
+    SelectParams --> Discretized
+    Discretized --> ScanState
+    ScanState --> Remember: Delta small
+    ScanState --> ResetAndWrite: Delta large
+    Remember --> Output
+    ResetAndWrite --> Output
+    Output --> [*]
 ```
 
-**Critical property**: S4 (classical SSM) can switch modes because **A, B, C, Δ are time-invariant constants** — the convolution kernel K is the same for all positions.
+`Delta`가 작으면 `A_bar`가 identity에 가까워져 state를 보존하고, `Delta`가 크면 이전 state 영향이 줄어 현재 token을 강하게 반영한다. 이 선택성이 Mamba가 content-aware compression을 수행하는 방식이다.
 
----
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-## 3. The Selection Mechanism — S6
+- Parallel scan에는 결합 가능한 associative transition 표현이 필요하다. Affine 전이 `(A_t, b_t)`는 시간에 따라 계수가 달라도 `(A_2, b_2) ∘ (A_1, b_1) = (A_2 A_1, A_2 b_1 + b_2)`라는 결합적 합성으로 표현된다.
+- `B`, `C`, `Delta`는 input-dependent여야 selective copying과 content-aware filtering이 가능하다.
+- Expanded state `(B, L, D, N)`를 HBM에 매 step 저장하면 memory bandwidth 병목이 된다.
+- Fused selective scan의 성능 판단은 expanded state materialization과 HBM traffic을 얼마나 줄였는지로 하며, 중간 상태·checkpoint·output의 실제 저장 위치는 사용 kernel에서 확인한다.
+- Backward pass에서 intermediate state를 저장하지 않는다면 재계산 비용을 감수해야 한다.
+- Inference는 token-by-token recurrence로 fixed-size state만 유지해야 long-context memory가 상수에 가깝다.
+- Attention과 비교할 때 training/inference complexity, memory footprint, quality trade-off를 분리해서 봐야 한다.
 
-### 3.1 The Problem with LTI (Linear Time Invariance)
+## 8. 가장 작은 예제 (Minimal Viable Example)
 
-```mermaid
-flowchart TD
-    input["Input: [A, B, C, D, -, -, A]"]
-    task["Task: Copy only token A, ignore others"]
+```text
+Selective copy 개념:
+input:  A - - B - A
 
-    lti["LTI SSM: A,B,C,Δ = constants\nCannot distinguish relevant vs. irrelevant tokens\nSame recurrence dynamics for every token"]
-    select["S6 (Selective): B,C,Δ = f(xₜ)\nDifferent dynamics per token\nCan gate out irrelevant inputs"]
-
-    input --> task
-    task --> lti
-    task --> select
-
-    lti -->|"fails Selective Copying"| fail["All tokens treated equally"]
-    select -->|"passes Selective Copying"| pass["Filters irrelevant, retains relevant"]
+token A: Delta large -> 이전 state를 줄이고 A를 state에 write
+token -: Delta small -> state를 거의 그대로 keep
+token B: Delta large -> B를 새로 write
+token A: Delta large -> A를 다시 write
 ```
 
-### 3.2 Making Parameters Input-Dependent
+이 예제는 fixed recurrence가 모든 token을 같은 방식으로 처리하는 것과 달리, Mamba가 input별 `Delta`, `B`, `C`로 기억/무시/갱신을 선택한다는 점을 보여준다.
 
-The key change from S4 → S6: **B, C, Δ become functions of the current input xₜ**:
+## 9. 실패 사례 (What could go wrong?)
 
-| Parameter | S4 (LTI) | S6 (Selective) | Tensor shape |
-|-----------|----------|----------------|--------------|
-| A | (D, N) constant | (D, N) constant | Fixed |
-| B | (D, N) constant | **B = Linearₙ(x)** | (B, L, N) |
-| C | (D, N) constant | **C = Linearₙ(x)** | (B, L, N) |
-| Δ | (D,) constant | **Δ = Broadcast(Linear₁(x))** | (B, L, D) |
+- SSM을 단순 RNN처럼만 이해해 input-dependent parameter의 선택성을 놓친다.
+- 입력 의존적인 parameter와 이전 hidden state에 비선형적으로 의존하는 전이를 혼동하면 affine scan으로 표현할 수 있는 조건을 잘못 판단한다. 입력별 A_t라는 사실만으로 associativity가 깨지지는 않는다.
+- Expanded state를 HBM에 materialize하는 naive 구현으로 bandwidth 병목을 만든다.
+- Training scan path와 inference recurrent path를 혼동해 memory complexity를 잘못 계산한다.
+- Recomputation을 고려하지 않고 backward memory 사용량을 과소평가한다.
+- Transformer attention의 KV cache와 Mamba hidden state를 같은 memory 모델로 비교한다.
 
-```mermaid
-sequenceDiagram
-    participant Input as xₜ ∈ ℝᴰ
-    participant Linear as Linear Projections
-    participant SSM as Selective SSM
-    participant State as Hidden State hₜ
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-    Input->>Linear: project input
-    Linear-->>SSM: Bₜ = Linearₙ(xₜ)
-    Linear-->>SSM: Cₜ = Linearₙ(xₜ)
-    Linear-->>SSM: Δₜ = softplus(param + Linear₁(xₜ))
-    SSM->>SSM: Discretize: Āₜ = exp(Δₜ·A), B̄ₜ = ZOH(Δₜ,A,Bₜ)
-    SSM->>State: hₜ = Āₜ·hₜ₋₁ + B̄ₜ·xₜ
-    State-->>SSM: yₜ = Cₜ·hₜ
-```
+- SSM 계열은 S4, S5, S6, Hyena, RetNet, linear attention과 context compression 관점으로 비교한다.
+- GPU 구현은 FlashAttention처럼 tiling, kernel fusion, recomputation, HBM/SRAM traffic으로 분석한다.
+- Model block은 causal conv, gating, residual stream, normalization 위치까지 포함해 본다.
+- Inference는 batch size, state cache layout, streaming generation latency 관점으로 확장한다.
+- Long-context benchmark는 memory footprint, throughput, retrieval quality를 분리해 평가한다.
 
-**Consequence**: The model is now **time-varying** — the recurrence parameters change at every step. This breaks the LTI equivalence to convolution, requiring a new computation strategy.
+## 11. 최종 체크리스트 (Definition of Done)
 
----
+- [x] Mamba를 attention/RNN/SSM의 context compression trade-off로 설명했다.
+- [x] `A`, `B`, `C`, `Delta`, ZOH, selective scan의 역할을 정리했다.
+- [x] Mamba의 학습된 A와 input-dependent B/C/Delta를 구분하고, scan의 조건은 affine transition 합성의 associativity로 설명했다.
+- [x] HBM에 expanded state를 쓰지 않는 fused scan을 data flow로 표현했다.
+- [x] 원문 Mamba SSM internals 문서를 12개 섹션 템플릿으로 재작성했다.
 
-## 4. Hardware-Aware Selective Scan — The GPU Algorithm
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-### 4.1 The Memory Hierarchy Problem
-
-```mermaid
-block-beta
-  columns 1
-  block:gpu["GPU Memory Hierarchy"]:1
-    sram["SRAM (on-chip): ~20MB, ~19 TB/s bandwidth\nFast but tiny"]
-    hbm["HBM (off-chip): ~80GB, ~2 TB/s bandwidth\nSlow but large"]
-  end
-  note1["Naive approach: materialize full state h ∈ ℝ^(B,L,D,N)\nB=batch, L=seq len, D=channels, N=state dim\nFor L=1000, D=1024, N=16: ~50GB → doesn't fit in SRAM"]
-```
-
-**Root cause of the bottleneck**: The expanded state h has shape (B, L, D, N) — a factor of N (~16–64) larger than input/output (B, L, D). Writing this to HBM on every step is bandwidth-bound.
-
-### 4.2 The Solution: Kernel Fusion + SRAM-Only State
-
-```mermaid
-flowchart TD
-    subgraph Standard["Naive Approach (slow)"]
-        load1["Load (Δ,A,B,C) from HBM"]
-        discretize1["Discretize → (Ā,B̄) — write to HBM"]
-        scan1["Load (Ā,B̄) from HBM for scan"]
-        state1["Compute h — materialize in HBM (LARGE)"]
-        output1["Compute y — write to HBM"]
-    end
-
-    subgraph Fused["Mamba Fused Kernel (fast)"]
-        load2["Load (Δ,A,B,C) from HBM to SRAM"]
-        fused["All in SRAM:\n• discretize Δ → Ā,B̄\n• run recurrence scan\n• compute y = C·h"]
-        write2["Write only y ∈ (B,L,D) back to HBM\nNever materialize expanded h in HBM"]
-    end
-
-    Standard -->|"memory bandwidth bottleneck"| slow["3-10× slower"]
-    Fused -->|"all heavy computation in SRAM"| fast["3× faster on A100"]
-```
-
-### 4.3 Parallel Scan Algorithm
-
-Even though the recurrence `hₜ = Āₜ·hₜ₋₁ + B̄ₜ·xₜ` appears sequential, it can be parallelized using **prefix scan** (Blelloch 1990):
-
-```mermaid
-flowchart TD
-    seq["Sequence: h₀, h₁, h₂, h₃, h₄, h₅, h₆, h₇"]
-
-    subgraph "Parallel Scan (O(log L) depth)"
-        step1["Step 1: pairs (0,1)(2,3)(4,5)(6,7)\nCompute Ā₁h₀+B̄₁x₁, etc."]
-        step2["Step 2: pairs (0..1,2..3)(4..5,6..7)\nMerge prefix computations"]
-        step3["Step 3: global prefix\nAll hₜ known simultaneously"]
-    end
-
-    seq --> step1 --> step2 --> step3
-    step3 --> out["All outputs in O(L) work, O(log L) depth"]
-```
-
-**Key property**: An associative binary operator exists for the (Ā, B̄x) recurrence, enabling prefix scan. Each merge operation: `(Ā₂, B̄₂x₂) ∘ (Ā₁, B̄₁x₁) = (Ā₂·Ā₁, Ā₂·B̄₁x₁ + B̄₂x₂)`.
-
-### 4.4 Recomputation for Backpropagation
-
-```mermaid
-sequenceDiagram
-    participant Forward
-    participant SRAM
-    participant HBM
-
-    Forward->>SRAM: load (Δ,A,B,C,x)
-    SRAM->>SRAM: compute all intermediate h states
-    SRAM->>HBM: save only y (small), discard h (large)
-    Note over Forward: Backward pass needs intermediate h
-    Forward->>SRAM: reload (Δ,A,B,C,x) from HBM
-    SRAM->>SRAM: recompute h on the fly during backward
-    Note over SRAM: Extra compute but saves N× memory
-```
-
-This is the same technique as FlashAttention's recomputation — trade compute for memory. Mamba achieves the **same memory footprint as FlashAttention** despite operating on a larger expanded state.
-
----
-
-## 5. Mamba Block Architecture
-
-### 5.1 Single Block Design
-
-```mermaid
-flowchart TD
-    input["Input x ∈ ℝ^(B,L,D)"]
-    norm["LayerNorm"]
-    linear1["Linear: D → E·D (expand, E=2)"]
-    linear2["Linear: D → E·D (gating branch)"]
-    conv["Causal Conv1D (local convolution)"]
-    silu["SiLU activation"]
-    s6["Selective SSM (S6)"]
-    gate["Element-wise × (gating)"]
-    proj["Linear: E·D → D (project back)"]
-    residual["+ Residual connection"]
-
-    input --> norm
-    norm --> linear1
-    norm --> linear2
-    linear1 --> conv --> silu --> s6
-    s6 --> gate
-    linear2 --> gate
-    gate --> proj --> residual
-    input --> residual
-```
-
-**Parameter count for one block** with expansion E=2:
-- Input/output projections: 2ED² + ED² = 3ED²
-- SSM parameters: Δ, A, B, C projections — much smaller, ~D·N
-
-### 5.2 Full Mamba Architecture
-
-```mermaid
-flowchart TD
-    embed["Token Embedding: vocab → D"]
-    b1["Mamba Block 1"]
-    b2["Mamba Block 2"]
-    dots["..."]
-    bn["Mamba Block n"]
-    norm_final["Final LayerNorm"]
-    head["LM Head: D → vocab"]
-
-    embed --> b1 --> b2 --> dots --> bn --> norm_final --> head
-    b1 -->|"residual stream"| b2
-    b2 -->|"residual stream"| dots
-```
-
-**vs. Transformer**: No MHA blocks, no separate MLP blocks. Mamba block integrates both the mixing (SSM) and transformation (gating) in a single homogeneous unit.
-
----
-
-## 6. Selection Mechanism Interpretations
-
-### 6.1 Connection to Gating in RNNs
-
-The Δ parameter with softplus activation has a deep connection to LSTM forget gates:
-
-```mermaid
-flowchart LR
-    delta_small["Small Δₜ\n(Δ→0)"]
-    delta_large["Large Δₜ\n(Δ→∞)"]
-
-    delta_small -->|"Ā = exp(Δ·A) ≈ I"| forget_not["Keep hidden state\n(remember context)"]
-    delta_large -->|"Ā → 0 (for A<0)"| forget_yes["Reset hidden state\n(ignore context, focus on current input)"]
-    delta_large -->|"B̄ = ZOH ≈ A⁻¹Bₜ"| attend["Current token fully attended"]
-```
-
-When Δ is large: the model **attends** to the current token. When Δ is small: the model **passes** the hidden state unchanged. This is the mechanism that enables **selective copying and induction heads**.
-
-### 6.2 Selective Copy Task — Data Flow
-
-```mermaid
-sequenceDiagram
-    participant Tokens
-    participant Δ
-    participant State as Hidden State h
-    participant Output
-
-    Tokens->>Δ: token A (relevant) → Δ large
-    Δ->>State: Ā≈0: reset state, B̄ large: write A into h
-    Tokens->>Δ: token - (irrelevant) → Δ small
-    Δ->>State: Ā≈I: keep A in h unchanged
-    Tokens->>Δ: token A (relevant again)
-    Δ->>State: write A again
-    State->>Output: recall A from h at output position
-```
-
----
-
-## 7. Memory Layout — Tensor Dimensions
-
-```mermaid
-block-beta
-  columns 3
-  B["B (batch)"] L["L (sequence)"] D["D (channels/d_model)"]
-  block:input["Input x"]:3
-    xshape["(B, L, D)"]
-  end
-  block:expanded["Expanded state h (SRAM only)"]:3
-    hshape["(B, L, D, N)\nN = SSM state dim (~16-64)\nNEVER written to HBM"]
-  end
-  block:output["Output y"]:3
-    yshape["(B, L, D)"]
-  end
-  block:params["Selective params"]:3
-    bshape["B: (B,L,N)"] cshape["C: (B,L,N)"] dshape["Δ: (B,L,D)"]
-  end
-```
-
-**Memory savings vs. naive**: Instead of writing (B,L,D,N) to HBM (~N× larger), only (B,L,D) is written. For N=16, that's 16× less memory bandwidth per layer.
-
----
-
-## 8. Performance Characteristics
-
-### 8.1 Complexity Comparison
-
-| Model | Training FLOPs | Inference Memory | Inference per step |
-|-------|---------------|-----------------|-------------------|
-| Transformer | O(L²·D) | O(L·D) KV cache | O(L·D) growing |
-| SSM (S4) | O(L·D·N·log L) | O(D·N) constant | O(D·N) constant |
-| Mamba (S6) | O(L·D·N) | O(D·N) constant | O(D·N) constant |
-
-```mermaid
-graph LR
-    subgraph "Inference Memory per token"
-        transformer_mem["Transformer: KV cache grows with L\nAt L=100K: ~10GB just for cache"]
-        mamba_mem["Mamba: fixed hidden state h\nAt any L: O(D·N) = constant"]
-    end
-```
-
-### 8.2 Throughput — 5× vs Transformers
-
-```mermaid
-flowchart LR
-    trans_inf["Transformer inference:\n1. Load K,V cache (grows with context)\n2. Compute attention over all past tokens\n3. Bandwidth-limited by cache size"]
-    mamba_inf["Mamba inference:\n1. Load only current state h (fixed size)\n2. One matrix-vector multiply per token\n3. Cache-friendly, constant bandwidth"]
-
-    trans_inf -->|"L=1000 context"| slow2["~10ms per token"]
-    mamba_inf -->|"L=1000 context"| fast2["~2ms per token (5× faster)"]
-```
-
----
-
-## 9. Why A Must Remain Constant
-
-Making A input-dependent would destroy the associativity of the scan operator, eliminating the parallel scan parallelization:
-
-```mermaid
-flowchart TD
-    assoc{"Is (Āₜ, B̄ₜxₜ) ∘ (Āₜ₋₁, B̄ₜ₋₁xₜ₋₁) associative?"}
-    yes["YES — because A is diagonal/fixed\nMerge operator is well-defined\nParallel scan O(log L) depth achievable"]
-    no["NO — if A is input-dependent\nMerge requires full left-right order\nCannot parallelize beyond O(L)"]
-
-    assoc -->|"A constant"| yes
-    assoc -->|"A input-dependent"| no
-```
-
-The authors keep A fixed (as a diagonal matrix of negative reals), while making B, C, Δ input-dependent. This is the minimal change that enables selectivity while preserving hardware efficiency.
-
----
-
-## 10. Data Flow Summary — Forward Pass
-
-```mermaid
-sequenceDiagram
-    participant Input as x ∈ (B,L,D)
-    participant LinearProj as Linear Projections
-    participant Discretize as Discretizer (ZOH)
-    participant Scan as Parallel Scan (SRAM)
-    participant Output as y ∈ (B,L,D)
-
-    Input->>LinearProj: project x → B:(B,L,N), C:(B,L,N), Δ:(B,L,D)
-    LinearProj->>Discretize: compute Ā=exp(Δ·A), B̄=ZOH(Δ,A,B)
-    Note over Discretize: All in SRAM — no HBM writes
-    Discretize->>Scan: Ā:(B,L,D,N), B̄:(B,L,D,N), C:(B,L,N)
-    Scan->>Scan: Parallel prefix scan\nhₜ = Āₜhₜ₋₁ + B̄ₜxₜ
-    Scan->>Output: yₜ = Cₜ · hₜ\nwrite (B,L,D) to HBM
-```
-
----
-
-## Key Invariants
-
-| Property | Classical S4 | Mamba S6 |
-|----------|-------------|----------|
-| Parameters | Time-invariant | Input-dependent (B,C,Δ) |
-| Computation mode | Conv (train) + RNN (infer) | Scan (train) + RNN (infer) |
-| State materialization | Can use convolution kernel K | SRAM-only fused kernel |
-| Selectivity | No content-awareness | Full content-aware gating |
-| Inference memory | O(D·N) | O(D·N) |
-| Training complexity | O(L log L) | O(L) |
-| Backprop strategy | Standard | Recomputation (like FlashAttention) |
-
-Mamba demonstrates that the Transformer's quadratic complexity is not a fundamental requirement for powerful sequence modeling — it is an artifact of not compressing context selectively. By making compression content-aware via input-dependent parameters and computing efficiently via SRAM-resident parallel scan, Mamba achieves O(L) training, O(1) inference, and Transformer-matching quality.
+Mamba의 핵심은 모든 context를 그대로 저장하는 대신 input-dependent SSM으로 기억할 정보를 고르고, hardware-aware scan으로 불필요한 expanded-state materialization과 HBM traffic을 줄이는 것이다.

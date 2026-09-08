@@ -307,7 +307,7 @@ sequenceDiagram
     participant AdminClient
     participant NetworkClient
     participant MetadataUpdater
-    participant Kafka Broker
+    participant KafkaBroker as Kafka Broker
 
     App->>AdminClient: createTopics(["my-topic"])
     AdminClient->>AdminClient: create CreateTopicsRequest\nwrap in KafkaFuture
@@ -317,10 +317,10 @@ sequenceDiagram
     Note over App: App continues executing (non-blocking)
     
     NetworkClient->>MetadataUpdater: find controller broker
-    MetadataUpdater->>Kafka Broker: MetadataRequest
-    Kafka Broker-->>MetadataUpdater: MetadataResponse (controller=broker-2)
-    NetworkClient->>Kafka Broker: CreateTopicsRequest → broker-2
-    Kafka Broker-->>NetworkClient: CreateTopicsResponse
+    MetadataUpdater->>KafkaBroker: MetadataRequest
+    KafkaBroker-->>MetadataUpdater: MetadataResponse (controller=broker-2)
+    NetworkClient->>KafkaBroker: CreateTopicsRequest → broker-2
+    KafkaBroker-->>NetworkClient: CreateTopicsResponse
     NetworkClient->>AdminClient: fireCallbacks(response)
     AdminClient->>AdminClient: KafkaFuture.complete(result)
     

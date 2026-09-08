@@ -12,7 +12,7 @@ This stack is a focused PostgreSQL + pgvector + PostgREST subset, not the full m
 
 ```bash
 cp .env.example .env
-# Edit .env with your settings
+# Edit .env with environment-specific settings
 docker network create nodove-net  # If not exists
 docker compose up -d
 ```

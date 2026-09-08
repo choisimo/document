@@ -480,7 +480,6 @@ block-beta
 - **Outbox 패턴**은 비즈니스 변경과 outbox 레코드를 같은 로컬 트랜잭션에 기록해 이중 쓰기 공백을 줄인다. 릴레이와 브로커 구간에서는 중복 전달이 가능하므로 소비자 멱등성과 재처리 정책이 필요하다. CDC 오버헤드는 변경량, 보존, 커넥터와 DB 자원 지표로 측정한다.
 - **CQRS 프로젝션**은 이벤트 저장소 재생에서 다시 작성됩니다. N 이벤트마다 스냅샷을 생성하면 재생 시간이 O(모든 이벤트)에서 O(스냅샷 이후 이벤트)로 단축됩니다.
 
-
 ---
 
 ## 설계적 고민
@@ -652,19 +651,19 @@ flowchart TD
 ```mermaid
 stateDiagram-v2
     [*] --> Closed: 초기 상태
-    Closed --> Open: 실패 임계값 초과\n(예: 5회 연속 실패)
-    Open --> HalfOpen: 타이머 만료\n(예: 30초)
-    HalfOpen --> Closed: 프로브 성공\n트래픽 복원
-    HalfOpen --> Open: 프로브 실패\n다시 차단
+    Closed --> Open: 실패 임계값 초과<br/>(예#58; 5회 연속 실패)
+    Open --> HalfOpen: 타이머 만료<br/>(예#58; 30초)
+    HalfOpen --> Closed: 프로브 성공<br/>트래픽 복원
+    HalfOpen --> Open: 프로브 실패<br/>다시 차단
 
     state Closed {
-        [정상] : 모든 요청 통과\n실패 카운터 모니터링
+        state "정상<br/>모든 요청 통과<br/>실패 카운터 모니터링" as ClosedStatus
     }
     state Open {
-        [차단] : 모든 요청 즉시 실패\nfallback 응답 반환
+        state "차단<br/>모든 요청 즉시 실패<br/>fallback 응답 반환" as OpenStatus
     }
     state HalfOpen {
-        [테스트] : 1개 프로브 요청만 허용\n나머지 즉시 실패
+        state "테스트<br/>1개 프로브 요청만 허용<br/>나머지 즉시 실패" as ProbeStatus
     }
 ```
 

@@ -1,6 +1,6 @@
 3개의 서로 다른 VM 서버의 로그를 통합하여 보기 위해 
 
-**Prometheus + Loki + Grafana**를 설정하는 방법을 안내하겠습니다. 
+**Prometheus + Loki + Grafana** 설정 방법이다.
 
 이 구성은 경량화된 설치와 운영이 가능하며, 
 
@@ -408,7 +408,7 @@ ruler:
              - localhost
            labels:
              job: applogs
-             __path__: /path/to/your/application/logs/*.log
+             __path__: /path/to/application/logs/*.log
    ```
 
 3. Promtail 실행:
@@ -509,7 +509,7 @@ sudo systemctl status grafana-custom
 
 ### **추가 사항**
 - Prometheus를 Loki와 함께 설치하면 애플리케이션 메트릭도 모니터링할 수 있습니다.
-- 추가적인 알림 설정은 Grafana의 "Alerting" 기능을 사용하세요.
+- 추가적인 알림 설정은 Grafana의 "Alerting" 기능을 사용한다.
 
 #### promtail <-> loki connection
 ```bash
@@ -519,7 +519,7 @@ curl -X GET http://192.168.0.44:3100/metrics | grep promtail
 
 ### **Extension**
 
-현재 Loki의 설정 파일을 기반으로 문제를 분석하고 수정해야 할 사항을 몇 가지 제안할 수 있습니다.
+현재 Loki 설정 파일을 기준으로 점검할 수정 항목이다.
 
 ---
 
@@ -554,7 +554,7 @@ curl -X GET http://192.168.0.44:3100/metrics | grep promtail
 ---
 
 #### **a. `grpc_server_max_concurrent_streams` 값 조정**
-현재 `grpc_server_max_concurrent_streams` 값이 `1000`으로 설정되어 있습니다. 요청이 더 많은 경우 이 값을 늘려 동시 요청 제한을 완화하세요:
+현재 `grpc_server_max_concurrent_streams` 값이 `1000`으로 설정되어 있다. 요청이 더 많은 경우 이 값을 늘려 동시 요청 제한을 완화한다.
 ```yaml
 grpc_server_max_concurrent_streams: 2000
 ```
@@ -562,7 +562,7 @@ grpc_server_max_concurrent_streams: 2000
 ---
 
 #### **b. Loki `limits_config` 추가**
-현재 설정에는 `limits_config` 섹션이 없습니다. 이를 추가하여 Loki의 수집 및 처리 제한을 명확히 설정하세요.
+현재 설정에는 `limits_config` 섹션이 없다. 이를 추가하여 Loki의 수집 및 처리 제한을 명확히 설정한다.
 
 ```yaml
 limits_config:
@@ -574,7 +574,7 @@ limits_config:
 ---
 
 #### **c. 디스크 경로 최적화**
-현재 Loki는 `/tmp` 경로를 사용하고 있습니다. `/tmp`는 메모리에 종속되거나 크기가 제한적일 수 있습니다. 더 안정적인 저장소를 사용하도록 설정을 변경하세요:
+현재 Loki는 `/tmp` 경로를 사용한다. `/tmp`는 메모리에 종속되거나 크기가 제한적일 수 있으므로 더 안정적인 저장소를 사용하도록 설정을 변경한다.
 ```yaml
 storage_config:
   boltdb:
@@ -586,7 +586,7 @@ storage_config:
 ---
 
 #### **d. Query 캐시 용량 확대**
-현재 캐시 크기가 `100MB`로 설정되어 있습니다. 더 많은 요청을 처리하려면 캐시 크기를 늘려보세요:
+현재 캐시 크기가 `100MB`로 설정되어 있다. 더 많은 요청을 처리하려면 캐시 크기를 늘린다.
 ```yaml
 query_range:
   results_cache:
@@ -599,7 +599,7 @@ query_range:
 ---
 
 #### **e. Promtail 설정 조정**
-Promtail에서 데이터를 보내는 빈도와 크기를 조정하여 Loki로 들어오는 요청 수를 제한하세요. Promtail 설정 파일에서 다음 항목을 수정하세요:
+Promtail에서 데이터를 보내는 빈도와 크기를 조정하여 Loki로 들어오는 요청 수를 제한한다. Promtail 설정 파일에서 다음 항목을 수정한다.
 ```yaml
 clients:
   - url: http://<loki-server>:3100/loki/api/v1/push
@@ -610,7 +610,7 @@ clients:
 ---
 
 ### **3. Loki 서버 상태 확인**
-변경 사항을 적용한 후 Loki 서버가 제대로 작동하는지 확인하세요:
+변경 사항을 적용한 후 Loki 서버가 제대로 작동하는지 확인한다.
 
 #### Loki 서버 상태 점검:
 1. Loki 서버 상태 확인:
@@ -650,4 +650,4 @@ clients:
 - 캐시 크기를 늘려 쿼리 성능 향상.
 - Promtail의 전송 빈도와 크기를 조정하여 Loki의 부하를 줄임.
 
-위 단계를 적용하면 "Too Many Outstanding Requests" 문제를 해결할 수 있을 것입니다. 추가로 문제가 발생하면 말씀해주세요!
+위 단계는 "Too Many Outstanding Requests" 문제를 완화하기 위한 설정 흐름이다.

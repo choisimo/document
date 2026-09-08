@@ -116,7 +116,7 @@ jobs:
         run: >-
           cargo run --locked --manifest-path src/tools/docs-validator-rs/Cargo.toml --
           --root content/docs --docs-base content/docs --link-root dist/site
-          --check links --list-files
+          --check all --list-files
 
       - name: Verify documentation navigation in Chromium
         env:

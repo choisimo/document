@@ -1,12 +1,12 @@
 
 
-# C/C++ 포인터 사용의 일반적인 실수 및 예방 방법과 고급 기법
+# C/C++ 포인터 사용 실수, 예방 방법, 고급 기법
 
 ## 예제 사용 주의
 
 이 문서의 잘못된 예제는 오류 원리를 설명하기 위한 반례이며 그대로 사용하는 구현 예제가 아니다. 각 반례는 전제 조건, 문제가 발생하는 연산, 관찰 가능한 증상, 수정된 대안을 함께 비교해야 한다. 실행 결과가 환경마다 달라질 수 있는 미정의 동작은 특정 출력이 항상 발생한다고 일반화하지 않는다.
 
-## 1. 초중급 개발자가 자주犯는 포인터 관련 실수
+## 1. 초중급 단계에서 자주 발생하는 포인터 관련 실수
 
 ### 1.1 널 포인터 역참조 (Null Pointer Dereference)
 
@@ -218,7 +218,7 @@ void* pool_alloc(MemoryPool *pool) {
 ```
 
 
-## 결론: 포인터 사용 핵심 원칙 요약
+## 포인터 사용 핵심 원칙 요약
 
 | 실수 유형 | 발생 원인 | 예방 전략 | 최적화 기법 |
 | :-- | :-- | :-- | :-- |
@@ -233,4 +233,3 @@ void* pool_alloc(MemoryPool *pool) {
 [^1]: https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/52251879/7f149f15-5b17-4c23-a757-0186169921e5/C-Richard_Reese-Understanding_and_Using_C_Pointers-EN.pdf
 
 [^2]: https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/52251879/81485a94-d769-4986-8f02-df411dac0325/C-Richard_Reese-Understanding_and_Using_C_Pointers-EN.pdf
-

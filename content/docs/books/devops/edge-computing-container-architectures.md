@@ -121,21 +121,21 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     subgraph HOST["Host OS (Ubuntu 20.04)"]
-        DOCKERD["dockerd\nContainer daemon\nHTTP REST API"]
-        CONTAINERD["containerd\nContainer lifecycle\nImage pulls, snapshots"]
-        RUNC["runc\nOCI runtime\nclone() + exec()"]
+        DOCKERD["dockerd<br/>Container daemon<br/>HTTP REST API"]
+        CONTAINERD["containerd<br/>Container lifecycle<br/>Image pulls, snapshots"]
+        RUNC["runc<br/>OCI runtime<br/>clone() + exec()"]
     end
     subgraph C1["roscore Container"]
         INIT1["PID 1: entrypoint.sh"]
-        ROSCORE["roscore\nROS Master\nxmlrpc port :11311"]
+        ROSCORE["roscore<br/>ROS Master<br/>xmlrpc port :11311"]
     end
     subgraph C2["MPC Container"]
         INIT2["PID 1: entrypoint.sh"]
-        MPCNODE["mpc_node\nC++ ROS node\nEigen + OSQP solver"]
-        LIBOSQP["libosqp.so\nQuadratic Program Solver\nADMM algorithm"]
+        MPCNODE["mpc_node<br/>C++ ROS node<br/>Eigen + OSQP solver"]
+        LIBOSQP["libosqp.so<br/>Quadratic Program Solver<br/>ADMM algorithm"]
     end
     DOCKERD --> CONTAINERD --> RUNC
-    RUNC -->|"clone(CLONE_NEWPID|CLONE_NEWNS\n|CLONE_NEWNET)"| C1
+    RUNC -->|"clone(CLONE_NEWPID#124;CLONE_NEWNS<br/>#124;CLONE_NEWNET)"| C1
     RUNC -->|"clone()"| C2
     INIT1 --> ROSCORE
     INIT2 --> MPCNODE --> LIBOSQP
@@ -322,20 +322,22 @@ ROS Master returns the publisher's advertised endpoint to subscribers. A non-rou
 ```mermaid
 stateDiagram-v2
     state "Docker Standalone" as DOCKER {
-        [*] --> Running: docker run
-        Running --> Dead: crash/OOM
-        Dead --> [*]: manual restart\nor --restart=always
-        Dead --> Running: --restart=always\ncreates new container
+        state "Running" as DockerRunning
+        [*] --> DockerRunning: docker run
+        DockerRunning --> Dead: crash/OOM
+        Dead --> [*]: manual restart<br/>or --restart=always
+        Dead --> DockerRunning: --restart=always<br/>creates new container
     }
     
     state "Kubernetes Pod" as K8S {
+        state "Running" as PodRunning
         [*] --> Pending: Pod scheduled
-        Pending --> Running: Container started
-        Running --> Succeeded: normal exit
-        Running --> Failed: crash/OOM/signal
-        Failed --> Running: kubelet restartPolicy=Always\nExponential backoff: 10s→20s→40s...→5min
-        Running --> CrashLoopBackOff: >5 consecutive failures\nbackoff capped at 5min
-        CrashLoopBackOff --> Running: manual delete+recreate\nor fix root cause
+        Pending --> PodRunning: Container started
+        PodRunning --> Succeeded: normal exit
+        PodRunning --> Failed: crash/OOM/signal
+        Failed --> PodRunning: kubelet restartPolicy=Always<br/>Exponential backoff#58; 10s→20s→40s...→5min
+        PodRunning --> CrashLoopBackOff: >5 consecutive failures<br/>backoff capped at 5min
+        CrashLoopBackOff --> PodRunning: manual delete+recreate<br/>or fix root cause
     }
 ```
 
