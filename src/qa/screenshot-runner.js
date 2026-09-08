@@ -167,7 +167,7 @@ function addError(result, error) {
 
 async function inspectDocs(page) {
   return page.evaluate(() => {
-    const contentInnerCount = document.querySelectorAll('.md-content__inner').length;
+    const contentInnerCount = document.querySelectorAll('.md-content__inner, main#main').length;
     const title = document.title;
     const heading = document.querySelector('.md-content__inner h1, main h1, h1')?.textContent?.trim() || '';
     const viewportWidth = window.innerWidth;
@@ -181,7 +181,7 @@ async function inspectDocs(page) {
       return { width: rect.width, height: rect.height };
     }).filter((rect) => rect.width > 1400 || rect.height > 3000);
     const issues = [];
-    if (contentInnerCount === 0) issues.push({ code: 'no-content-inner', message: 'MkDocs content area .md-content__inner is missing' });
+    if (contentInnerCount === 0) issues.push({ code: 'no-content-inner', message: 'Documentation content area (.md-content__inner or main#main) is missing' });
     if (/404|not found/i.test(title) || /^(404\b|not found\b)/i.test(heading)) {
       issues.push({ code: '404-page', message: 'Title or main heading resembles a not-found page' });
     }

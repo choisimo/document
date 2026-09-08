@@ -36,6 +36,8 @@ test('screenshot CLI against a real local HTTP server and Chromium', { timeout: 
         ? '<article class="md-content__inner"><h1>Fixture document</h1><div class="mermaid" data-processed="true"><svg width="100" height="40"><text y="20">Diagram</text></svg></div></article>'
         : '<h1>404 - Not Found</h1><div style="width:1800px">Wide content</div><pre class="mermaid-source">graph TD; A--&gt;B;</pre><div class="mermaid-error" data-processed="false">Syntax error</div><svg width="1401" height="3001"></svg>';
       response.end(html(body));
+    } else if (route === '/hub-shell/') {
+      response.end(html('<main id="main"><article class="hub-document-body"><h1>Documentation Hub article</h1><p>Published document content.</p></article></main>'));
     } else if (route === '/flaky/') {
       response.writeHead(fixed ? 200 : 404).end(html('Flaky page'));
     } else if (route === '/error/') {
@@ -205,6 +207,9 @@ test('screenshot CLI against a real local HTTP server and Chromium', { timeout: 
     assert.equal(clean.pages[0].docsDiagnostics.contentInnerCount, 1);
     assert.equal(clean.pages[0].docsDiagnostics.mermaidBlockCount, 1);
     assert.equal(clean.pages[0].docsDiagnostics.unrenderedMermaidCount, 0);
+    const hub = await invoke('docs-hub-shell', { args: ['--docs-diagnostics', '/hub-shell/'] });
+    assert.equal(hub.pages[0].docsDiagnostics.contentInnerCount, 1);
+    assert.deepEqual(hub.pages[0].docsDiagnostics.issues, []);
   });
   await t.test('retries inherit docs diagnostics and require the observed issues to be fixed', async () => {
     const failed = await invoke('docs-retry-fails', { mode: 'retry', outputDir: docsOutput, inheritBase: true, exitCode: 1 });

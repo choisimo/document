@@ -104,7 +104,7 @@ MkDocs 페이지는 `--docs-diagnostics`로 문서 진단을 추가할 수 있�
 
 | 진단 코드 | 관찰 조건 |
 | --- | --- |
-| `no-content-inner` | `.md-content__inner` 내용 영역이 없음 |
+| `no-content-inner` | Material의 `.md-content__inner`와 Hub의 `main#main` 내용 영역이 모두 없음 |
 | `404-page` | HTTP 상태와 별개로 제목의 `404`/`Not Found` 또는 주제목 시작의 `404`/`Not Found`를 발견 |
 | `horizontal-overflow` | 문서 가로 폭이 현재 뷰포트보다 20px 넘게 큼 |
 | `mermaid-errors` | Mermaid 오류 표시, `data-processed="false"`, 오류 SVG 표시를 발견 |
