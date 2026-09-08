@@ -547,7 +547,6 @@ block-beta
 - **CSI 볼륨**에는 포드당 3개의 RPC가 필요합니다. ControllerPublishVolume(연결), NodeStageVolume(스테이징으로 포맷/마운트), NodePublishVolume(포드에 바인딩 마운트)
 - **HPA**는 원하는 = ceil(현재 × 실제/목표)를 계산합니다. 안정화 창은 폭증하는 측정항목의 스래싱을 방지합니다.
 
-
 ---
 
 ## 설계적 고민

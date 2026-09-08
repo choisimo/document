@@ -49,3 +49,5 @@ curl -G "http://<LOKI_HOST>:<LOKI_PORT>/loki/api/v1/query_range" \
 ```
 
 완료 조건은 세 시스템의 `date` 출력이 비슷한 것만이 아닙니다. 알려진 로그 한 건이 예상 라벨로 수집되고, UTC 질의 범위에서 한 번만 반환되며, Grafana가 같은 시점을 사용자의 표시 시간대로 변환해야 합니다.
+
+시간 동기화 이후에도 문제가 지속되면 Promtail 로그, Loki API 응답, Grafana 조회 시간 범위를 다시 점검한다.

@@ -1,133 +1,81 @@
-이 문서는 push 시 `file_concatter.sh`를 실행해 `total/total.txt`를 생성하고 변경된 경우 다시 저장소에 반영하는 GitHub Actions 구성을 설명한다.
+# GitHub Actions 기반 소스 병합 파일 생성
 
-Here's how you can set it up:
+GitHub 저장소에 push가 발생할 때 `file_concatter.sh`를 실행하고, `.h` 및 `.cpp` 파일을 `total/total.txt`로 병합한 뒤 변경 사항이 있으면 다시 커밋하는 구성이다.
 
-## 1. Modify Your Shell Script (Optional but Recommended)
+## Shell 스크립트
 
-It's good practice for your script to handle the directory creation and specific output path.
-
-Here's an updated version of your `file_concatter.sh` script. I've made the following changes:
-* The default output directory is now `total/`.
-* The default output filename is `total.txt`.
-* The script will create the `total` directory if it doesn't exist.
+`file_concatter.sh`는 기본 출력 디렉토리를 `total/`, 기본 출력 파일명을 `total.txt`로 둔다. 출력 디렉토리가 없으면 생성하고, 재실행 시 `total/total.txt`가 다시 입력 파일로 병합되지 않도록 출력 디렉토리를 건너뛴다.
 
 ```bash
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# 기본값 설정
 start_dir="."
-output_dir="total"
-output_file_name="total.txt"
-output_path="$output_dir/$output_file_name"
-
-# 도움말 표시 함수
+output_path="total/total.txt"
 show_help() {
-    echo "사용법: $0 [옵션]"
-    echo "옵션:"
-    echo "  -d, --directory DIR  검색 시작 디렉토리 지정 (기본값: 현재 디렉토리)"
-    echo "  -o, --output FILE    출력 파일 지정 (기본값: $output_dir/$output_file_name)"
-    echo "  -h, --help           도움말 표시"
-    exit 0
+    printf '사용법: %s [-d DIR] [-o FILE]\n' "$0"
 }
-
-# 인자 파싱
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        -d|--directory)
-            start_dir="$2"
+while (( $# )); do
+    case "$1" in
+        -d|--directory|-o|--output)
+            if (( $# < 2 )) || [[ -z "$2" ]]; then
+                echo "오류: $1 값이 필요합니다." >&2
+                exit 2
+            fi
+            if [[ "$1" == -d || "$1" == --directory ]]; then
+                start_dir="$2"
+            else
+                output_path="$2"
+            fi
             shift 2
             ;;
-        -o|--output)
-            output_path="$2" # 사용자가 -o 옵션으로 경로를 포함한 파일명을 지정할 수 있도록 함
-            output_dir=$(dirname "$output_path")
-            output_file_name=$(basename "$output_path")
-            shift 2
-            ;;
-        -h|--help)
-            show_help
-            ;;
-        *)
-            echo "알 수 없는 옵션: $1"
-            show_help
-            ;;
+        -h|--help) show_help; exit 0 ;;
+        *) show_help >&2; exit 2 ;;
     esac
 done
 
-# 시작 디렉토리가 존재하는지 확인
-if [ ! -d "$start_dir" ]; then
-    echo "오류: 디렉토리 '$start_dir'가 존재하지 않습니다."
-    exit 1
-fi
+start_dir=$(realpath -e -- "$start_dir")
+[[ -d "$start_dir" ]] || { echo "검색 경로는 디렉터리여야 합니다." >&2; exit 1; }
+mkdir -p -- "$(dirname -- "$output_path")"
+output_dir=$(cd -- "$(dirname -- "$output_path")" && pwd -P)
+output_path="$output_dir/$(basename -- "$output_path")"
+# 출력 경로가 입력 디렉터리이거나 symlink이면 덮어쓰지 않는다.
+[[ ! -d "$output_path" && ! -L "$output_path" ]] || exit 1
 
-# 출력 디렉토리 생성
-mkdir -p "$output_dir"
-if [ ! -d "$output_dir" ]; then
-    echo "오류: 출력 디렉토리 '$output_dir'를 생성할 수 없습니다."
-    exit 1
-fi
+input_list=$(mktemp)
+output_tmp=$(mktemp "$output_dir/.concat.XXXXXX")
+trap 'rm -f -- "$input_list" "$output_tmp"' EXIT
 
-# 결과 파일 초기화
-> "$output_path"
-
-echo "디렉토리 '$start_dir'에서 .h 및 .cpp 파일을 검색하여 '$output_path'에 병합합니다..."
-
-# 파일 카운터 초기화
-file_count=0
-
-# 재귀적으로 .h와 .cpp 파일 찾기
-find "$start_dir" -type f \( -name "*.h" -o -name "*.cpp" \) -print0 |
-while IFS= read -r -d $'\0' file; do
-    # 'total' 디렉토리 내의 파일은 건너뛰기 (무한 루프 방지)
-    if [[ "$file" == "$output_dir"* ]]; then
-        continue
-    fi
-
-    # 파일 카운터 증가
-    ((file_count++))
-
-    # 진행 상황 표시
-    echo "처리 중: $file"
-
-    # 파일 구분자 추가
-    echo -e "\n\n===== $file =====\n" >> "$output_path"
-
-    # 파일 내용을 결과 파일에 추가
-    cat "$file" >> "$output_path"
-done
-
-# 병합 완료 메시지
-# find 명령어의 결과를 직접 사용하여 정확한 파일 수를 얻음
-# (파이프라인 서브셸 문제 회피)
-actual_files_processed_count=$(grep -c "^===== .* ====$" "$output_path" || true)
-
-if [ "$actual_files_processed_count" -eq "0" ] && [ "$file_count" -eq "0" ]; then
-    # wc -l 은 파일이 비어있어도 1을 반환할 수 있으므로, 실제 처리된 파일 구분자로 확인
-    # find로 찾은 파일이 0개이고, grep 결과도 0이면 실제로 처리된 파일이 없는 것
-    echo "주의: 병합할 .h 또는 .cpp 파일을 찾지 못했습니다."
-    # 빈 total.txt 파일이 생성될 수 있으므로, 필요에 따라 이 파일을 삭제하는 로직 추가 가능
-    # rm -f "$output_path"
-    # rmdir "$output_dir" # 디렉토리가 비었을 경우 삭제
+# 경계를 정규화해 total-backup 같은 형제 디렉터리는 제외하지 않는다.
+# 출력 디렉터리가 검색 루트인 경우에는 출력 파일만 제외한다.
+if [[ "$output_dir" == "$start_dir" ]]; then
+    find "$start_dir" -type f \( -name '*.h' -o -name '*.cpp' \) \
+        ! -path "$output_path" -print0 | LC_ALL=C sort -z > "$input_list"
 else
-    echo "완료: $actual_files_processed_count 개의 파일이 '$output_path'에 병합되었습니다."
+    find "$start_dir" -path "$output_dir" -prune -o \
+        -type f \( -name '*.h' -o -name '*.cpp' \) \
+        ! -path "$output_path" -print0 | LC_ALL=C sort -z > "$input_list"
 fi
+
+file_count=0
+while IFS= read -r -d '' file; do
+    printf '\n\n===== %s =====\n\n' "$file" >> "$output_tmp"
+    cat -- "$file" >> "$output_tmp"
+    file_count=$((file_count + 1))
+done < "$input_list"
+
+# 읽기 실패 시 기존 결과를 보존하고, 모든 입력을 읽은 뒤 결과를 교체한다.
+mv -- "$output_tmp" "$output_path"
+printf '완료: %s 개의 파일이 %s에 병합되었습니다.\n' "$file_count" "$output_path"
 ```
-
-**Key changes in the script:**
-* `output_dir="total"` and `output_file_name="total.txt"` are new default variables.
-* `output_path="$output_dir/$output_file_name"` combines them.
-* `mkdir -p "$output_dir"` creates the `total` directory if it doesn't exist.
-* The script now checks if a found file is within the `output_dir` itself to prevent trying to add `total/total.txt` to itself if the script is run multiple times or if `start_dir` includes `total`.
-* Improved the final count message to be more accurate by counting the separators in the output file.
-
----
 
 ## 자동화 완료 계약과 알려진 결함
 
-셸 스크립트와 워크플로는 초안이다. `set -e` 상태에서 일치 항목이 없는 `grep -c`가 실패하면 빈 입력 처리 분기에 도달하지 못하므로 명시적으로 허용해야 한다. 출력 디렉터리의 문자열 접두사 비교는 비슷한 이름의 다른 경로를 잘못 제외할 수 있어 정규화된 경로 경계가 필요하다. Action이 생성 파일을 다시 push하면 동일 워크플로를 재호출할 수 있으므로 생성 경로 제외, 쓰기 권한, 동시 실행 정책을 명시한다. 완료는 입력 파일 목록·개수, 출력 해시, 생성 파일만 포함된 diff, Action 종료 상태로 판정한다.
+셸 예시는 Bash와 GNU find/sort/realpath를 사용한다. NUL 구분 입력 목록을 정렬하고 실제 처리 횟수를 같은 셸에서 집계하므로 파일 내용의 구분자와 무관하다. 정규화한 출력 디렉터리 경계만 제외해 비슷한 이름의 형제 경로는 보존한다. 빈 입력·단일 파일·출력 디렉터리 재입력·형제 경로·재실행 결과를 검증한다. 읽기·검색 실패는 nonzero로 전달하고 기존 출력을 보존한다. 동시 실행의 최종 덮어쓰기와 실행 중 원본 변경은 별도 정책이 필요하다. Action이 생성 파일을 push하는 경우 생성 경로 제외, 쓰기 권한과 동시 실행 정책을 확인하며, 완료는 입력 목록·개수, 출력 해시, 생성 파일만 포함된 diff와 종료 상태로 판정한다.
 
-## 2. Create a GitHub Actions Workflow File
+## GitHub Actions 워크플로우
 
-In your GitHub repository, create a directory named `.github` and inside it, another directory named `workflows`. In the `.github/workflows` directory, create a YAML file (e.g., `main.yml` or `build_total.yml`).
+저장소의 `.github/workflows/` 디렉토리에 `main.yml` 또는 `build_total.yml` 파일을 둔다.
 
 ```yaml
 name: Generate Total Source File
@@ -135,7 +83,7 @@ name: Generate Total Source File
 on:
   push:
     branches:
-      - main  # 또는 master, develop 등 기본 브랜치명으로 변경하세요.
+      - main  # 또는 master, develop 등 기본 브랜치명으로 변경한다.
     paths-ignore:
       - 'total/total.txt'
 
@@ -155,10 +103,10 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Make script executable
-      run: chmod +x ./file_concatter.sh # 스크립트 경로가 다르면 수정하세요.
+      run: chmod +x ./file_concatter.sh # 스크립트 경로가 다르면 수정한다.
 
     - name: Run file_concatter.sh
-      run: ./file_concatter.sh # 스크립트 경로가 다르면 수정하세요.
+      run: ./file_concatter.sh # 스크립트 경로가 다르면 수정한다.
 
     - name: Commit and push if changes
       run: |
@@ -174,46 +122,12 @@ jobs:
         fi
 ```
 
-**Explanation of the `main.yml` file:**
+## 동작 흐름
 
-* **`name: Generate Total Source File`**: The name of your workflow, which will appear in the Actions tab of your GitHub repository.
-* **`on:`**: Defines the trigger for the workflow.
-    * **`push:`**: The workflow runs on push events.
-    * **`branches:`**:
-        * **`- main`**: Specifies that the workflow should only run for pushes to the `main` branch. You can change this to your default branch (e.g., `master`) or add other branches.
-* **`jobs:`**: Defines one or more jobs that run when the workflow is triggered.
-    * **`build:`**: The ID of the job (you can name it anything).
-    * **`runs-on: ubuntu-latest`**: Specifies that the job will run on the latest version of an Ubuntu virtual machine provided by GitHub.
-    * **`steps:`**: A sequence of tasks to be executed.
-        * **`name: Checkout repository`**: A descriptive name for the step.
-            * **`uses: actions/checkout@v4`**: This uses a pre-built action to check out your repository's code into the runner environment.
-        * **`name: Make script executable`**:
-            * **`run: chmod +x ./file_concatter.sh`**: This command makes your shell script executable. Adjust the path (`./file_concatter.sh`) if your script is in a different location.
-        * **`name: Run file_concatter.sh`**:
-            * **`run: ./file_concatter.sh`**: This command executes your script. The script will create the `total/total.txt` file.
-        * **`name: Commit and push if changes`**: This step commits the generated `total/total.txt` file back to your repository if it has changed.
-            * `git config --global user.name 'github-actions[bot]'`: Sets the Git username for the commit.
-            * `git config --global user.email 'github-actions[bot]@users.noreply.github.com'`: Sets the Git email for the commit.
-            * `git add total/total.txt`: Stages the generated file.
-            * `if ! git diff --staged --quiet; then ... else ... fi`: This checks if there are any staged changes. If `total.txt` hasn't changed since the last commit, it won't create an empty commit.
-            * `git commit -m "Automated: Update total.txt"`: Commits the changes with a message.
-            * `git push`: Pushes the commit to the repository.
+1. push 이벤트가 `main` 브랜치에서 발생한다.
+2. GitHub Actions runner가 저장소를 체크아웃한다.
+3. `file_concatter.sh` 실행 권한을 부여한다.
+4. 스크립트가 `total/total.txt`를 생성하거나 갱신한다.
+5. `total/total.txt`에 변경 사항이 있으면 Actions bot 계정으로 커밋하고 push한다.
 
----
-## 3. How to Use
-
-1.  **Save your script**: Make sure `file_concatter.sh` (preferably the modified version) is in the root directory of your project (or adjust the path in the YAML file if it's elsewhere).
-2.  **Create the workflow file**:
-    * In your repository, go to the `.github/workflows/` directory (create these directories if they don't exist).
-    * Create a new file named `main.yml` (or any other `.yml` name) and paste the YAML content into it.
-3.  **Commit and Push**:
-    * Commit the `file_concatter.sh` script (if updated) and the new `.github/workflows/main.yml` file to your repository.
-    * Push these changes to your `main` (or specified) branch on GitHub.
-
-Now, every time you push to the `main` branch, the GitHub Action will automatically:
-1.  Check out your code.
-2.  Run your `file_concatter.sh` script.
-3.  The script will create `total/total.txt` with the concatenated content.
-4.  The action will commit `total/total.txt` back to your repository if its content has changed.
-
-You can view the progress and logs of your actions in the "Actions" tab of your GitHub repository. 🚀
+`branches` 값과 스크립트 경로는 저장소의 실제 기본 브랜치와 파일 위치에 맞춰 조정한다.

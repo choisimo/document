@@ -21,5 +21,5 @@
     sudo systemctl start docker
     sudo systemctl enable docker
   
-  ##### ${your linux username} docker permisson add
+  ##### Linux 사용자 Docker 권한 추가
     sudo usermod -aG docker ${your_linux_username}

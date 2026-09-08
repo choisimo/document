@@ -120,11 +120,13 @@ flowchart LR
 - `β` = 0.7 (곱셈 감소 인자, Reno의 0.5보다 덜 공격적)
 
 **BBR(병목 대역폭 및 RTT)** — 대역폭을 직접 조사합니다.
+
 ```
 BtlBw = max delivery rate over RTprop window
 pacing_rate = BtlBw × pacing_gain
 cwnd = BtlBw × RTprop × cwnd_gain
 ```
+
 BBR은 STARTUP·DRAIN·PROBE_BW·PROBE_RTT 계열 상태로 대역폭과 RTT 모델을 갱신합니다. 손실 처리와 상태 세부사항은 BBR 버전에 따라 다르므로 "손실에 반응하지 않는다"는 절대적 설명으로 사용하지 않습니다.
 
 ---
@@ -205,6 +207,7 @@ sequenceDiagram
 ```
 
 커널의 `struct neighbour`:
+
 ```c
 struct neighbour {
     __u8            primary_key[4];  // IP address
@@ -248,6 +251,7 @@ sequenceDiagram
 ```
 
 DNS 메시지 연결 형식(RFC 1035):
+
 ```
 Header (12 bytes): ID(16) | QR|Opcode|AA|TC|RD|RA|Z|RCODE | QDCOUNT | ANCOUNT | NSCOUNT | ARCOUNT
 Question: QNAME (labels) | QTYPE (2) | QCLASS (2)
@@ -274,13 +278,16 @@ flowchart TD
 ```
 
 **연결 추적(conntrack)** — 해시 테이블에 저장된 각 TCP/UDP 흐름:
+
 ```
 nf_conntrack_tuple: {src_ip, src_port, dst_ip, dst_port, proto, netns}
 State: NEW → ESTABLISHED → RELATED → INVALID
 ```
+
 NAT는 sk_buff IP/TCP 헤더를 수정하고 체크섬을 증분식으로 다시 계산하여 패킷을 다시 작성합니다(RFC 1624 1의 보완 증분 업데이트).
 
 **nftables**는 레지스터 기반 VM을 사용하여 iptables를 대체합니다.
+
 ```
 rule → list of expressions → each expression operates on registers r0..r15
 verdict: accept / drop / jump / goto / return / continue
@@ -361,7 +368,7 @@ sequenceDiagram
     Note over Client,Server: Application traffic keys derived\nAPP_SECRET = HKDF-Expand(master_secret, "traffic")\nKey = HKDF-Expand(APP_SECRET, "key", keylen)\nIV  = HKDF-Expand(APP_SECRET, "iv", 12)
 ```
 
-**0-RTT 재개**: 클라이언트는 이전 세션의 PSK 및 ticket_age_add를 저장합니다. 다시 연결하면 서버가 응답하기 전에 resumption_master_secret으로 암호화된 early_data를 보냅니다. 서버는 수락하거나 거부해야 합니다. 재생 방지 캐시로 완화된 재생 취약성입니다.
+**0-RTT 재개**: 클라이언트는 이전 세션의 PSK 및 ticket_age_add를 저장합니다. 다시 연결하면 서버가 응답하기 전에 resumption_master_secret으로 암호화된 early_data를 보냅니다. 서버는 이를 수락하거나 거부한다. 재생 방지 캐시로 완화된 재생 취약성입니다.
 
 ---
 
@@ -576,7 +583,6 @@ block-beta
 ```
 
 모든 바이트는 애플리케이션 버퍼 → 소켓 전송 큐 → TCP 분할 → IP 헤더 스탬핑 → 넷필터 후크 → QDisc → NIC DMA 링 → 와이어를 순회합니다. 수신 측에서 정확한 역방향 경로: DMA → NAPI 폴 → 프로토콜 demux → sk_receive_queue → 사용자 공간 복사. 이 전체 sk_buff 수명 주기(메모리 내 위치, 어떤 커널 기능이 이를 변경하는지, 어떤 후크가 이를 가로채는지)를 이해하는 것이 모든 Linux 네트워크 성능 분석 및 문제 해결의 기초입니다.
-
 
 ---
 

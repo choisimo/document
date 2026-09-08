@@ -6,5 +6,5 @@
 
 ## 엔티티 생성 시각
     @CreationTimestamp
-## 엔티티 수정 시각 
+## 엔티티 수정 시각
     @UpdateTimestamp

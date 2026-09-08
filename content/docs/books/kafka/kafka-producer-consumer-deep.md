@@ -325,7 +325,7 @@ flowchart TD
     end
 ```
 
-**Auto-commit pitfall**: Auto-commit fires every `auto.commit.interval.ms` regardless of processing state. If the JVM crashes after `poll()` returns 100 records but before you finish processing all 100, records 50-100 may auto-commit, causing silent data loss.
+**Auto-commit pitfall**: Auto-commit fires every `auto.commit.interval.ms` regardless of processing state. If the JVM crashes after `poll()` returns 100 records but before all 100 are processed, records 50-100 may auto-commit, causing silent data loss.
 
 **Offset commit internals**: Committed offsets are written to the special topic `__consumer_offsets` (50 partitions by default). The partition is determined by `hash(group_id) % 50`. Compact topic — only the latest offset per `(group, topic, partition)` triple is retained.
 
@@ -470,13 +470,7 @@ sequenceDiagram
     participant B1 as Broker 1 (partition leader)
 
     P->>B0: MetadataRequest{topics: ["orders"]}
-    B0-->>P: MetadataResponse{
-        brokers: [{id:0, host:b0}, {id:1, host:b1}],
-        topics: [{name:"orders", partitions:[
-            {id:0, leader:1, isr:[1,0]},
-            {id:1, leader:0, isr:[0,1]}
-        ]}]
-    }
+    B0-->>P: MetadataResponse{<br/>brokers: [{id:0, host:b0}, {id:1, host:b1}],<br/>topics: [{name:"orders", partitions:[<br/>{id:0, leader:1, isr:[1,0]},<br/>{id:1, leader:0, isr:[0,1]}<br/>]}]<br/>}
 
     Note over P: Cache metadata, refresh every metadata.max.age.ms
     P->>B1: ProduceRequest{topic:orders, partition:0, ...}
@@ -541,3 +535,4 @@ sequenceDiagram
     CONS->>CONS: decompress, deserialize
     CONS->>CONS: process records
     CONS->>LEADER: OffsetCommitRequest → __consumer_offsets
+```

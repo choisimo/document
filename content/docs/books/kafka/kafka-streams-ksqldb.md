@@ -172,7 +172,7 @@ sequenceDiagram
 
     App->>RS: put(key, aggregated_value)
     RS->>CL: async write: (key, value) [changelog producer]
-    Note over CL: topic name: &lt;app-id&gt;-&lt;store-name&gt;-changelog
+    Note over CL: topic name: #60;app-id#62;-#60;store-name#62;-changelog
     
     App->>CP: commit: write last offset from changelog
 

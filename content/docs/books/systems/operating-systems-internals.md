@@ -227,10 +227,11 @@ flowchart TD
 ### 6.2 Slab Allocator — Object Cache
 
 ```mermaid
-block-fixes
 block-beta
   columns 1
-  block:slab["kmem_cache for task_struct (example)"]:1
+  block:slab:1
+    columns 1
+    slabTitle["kmem_cache for task_struct (example)"]:1
     full["Full slabs: all objects allocated"]
     partial["Partial slabs: mix of free/allocated objects"]
     empty["Empty slabs: all free → returned to buddy"]
@@ -382,7 +383,7 @@ sequenceDiagram
     participant Implementation
 
     UserApp->>libc: read(fd, buf, n)
-    libc->>CPU: MOV rax, __NR_read; SYSCALL instruction
+    libc->>CPU: MOV rax, __NR_read#59; SYSCALL instruction
     CPU->>CPU: switch to ring 0, load kernel stack (per-CPU)
     CPU->>KernelEntry: entry_SYSCALL_64
     KernelEntry->>KernelEntry: save all registers on kernel stack
@@ -427,9 +428,11 @@ stateDiagram-v2
     CheckRef --> ClearRef: ref=1 → clear bit, advance clock hand
     CheckRef --> Evict: ref=0 → candidate for eviction
     ClearRef --> Scan: continue scanning
-    Evict --> Dirty{"Page dirty?"}
-    Dirty -->|yes| WriteBack: writeback to disk/swap
-    Dirty -->|no| Free: immediately reclaim
+    state Dirty <<choice>>
+    note right of Dirty: Page dirty?
+    Evict --> Dirty
+    Dirty --> WriteBack: yes — writeback to disk/swap
+    Dirty --> Free: no — immediately reclaim
     WriteBack --> Free
     Free --> [*]: frame available
 ```

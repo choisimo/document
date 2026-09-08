@@ -89,12 +89,12 @@ Match Host *-dev
     X11Forwarding yes
     PasswordAuthentication yes
     PermitLocalCommand yes
-    
+
 # 테스트 환경용 설정
 Match Host *-test Address 192.168.0.0/16
     X11Forwarding yes
     PasswordAuthentication no
-    
+
 # 프로덕션 환경용 보안 강화 설정
 Match Host *-prod
     PasswordAuthentication no
@@ -120,14 +120,14 @@ Match User db-* Address 10.0.0.0/8
     X11Forwarding no
     PermitTTY yes
     ForceCommand /usr/local/bin/db-session-wrapper
-    
+
 # 웹 서버용 설정
 Match User web-* Address 10.0.0.0/8
     AllowTcpForwarding no
     X11Forwarding no
     PermitTTY yes
     ForceCommand /usr/local/bin/web-session-wrapper
-    
+
 # 모니터링 시스템용 설정
 Match User monitoring-* Address 10.0.0.0/8
     PermitTTY no
@@ -296,7 +296,7 @@ Match LocalPort 22
 Match LocalPort 2222
     PasswordAuthentication yes
     AllowTcpForwarding yes
-    
+
 # 여러 포트에 적용
 Match LocalPort 22,2222,2022
     MaxSessions 10
@@ -316,7 +316,7 @@ Match User lead-dev Group developers
     AllowTcpForwarding yes
 ```
 
-이 설정은 'lead-dev' 사용자가 'developers' 그룹에 속할 때만 적용됩니다. 두 조건이 AND 논리로 결합되어 둘 다 충족해야 합니다.
+이 설정은 'lead-dev' 사용자가 'developers' 그룹에 속할 때만 적용됩니다. 두 조건이 AND 논리로 결합되어 둘 다 충족되어야 한다.
 
 ### 네트워크와 사용자 조합
 
@@ -325,7 +325,7 @@ Match User lead-dev Group developers
 Match User admin Address 10.0.0.0/8
     PasswordAuthentication yes
     PermitRootLogin yes
-    
+
 # 외부 네트워크에서 접속하는 관리자에게 적용
 Match User admin Address !10.0.0.0/8,*
     PasswordAuthentication no
@@ -342,7 +342,7 @@ Match User admin Address !10.0.0.0/8,*
 Match Host dev.example.com LocalPort 2222
     PasswordAuthentication yes
     X11Forwarding yes
-    
+
 # 프로덕션 서버의 관리 포트에 적용
 Match Host prod.example.com LocalPort 2222
     PasswordAuthentication no
@@ -364,13 +364,13 @@ Match User dev* Group developers Address 10.0.0.0/8
     PasswordAuthentication yes
     X11Forwarding yes
     AllowTcpForwarding yes
-    
+
 # 원격 관리자 제한적 권한
 Match User admin* Group admins Address !10.0.0.0/8,*
     PubkeyAuthentication yes
     PermitTTY yes
     ForceCommand /usr/local/bin/admin-menu.sh
-    
+
 # 모니터링 시스템 전용 접근
 Match User monitor Address 192.168.5.0/24 LocalPort 22
     PubkeyAuthentication yes
@@ -410,8 +410,8 @@ Match User user1,user2,user3
 
 이 설정은 user1, user2, user3 세 사용자 모두에게 적용됩니다[3][4].
 
-**중요 주의사항**: 
-- 쉼표 사이에 공백을 넣지 않아야 합니다[3]
+**중요 유의점**:
+- 쉼표 사이에 공백을 넣지 않는다[3]
 - `Match User user1, user2, user3`와 같이 공백이 있으면 구문 오류가 발생합니다
 
 ## 다중 IP 주소 지정 방법
@@ -471,15 +471,15 @@ Match User userc
 
 이 설정에서는 usera와 userb는 같은 chroot 디렉토리를 공유하고, userc는 다른 디렉토리를 사용합니다[6].
 
-## 주의사항 및 문제해결
+## 유의점 및 문제 해결
 
-1. **권한 문제**: chroot 디렉토리를 사용할 경우 해당 디렉토리는 특정 권한 요구사항을 충족해야 합니다. 일반적으로 root 소유이며 그룹 쓰기 권한이 없어야 합니다[6].
+1. **권한 문제**: chroot 디렉토리를 사용할 경우 해당 디렉토리는 특정 권한 요구사항을 충족해야 한다. 일반적으로 root 소유이며 그룹 쓰기 권한이 없어야 한다[6].
 
-2. **설정 확인**: 변경사항 적용 전에 `sudo /usr/sbin/sshd -t` 명령으로 구문 오류를 확인하는 것이 좋습니다[4].
+2. **설정 확인**: 변경사항 적용 전에 `sudo /usr/sbin/sshd -t` 명령으로 구문 오류를 확인한다[4].
 
 3. **우선순위 처리**: 여러 Match 블록이 일치할 경우, 특정 키워드에 대해서는 첫 번째로 발견된 인스턴스만 적용됩니다[1][2].
 
-4. **AllowGroups와의 상호작용**: 복잡한 설정에서는 AllowGroups 지시어와 Match 블록의 상호작용을 주의해야 합니다[1].
+4. **AllowGroups와의 상호작용**: 복잡한 설정에서는 AllowGroups 지시어와 Match 블록의 상호작용을 확인한다[1].
 
 SSH Match 지시어의 다중값 지정 기능을 활용하면 서버 접근 정책을 사용자, 주소, 포트 등의 다양한 조건에 따라 세밀하게 제어할 수 있습니다.
 
@@ -555,13 +555,13 @@ Match Group admins
     AllowTcpForwarding yes
     X11Forwarding yes
     PermitTTY yes
-    
+
 # 개발자 그룹은 제한된 SSH 기능만 사용 가능
 Match Group developers
     AllowTcpForwarding no
     X11Forwarding no
     PermitTTY yes
-    
+
 # 데이터 업로드 그룹은 SFTP만 사용 가능
 Match Group uploaders
     ForceCommand internal-sftp
@@ -626,7 +626,7 @@ Match Group developers Address 10.0.0.0/8
     AllowTcpForwarding yes
     X11Forwarding yes
     PermitTTY yes
-    
+
 # 외부 네트워크의 개발자에게는 제한된 SSH 기능만 허용
 Match Group developers Address !10.0.0.0/8,*
     AllowTcpForwarding no
@@ -638,16 +638,16 @@ Match Group developers Address !10.0.0.0/8,*
 이 설정은 같은 개발자 그룹이라도 접속 위치에 따라 서로 다른
 프로토콜 제한을 적용합니다.
 
-## 주의사항
+## 유의점
 
 1. Match 블록 내에서 허용되지 않는 지시어가 있습니다. 예를 들어 `Protocol` 지시어는 전역으로만 설정할 수 있습니다.
 
-2. 설정 변경 후에는 반드시 구문 검사를 수행하고 SSH 서비스를 재시작해야 합니다:
+2. 설정 변경 후에는 구문 검사를 수행하고 SSH 서비스를 재시작한다:
    ```
    sudo sshd -t
    sudo systemctl restart sshd
    ```
 
-3. 너무 제한적인 설정은 정상적인 작업을 방해할 수 있으므로, 사용자 요구와 보안 정책 사이의 균형을 고려해야 합니다.
+3. 너무 제한적인 설정은 정상적인 작업을 방해할 수 있으므로, 사용자 요구와 보안 정책 사이의 균형을 고려한다.
 
 다양한 Match 조건과 SSH 구성 지시어를 조합하면 사용자, 그룹, IP 주소 등에 따라 세밀하게 프로토콜 접근을 제어할 수 있습니다.

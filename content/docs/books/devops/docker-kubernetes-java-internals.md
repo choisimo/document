@@ -71,6 +71,7 @@ sequenceDiagram
 ```
 
 **Java optimization**: Place `COPY target/app.jar` as late as possible. Dependencies rarely change; the JAR changes on every build. Split into:
+
 ```
 COPY target/dependency/ /app/WEB-INF/lib/    # changes rarely → cache hit
 COPY target/classes/ /app/WEB-INF/classes/   # changes often → only this misses
@@ -143,7 +144,7 @@ sequenceDiagram
 
 ### Port Binding: DNAT Rule Creation
 
-When you `docker run -p 8080:80`, Docker inserts iptables DNAT rules:
+When `docker run -p 8080:80` is executed, Docker inserts iptables DNAT rules:
 
 ```mermaid
 flowchart LR
@@ -290,15 +291,15 @@ flowchart TD
 stateDiagram-v2
     [*] --> ContainerCreating: Image pulled, container created
     ContainerCreating --> Running: Container PID 1 started (JVM init)
-    Running --> StartupProbe: startupProbe checks /health\nevery 10s, up to 30 failures (5min)
-    StartupProbe --> LivenessActive: Startup probe passed\n(JVM fully initialized, app ready)
-    StartupProbe --> Restarting: 30 failures × 10s = 300s timeout\n(JVM too slow to start)
-    LivenessActive --> LivenessProbe: Liveness: /health every 30s
+    Running --> StartupProbe: startupProbe checks /health<br/>every 10s, up to 30 failures (5min)
+    StartupProbe --> LivenessActive: Startup probe passed<br/>(JVM fully initialized, app ready)
+    StartupProbe --> Restarting: 30 failures × 10s = 300s timeout<br/>(JVM too slow to start)
+    LivenessActive --> LivenessProbe: Liveness#58; /health every 30s
     LivenessProbe --> Running: probe passes
-    LivenessProbe --> Restarting: 3 consecutive failures\n(deadlock / OOM)
-    Running --> ReadinessProbe: Readiness: /health/ready every 10s
-    ReadinessProbe --> ReadyForTraffic: probe passes\n(pod added to Service endpoints)
-    ReadyForTraffic --> NotReady: probe fails\n(pod removed from endpoints\nno new connections)
+    LivenessProbe --> Restarting: 3 consecutive failures<br/>(deadlock / OOM)
+    Running --> ReadinessProbe: Readiness#58; /health/ready every 10s
+    ReadinessProbe --> ReadyForTraffic: probe passes<br/>(pod added to Service endpoints)
+    ReadyForTraffic --> NotReady: probe fails<br/>(pod removed from endpoints<br/>no new connections)
 ```
 
 **Java startup issue**: Spring Boot applications can take 20-60 seconds to initialize on cold start (classpath scanning, bean wiring, DB connection pool). Without a `startupProbe`, the `livenessProbe` fires during initialization and **kills the app in a restart loop**. The startup probe suspends liveness checks until the app is confirmed started.

@@ -10,7 +10,7 @@
     $ docker volume inspect ${volume_name}
     
 ## docker volume mount
-    $ docker run -v ${volume_name}:/${docker_exec_dir} \ 
+    $ docker run -v ${volume_name}:/${docker_exec_dir} \
     --name ${docker_container} ${docker_image} touch /{docker_exec_dir}/test.txt
 #### 
     // volume_name : mount 할 volume

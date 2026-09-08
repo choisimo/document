@@ -6,7 +6,7 @@ WebSocket 요청이 일반 HTTP 응답으로 끝나고 업스트림 HTTP 연결�
 
 ## 수정된 Nginx 설정
 
-아래와 같이 location 블록에 WebSocket 관련 헤더를 추가해야 합니다:
+`location` 블록에 WebSocket 관련 헤더를 추가한다.
 
 ```nginx
 # 도메인 HTTP 접근 HTTPS로 리디렉션
@@ -61,7 +61,7 @@ server {
 
 4. **타임아웃 설정**: `proxy_read_timeout 300s;` - 기본값인 60초보다 긴 시간을 설정하여 WebSocket 연결이 일정 시간 데이터 전송이 없어도 유지되도록 합니다[4].
 
-이러한 변경 사항을 적용한 후 Nginx 설정을 테스트하고 서비스를 재시작하세요:
+변경 사항을 적용한 후 Nginx 설정을 테스트하고 서비스를 재시작한다.
 
 ```bash
 sudo nginx -t

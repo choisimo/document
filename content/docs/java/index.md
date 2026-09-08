@@ -31,179 +31,162 @@ title: "Java"
 </nav>
 
 <details class="hub-directory-notes" markdown="1" open>
-<summary>기존 문서 안내</summary>
+<summary>안내와 학습 노트</summary>
 
-# Java 문서
+Java 문서는 언어 문법, JVM 실행 모델, 메모리 관리, 객체지향 설계를 연결해서 학습하기 위한 진입점이다. 이 섹션은 “코드를 어떻게 작성하는가”와 “JVM이 그 코드를 어떻게 실행하는가”를 함께 다룬다. 언어 규칙과 HotSpot 구현을 구분하며 예제는 JDK 17·21을 중심으로 읽는다. 공급업체 지원과 내부 동작은 버전·GC 옵션별로 확인하고 java/javac 버전을 함께 기록한다.
 
-Java 언어와 HotSpot JVM의 입문 자료 인덱스입니다. 예제는 JDK 17·21 중심이지만 공급업체 지원 기간과 내부 동작은 버전·GC 옵션마다 다릅니다. `java -version`과 `javac -version`을 기록하세요.
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
----
+Java를 Spring Boot나 JPA부터 배우면 framework annotation은 익숙해져도 type, object, heap, GC, exception, thread 같은 기반 개념이 비어 있기 쉽다. 반대로 JVM 내부만 공부하면 실제 API 설계와 코드 유지보수 감각이 약해진다.
 
-## :fontawesome-brands-java: 문서 목록
+이 인덱스는 Java 학습을 언어 기본기와 런타임 이해로 나누고, 문서 간 이동 경로를 제공한다.
 
-<div class="grid cards" markdown>
+## 2. 현재 나의 상태 (Baseline)
 
--   :material-book-open-variant:{ .lg .middle } **핵심 개념**
+기존 문서는 Java 문서 목록, Java 버전 역사, JVM 메모리 그림, OOP 표, 표준 패키지 예제를 한 페이지에 모아 둔다.
 
-    ---
+보완해야 할 점은 다음과 같다.
 
-    Java 언어의 기본 문법, 객체지향 프로그래밍, 컬렉션 프레임워크
+- 인덱스가 학습 순서보다 요약 슬라이드처럼 구성되어 있다.
+- Java 버전 정보는 시간이 지나면 틀릴 수 있는데 정적 표로 고정되어 있다.
+- core concept와 memory/GC 문서의 역할 분리가 약하다.
+- Spring/JPA 같은 상위 기술로 가기 전 확인할 기본 불변식이 부족하다.
 
-    [:octicons-arrow-right-24: 핵심 개념](core-concepts.md)
+## 3. 도달하고 싶은 목표 (Target State)
 
--   :material-memory:{ .lg .middle } **메모리와 GC**
+목표는 Java 학습자가 다음 순서로 기반을 다지는 것이다.
 
-    ---
+- [핵심 개념](core-concepts.md)에서 type, object, interface, exception, generic을 이해한다.
+- [메모리와 GC](memory-gc.md)에서 heap, stack, reference, GC, leak을 이해한다.
+- JDK 버전은 프로젝트 요구와 vendor support roadmap을 기준으로 선택한다.
+- Spring, JPA, concurrency로 넘어가기 전에 Java API contract를 먼저 확인한다.
 
-    JVM 메모리 구조, 가비지 컬렉션 알고리즘, 메모리 튜닝
+## 4. 시스템 번역 (Data Flow)
 
-    [:octicons-arrow-right-24: 메모리와 GC](memory-gc.md)
+Java 애플리케이션의 실행 흐름은 다음과 같다.
 
-</div>
-
----
-
-## :material-language-java: Java 생태계 개요
-
-```mermaid
-flowchart TD
-    subgraph Core["Core Java"]
-        A1[OOP 원칙] --> A2[SOLID]
-        A3[Collections] --> A4[Generics]
-        A5[Streams] --> A6[Lambda]
-    end
-    
-    subgraph Framework["프레임워크"]
-        B1[Spring Boot] --> B2[Spring MVC]
-        B1 --> B3[Spring Data]
-        B1 --> B4[Spring Security]
-    end
-    
-    subgraph Build["빌드 도구"]
-        C1[Maven] 
-        C2[Gradle]
-    end
-    
-    subgraph Runtime["실행 환경"]
-        D1[JVM] --> D2[GC]
-        D1 --> D3[JIT Compiler]
-    end
-    
-    Core --> Framework
-    Framework --> Build
-    Build --> Runtime
+```text
+source code
+  -> javac
+  -> bytecode
+  -> JVM class loader
+  -> JIT/interpreter
+  -> heap, stack, metaspace
+  -> GC and runtime services
 ```
 
----
+언어 문법은 source level의 계약이고, JVM은 bytecode와 runtime memory를 관리한다. 두 층을 분리해서 보면 compile error, runtime exception, memory pressure를 더 정확히 구분할 수 있다.
 
-## :material-chart-timeline: Java 버전 역사
+## 5. 핵심 구성요소 (Building Blocks)
 
-| 버전 | 출시년도 | 주요 기능 |
-|------|---------|----------|
-| **Java 8** | 2014 | Lambda, Stream API, Optional |
-| **Java 11** | 2018 | LTS 배포판, 표준 HTTP Client, 단일 파일 소스 실행. 지역 변수 `var`는 Java 10에서 도입 |
-| **Java 17** | 2021 | LTS, Sealed Classes, Pattern Matching |
-| **Java 21** | 2023 | LTS, Virtual Threads, Record Patterns |
+JDK는 compiler, runtime, standard library, tooling을 포함한다. 개발자는 JRE만이 아니라 JDK를 기준으로 작업한다.
 
----
+JVM은 bytecode 실행, class loading, memory management, GC, JIT 최적화를 담당한다.
 
-## :material-head-cog: JVM 메모리 구조
+Java language는 class, interface, generic, exception, annotation, lambda, record 같은 source-level 기능을 제공한다.
 
-아래 그림은 전통적인 세대별 힙의 단순 모델입니다. 모든 collector가 연속된 Eden/Survivor/Old 레이아웃이나 `Minor/Major GC` 용어를 동일하게 쓰지는 않습니다.
+Standard library는 `java.lang`, `java.util`, `java.time`, `java.util.concurrent`, `java.nio` 같은 안정적인 building block을 제공한다.
 
-```mermaid
-flowchart TB
-    subgraph JVM["JVM Memory"]
-        subgraph Heap["Heap (공유)"]
-            Y[Young Generation] --> E[Eden]
-            Y --> S1[Survivor 1]
-            Y --> S2[Survivor 2]
-            O[Old Generation]
-        end
-        
-        subgraph NonHeap["Non-Heap"]
-            M[Metaspace]
-            CC[Code Cache]
-        end
-        
-        subgraph Stack["Stack (스레드별)"]
-            T1[Thread 1 Stack]
-            T2[Thread 2 Stack]
-        end
-    end
-    
-    E -->|Minor GC| S1
-    S1 -->|Promotion| O
-    O -->|Major GC| O
+Build tool은 Maven 또는 Gradle이 일반적이다. dependency resolution, test, packaging, plugin 실행을 담당한다.
+
+Framework는 Spring Boot, Jakarta EE, Micronaut, Quarkus 같은 상위 런타임이다. framework 이전에 Java 기본 계약을 이해해야 한다.
+
+## 6. 상태 전이 (State Transition)
+
+Java 학습은 다음 상태로 진행한다.
+
+```text
+syntax familiar
+  -> type and object model understood
+  -> collections and generics safe
+  -> exception contract clear
+  -> JVM memory model understood
+  -> framework code readable
 ```
 
----
+운영 관점의 Java 서비스는 다음 상태를 가진다.
 
-## :material-checkbox-marked-circle: OOP 4대 원칙
+```text
+compiled
+  -> packaged
+  -> started
+  -> warmed up
+  -> serving
+  -> memory pressure
+  -> GC pause or recovery
+```
 
-| 원칙 | 영문 | 설명 | 키워드 |
-|------|------|------|--------|
-| **캡슐화** | Encapsulation | 데이터와 메서드를 하나로 묶고 외부 접근 제한 | `private`, getter/setter |
-| **상속** | Inheritance | 기존 클래스의 특성을 새 클래스가 물려받음 | `extends`, `super` |
-| **다형성** | Polymorphism | 같은 인터페이스로 다른 동작 구현 | `@Override`, 인터페이스 |
-| **추상화** | Abstraction | 복잡한 구현을 숨기고 필요한 기능만 노출 | `abstract`, `interface` |
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
----
+- Java 버전 선택은 “최신”보다 프로젝트, library, 운영 지원 기간을 기준으로 한다.
+- `equals`와 `hashCode` 계약은 collection 사용 전에 맞춘다.
+- exception은 숨기지 말고 API 실패 계약으로 다룬다.
+- heap 문제는 코드 reference graph와 운영 GC 로그를 함께 봐야 한다.
+- framework annotation은 Java type system과 reflection 위에서 동작한다.
+- build tool lockfile, wrapper, JDK version을 팀 기준으로 고정한다.
 
-## :material-package-variant: 필수 패키지
+## 8. 가장 작은 예제 (Minimal Viable Example)
 
-### java.util
+현재 JDK를 확인한다.
+
+```bash
+java --version
+javac --version
+```
+
+가장 작은 Java program을 만든다.
 
 ```java
-// 컬렉션 프레임워크
-List<String> list = new ArrayList<>();
-Map<String, Integer> map = new HashMap<>();
-Set<String> set = new HashSet<>();
-
-// Optional
-Optional<String> opt = Optional.ofNullable(value);
-opt.orElse("default");
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("hello java");
+    }
+}
 ```
 
-### java.util.stream
+컴파일하고 실행한다.
 
-```java
-// Stream API
-List<Integer> result = numbers.stream()
-    .filter(n -> n > 0)
-    .map(n -> n * 2)
-    .sorted()
-    .collect(Collectors.toList());
+```bash
+javac Main.java
+java Main
 ```
 
-### java.util.concurrent
+Maven/Gradle 프로젝트에서는 source compatibility와 toolchain을 명시한다. JDK 선택 시 Oracle Java SE Support Roadmap, OpenJDK vendor support, framework 지원 matrix를 함께 확인한다.
 
-```java
-// 동시성
-ExecutorService executor = Executors.newFixedThreadPool(4);
-CompletableFuture<String> future = CompletableFuture
-    .supplyAsync(() -> "result", executor)
-    .thenApply(s -> s.toUpperCase());
-```
+## 9. 실패 사례 (What could go wrong?)
 
----
+JDK 버전만 올리고 build plugin, framework, CI image를 맞추지 않으면 local에서는 되지만 CI나 production에서 깨진다.
+
+`List`와 `Map`을 raw type으로 쓰면 compile-time type safety를 잃고 runtime `ClassCastException`으로 늦게 터진다.
+
+GC 문제를 heap size만 키워 해결하려고 하면 leak reference가 계속 남아 장애 시간이 뒤로 밀릴 뿐이다.
+
+Spring bean lifecycle 문제를 Java object lifecycle과 분리해서 생각하면 singleton shared state, thread safety, proxy 호출 경계를 놓친다.
+
+## 10. 뇌 확장하기 (Evolution & Variants)
+
+Java 릴리스와 LTS 지원 정책은 공급업체별로 확인한다. 특정 연도의 최신 JDK를 정적 문서에서 보장하지 않고 프로젝트 toolchain·의존성·배포 환경의 지원 조합을 기록한다.
+
+Virtual threads는 thread-per-request 스타일을 다시 가능하게 만들지만, blocking I/O, synchronized block, connection pool 크기 같은 기존 병목이 사라지는 것은 아니다.
+
+GraalVM native image, Quarkus, Micronaut 같은 stack은 startup과 memory footprint를 줄일 수 있지만 reflection, dynamic proxy, resource loading 제약을 함께 고려해야 한다.
 
 ## 학습 완료 기준
 
-코드가 대상 JDK에서 컴파일되고 예상 출력과 실패 예외를 설명할 수 있어야 합니다. GC·성능 설명은 JFR, GC 로그, JMH 같은 측정 없이 특정 지연이나 처리량을 보장하지 않습니다. 링크 존재와 예제 빌드는 문서 파이프라인에서 별도로 검사합니다.
+코드가 대상 JDK에서 컴파일되고 예상 출력과 실패 예외를 설명할 수 있어야 합니다. GC·성능 설명은 JFR, GC 로그, JMH 같은 측정 없이 특정 지연이나 처리량을 보장하지 않습니다. 링크 존재와 예제 빌드는 별도로 검사하고 결과를 남겨야 합니다.
 
-## :material-link-variant: 관련 문서
+## 11. 최종 체크리스트 (Definition of Done)
 
-- [JPA 개요](../databases/jpa/overview.md) - Java 영속성 API
-- [Spring Boot Redis](../databases/redis/springboot-integration.md) - Redis 연동
-- [Java 설치 가이드](../development/languages/java-install.md) - JDK 설치
+- [ ] `java --version`과 build tool JDK가 일치한다.
+- [ ] 핵심 개념 문서를 통해 type/object/interface/exception을 설명할 수 있다.
+- [ ] 메모리와 GC 문서를 통해 heap/stack/reference/GC를 설명할 수 있다.
+- [ ] 프로젝트 JDK 버전을 vendor support roadmap 기준으로 선택했다.
+- [ ] Maven 또는 Gradle wrapper를 사용한다.
+- [ ] framework 문서를 보기 전 Java 기본 계약을 먼저 확인한다.
+- [ ] 운영 이슈는 GC log, heap dump, thread dump로 관측할 수 있게 한다.
 
----
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-## :material-book-open-page-variant: 참고 자료
-
-- [Oracle Java Documentation](https://docs.oracle.com/en/java/)
-- [Baeldung](https://www.baeldung.com/) - Java 튜토리얼
-- [Java Design Patterns](https://java-design-patterns.com/)
+Java 학습은 문법에서 끝나지 않는다. source code는 bytecode가 되고, JVM 위에서 object, memory, GC, exception, thread 계약으로 실행된다.
 
 </details>

@@ -1,8 +1,4 @@
-# Vaultwarden Docker Compose 설정 가이드
-
-Vaultwarden을 다양한 환경에서 안전하게 배포하기 위한 Docker Compose 설정 가이드입니다.
-
----
+# Vaultwarden Docker Compose 배포 학습 및 기록 노트
 
 ## 적용 범위와 보안 검증 기준
 
@@ -11,362 +7,144 @@ Vaultwarden을 다양한 환경에서 안전하게 배포하기 위한 Docker Co
 - **근거와 불확실성:** image health, HTTPS 접속과 backup 생성은 일부 근거일 뿐입니다. proxy chain, mail, WebSocket, update 호환성, third-party backup image와 restore 가능성은 별도 검증합니다.
 - **실패·완료:** 인증 우회, 잘못된 header 신뢰, secret 노출, database 손상, backup 유실과 update rollback을 시험합니다. 암호화된 backup의 독립 restore와 계정 복구까지 성공해야 배포 완료입니다.
 
----
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-## 목차
+Vaultwarden은 비밀번호와 2FA secret 같은 고위험 데이터를 다루는 서비스다. Docker Compose로 쉽게 실행할 수 있지만, 도메인, HTTPS, signup 정책, admin page, backup, restore, reverse proxy, Cloudflare Tunnel을 잘못 설정하면 credential vault 전체가 위험해진다. 특히 `DISABLE_ADMIN_TOKEN`은 admin page 비활성화가 아니라 admin token 요구를 끄는 설정이라 매우 주의해야 한다.
 
-1. [배포 시나리오 선택](#배포-시나리오-선택)
-2. [기본 구성 (Vaultwarden Only)](#1-기본-구성-vaultwarden-only)
-3. [Nginx 리버스 프록시 구성](#2-nginx-리버스-프록시-구성)
-4. [Cloudflare Tunnel 구성](#3-cloudflare-tunnel-구성)
-5. [전체 통합 구성](#4-전체-통합-구성-nginx--cloudflare-tunnel)
-6. [환경 변수 설정](#환경-변수-설정)
-7. [백업 및 복원](#백업-및-복원)
-8. [보안 권장 사항](#보안-권장-사항)
-9. [문제 해결](#문제-해결)
+이 문서는 원문의 Vaultwarden Docker Compose 가이드를 보안 경계, 배포 시나리오, backup/restore, admin page 정책 중심으로 재작성한다.
 
----
+## 2. 현재 나의 상태 (Baseline)
 
-## 배포 시나리오 선택
+- Vaultwarden을 Docker container로 실행할 수 있다는 점은 알고 있다.
+- 내부망, Nginx reverse proxy, Cloudflare Tunnel 배포 방식의 차이를 구분해야 한다.
+- `DOMAIN`, `SIGNUPS_ALLOWED`, `ADMIN_TOKEN`, `DISABLE_ADMIN_TOKEN`의 의미를 정확히 이해해야 한다.
+- `/data` volume과 backup/restore 절차가 vault 데이터 보존에 중요하다.
+- WebSocket, HTTPS, proxy header, Cloudflare 521 같은 장애 지점을 확인해야 한다.
 
-| 시나리오 | 파일 | 사용 사례 | 복잡도 |
-|---------|------|----------|--------|
-| **기본** | `docker-compose.yaml` | 로컬 테스트, 내부망 전용 | ⭐ |
-| **Nginx** | `docker-compose.nginx.yaml` | 자체 SSL, 다중 서비스 운영 | ⭐⭐ |
-| **Cloudflare Tunnel** | `docker-compose.cloudflared.yaml` | IP 비공개, Zero Trust 보안 | ⭐⭐ |
-| **전체 통합** | `docker-compose.full.yaml` | 프로덕션 환경, 최대 보안 | ⭐⭐⭐ |
+## 3. 도달하고 싶은 목표 (Target State)
 
----
+- Vaultwarden container를 persistent data volume과 함께 실행한다.
+- Signup은 기본적으로 닫고 필요한 계정만 초대/생성한다.
+- Admin page는 비활성화하거나, 강한 `ADMIN_TOKEN`과 외부 접근 제한을 함께 적용한다.
+- HTTPS는 Nginx reverse proxy 또는 Cloudflare Tunnel 등으로 보장한다.
+- Backup은 자동화하고, restore 절차를 별도 환경에서 검증한다.
 
-## 1. 기본 구성 (Vaultwarden Only)
+## 4. 시스템 번역 (Data Flow)
 
-구성이 단순한 예시이지만 실제 접근 범위는 published port, host firewall, bind address와 주변 network 정책으로 결정됩니다.
-
-### 빠른 시작
-
-```bash
-# 디렉토리 이동
-cd docker/stacks/security/vaultwarden
-
-# 환경 변수 설정
-cp .env.example .env
-# .env 파일 편집
-
-# 실행
-docker compose up -d
+```mermaid
+flowchart TD
+    A[Client browser/app] --> B{접속 경로}
+    B -->|internal only| C[Vaultwarden container]
+    B -->|Nginx TLS| D[Nginx reverse proxy]
+    B -->|Cloudflare Tunnel| E[cloudflared]
+    D --> C
+    E --> C
+    C --> F["/data volume"]
+    F --> G[SQLite/files/attachments]
+    F --> H[Backup job]
 ```
 
-### docker-compose.yaml
+Vaultwarden 배포 data flow에서 가장 중요한 상태는 `/data` volume이다. container는 재생성 가능하지만 vault 데이터와 backup은 반드시 보존되어야 한다.
+
+## 5. 핵심 구성요소 (Building Blocks)
+
+| 구성요소 | 역할 | 주의점 |
+| --- | --- | --- |
+| Vaultwarden container | Bitwarden-compatible server | image update와 migration 확인 |
+| `/data` volume | DB, attachment, config 저장 | backup 필수 |
+| `DOMAIN` | 외부 URL 설정 | HTTPS URL과 일치 |
+| `SIGNUPS_ALLOWED` | 공개 가입 허용 여부 | 운영 기본값은 `false` |
+| `ADMIN_TOKEN` | `/admin` 인증 token | 강한 secret, HTTPS 필수 |
+| `DISABLE_ADMIN_TOKEN` | admin token 요구 비활성화 | 외부 보호 없으면 사용 금지 |
+| Nginx reverse proxy | TLS 종료와 proxy header | WebSocket/large upload 설정 |
+| Cloudflare Tunnel | inbound port 없이 외부 접근 | tunnel token 보호 |
+| Backup container/job | 데이터 백업 자동화 | restore test 필요 |
+
+## 6. 상태 전이 (State Transition)
+
+```mermaid
+stateDiagram-v2
+    [*] --> ConfigPrepared
+    ConfigPrepared --> ContainerStarted
+    ContainerStarted --> DomainVerified
+    DomainVerified --> SignupPolicyLocked
+    SignupPolicyLocked --> AdminPolicySet
+    AdminPolicySet --> BackupScheduled
+    BackupScheduled --> RestoreTested
+    RestoreTested --> Operable
+    Operable --> [*]
+```
+
+Vaultwarden은 `ContainerStarted`만으로 운영 준비가 된 것이 아니다. signup, admin page, backup, restore 검증까지 끝나야 한다.
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- `/data`는 named volume 또는 host bind mount로 영속화해야 한다.
+- 운영 환경에서 `SIGNUPS_ALLOWED`는 기본적으로 `false`로 둔다.
+- Admin page를 비활성화하려면 `ADMIN_TOKEN`과 `DISABLE_ADMIN_TOKEN`을 모두 설정하지 않고, 기존 `config.json`의 admin token도 제거해야 한다.
+- `DISABLE_ADMIN_TOKEN=true`는 admin token 없이 admin page 접근을 허용할 수 있으므로 외부 인증/접근 제어 없이는 사용하면 안 된다.
+- Admin page를 활성화할 경우 HTTPS와 강한 `ADMIN_TOKEN`, IP 제한 또는 Zero Trust 정책을 함께 적용한다.
+- Backup은 생성뿐 아니라 restore test로 검증해야 한다.
+- Tunnel token, admin token, SMTP password는 git에 commit하지 않는다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+내부 reverse proxy 뒤에 둘 최소 Compose 예시:
 
 ```yaml
 services:
   vaultwarden:
-    image: vaultwarden/server:latest
+    image: "${VAULTWARDEN_IMAGE:?set reviewed Vaultwarden tag or digest}"
     container_name: vaultwarden
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     environment:
-      DOMAIN: ${DOMAIN}
+      DOMAIN: "https://vault.example.com"
       SIGNUPS_ALLOWED: "false"
-      DISABLE_ADMIN_TOKEN: "true"
-      ROCKET_LIMITS: "{json=10485760}"
     volumes:
-      - ./data:/data/
+      - ./data:/data
     ports:
       - "127.0.0.1:8080:80"
-    networks:
-      - vaultwarden_network
-
-networks:
-  vaultwarden_network:
-    driver: bridge
 ```
 
----
-
-## 2. Nginx 리버스 프록시 구성
-
-SSL/TLS 종료, 보안 헤더 추가, WebSocket 지원을 제공합니다.
-
-### 사전 요구 사항
-
-- SSL 인증서 (`fullchain.pem`, `privkey.pem`)
-- 포트 80, 443 사용 가능
-
-### 설치 및 실행
+검증:
 
 ```bash
-# 환경 변수 설정
-cp .env.example .env
-vim .env
-
-# SSL 인증서 배치
-mkdir -p ssl
-cp /path/to/fullchain.pem ssl/
-cp /path/to/privkey.pem ssl/
-
-# 실행
-docker compose -f docker-compose.nginx.yaml up -d
-
-# 로그 확인
-docker compose -f docker-compose.nginx.yaml logs -f
+docker compose config --quiet && docker compose up -d
+docker compose logs --tail 100 vaultwarden
+curl --fail --silent --show-error --connect-timeout 5 --max-time 15 \
+  http://127.0.0.1:8080/alive
 ```
 
-### 아키텍처
+이 예제는 container port를 localhost에만 bind하고, TLS는 별도 reverse proxy에서 처리한다는 전제를 둔다.
 
-```
-인터넷 → [80/443] Nginx (SSL 종료) → [80] Vaultwarden
-                     ↓
-              ./nginx/vaultwarden.conf
-```
+## 9. 실패 사례 (What could go wrong?)
 
-### 주요 특징
+- `DISABLE_ADMIN_TOKEN=true`를 admin page 비활성화로 오해해 `/admin`을 무방비로 노출한다.
+- Signup을 열어 둔 채 public domain에 배포해 임의 계정이 생성된다.
+- `/data`를 bind/volume으로 보존하지 않아 container 재생성 시 vault 데이터가 사라진다.
+- Backup 파일이 같은 host에만 있고 restore test를 하지 않아 장애 시 복구하지 못한다.
+- Cloudflare Tunnel token이나 admin token을 Compose 파일과 함께 git에 올린다.
+- Reverse proxy가 WebSocket upgrade header를 전달하지 않아 실시간 동기화가 실패한다.
+- HTTPS 없이 admin page 또는 login page를 노출한다.
 
-- **SSL/TLS 지원**: Let's Encrypt 또는 자체 서명 인증서
-- **보안 헤더**: HSTS, X-Frame-Options, CSP 등
-- **WebSocket**: 실시간 동기화 지원
-- **자동 백업**: 매일 새벽 4시 백업
+## 10. 뇌 확장하기 (Evolution & Variants)
 
----
+- Nginx, Caddy, Traefik, Cloudflare Tunnel은 TLS 종료와 접근 제어 모델이 다르다.
+- Cloudflare Zero Trust를 쓰면 `/admin` 경로에 별도 access policy를 둘 수 있다.
+- Backup은 SQLite database, attachments, config file, RSA/session 관련 파일을 모두 고려한다.
+- Image update는 release note 확인, backup, staging restore, rollout 순서로 진행한다.
+- SMTP, organization invite, emergency access, 2FA 정책은 운영 보안 기준과 함께 정한다.
 
-## 3. Cloudflare Tunnel 구성
+## 11. 최종 체크리스트 (Definition of Done)
 
-서버 IP를 외부에 노출하지 않고 안전하게 접근할 수 있습니다.
+- [x] Vaultwarden 배포 시나리오를 보안 경계 중심으로 정리했다.
+- [x] `DISABLE_ADMIN_TOKEN` 오해를 바로잡고 admin page 비활성화 조건을 명시했다.
+- [x] Persistent `/data`, signup policy, HTTPS, backup/restore 불변식을 포함했다.
+- [x] localhost-bound Compose 최소 예제를 제시했다.
+- [x] 원문 Vaultwarden 문서를 12개 섹션 템플릿으로 재작성했다.
 
-### 사전 요구 사항
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-- Cloudflare 계정 및 도메인
-- Cloudflare Zero Trust 터널 토큰
-
-### Cloudflare 터널 생성
-
-1. [Cloudflare Zero Trust](https://one.dash.cloudflare.com/) 대시보드 접속
-2. **Access** > **Tunnels** > **Create a tunnel**
-3. 터널 이름 입력 후 **Save tunnel**
-4. **Docker** 탭에서 토큰 복사
-5. **Public Hostname** 설정:
-   - **Subdomain**: `vault` (또는 원하는 이름)
-   - **Domain**: 자신의 도메인 선택
-   - **Service Type**: `HTTP`
-   - **URL**: `http://vaultwarden:80`
-
-### 설치 및 실행
-
-```bash
-# 환경 변수 설정
-cp .env.example .env
-vim .env  # CLOUDFLARE_TUNNEL_TOKEN 설정
-
-# 실행
-docker compose -f docker-compose.cloudflared.yaml up -d
-
-# 터널 상태 확인
-docker logs vaultwarden-tunnel
-```
-
-### 아키텍처
-
-```
-인터넷 → Cloudflare Edge (DDoS 보호, SSL) → Tunnel → Vaultwarden
-                                              ↓
-                                    cloudflared 컨테이너
-```
-
-### 장점
-
-| 항목 | 설명 |
-|------|------|
-| **IP 비공개** | 서버 IP가 외부에 노출되지 않음 |
-| **포트 포워딩 불필요** | 방화벽 인바운드 규칙 불필요 |
-| **무료 SSL** | Cloudflare에서 자동 관리 |
-| **DDoS 보호** | Cloudflare 기본 제공 |
-| **Zero Trust** | 접근 정책 설정 가능 |
-
----
-
-<a id="4-전체-통합-구성-nginx--cloudflare-tunnel"></a>
-
-## 4. 전체 통합 구성 (Nginx + Cloudflare Tunnel)
-
-Nginx와 tunnel을 결합한 예시이며 production readiness는 version 고정, 위협 모델, secret, monitoring, backup·restore와 update 정책을 추가로 검증해야 합니다.
-
-### 설치 및 실행
-
-```bash
-# 환경 변수 설정
-cp .env.example .env
-vim .env  # 모든 변수 설정
-
-# 실행
-docker compose -f docker-compose.full.yaml up -d
-```
-
-### 아키텍처
-
-```
-인터넷 → Cloudflare Edge → Tunnel → Nginx → Vaultwarden
-                            ↓
-                     cloudflared
-```
-
-### Cloudflare 터널 설정
-
-Public Hostname 설정 시:
-- **Service Type**: `HTTP`
-- **URL**: `http://nginx:80` (Nginx 컨테이너로 라우팅)
-
----
-
-## 환경 변수 설정
-
-`.env.example` 파일을 `.env`로 복사하여 설정합니다.
-
-### 주요 환경 변수
-
-| 변수 | 설명 | 예시 |
-|-----|------|------|
-| `DOMAIN` | Vaultwarden 접속 URL | `https://vault.example.com` |
-| `TZ` | 타임존 | `Asia/Seoul` |
-| `SIGNUPS_ALLOWED` | 회원가입 허용 | `false` |
-| `CLOUDFLARE_TUNNEL_TOKEN` | Cloudflare 터널 토큰 | `eyJhIjoiMj...` |
-| `BACKUP_SCHEDULE` | 백업 스케줄 (cron) | `0 4 * * *` |
-
-### 관리자 토큰 생성 (선택사항)
-
-```bash
-# argon2 해시 생성 (권장)
-echo -n "your-password" | argon2 "$(openssl rand -base64 32)" -e -id -k 65540 -t 3 -p 4
-```
-
----
-
-## 백업 및 복원
-
-### 자동 백업
-
-이 문서의 일부 예시는 third-party `bruceforce/vaultwarden-backup` container를 사용합니다. 공급망, version/digest, 권한과 독립 restore를 검토합니다.
-
-- **기본 스케줄**: 매일 새벽 4시
-- **보존 기간**: 본문의 30일은 예시입니다. 복구 시점 목표, 변경 빈도, 저장 비용과 규정에 따라 설정합니다.
-- **백업 위치**: `./backups/`
-
-### 수동 백업
-
-```bash
-# 컨테이너 중지
-docker compose down
-
-# 데이터 디렉토리 백업
-tar -czvf vaultwarden-backup-$(date +%Y%m%d).tar.gz ./data
-
-# 컨테이너 재시작
-docker compose up -d
-```
-
-### 복원 절차
-
-```bash
-# 1. 컨테이너 중지
-docker compose down
-
-# 2. 기존 데이터베이스 삭제
-rm ./data/db.sqlite3*
-
-# 3. 백업 파일 복원
-tar -xzvf vaultwarden-backup-YYYYMMDD.tar.gz -C ./
-
-# 4. 컨테이너 재시작
-docker compose up -d
-```
-
----
-
-## 보안 권장 사항
-
-### 필수 설정
-
-- [x] `SIGNUPS_ALLOWED=false` - 임의 가입 비활성화
-- [x] `DISABLE_ADMIN_TOKEN=true` - 관리자 페이지 비활성화
-- [x] HTTPS 사용 (Nginx SSL 또는 Cloudflare)
-- [x] 정기 백업 활성화
-
-### 추가 권장 사항
-
-- **2FA 정책**: 지원 version과 계정 복구 절차를 확인하고, 위험 수준에 따라 사용자별 또는 조직 차원의 2단계 인증 적용을 검증
-- **IP 제한**: 관리자 페이지 접근 시 IP 화이트리스트
-- **로그 모니터링**: 의심스러운 활동 감시
-- **정기 업데이트**: Vaultwarden 이미지 정기 업데이트
-
-```bash
-# 이미지 업데이트
-docker compose pull
-docker compose up -d
-```
-
----
-
-## 문제 해결
-
-### 컨테이너가 시작되지 않음
-
-```bash
-# 로그 확인
-docker compose logs -f vaultwarden
-
-# 헬스체크 상태 확인
-docker inspect vaultwarden | grep -A 10 Health
-```
-
-### WebSocket 연결 실패
-
-Nginx 설정에서 `/notifications/hub` 경로가 올바르게 프록시되는지 확인:
-
-```nginx
-location /notifications/hub {
-    proxy_pass http://vaultwarden:80;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-}
-```
-
-### Cloudflare 521 오류
-
-1. Vaultwarden 컨테이너 상태 확인
-2. 터널 토큰 유효성 확인
-3. Public Hostname의 Service URL 확인 (`http://vaultwarden:80`)
-
-```bash
-# 터널 로그 확인
-docker logs vaultwarden-tunnel
-
-# 내부 연결 테스트
-docker exec vaultwarden-tunnel curl -v http://vaultwarden:80/alive
-```
-
----
-
-## 파일 구조
-
-```
-docker/stacks/security/vaultwarden/
-├── docker-compose.yaml           # 기본 구성
-├── docker-compose.nginx.yaml     # Nginx 리버스 프록시
-├── docker-compose.cloudflared.yaml # Cloudflare Tunnel
-├── docker-compose.full.yaml      # 전체 통합
-├── .env.example                  # 환경 변수 템플릿
-├── nginx/
-│   ├── vaultwarden.conf          # Nginx SSL 설정
-│   └── vaultwarden-internal.conf # Nginx 내부 설정 (Tunnel용)
-├── data/                         # Vaultwarden 데이터
-├── backups/                      # 백업 파일
-└── ssl/                          # SSL 인증서
-```
-
----
-
-## 참고 자료
-
-- [Vaultwarden 공식 Wiki](https://github.com/dani-garcia/vaultwarden/wiki)
-- [Cloudflare Zero Trust 문서](https://developers.cloudflare.com/cloudflare-one/)
-- [Nginx 리버스 프록시 가이드](https://github.com/dani-garcia/vaultwarden/wiki/Proxy-examples)
+Vaultwarden 운영의 핵심은 container를 띄우는 것이 아니라 vault 데이터, admin page, signup, HTTPS, backup을 동시에 안전한 상태로 묶는 것이다.

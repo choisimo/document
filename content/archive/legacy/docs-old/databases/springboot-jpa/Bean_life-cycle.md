@@ -8,7 +8,7 @@ Bean 생명주기를 효과적으로 관리하는 것은 Spring 애플리케이�
 
 ### 1. **자원 관리 최적화**
 - **목적**: 리소스의 안전한 할당과 해제
-- **중요성**: 메모리 누수, 연결 고갈 방지에 필수적
+- **중요성**: 메모리 누수, 연결 고갈 방지에 필요
 - **예시**: 데이터베이스 커넥션, 파일 핸들러, 네트워크 소켓 관리
 
 ```java
@@ -55,7 +55,7 @@ public class UserService {
     
     @PostConstruct
     public void init() {
-        // securityManager이 완전히 초기화된 상태에서 시작
+        // securityManager 초기화가 끝난 상태에서 시작
         System.out.println("UserService 초기화: " + securityManager.getClass());
     }
 }
@@ -216,4 +216,4 @@ public class CacheService {
 }
 ```
 
-**해설**: 이 코드의 주요 문제는 `@PostConstruct` 메서드에서 예외를 적절히 처리하지 않는 점입니다. `printStackTrace()`만 호출하고 계속 진행되면 애플리케이션이 손상된 상태로 실행될 수 있습니다. 초기화에 실패했을 때 적절한 오류 보고와 함께 애플리케이션 시작을 중단하거나, 대체 초기화 로직을 수행해야 합니다. 또한 try-with-resources를 사용하여 연결을 보다 안전하게 관리해야 합니다.
+**해설**: 이 코드의 주요 문제는 `@PostConstruct` 메서드에서 예외를 적절히 처리하지 않는 점입니다. `printStackTrace()`만 호출하고 계속 진행되면 애플리케이션이 손상된 상태로 실행될 수 있습니다. 초기화에 실패했을 때 적절한 오류 보고와 함께 애플리케이션 시작을 중단하거나, 대체 초기화 로직을 수행한다. 또한 try-with-resources를 사용하여 연결을 보다 안전하게 관리한다.

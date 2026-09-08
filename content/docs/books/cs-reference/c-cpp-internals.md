@@ -219,6 +219,7 @@ flowchart TD
 ```
 
 **Perfect forwarding**:
+
 ```cpp
 template<typename T>
 void wrapper(T&& arg) {            // T&& = forwarding reference
@@ -278,6 +279,7 @@ constexpr auto FIB_TABLE = make_fib_table<50>();
 ```
 
 **Template metaprogramming** exploits the compiler's type system as an interpreter:
+
 ```cpp
 template<int N> struct Factorial { 
     static constexpr int value = N * Factorial<N-1>::value; 

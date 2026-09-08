@@ -12,7 +12,7 @@ Pin Gluetun and qBittorrent images, VPN provider/protocol, credentials, server r
 
 ```bash
 cp .env.example .env
-# Edit .env with your VPN credentials
+# Edit .env with VPN credentials
 mkdir -p gluetun qbittorrent/config downloads
 docker compose up -d
 ```

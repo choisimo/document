@@ -137,13 +137,13 @@ Every record in Kafka is raw bytes. The Serde (Serializer + Deserializer) wrappe
 
 ```mermaid
 flowchart LR
-    A[Kafka Topic<br/>byte arrays] -->|deserialize key| B[String key]
-    A -->|deserialize value| C[Purchase object]
-    B --> D[Processor<br/>maskCreditCard]
+    A["Kafka Topic<br/>byte arrays"] -->|"deserialize key"| B["String key"]
+    A -->|"deserialize value"| C["Purchase object"]
+    B --> D["Processor<br/>maskCreditCard"]
     C --> D
-    D -->|serialize key| E[byte[] key]
-    D -->|serialize value| F[byte[] masked Purchase]
-    E --> G[Kafka Sink Topic<br/>byte arrays]
+    D -->|"serialize key"| E["byte[] key"]
+    D -->|"serialize value"| F["byte[] masked Purchase"]
+    E --> G["Kafka Sink Topic<br/>byte arrays"]
     F --> G
 
     style A fill:#1d3557,color:#fff
@@ -176,15 +176,15 @@ The `Serde<T>` container holds both `Serializer<T>` and `Deserializer<T>`. This 
 
 ```mermaid
 graph TD
-    A[StateStore Types] --> B[In-Memory Key/Value<br/>Stores.inMemoryKeyValueStore]
-    A --> C[Persistent Key/Value<br/>Stores.persistentKeyValueStore<br/>backed by RocksDB]
-    A --> D[LRU Map<br/>Stores.lruMap]
-    A --> E[Persistent Window Store<br/>Stores.persistentWindowStore]
-    A --> F[Persistent Session Store<br/>Stores.persistentSessionStore]
+    A["StateStore Types"] --> B["In-Memory Key/Value<br/>Stores.inMemoryKeyValueStore"]
+    A --> C["Persistent Key/Value<br/>Stores.persistentKeyValueStore<br/>backed by RocksDB"]
+    A --> D["LRU Map<br/>Stores.lruMap"]
+    A --> E["Persistent Window Store<br/>Stores.persistentWindowStore"]
+    A --> F["Persistent Session Store<br/>Stores.persistentSessionStore"]
 
-    C --> G[RocksDB on local disk<br/>LSM-tree storage engine]
-    E --> H[RocksDB + window keys<br/>(key, window_start_ms, window_end_ms)]
-    F --> I[RocksDB + session keys<br/>(key, session_start, session_end)]
+    C --> G["RocksDB on local disk<br/>LSM-tree storage engine"]
+    E --> H["RocksDB + window keys<br/>(key, window_start_ms, window_end_ms)"]
+    F --> I["RocksDB + session keys<br/>(key, session_start, session_end)"]
 ```
 
 ### Changelog topic: how state survives crashes
@@ -307,14 +307,14 @@ gantt
 
 ```mermaid
 stateDiagram-v2
-    [*] --> NewSession: Record 1 arrives (t=0:00:00)
-    NewSession --> ActiveSession: start=00:00:00, end=00:00:00
-    ActiveSession --> Merged: Record 2 arrives t=00:00:15\n(within inactivity gap 20s)
-    Merged --> ActiveSession: start=00:00:00, end=00:00:15
-    ActiveSession --> NewSession2: Record 3 arrives t=00:00:50\n(OUTSIDE inactivity gap)
-    NewSession2 --> ActiveSession2: start=00:00:50, end=00:00:50
-    ActiveSession --> MergedAll: Record 4 arrives t=00:00:05\n(matches BOTH sessions → merge all)
-    MergedAll --> ActiveSession: start=00:00:00, end=00:00:50
+    [*] --> NewSession: Record 1 arrives (t=0#58;00#58;00)
+    NewSession --> ActiveSession: start=00#58;00#58;00, end=00#58;00#58;00
+    ActiveSession --> Merged: Record 2 arrives t=00#58;00#58;15<br/>(within inactivity gap 20s)
+    Merged --> ActiveSession: start=00#58;00#58;00, end=00#58;00#58;15
+    ActiveSession --> NewSession2: Record 3 arrives t=00#58;00#58;50<br/>(OUTSIDE inactivity gap)
+    NewSession2 --> ActiveSession2: start=00#58;00#58;50, end=00#58;00#58;50
+    ActiveSession --> MergedAll: Record 4 arrives t=00#58;00#58;05<br/>(matches BOTH sessions → merge all)
+    MergedAll --> ActiveSession: start=00#58;00#58;00, end=00#58;00#58;50
 ```
 
 ### RocksDB key layout for window stores
@@ -421,7 +421,7 @@ sequenceDiagram
 
 ## 9. Processor API: Custom Scheduling with Punctuator
 
-The high-level DSL (KStream/KTable) buffers records and relies on commit/cache flush for downstream emission. The **Processor API** gives you direct control over when records are forwarded.
+The high-level DSL (KStream/KTable) buffers records and relies on commit/cache flush for downstream emission. The **Processor API** gives direct control over when records are forwarded.
 
 ### Punctuator scheduling: STREAM_TIME vs WALL_CLOCK_TIME
 
@@ -454,21 +454,21 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    A[Incoming StockTransaction record] --> B[process() method]
-    B --> C{State store has<br/>StockPerformance for symbol?}
-    C -->|No| D[Create new StockPerformance]
-    C -->|Yes| E[Fetch existing StockPerformance]
-    D --> F[Update price stats SMA-20]
+    A["Incoming StockTransaction record"] --> B["process() method"]
+    B --> C{"State store has<br/>StockPerformance for symbol?"}
+    C -->|"No"| D["Create new StockPerformance"]
+    C -->|"Yes"| E["Fetch existing StockPerformance"]
+    D --> F["Update price stats SMA-20"]
     E --> F
-    F --> G[Update volume stats SMA-20]
-    G --> H[Set lastUpdateSent timestamp]
-    H --> I[keyValueStore.put(symbol, stockPerf)]
+    F --> G["Update volume stats SMA-20"]
+    G --> H["Set lastUpdateSent timestamp"]
+    H --> I["keyValueStore.put(symbol, stockPerf)"]
     note1["process() NEVER calls context.forward()<br/>No record emitted per received record"]
 
-    J{Punctuator fires every 10s} --> K[Iterate all state store keys]
-    K --> L{priceDifferential >= 2%<br/>OR volumeDifferential >= 2%?}
-    L -->|Yes| M[context.forward(key, stockPerformance)]
-    L -->|No| N[Skip — no emission]
+    J{"Punctuator fires every 10s"} --> K["Iterate all state store keys"]
+    K --> L{"priceDifferential >= 2%<br/>OR volumeDifferential >= 2%?"}
+    L -->|"Yes"| M["context.forward(key, stockPerformance)"]
+    L -->|"No"| N["Skip — no emission"]
 
     style note1 fill:#555,color:#fff
 ```
@@ -553,12 +553,12 @@ KafkaStreams.store(
 
 ```mermaid
 flowchart TD
-    A[KafkaStreams.store query] --> B{Is key local?<br/>hash(key) % numPartitions == localPartitions?}
-    B -->|Yes| C[Direct RocksDB.get<br/>sub-millisecond]
-    B -->|No| D[StreamsMetadata.getInstanceWithKey]
-    D --> E[HTTP/gRPC to remote instance<br/>user-implemented RPC server]
-    E --> F[Remote instance: local RocksDB.get]
-    F --> G[Response back through chain]
+    A["KafkaStreams.store query"] --> B{"Is key local?<br/>hash(key) % numPartitions == localPartitions?"}
+    B -->|"Yes"| C["Direct RocksDB.get<br/>sub-millisecond"]
+    B -->|"No"| D["StreamsMetadata.getInstanceWithKey"]
+    D --> E["HTTP/gRPC to remote instance<br/>user-implemented RPC server"]
+    E --> F["Remote instance: local RocksDB.get"]
+    F --> G["Response back through chain"]
 ```
 
 ---
@@ -571,7 +571,7 @@ sequenceDiagram
     participant TC as TransactionCoordinator
     participant Kafka as Kafka Brokers
     participant OS as Output Topics
-    participant Off as __consumer_offsets
+    participant OffsetsTopic as __consumer_offsets
 
     Task->>TC: initTransactions()
     loop Per batch of records (EOS v2 per epoch)
@@ -579,9 +579,9 @@ sequenceDiagram
         Task->>Kafka: consume records
         Task->>Task: process (update state stores)
         Task->>OS: produce output records (within transaction)
-        Task->>Off: commitOffset (within transaction)
+        Task->>OffsetsTopic: commitOffset (within transaction)
         Task->>TC: commitTransaction()
-        note over TC,Off: commit is atomic across output + offset
+        note over TC,OffsetsTopic: commit is atomic across output + offset
     end
 
     rect rgb(200, 50, 50)
@@ -702,7 +702,7 @@ stateDiagram-v2
 
 ## 16. Topology Inspection and Describe
 
-Before running, you can inspect the topology graph programmatically:
+Before running, the topology graph can be inspected programmatically:
 
 ```
 KafkaStreams app = new KafkaStreams(topology, config);

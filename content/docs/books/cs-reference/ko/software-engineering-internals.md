@@ -331,7 +331,6 @@ flowchart TD
 - **Reactive Streams 배압**에서 구독자는 `request(n)`으로 수요를 알리고 Publisher는 계약상 그 수요를 넘겨 `onNext`하지 않아야 합니다. 연산자 경계의 prefetch·buffer 정책과 실패/취소 처리는 별도로 확인합니다.
 - **순환 복잡도**는 제어 흐름 검토 신호이지 필요한 테스트 수나 100% branch coverage와 직접 동일하지 않습니다. 도달 불가능 경로, 복합 조건과 데이터 상태를 함께 모델링합니다.
 
-
 ---
 
 ## 설계적 고민
@@ -737,5 +736,5 @@ Aggregate의 불변식은 커맨드 핸들러 내에서 도메인 로직으로 �
 <details><summary>힌트 보기</summary>
 
 테스트 전략: Domain은 순수 단위 테스트(Mock 없음, 도메인 로직만), UseCase는 단위 테스트(Repository Mock 주입), Infrastructure는 통합 테스트(실제 DB/메시지 브로커), Controller→E2E는 HTTP 요청 기반 통합 테스트. 동기 이벤트는 같은 트랜잭션에 포함되어 핸들러 실패 시 전체 롤백, 비동기 이벤트는 별도 트랜잭션이다. 비즈니스 관점: 이메일 실패로 주문을 롤백하면 안 된다(부수 효과). 재고 차감 실패는 주문에 영향을 줄 수 있다(핵심 비즈니스). 따라서 재고 차감은 Saga+보상 트랜잭션, 이메일은 재시도+DLQ로 분리 설계한다.
- 
+
 </details>

@@ -12,7 +12,7 @@ Pin MariaDB, backup image and Adminer versions, charset/collation, storage, user
 
 ```bash
 cp .env.example .env
-# Edit .env with your settings
+# Edit .env with environment-specific settings
 mkdir -p data/mysql backups
 docker compose up -d
 ```

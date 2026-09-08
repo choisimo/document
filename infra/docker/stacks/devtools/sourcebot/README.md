@@ -24,7 +24,7 @@ Sourcebot, MCP, provider API와 GitHub token의 version·scope·network boundary
 
 ```json
 "repos": [
-  "your-username/your-repo",
+  "example-user/example-repo",
   "organization/another-repo"
 ]
 ```
@@ -32,7 +32,7 @@ Sourcebot, MCP, provider API와 GitHub token의 version·scope·network boundary
 또는 조직 전체를 인덱싱하려면:
 
 ```json
-"orgs": ["your-organization"],
+"orgs": ["example-organization"],
 "topics": ["core", "docs"]  // 선택사항: 특정 토픽만
 ```
 

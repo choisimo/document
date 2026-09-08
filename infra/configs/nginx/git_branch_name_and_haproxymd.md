@@ -1,7 +1,7 @@
 
 # GitHub 원격 저장소와 로컬 브랜치 이름 불일치 해결 방법
 
-local branch와 remote-tracking branch 이름이 달라도 upstream/refspec이 올바르면 매 push마다 새 branch가 생기지 않습니다. 의도하지 않은 생성은 `push.default`, upstream과 명시한 refspec의 조합에서 발생할 수 있습니다. 이 문제를 해결하고 일관성을 유지하기 위한 여러 방법을 알아보겠습니다.
+local branch와 remote-tracking branch 이름이 달라도 upstream/refspec이 올바르면 매 push마다 새 branch가 생기지 않습니다. 의도하지 않은 생성은 `push.default`, upstream과 명시한 refspec의 조합에서 발생할 수 있습니다. 이 문서는 문제를 해결하고 일관성을 유지하기 위한 여러 방법을 정리한다.
 
 ## 문서 범위와 운영 검증 기준
 
@@ -337,7 +337,7 @@ git config --global branch.autoSetupMerge always
 
 # HAProxy를 이용한 SFTP 서버 아키텍처 구현 가이드
 
-제공된 이미지에 나타난 시스템 아키텍처는 인터넷에서 최종 사용자 알림까지 이어지는 SFTP 서비스 흐름을 보여줍니다. 이러한 구성을 단계별로 구현하는 방법을 상세히 설명하겠습니다.
+제공된 이미지에 나타난 시스템 아키텍처는 인터넷에서 최종 사용자 알림까지 이어지는 SFTP 서비스 흐름을 보여준다. 이러한 구성을 단계별로 구현하는 방법을 설명한다.
 
 ## 전체 시스템 아키텍처 개요
 
@@ -700,7 +700,7 @@ EMAIL="admin@example.com"
 LOG_FILE="/var/log/sftp-notify.log"
 
 # Slack 웹훅 URL (선택사항)
-SLACK_WEBHOOK_URL="https://hooks.slack.com/services/your/webhook/url"
+SLACK_WEBHOOK_URL="https://hooks.slack.com/services/EXAMPLE/EXAMPLE/REPLACE_WITH_WEBHOOK_TOKEN"
 
 inotifywait -m "$WATCH_DIR" -e close_write |
 while read path action file; do
@@ -1001,7 +1001,7 @@ sudo systemctl start sftp-notify.service
 
 # Lsyncd를 이용한 다중 파일 서버 비동기 복제 예시
 
-Lsyncd(Live Synchronization Daemon)는 여러 리눅스 서버 간에 파일 시스템 변경사항을 실시간으로 동기화하기 위한 효과적인 도구입니다. 이 글에서는 세 대의 파일 서버 간에 데이터 일관성을 유지하기 위한 Lsyncd 설정 방법을 설명하겠습니다.
+Lsyncd(Live Synchronization Daemon)는 여러 리눅스 서버 간에 파일 시스템 변경사항을 실시간으로 동기화하기 위한 도구다. 이 글은 세 대의 파일 서버 간에 데이터 일관성을 유지하기 위한 Lsyncd 설정 방법을 설명한다.
 
 ## Lsyncd의 작동 원리
 
@@ -1142,7 +1142,7 @@ sudo systemctl enable lsyncd
 
 ### 1. 동기화 루프 방지
 
-서버 간 동기화 루프를 방지하기 위해, 단방향 동기화 체인을 구성해야 합니다[^3_4]. `서버 1 → 서버 2 → 서버 3` 방식으로 일관된 방향성을 유지하세요.
+서버 간 동기화 루프를 방지하기 위해 단방향 동기화 체인을 구성한다[^3_4]. `서버 1 → 서버 2 → 서버 3` 방식으로 일관된 방향성을 유지한다.
 
 ### 2. 전송 지연 설정
 
@@ -1210,10 +1210,10 @@ cat /var/log/lsyncd/lsyncd-status.log
 
 ## 성능 및 안정성 고려사항
 
-1. **리소스 사용량**: Lsyncd는 많은 파일을 감시할 때 메모리 사용량이 증가할 수 있으므로, 서버 리소스를 모니터링하세요[^3_6].
-2. **네트워크 대역폭**: 대용량 파일을 동기화할 때 네트워크 대역폭이 충분한지 확인하세요. 필요 bandwidth는 변경률, file 크기, 목표 복제 지연과 recovery window로 산정하며 100Mbit·1Gbit는 예시입니다[^3_5].
+1. **리소스 사용량**: Lsyncd는 많은 파일을 감시할 때 메모리 사용량이 증가할 수 있으므로, 서버 리소스를 모니터링한다[^3_6].
+2. **네트워크 대역폭**: 대용량 파일을 동기화할 때 네트워크 대역폭이 충분한지 확인한다. 필요 bandwidth는 변경률, file 크기, 목표 복제 지연과 recovery window로 산정하며 100Mbit·1Gbit는 예시입니다[^3_5].
 3. **지연 시간**: Lsyncd delay는 version과 configuration에 따른 batching 값이며 약 1초를 보편 최소값으로 보지 않습니다[^3_3]. 이는 대부분의 사용 사례에 충분하지만, 밀리초 단위의 즉각적인 동기화가 필요하다면 다른 솔루션을 고려해야 할 수 있습니다.
-4. **백업 전략**: Lsyncd만으로는 완전한 백업 솔루션이 될 수 없습니다. 정기적인 스냅샷이나 백업도 함께 구현하세요.
+4. **백업 전략**: Lsyncd만으로는 전체 백업 솔루션이 될 수 없습니다. 정기적인 스냅샷이나 백업도 함께 구현한다.
 
 이와 같은 구성을 통해 세 서버 간의 파일 일관성을 효과적으로 유지할 수 있으며, 장애 유형, healthy replica, 복제 backlog와 failover 절차가 가정한 범위에서 가용성을 높일 수 있습니다.
 
@@ -1657,4 +1657,3 @@ HAProxy와 lsyncd를 조합하면 효율적이고 확장 가능한 다중 파일
 [^4_50]: https://www.reddit.com/r/sysadmin/comments/g075u2/im_building_a_high_availability_and_scalable_web/
 
 [^4_51]: https://severalnines.com/blog/how-create-single-endpoint-your-postgresql-replication-setup-using-haproxy/
-

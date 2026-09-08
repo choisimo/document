@@ -1,4 +1,6 @@
-# 제 6장: 동기화 도구 (Synchronization Tools) 🔄
+# Synchronization Tools
+
+동기화는 여러 실행 흐름이 같은 데이터나 자원에 접근할 때, 가능한 실행 순서를 제한해 불변식이 깨지지 않도록 만드는 기술이다.
 
 ## 문서 범위와 검증 기준
 
@@ -8,1002 +10,154 @@
 - **실패/재시도**: lock/condition wait에는 timeout·취소·spurious wakeup·owner failure 정책을 둡니다. 실패 뒤 lock 소유 여부를 확인하지 않은 재시도나 무한 spin은 허용하지 않습니다.
 - **완료 증거**: 상호 배제뿐 아니라 progress, bounded waiting 또는 명시한 fairness 수준, 취소·예외 경로의 unlock과 종료를 stress trace/검사로 입증해야 완료입니다.
 
-## 📖 목차 (Table of Contents)
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-1. [개요](#overview)
-2. [배경 및 기본 개념](#background)
-3. [임계 구역 문제](#critical-section)
-4. [피터슨의 해결책](#peterson)
-5. [하드웨어 지원](#hardware-support)
-6. [뮤텍스 락](#mutex-locks)
-7. [세마포어](#semaphores)
-8. [모니터](#monitors)
-9. [활성 상태와 교착 상태](#liveness-deadlock)
-10. [고전적인 동기화 문제](#classic-problems)
-11. [핵심 개념 정리](#summary)
-12. [연습 문제](#exercises)
+동시 실행은 성능과 응답성을 높이지만, 공유 상태를 잘못 다루면 결과가 실행 순서에 따라 달라진다. 두 스레드가 같은 카운터를 동시에 증가시키면 `read -> add -> write` 단계가 서로 끼어들 수 있고, 최종 값은 예상보다 작아질 수 있다.
 
----
+동기화는 보호해야 하는 공유 접근 사이에 언어 메모리 모델에 맞는 happens-before·원자성 계약을 세운다. 소스 코드의 순서나 동시에 실행되지 않을 것이라는 기대만으로는 보장되지 않으며 필요한 구간에 적합한 primitive를 선택한다.
 
-## 개요 {#overview}
+## 2. 현재 나의 상태 (Baseline)
 
-**동기화 도구(Synchronization Tools)**는 다중 프로세스 환경에서 데이터 일관성을 보장하고 프로세스 간의 순서를 제어하는 중요한 메커니즘입니다.
+흔한 출발점은 다음과 같다.
+
+- race condition을 "가끔 생기는 버그" 정도로만 이해한다.
+- mutex와 semaphore를 모두 lock처럼 사용한다.
+- critical section 조건인 mutual exclusion, progress, bounded waiting을 구분하지 못한다.
+- condition variable을 이벤트 저장소처럼 착각한다.
+- deadlock, starvation, livelock을 같은 문제로 본다.
+
+## 3. 도달하고 싶은 목표 (Target State)
+
+목표는 동기화 도구를 보호하려는 불변식에 맞춰 선택하는 것이다.
+
+- race condition이 생기는 interleaving을 단계별로 설명한다.
+- 임계 구역 문제의 세 조건을 설명한다.
+- mutex, spinlock, semaphore, monitor, condition variable의 용도를 구분한다.
+- busy waiting과 blocking의 trade-off를 이해한다.
+- lock 순서, hold time, wake-up 조건을 점검할 수 있다.
+- 동기화가 교착 상태와 성능 병목을 만들 수 있음을 함께 고려한다.
+
+## 4. 시스템 번역 (Data Flow)
+
+공유 데이터 접근은 다음 흐름으로 번역된다.
+
+```text
+thread wants shared state
+  -> acquire synchronization primitive
+  -> enter critical section
+  -> read and update shared state
+  -> preserve invariant
+  -> release primitive
+  -> wake waiting threads if needed
+```
+
+condition variable은 별도 흐름을 가진다.
+
+```text
+lock mutex
+while condition is false:
+  wait atomically releases mutex and begins waiting
+  before returning, wait reacquires mutex
+condition is true
+modify shared state
+unlock mutex
+```
+
+## 5. 핵심 구성요소 (Building Blocks)
+
+- Race condition: 실행 순서에 따라 결과가 달라지는 상태.
+- Critical section: 공유 상태의 불변식을 깨뜨릴 수 있는 코드 구간.
+- Mutex: 소유권이 있는 상호 배제 도구. 구현별 user-space fast path, adaptive spin과 kernel blocking을 조합할 수 있으며 fairness는 별도 계약이다.
+- Spinlock: lock을 얻을 때까지 CPU를 쓰며 반복 확인하는 lock.
+- Semaphore: 정수 카운터로 사용 가능한 자원 수나 이벤트 순서를 표현하는 도구.
+- Binary semaphore: 값이 0 또는 1인 semaphore. mutex처럼 쓸 수 있지만 소유권 의미가 다르다.
+- Monitor: 공유 데이터와 해당 데이터를 다루는 동기화 절차를 묶은 추상화.
+- Condition variable: 특정 조건이 참이 될 때까지 mutex와 함께 기다리는 도구.
+- Atomic operation: 대상 언어 계약에서 다른 실행 흐름이 중간 상태를 관찰하지 않는 조작. 다른 메모리 접근의 가시성·순서는 선택한 memory order가 결정하며 전체 실행 중 interrupt가 금지된다는 뜻은 아니다.
+
+## 6. 상태 전이 (State Transition)
+
+아래는 mutex 경합 시 blocking을 사용하는 경로의 상태 예시다. 실제 구현은 먼저 spin할 수도 있고 wakeup이 즉시 소유권 획득을 보장하지 않는다.
 
 ```mermaid
-graph TD
-    A[동기화 도구] --> B[동기화 문제 식별]
-    A --> C[해결책 구현]
-    A --> D[성능 최적화]
-    
-    B --> B1[경합 조건]
-    B --> B2[임계 구역]
-    B --> B3[데이터 불일치]
-    
-    C --> C1[소프트웨어 해결책]
-    C --> C2[하드웨어 지원]
-    C --> C3[고수준 동기화 도구]
-    
-    C1 --> C11[피터슨 알고리즘]
-    C2 --> C21[원자적 명령어]
-    C3 --> C31[뮤텍스]
-    C3 --> C32[세마포어]
-    C3 --> C33[모니터]
-    
-    style A fill:#e1f5fe
-    style B fill:#fff3e0
-    style C fill:#f3e5f5
-    style D fill:#e8f5e8
+stateDiagram-v2
+    Running --> Waiting: lock unavailable
+    Waiting --> Ready: lock released
+    Ready --> Running: scheduled
+    Running --> Running: enters critical section
+    Running --> Ready: unlock and preempted
 ```
 
-### 🎯 학습 목표
+condition variable은 "조건 검사"와 "대기"가 원자적으로 연결되어야 한다.
 
-이 장을 통해 다음을 이해할 수 있습니다:
-- 동시성에서 발생하는 문제점들
-- 임계 구역 문제와 해결 요구사항
-- 다양한 동기화 도구들의 원리와 활용
-- 고전적인 동기화 문제들과 해결책
-
----
-
-## 배경 및 기본 개념 {#background}
-
-### 💡 동시성과 데이터 일관성
-
-```mermaid
-sequenceDiagram
-    participant P1 as 프로세스 1
-    participant M as 공유 메모리
-    participant P2 as 프로세스 2
-    
-    Note over P1,P2: 공유 데이터: counter = 5
-    
-    P1->>M: register1 = counter (5)
-    P2->>M: register2 = counter (5)
-    P1->>P1: register1 = register1 + 1 (6)
-    P2->>P2: register2 = register2 - 1 (4)
-    P1->>M: counter = register1 (6)
-    P2->>M: counter = register2 (4)
-    
-    Note over P1,P2: 결과: counter = 4 (예상: 5)
+```text
+mutex locked
+condition false
+wait releases mutex and sleeps
+another thread changes state
+another thread signals
+waiter wakes and reacquires mutex
+condition checked again
 ```
 
-프로세스들은 **동시에 실행**될 수 있으며, 언제든지 실행이 부분적으로 완료된 상태로 중단될 수 있습니다. 이로 인해 **공유 데이터에 대한 동시 접근**은 데이터 불일치(data inconsistency)를 초래할 수 있습니다.
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-### 🔍 경합 조건 (Race Condition)
+- 공유 상태를 읽고 쓰는 임계 구역은 같은 규칙으로 보호되어야 한다.
+- lock을 잡은 뒤에는 모든 경로에서 해제되어야 한다.
+- condition variable 대기는 `if`가 아니라 조건을 다시 확인하는 반복문으로 감싸야 한다.
+- semaphore의 카운트는 실제 자원 수나 허용 가능한 진행 수와 일치해야 한다.
+- 여러 lock을 잡아야 한다면 전역 lock 순서를 지켜야 한다.
+- 임계 구역 안에서 오래 걸리는 I/O나 외부 호출을 최소화해야 한다.
 
-**경합 조건**은 여러 프로세스가 동시에 공유 데이터에 접근할 때, 실행 순서에 따라 결과가 달라지는 상황입니다.
+## 8. 가장 작은 예제 (Minimal Viable Example)
 
-#### 실제 예제: 카운터 증가/감소
+다음은 read/add/write로 추상화한 lost-update interleaving이다. 일반 C/C++ 비원자 count를 실제로 동시에 수정하면 data race로 undefined behavior가 되므로 결과가 단지 1이 된다고 제한할 수 없다.
+
+```text
+Thread A reads count = 0
+Thread B reads count = 0
+Thread A writes count = 1
+Thread B writes count = 1
+expected count = 2
+actual count = 1
+```
+
+mutex로 보호한 흐름:
 
 ```c
-// 전역 변수
-int counter = 5;
-
-// 프로듀서 프로세스
-void producer() {
-    register1 = counter;      // T0
-    register1 = register1 + 1; // T1
-    counter = register1;       // T4
-}
-
-// 소비자 프로세스  
-void consumer() {
-    register2 = counter;       // T2
-    register2 = register2 - 1; // T3
-    counter = register2;       // T5
-}
+pthread_mutex_lock(&lock);
+count = count + 1;
+pthread_mutex_unlock(&lock);
 ```
 
-**실행 순서와 결과:**
-- T0: 프로듀서 `register1 = counter` (register1 = 5)
-- T1: 프로듀서 `register1 = register1 + 1` (register1 = 6)
-- T2: 소비자 `register2 = counter` (register2 = 5)
-- T3: 소비자 `register2 = register2 - 1` (register2 = 4)
-- T4: 프로듀서 `counter = register1` (counter = 6)
-- T5: 소비자 `counter = register2` (counter = 4)
+핵심은 count 증가가 사용하는 언어·타입·연산의 계약에서 원자적으로 보장되는지다. count = count + 1은 일반 C 공유 정수에 대해 원자성을 보장하지 않으며 기계 명령 개수만으로 판단할 수 없다. 위 pthread 조각은 성공한 lock과 모든 접근의 같은 mutex 사용을 전제로 한다.
 
-**결과:** counter = 4 (예상값: 5)
+## 9. 실패 사례 (What could go wrong?)
 
-### 🔐 해결책의 필요성
+- lock을 해제하지 않는 경로가 있으면 모든 대기자가 멈춘다.
+- 서로 다른 순서로 여러 lock을 잡으면 교착 상태가 생긴다.
+- spinlock을 긴 작업에 사용하면 CPU를 낭비한다.
+- semaphore를 mutex처럼 쓰면서 소유권을 추적하지 않으면 release 주체가 흐려진다.
+- condition variable을 신호 저장소로 착각하면 lost wake-up이나 spurious wake-up에 취약하다.
+- 임계 구역이 너무 넓으면 병렬성이 사라지고 latency가 커진다.
 
-공유 가변 상태의 일관성을 위해서는 언어 메모리 모델에 맞는 원자 연산이나 동기화로 happens-before 관계를 세워야 합니다. 단순한 소스 코드 순서나 “동시에 실행되지 않을 것”이라는 기대는 보장이 아닙니다.
+## 10. 뇌 확장하기 (Evolution & Variants)
 
----
+- Peterson 알고리즘을 통해 상호 배제 조건을 증명해 본 뒤 현대 CPU memory ordering 한계를 확인한다.
+- compare-and-swap, test-and-set, fetch-and-add 같은 atomic instruction을 lock 구현과 연결한다.
+- readers-writers lock, barrier, latch, countdown event 같은 고수준 동기화 도구를 비교한다.
+- producer-consumer, dining philosophers, readers-writers 문제를 같은 불변식 관점으로 다시 푼다.
+- lock-free 구조가 "lock이 없다"와 "대기가 없다"를 항상 의미하지 않는다는 점을 비교한다.
 
-## 임계 구역 문제 {#critical-section}
+## 11. 최종 체크리스트 (Definition of Done)
 
-### 📝 임계 구역 (Critical Section) 정의
+- [ ] race condition을 interleaving으로 설명할 수 있다.
+- [ ] 임계 구역 문제의 세 조건을 설명할 수 있다.
+- [ ] mutex와 semaphore의 의미 차이를 설명할 수 있다.
+- [ ] condition variable을 mutex와 함께 써야 하는 이유를 설명할 수 있다.
+- [ ] deadlock을 만드는 lock 순서 위반을 찾을 수 있다.
+- [ ] 임계 구역을 줄여야 하는 이유를 성능 관점에서 말할 수 있다.
 
-```mermaid
-graph LR
-    A[진입 구역<br/>Entry Section] --> B[임계 구역<br/>Critical Section]
-    B --> C[퇴출 구역<br/>Exit Section]
-    C --> D[나머지 구역<br/>Remainder Section]
-    D --> A
-    
-    style B fill:#ffebee
-    style A fill:#e8f5e8
-    style C fill:#fff3e0
-    style D fill:#f3e5f5
-```
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-n개의 프로세스 {P₀, P₁, ..., Pₙ₋₁}로 구성된 시스템에서:
-
-- **임계 구역**: 공통 변수를 변경하거나, 테이블을 업데이트하거나, 파일을 쓰는 등의 작업을 수행하는 코드 세그먼트
-- **진입 구역**: 임계 구역에 들어가기 위한 허가를 요청하는 코드
-- **퇴출 구역**: 임계 구역을 빠져나온 후 실행되는 코드
-- **나머지 구역**: 그 외의 코드
-
-### ⚖️ 임계 구역 해결책의 요구사항
-
-```mermaid
-graph TD
-    A[임계 구역 해결책] --> B[상호 배제<br/>Mutual Exclusion]
-    A --> C[진행<br/>Progress]
-    A --> D[유한 대기<br/>Bounded Waiting]
-    
-    B --> B1["한 프로세스가 임계 구역에<br/>있으면 다른 프로세스는<br/>진입할 수 없다"]
-    
-    C --> C1["임계 구역에 아무도 없고<br/>진입하려는 프로세스가 있으면<br/>선택 과정이 무한 연기되지 않아야"]
-    
-    D --> D1["한 프로세스가 임계 구역<br/>진입 요청 후 허가받기까지<br/>다른 프로세스의 진입 횟수에<br/>상한이 있어야"]
-    
-    style B fill:#ffebee
-    style C fill:#e8f5e8
-    style D fill:#fff3e0
-```
-
-1. **상호 배제 (Mutual Exclusion)**: 프로세스 Pᵢ가 자신의 임계 구역에서 실행 중이면, 다른 어떤 프로세스도 자신의 임계 구역에서 실행될 수 없습니다.
-
-2. **진행 (Progress)**: 임계 구역에서 실행 중인 프로세스가 없고, 자신의 임계 구역에 들어가고자 하는 일부 프로세스가 존재한다면, 다음에 임계 구역에 들어갈 프로세스를 선택하는 과정이 무기한 연기되어서는 안 됩니다.
-
-3. **유한 대기 (Bounded Waiting)**: 프로세스가 임계 구역에 들어가기 위한 요청을 한 후 그 요청이 허가되기까지 다른 프로세스가 자신의 임계 구역에 들어갈 수 있는 횟수에 대한 상한(bound)이 존재해야 합니다.
-
----
-
-## 피터슨의 해결책 {#peterson}
-
-### 🧠 피터슨 알고리즘 (Peterson's Algorithm)
-
-피터슨의 해결책은 **두 프로세스**를 위한 소프트웨어 기반 해결책입니다.
-
-```mermaid
-graph TD
-    subgraph "공유 변수"
-        A["boolean flag[2]<br/>flag[0] = flag[1] = false"]
-        B[int turn<br/>초기값: 0 또는 1]
-    end
-    
-    subgraph "프로세스 i"
-        C["flag[i] = true<br/>다른 프로세스에게 준비됨을 알림"]
-        D[turn = j<br/>상대방에게 우선권 양보]
-        E["while flag[j] && turn == j<br/>상대방이 준비되고 차례이면 대기"]
-        F[임계 구역 실행]
-        G["flag[i] = false<br/>임계 구역 종료를 알림"]
-    end
-    
-    C --> D --> E --> F --> G
-    
-    style F fill:#ffebee
-    style A fill:#e8f5e8
-    style B fill:#e8f5e8
-```
-
-#### 구현 코드
-
-다음은 알고리즘 구조를 보이는 의사 C입니다. 표준 C의 일반 `boolean` 변수로 여러 스레드가 그대로 실행하면 data race가 되므로 실제 구현에는 대상 언어의 atomic type과 명시된 memory order가 필요합니다.
-
-```c
-// 공유 변수
-boolean flag[2] = {false, false};  // 프로세스 준비 상태
-int turn = 0;                      // 누구의 차례인지
-
-// 프로세스 i (i = 0 또는 1)
-void process_i() {
-    while (true) {
-        // 진입 구역
-        flag[i] = true;           // 나는 준비됨
-        turn = j;                 // 상대방에게 우선권
-        while (flag[j] && turn == j); // 상대방이 준비되고 차례이면 대기
-        
-        // 임계 구역
-        critical_section();
-        
-        // 퇴출 구역
-        flag[i] = false;          // 임계 구역 종료
-        
-        // 나머지 구역
-        remainder_section();
-    }
-}
-```
-
-### ✅ 피터슨 해결책의 정확성 전제
-
-```mermaid
-graph TD
-    A[두 참여자 + sequential consistency] --> B[상호 배제]
-    A --> C[진행]
-    A --> D[유한 대기]
-    
-    B --> B1["Pi는 flag[j]==false이거나<br/>turn==i인 경우에만 진입"]
-    C --> C1["대기 조건을 만족하지 않으면<br/>진입 가능"]
-    D --> D1["상대방이 최대 1번만<br/>먼저 진입 가능"]
-    
-    style A fill:#e1f5fe
-    style B fill:#e8f5e8
-    style C fill:#e8f5e8
-    style D fill:#e8f5e8
-```
-
-### ⚠️ 현대 아키텍처에서의 한계
-
-```mermaid
-sequenceDiagram
-    participant C as 컴파일러/프로세서
-    participant T1 as 스레드 1
-    participant T2 as 스레드 2
-    participant M as 메모리
-    
-    Note over C: 성능 최적화를 위한 명령어 재배열
-    
-    T1->>M: flag[0] = true
-    T1->>M: turn = 1
-    Note over C: 재배열 발생!
-    T2->>M: turn = 0 (원래는 flag[1] = true가 먼저)
-    T2->>M: flag[1] = true
-    
-    Note over T1,T2: 둘 다 임계 구역 진입 가능!
-```
-
-컴파일러·CPU 재배열과 언어의 data-race 규칙 때문에 위의 비원자 코드는 현대 C/C++에서 올바른 동기화가 아닙니다. CPU 동작만의 문제가 아니며 대상 언어의 atomic 연산으로 증명 전제를 표현해야 합니다.
-
-**예시:**
-```c
-// 원본 코드
-x = 100;
-flag = true;
-
-// 재배열된 실행 순서 (가능)
-flag = true;
-x = 100;
-```
-
----
-
-## 하드웨어 지원 {#hardware-support}
-
-### 🔧 하드웨어 명령어
-
-현대 시스템은 임계 구역 구현을 위한 하드웨어 지원을 제공합니다.
-
-#### Test-and-Set 명령어
-
-아래 `test_and_set` 함수 본문은 원자 명령의 의미를 설명하는 명세형 의사 코드입니다. 보통 load/store로 컴파일되는 일반 C 함수 자체가 원자적인 것은 아닙니다.
-
-```mermaid
-graph LR
-    A[Test-and-Set 명령어] --> B[현재 값 반환]
-    A --> C[새 값으로 설정]
-    
-    B --> D[원자적으로 실행]
-    C --> D
-    
-    style A fill:#e1f5fe
-    style D fill:#ffebee
-```
-
-```c
-// Test-and-Set 명령어 (하드웨어로 구현)
-boolean test_and_set(boolean *target) {
-    boolean rv = *target;  // 현재 값을 저장
-    *target = true;        // 새 값으로 설정
-    return rv;             // 이전 값 반환
-}
-
-// 상호 배제 구현
-boolean lock = false;  // 공유 변수
-
-void process() {
-    while (true) {
-        while (test_and_set(&lock)); // 락 획득까지 대기
-        
-        // 임계 구역
-        critical_section();
-        
-        lock = false;  // 락 해제
-        
-        // 나머지 구역
-        remainder_section();
-    }
-}
-```
-
-#### Compare-and-Swap 명령어
-
-```c
-// Compare-and-Swap 명령어
-int compare_and_swap(int *value, int expected, int new_value) {
-    int temp = *value;
-    if (*value == expected)
-        *value = new_value;
-    return temp;
-}
-```
-
-### 🔒 원자적 변수 (Atomic Variables)
-
-```c
-#include <stdatomic.h>
-
-atomic_int counter = 0;
-
-void increment() {
-    atomic_fetch_add(&counter, 1);  // 원자적 증가
-}
-```
-
----
-
-## 뮤텍스 락 {#mutex-locks}
-
-### 🔐 뮤텍스 락 개념
-
-**뮤텍스(Mutex, Mutual Exclusion)**는 소유권이 있는 상호 배제 도구입니다. 구현은 사용자 공간 fast path, adaptive spin과 kernel blocking을 조합할 수 있으며 “가장 단순”하거나 항상 busy-wait라고 가정하지 않습니다.
-
-```mermaid
-graph TD
-    A[뮤텍스 락] --> B[acquire 함수]
-    A --> C[release 함수]
-    
-    B --> B1["락이 사용 가능하면 획득<br/>사용 불가능하면 대기"]
-    C --> C1["락을 해제하여<br/>다른 프로세스가 사용 가능하게"]
-    
-    subgraph "내부 구현"
-        D[boolean available = true]
-    end
-    
-    style A fill:#e1f5fe
-    style B fill:#fff3e0
-    style C fill:#e8f5e8
-```
-
-#### 구현
-
-```c
-// 뮤텍스 락 구조체
-typedef struct {
-    boolean available;
-} mutex;
-
-// 락 획득
-void acquire(mutex *m) {
-    while (!m->available); // 바쁜 대기 (busy waiting)
-    m->available = false;
-}
-
-// 락 해제
-void release(mutex *m) {
-    m->available = true;
-}
-
-// 사용 예제
-mutex m = {true};
-
-void process() {
-    while (true) {
-        acquire(&m);
-        
-        // 임계 구역
-        critical_section();
-        
-        release(&m);
-        
-        // 나머지 구역
-        remainder_section();
-    }
-}
-```
-
-위의 `available` 확인과 대입은 하나의 원자 연산이 아니므로 두 스레드가 동시에 통과할 수 있습니다. 실제 mutex 구현 예제가 아니라 잘못된 check-then-set 구조이며, atomic exchange/CAS와 올바른 memory order 또는 검증된 라이브러리 mutex를 사용해야 합니다.
-
-### 🔄 스핀락 (Spinlock)
-
-스핀락은 바쁜 대기를 사용하는 별도 lock 종류입니다. 일반 mutex는 경합 시 스레드를 재울 수 있고 일부 구현만 잠시 spin한 뒤 block합니다.
-
-**장점:**
-- 컨텍스트 스위치 오버헤드 없음
-- 짧은 임계 구역에 적합
-
-**단점:**
-- CPU 사이클 낭비
-- 우선순위 역전 문제 가능성
-
----
-
-## 세마포어 {#semaphores}
-
-### 📊 세마포어 개념
-
-**세마포어(Semaphore)**는 정수 변수 S와 두 개의 원자적 연산 `wait()`와 `signal()`로 구성됩니다.
-
-```mermaid
-graph TD
-    A[세마포어 S] --> B[wait 연산<br/>P 연산]
-    A --> C[signal 연산<br/>V 연산]
-    
-    B --> B1["S 값을 감소<br/>S < 0이면 대기"]
-    C --> C1["S 값을 증가<br/>대기 중인 프로세스 깨움"]
-    
-    subgraph "세마포어 유형"
-        D[이진 세마포어<br/>값: 0 또는 1]
-        E[카운팅 세마포어<br/>값: 제한 없음]
-    end
-    
-    style A fill:#e1f5fe
-    style B fill:#fff3e0
-    style C fill:#e8f5e8
-```
-
-#### 기본 연산
-
-다음 증감과 queue 전환 전체는 원자적으로 직렬화된다는 추상 연산입니다. 일반 정수에 이 C 본문을 그대로 적용하면 올바른 semaphore가 되지 않습니다.
-
-```c
-// wait 연산 (P 연산)
-void wait(semaphore *S) {
-    S->value--;
-    if (S->value < 0) {
-        // 프로세스를 대기 큐에 추가
-        // 프로세스를 블록 상태로 전환
-    }
-}
-
-// signal 연산 (V 연산)  
-void signal(semaphore *S) {
-    S->value++;
-    if (S->value <= 0) {
-        // 대기 큐에서 프로세스 하나 제거
-        // 해당 프로세스를 준비 상태로 전환
-    }
-}
-```
-
-### 🔧 세마포어 사용 예시
-
-#### 1. 임계 구역 문제 해결
-
-```c
-semaphore mutex = 1;  // 이진 세마포어
-
-void process() {
-    while (true) {
-        wait(&mutex);      // 임계 구역 진입
-        
-        // 임계 구역
-        critical_section();
-        
-        signal(&mutex);    // 임계 구역 퇴출
-        
-        // 나머지 구역
-        remainder_section();
-    }
-}
-```
-
-#### 2. 실행 순서 동기화
-
-```mermaid
-sequenceDiagram
-    participant P1 as 프로세스 P1
-    participant S as 세마포어 synch
-    participant P2 as 프로세스 P2
-    
-    Note over S: synch = 0 (초기값)
-    
-    P1->>P1: S1 실행
-    P1->>S: signal(synch)
-    Note over S: synch = 1
-    
-    P2->>S: wait(synch)
-    Note over S: synch = 0
-    P2->>P2: S2 실행
-    
-    Note over P1,P2: S1이 S2보다 먼저 실행됨을 보장
-```
-
-```c
-semaphore synch = 0;  // 동기화 세마포어
-
-// 프로세스 P1
-void process1() {
-    S1;              // 먼저 실행되어야 하는 구문
-    signal(&synch);  // P2에게 신호 전송
-}
-
-// 프로세스 P2  
-void process2() {
-    wait(&synch);    // P1의 신호 대기
-    S2;              // 나중에 실행되어야 하는 구문
-}
-```
-
-### 🚫 세마포어 문제점
-
-```mermaid
-graph TD
-    A[세마포어 잘못된 사용] --> B[signal → wait]
-    A --> C[wait → wait]
-    A --> D[연산 누락]
-    
-    B --> B1["여러 프로세스가<br/>동시에 임계 구역 진입"]
-    C --> C1["프로세스가<br/>영구적으로 블록"]
-    D --> D1["예상치 못한<br/>결과 발생"]
-    
-    style A fill:#ffebee
-    style B fill:#ffcdd2
-    style C fill:#ffcdd2
-    style D fill:#ffcdd2
-```
-
-**잘못된 사용 예시:**
-
-1. **signal → wait**: 상호 배제 실패
-```c
-signal(&mutex);  // 잘못된 순서!
-// 임계 구역
-wait(&mutex);
-```
-
-2. **wait → wait**: 같은 실행 흐름이 두 번 획득하고 다른 signal 주체가 없다면 무기한 블록 가능
-```c
-wait(&mutex);
-wait(&mutex);  // 비재진입 자원이며 다른 signal이 없으면 무기한 대기
-```
-
-3. **연산 누락**: 예측 불가능한 동작
-
----
-
-## 모니터 {#monitors}
-
-### 🏗️ 모니터 개념
-
-**모니터(Monitor)**는 프로세스 동기화를 위한 고수준 추상화 메커니즘입니다.
-
-```mermaid
-graph TD
-    A[모니터] --> B[공유 변수]
-    A --> C[프로시저들]
-    A --> D[조건 변수]
-    A --> E[초기화 코드]
-    
-    B --> B1["내부에서만 접근 가능"]
-    C --> C1["monitor contract가 상호 배제를 제공"]
-    D --> D1["wait/signal 연산"]
-    E --> E1["모니터 시작 시 실행"]
-    
-    style A fill:#e1f5fe
-    style C fill:#e8f5e8
-```
-
-#### 모니터 구조
-
-```c
-monitor MonitorName {
-    // 공유 변수 선언
-    shared_variable_declarations;
-    
-    // 프로시저 정의
-    procedure P1(...) { ... }
-    procedure P2(...) { ... }
-    ...
-    procedure Pn(...) { ... }
-    
-    // 조건 변수
-    condition x, y;
-    
-    // 초기화 코드
-    initialization_code(...) { ... }
-}
-```
-
-### 🔄 조건 변수 (Condition Variables)
-
-```mermaid
-graph LR
-    A[조건 변수 x] --> B[x.wait]
-    A --> C[x.signal]
-    
-    B --> B1["호출한 프로세스를<br/>중단하고 대기"]
-    C --> C1["대기 중인 프로세스<br/>하나를 재시작"]
-    
-    style A fill:#e1f5fe
-    style B fill:#fff3e0
-    style C fill:#e8f5e8
-```
-
-#### 조건 변수 연산
-
-```c
-// x.wait() 연산
-void x_wait() {
-    // 현재 프로세스를 조건 변수 x의 대기 큐에 추가
-    // 프로세스를 중단하고 모니터 락 해제
-    // 다른 프로세스가 x.signal()을 호출할 때까지 대기
-}
-
-// x.signal() 연산
-void x_signal() {
-    // 조건 변수 x의 대기 큐에서 프로세스 하나 제거
-    // 해당 프로세스를 재시작
-    // 대기 중인 프로세스가 없으면 아무 동작 안 함
-}
-```
-
-### 🍽️ 예제: 식사하는 철학자 문제 (모니터 해결책)
-
-```c
-monitor DiningPhilosophers {
-    enum {THINKING, HUNGRY, EATING} state[5];
-    condition self[5];
-    
-    void pickup(int i) {
-        state[i] = HUNGRY;
-        test(i);
-        if (state[i] != EATING)
-            self[i].wait();
-    }
-    
-    void putdown(int i) {
-        state[i] = THINKING;
-        test((i + 4) % 5);  // 왼쪽 이웃 확인
-        test((i + 1) % 5);  // 오른쪽 이웃 확인
-    }
-    
-    void test(int i) {
-        if ((state[(i + 4) % 5] != EATING) &&
-            (state[i] == HUNGRY) &&
-            (state[(i + 1) % 5] != EATING)) {
-            state[i] = EATING;
-            self[i].signal();
-        }
-    }
-    
-    initialization_code() {
-        for (int i = 0; i < 5; i++)
-            state[i] = THINKING;
-    }
-}
-```
-
----
-
-## 활성 상태와 교착 상태 {#liveness-deadlock}
-
-### 🔄 활성 상태 (Liveness)
-
-**활성 상태**는 시스템이 프로세스의 진행을 보장하기 위해 충족해야 하는 속성 집합입니다.
-
-```mermaid
-graph TD
-    A[활성 상태 실패] --> B[교착 상태<br/>Deadlock]
-    A --> C[굶주림<br/>Starvation]
-    A --> D[우선순위 역전<br/>Priority Inversion]
-    
-    B --> B1["둘 이상의 프로세스가<br/>무기한 상호 대기"]
-    C --> C1["프로세스가 무기한<br/>자원을 할당받지 못함"]
-    D --> D1["낮은 우선순위가<br/>높은 우선순위를 블록"]
-    
-    style A fill:#ffebee
-    style B fill:#ffcdd2
-    style C fill:#fff3e0
-    style D fill:#f3e5f5
-```
-
-### ⚠️ 교착 상태 예시
-
-```c
-semaphore S = 1, Q = 1;
-
-// 프로세스 P0
-wait(S);
-wait(Q);
-// ...
-signal(Q);
-signal(S);
-
-// 프로세스 P1  
-wait(Q);
-wait(S);
-// ...
-signal(S);
-signal(Q);
-```
-
-**교착 상태 시나리오:**
-1. P0가 `wait(S)` 실행 → S = 0
-2. P1이 `wait(Q)` 실행 → Q = 0  
-3. P0가 `wait(Q)` 실행 → 대기 (Q = 0)
-4. P1이 `wait(S)` 실행 → 대기 (S = 0)
-5. **교착 상태!** 둘 다 서로를 기다림
-
----
-
-## 고전적인 동기화 문제 {#classic-problems}
-
-### 🏭 유한 버퍼 문제 (Producer-Consumer Problem)
-
-```mermaid
-graph LR
-    A[프로듀서] -->|아이템 생산| B[공유 버퍼]
-    B -->|아이템 소비| C[소비자]
-    
-    subgraph "세마포어"
-        D[mutex = 1<br/>상호 배제]
-        E[full = 0<br/>가득 찬 버퍼 수]
-        F[empty = n<br/>빈 버퍼 수]
-    end
-    
-    style B fill:#e1f5fe
-    style D fill:#fff3e0
-    style E fill:#ffebee
-    style F fill:#e8f5e8
-```
-
-#### 해결책
-
-```c
-semaphore mutex = 1;    // 버퍼 접근 제어
-semaphore full = 0;     // 가득 찬 버퍼 개수
-semaphore empty = n;    // 빈 버퍼 개수
-
-// 프로듀서
-void producer() {
-    while (true) {
-        // 아이템 생산
-        produce_item();
-        
-        wait(&empty);   // 빈 버퍼 대기
-        wait(&mutex);   // 버퍼 접근 권한 획득
-        
-        // 버퍼에 아이템 추가
-        add_to_buffer();
-        
-        signal(&mutex); // 버퍼 접근 권한 해제
-        signal(&full);  // 가득 찬 버퍼 수 증가
-    }
-}
-
-// 소비자
-void consumer() {
-    while (true) {
-        wait(&full);    // 가득 찬 버퍼 대기
-        wait(&mutex);   // 버퍼 접근 권한 획득
-        
-        // 버퍼에서 아이템 제거
-        remove_from_buffer();
-        
-        signal(&mutex); // 버퍼 접근 권한 해제
-        signal(&empty); // 빈 버퍼 수 증가
-        
-        // 아이템 소비
-        consume_item();
-    }
-}
-```
-
-### 📚 읽기-쓰기 문제 (Readers-Writers Problem)
-
-```mermaid
-graph TD
-    A[데이터베이스] --> B[읽기 프로세스들<br/>동시 접근 가능]
-    A --> C[쓰기 프로세스<br/>독점 접근 필요]
-    
-    B --> B1["여러 개가 동시에<br/>읽기 가능"]
-    C --> C1["하나만 쓰기 가능<br/>읽기와 동시 불가"]
-    
-    style A fill:#e1f5fe
-    style B fill:#e8f5e8
-    style C fill:#ffebee
-```
-
-#### 해결책 (First Readers-Writers Problem)
-
-```c
-semaphore rw_mutex = 1;  // 읽기/쓰기 상호 배제
-semaphore mutex = 1;     // read_count 보호
-int read_count = 0;      // 현재 읽기 중인 프로세스 수
-
-// 쓰기 프로세스
-void writer() {
-    while (true) {
-        wait(&rw_mutex);
-        
-        // 쓰기 수행
-        write_data();
-        
-        signal(&rw_mutex);
-    }
-}
-
-// 읽기 프로세스
-void reader() {
-    while (true) {
-        wait(&mutex);
-        read_count++;
-        if (read_count == 1)    // 첫 번째 읽기 프로세스
-            wait(&rw_mutex);    // 쓰기 프로세스 차단
-        signal(&mutex);
-        
-        // 읽기 수행
-        read_data();
-        
-        wait(&mutex);
-        read_count--;
-        if (read_count == 0)    // 마지막 읽기 프로세스
-            signal(&rw_mutex);  // 쓰기 프로세스 허용
-        signal(&mutex);
-    }
-}
-```
-
----
-
-## 핵심 개념 정리 {#summary}
-
-### 📝 동기화 도구 비교
-
-| 동기화 도구 | 장점 | 단점 | 적용 분야 |
-|------------|------|------|-----------|
-| **뮤텍스 락** | 소유권 기반 상호 배제, 구현별 fast path | 경합·우선순위 역전·owner failure 정책 필요 | 임계 구역 보호 |
-| **세마포어** | permit 카운팅과 순서 동기화 | 소유권이 없어 누락·과다 signal 위험 | 유한 자원·신호 |
-| **모니터** | 상태와 조건 대기를 한 추상화에 묶음 | Mesa/Hoare 의미와 wakeup 조건을 이해해야 함 | 복합 상태 불변식 |
-
-### 🔍 선택 기준
-
-```mermaid
-graph TD
-    A[동기화 도구 선택] --> B[임계 구역 길이]
-    A --> C[시스템 자원]
-    A --> D[프로그래밍 복잡도]
-    
-    B --> B1[짧음: 뮤텍스/스핀락]
-    B --> B2[긺: 세마포어/모니터]
-    
-    C --> C1[제한적: 뮤텍스]
-    C --> C2[풍부함: 세마포어]
-    
-    D --> D1[단순함: 뮤텍스]
-    D --> D2[복잡함: 모니터]
-    
-    style A fill:#e1f5fe
-```
-
----
-
-## 연습 문제 {#exercises}
-
-### 🧩 문제 1: 세마포어 사용
-
-다음 요구사항을 만족하는 세마포어 기반 해결책을 작성하세요:
-- 프로세스 A의 구문 X가 프로세스 B의 구문 Y보다 먼저 실행되어야 함
-- 프로세스 B의 구문 Y가 프로세스 C의 구문 Z보다 먼저 실행되어야 함
-
-**답안:**
-```c
-semaphore sync1 = 0;  // A → B 동기화
-semaphore sync2 = 0;  // B → C 동기화
-
-// 프로세스 A
-void processA() {
-    X;                // 구문 X 실행
-    signal(&sync1);   // B에게 신호
-}
-
-// 프로세스 B  
-void processB() {
-    wait(&sync1);     // A의 신호 대기
-    Y;                // 구문 Y 실행
-    signal(&sync2);   // C에게 신호
-}
-
-// 프로세스 C
-void processC() {
-    wait(&sync2);     // B의 신호 대기
-    Z;                // 구문 Z 실행
-}
-```
-
-### 🧩 문제 2: 모니터 설계
-
-최대 3명이 동시에 사용할 수 있는 컴퓨터실을 모니터로 설계하세요.
-
-**답안:**
-```c
-monitor ComputerLab {
-    int available_seats = 3;
-    condition waiting;
-    
-    void enter() {
-        while (available_seats == 0)
-            waiting.wait();
-        available_seats--;
-    }
-    
-    void exit() {
-        available_seats++;
-        waiting.signal();
-    }
-}
-```
-
-### 🧩 문제 3: 오류 분석
-
-다음 코드의 문제점을 찾고 수정하세요:
-
-```c
-semaphore mutex = 1;
-
-void process1() {
-    wait(&mutex);
-    // 임계 구역
-    signal(&mutex);
-    signal(&mutex);  // 추가 signal
-}
-
-void process2() {
-    wait(&mutex);
-    // 임계 구역  
-    signal(&mutex);
-}
-```
-
-**문제점:** process1에서 signal을 두 번 호출하여 mutex 값이 2가 될 수 있음. 이로 인해 두 프로세스가 동시에 임계 구역에 진입할 수 있음.
-
-**수정안:**
-```c
-void process1() {
-    wait(&mutex);
-    // 임계 구역
-    signal(&mutex);  // 한 번만 호출
-}
-```
-
----
-
-### 📚 참고 자료
-
-- **운영체제 개념** - Abraham Silberschatz, Peter Baer Galvin, Greg Gagne
-- **Modern Operating Systems** - Andrew S. Tanenbaum
-- **Operating System Concepts with Java** - Abraham Silberschatz
-
-### 🔗 관련 링크
-
-- [POSIX Threads Programming](https://computing.llnl.gov/tutorials/pthreads/)
-- [Java Concurrency Tutorial](https://docs.oracle.com/javase/tutorial/essential/concurrency/)
-- [Linux Kernel Synchronization](https://www.kernel.org/doc/Documentation/locking/)
-
----
-
-*© 2024 Operating Systems Study Guide. 모든 권리 보유.*
+동기화는 공유 상태를 보호하는 규칙이며, 좋은 동기화는 필요한 실행 순서만 제한해서 정확성과 병렬성을 함께 지킨다.

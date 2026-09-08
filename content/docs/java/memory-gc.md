@@ -1,333 +1,204 @@
-# 자바 메모리 관리, 람다, GC 및 OOP 개념 심층 분석
+# Java 메모리와 GC
 
-JDK 17·21의 일반적인 HotSpot 동작을 중심으로 한 개념 문서입니다. Java 명세의 보장과 HotSpot/javac 구현 관찰을 구분하며, 다른 JVM·collector·압축 참조 옵션에서는 배치와 용어가 달라질 수 있습니다.
+Java 메모리 관리는 “객체를 직접 free하지 않아도 된다”가 아니라 “객체가 어디에서 참조되고, 언제 더 이상 reachable하지 않은가”를 이해하는 일이다. 이 문서는 JVM memory area, reference reachability, garbage collection, leak 진단의 기본 기준을 정리한다. JDK 17·21의 일반적인 HotSpot을 중심으로 Java 명세의 보장과 javac/JVM 구현 관찰을 구분한다. 실제 배치·참조 크기·용어는 collector와 압축 참조 옵션 등에 따라 달라진다.
 
-## 1. 객체 생성과 메모리 관리 구조
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-### 1.1 힙 인스턴스 참조 저장 위치
+Java 애플리케이션은 GC가 메모리를 회수하지만, 참조가 살아 있으면 객체는 회수되지 않는다. static collection, cache, thread-local, listener, executor queue가 객체를 계속 붙잡으면 heap은 가득 차고 결국 `OutOfMemoryError`가 발생한다.
 
-`new` 연산자로 생성된 객체는 **힙 영역**에 저장되며, 이 인스턴스를 가리키는 참조 값은 다음 두 위치에 저장됩니다:
+GC 튜닝도 heap 크기만 키우는 문제가 아니다. allocation rate, live set, pause time, GC log, heap dump를 함께 봐야 원인을 구분할 수 있다.
+
+## 2. 현재 나의 상태 (Baseline)
+
+기존 문서는 객체 생성, lambda, GC, OOP/Spring 예제를 한 문서에 섞어 설명한다.
+
+보완해야 할 점은 다음과 같다.
+
+- Java GC는 reference counting이 아니라 reachability 기반이라는 점을 명확히 해야 한다.
+- local reference, instance field, static field가 GC root와 어떻게 연결되는지 구분해야 한다.
+- lambda의 effectively final local capture와 instance field 접근을 구분해야 한다.
+- GC 최적화는 코드 스타일보다 관측 지표와 heap dump 분석이 먼저다.
+
+## 3. 도달하고 싶은 목표 (Target State)
+
+목표는 Java 메모리 문제를 다음 기준으로 분석하는 것이다.
+
+- 객체가 heap에 있고 reference가 stack, heap field, static field 등에 저장된다는 점을 설명한다.
+- 어떤 reference chain이 객체를 reachable하게 만드는지 추적한다.
+- Young/Old generation과 GC pause의 의미를 이해한다.
+- GC log, heap dump, thread dump를 수집할 수 있다.
+- memory leak과 정상적인 높은 live set을 구분한다.
+
+## 4. 시스템 번역 (Data Flow)
+
+객체와 GC의 흐름은 다음과 같다.
+
+```text
+new object
+  -> heap allocation
+  -> reference stored in local, field, static, array, collection
+  -> method execution
+  -> reference removed or retained
+  -> unreachable objects selected by GC
+  -> memory reclaimed
+```
+
+GC는 “사용하지 않는 것처럼 보이는 객체”가 아니라 “GC roots에서 도달할 수 없는 객체”를 회수한다. 따라서 leak 분석은 reference chain 분석이다.
+
+## 5. 핵심 구성요소 (Building Blocks)
+
+Heap은 객체와 array가 할당되는 영역이다. 대부분의 application memory pressure는 heap에서 드러난다.
+
+Thread stack은 method call frame과 local variable slot을 가진다. local variable이 객체를 참조하면 그 객체는 method 실행 중 reachable할 수 있다.
+
+Static field는 class가 load된 동안 오래 살아남는 reference가 되기 쉽다. static collection은 leak의 흔한 원인이다.
+
+Metaspace는 class metadata를 저장한다. classloader leak이 있으면 metaspace pressure가 생길 수 있다.
+
+GC roots는 thread stack, static field, JNI reference, system class 등 reachability 분석의 시작점이다.
+
+G1은 많은 HotSpot JDK 9+ 서버 구성의 기본 collector지만 플랫폼, 공급업체와 실행 옵션에 따라 다르다. 대상 JVM의 실제 flags·GC 로그를 확인한 뒤 heap 크기와 pause-time goal을 workload 기준으로 조정한다.
+
+## 6. 상태 전이 (State Transition)
+
+객체의 생명주기는 다음 상태로 볼 수 있다.
+
+```text
+allocated
+  -> referenced
+  -> reachable
+  -> strong path from GC roots no longer exists
+  -> unreachable
+  -> reclaimed by GC
+```
+
+memory leak은 객체가 논리적으로는 필요 없지만 reference chain 때문에 `reachable` 상태에 계속 남는 것이다.
+
+아래는 세대별 collector의 개념적 관측 흐름이다. 모든 collector가 young/old 구획이나 mixed/full GC 용어를 동일하게 쓰지는 않는다.
+
+```text
+normal allocation
+  -> young GC
+  -> promotion to old
+  -> old occupancy growth
+  -> mixed/full GC
+  -> stable recovery or OOM
+```
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- GC는 reference count가 아니라 reachability를 기준으로 회수한다.
+- static collection에 넣은 객체는 명시적으로 제거하지 않으면 오래 살아남을 수 있다.
+- cache는 maximum size, eviction, TTL 중 하나 이상의 정책이 필요하다.
+- `ThreadLocal`은 thread pool에서 사용 후 remove하지 않으면 leak 원인이 된다.
+- lambda는 local variable을 capture할 때 final 또는 effectively final만 허용한다.
+- heap 문제는 GC log와 heap dump 없이 추측으로 결론 내리지 않는다.
+- `System.gc()` 호출을 운영 해결책으로 사용하지 않는다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+local reference와 field reference를 구분한다.
 
 ```java
-public class MemoryExample {
-    private Object instanceField = new Object();  // 힙 내 객체의 참조 저장
+public final class MemoryExample {
+    private Object fieldRef = new Object();
 
-    public void method() {
-        Object localVar = new Object();  // 스택 프레임에 참조 저장
-        System.out.println(localVar);
+    public void run() {
+        Object localRef = new Object();
+        System.out.println(localRef);
     }
 }
 ```
 
-- **지역 변수**: 실행 프레임의 local-variable slot으로 다뤄집니다. 실제 참조 크기와 네이티브 배치는 JVM과 compressed oops 설정에 따라 달라집니다.
-- **인스턴스 필드**: 객체 상태의 일부이며 객체 레이아웃과 정렬은 JVM 구현에 따라 달라집니다.
+`localRef`는 실행 프레임의 local-variable slot으로 다뤄지지만 실제 JVM/JIT의 liveness 분석에 따라 메서드 반환 전에도 객체가 회수 대상이 될 수 있다. `fieldRef`는 reachable한 `MemoryExample` 인스턴스에서 이어지는 참조 경로를 만든다.
 
-메모리 구조
-*(출처: JVM 메모리 구조 도식화)[^1]*
-
-### 1.2 잘못된 참조 관리 예시
+static collection leak 예시는 다음과 같다.
 
 ```java
-public class ReferenceLeak {
-    private static List<byte[]> leakList = new ArrayList<>();
+public final class ReferenceLeak {
+    private static final List<byte[]> LEAK = new ArrayList<>();
 
-    public void generateData() {
-        while(true) {
-            byte[] data = new byte[10_000_000];  // 매회 10MB 할당
-            leakList.add(data);  // 정적 컬렉션에 참조 유지 → GC 불가
-        }
+    public void allocate() {
+        LEAK.add(new byte[10_000_000]);
     }
 }
 ```
 
-이 코드는 **메모리 누수**를 유발하며, `OutOfMemoryError` 발생[^4][^9]
+`LEAK`가 static field이므로 class가 살아 있는 동안 list와 내부 byte array가 계속 reachable하다.
 
----
-
-## 2. Private 메서드 vs Lambda 표현식
-
-### 2.1 핵심 차이점 비교
-
-| 특성 | Private 메서드 | Lambda 표현식 |
-| :-- | :-- | :-- |
-| 접근 제어 | 클래스 내부에서만 호출 가능 | 함수형 인터페이스 구현 |
-| 상태 접근 | 인스턴스 변수 직접 접근 | `this`와 필드 접근 가능. 캡처한 지역 변수만 final/effectively final 필요 |
-| 바이트코드 생성 | 일반 메서드로 컴파일 | invokedynamic 사용[^3][^11] |
-| 직렬화 | 기본 지원 | SAM 인터페이스 구현 필요 |
-
-### 2.2 코드 예시
+lambda capture 규칙은 다음처럼 확인할 수 있다.
 
 ```java
-public class LambdaVsPrivate {
+public final class LambdaCapture {
     private int counter = 0;
 
-    private void increment() {
-        counter++;  // 인스턴스 변수 직접 수정 가능
-    }
-
-    public Runnable getLambda() {
-        int localCounter = 0;
+    public Runnable create() {
+        int local = 1;
         return () -> {
-            counter++;  // 인스턴스 필드는 수정 가능
-            // localCounter++;  // 캡처한 지역 변수 수정은 컴파일 오류
-            System.out.println("Lambda executed");
+            counter++;
+            System.out.println(local);
         };
     }
 }
 ```
 
----
+lambda는 instance field `counter`를 변경할 수 있지만, capture한 local variable `local`은 effectively final이어야 한다.
 
-## 3. 가비지 컬렉션 메커니즘
+GC log를 켜고 실행한다.
 
-### 3.1 세대별 수집 전략
-
-```mermaid
-graph LR
-A[Young Generation] --> B[Eden]
-A --> C[Survivor S0]
-A --> D[Survivor S1]
-E[Old Generation]
-F[Permanent/Metaspace]
-
-B -- Minor GC --> C
-C -- 객체 Age 증가 --> D
-D -- 임계치 초과 --> E
-E -- Major GC --> F
+```bash
+java -Xms512m -Xmx512m '-Xlog:gc*,safepoint:file=gc.log:time,uptime,level,tags' -jar app.jar
 ```
 
-- **Minor GC**: Young 영역 (Eden → Survivor)[^9]
-- **Major/Full GC**: 용어와 mark·sweep·compact 단계는 collector마다 다르므로 실제 GC 로그로 해석
-- **G1 GC**: 많은 HotSpot JDK 9+ 서버 구성의 기본값이지만 옵션, 플랫폼, 공급업체에 따라 다름
+운영 중 heap 상태를 본다.
 
-
-### 3.2 GC 최적화 예시
-
-```java
-// 비효율적 코드
-List<Data> processData(List<RawData> inputs) {
-    return inputs.stream()
-        .map(raw -> new DataParser().parse(raw))  // 매번 parser 생성
-        .collect(Collectors.toList());
-}
-
-// 최적화 코드
-public class DataProcessor {
-    private static final DataParser PARSER = new DataParser();  // 재사용
-
-    List<Data> optimizedProcess(List<RawData> inputs) {
-        return inputs.stream()
-            .map(PARSER::parse)  // 정적 파서 재사용
-            .collect(Collectors.toList());
-    }
-}
+```bash
+jcmd "${jvm_pid:?set jvm_pid to the target JVM PID}" GC.heap_info
+jcmd "${jvm_pid:?set jvm_pid to the target JVM PID}" VM.flags
+jcmd "${jvm_pid:?set jvm_pid to the target JVM PID}" Thread.print
 ```
 
----
+heap dump는 장애 대응 절차에 맞춰 저장한다.
 
-## 4. OOP 개념과 Spring Boot 구현
-
-### 4.1 인터페이스/클래스 활용
-
-```java
-// 제네릭 인터페이스
-public interface CrudRepository<T, ID> {
-    T save(T entity);
-    Optional<T> findById(ID id);
-}
-
-// 구현 클래스
-@Service
-public class UserRepositoryImpl implements CrudRepository<User, Long> {
-    @Override
-    public User save(User user) {
-        // JPA/Hibernate 구현
-        return entityManager.merge(user);
-    }
-}
-
-// Spring Data JPA 활용
-public interface UserRepository extends JpaRepository<User, Long> {
-    @Query("SELECT u FROM User u WHERE u.email = ?1")
-    Optional<User> findByEmail(String email);
-}
+```bash
+jcmd "${jvm_pid:?set jvm_pid to the target JVM PID}" GC.heap_dump /tmp/app.hprof
 ```
 
+## 9. 실패 사례 (What could go wrong?)
 
-### 4.2 의존성 주입 예시
+heap이 계속 증가한다고 모두 leak은 아니다. traffic 증가로 live set이 커졌거나 cache가 정상적으로 차오르는 중일 수 있다. old generation이 GC 후에도 계속 증가하는지 봐야 한다.
 
-```java
-@RestController
-@RequiredArgsConstructor
-public class UserController {
-    private final UserService userService;  // 생성자 주입
+GC pause가 길다고 collector만 바꾸면 원인이 가려질 수 있다. allocation rate, object lifetime, heap size, CPU limit, container memory limit을 함께 확인한다.
 
-    @PostMapping("/users")
-    public ResponseEntity<User> createUser(@RequestBody UserDto dto) {
-        return ResponseEntity.ok(userService.createUser(dto));
-    }
-}
-```
+`ThreadLocal`에 사용자 컨텍스트를 넣고 remove하지 않으면 thread pool의 worker thread가 그 객체를 계속 참조한다.
 
----
+unbounded queue나 cache는 traffic spike를 heap pressure로 바꾼다. queue length와 cache size metric을 같이 봐야 한다.
 
-## 5. 성능 최적화 기법
+heap dump에는 개인정보와 secret이 포함될 수 있다. 저장 위치, 접근 권한, 폐기 절차를 정해야 한다.
 
-### 5.1 인스턴스 생성 비용 관리
+## 10. 뇌 확장하기 (Evolution & Variants)
 
-```java
-// 비효율적
-@GetMapping("/report")
-public Report generateReport() {
-    return new ReportGenerator().generate();  // 매번 생성자 호출
-}
+G1은 대부분의 서버 애플리케이션에서 기본 출발점이다. low-latency 요구가 강하면 ZGC나 Shenandoah 같은 collector를 검토할 수 있지만, workload 검증 없이 collector만 바꾸면 안 된다.
 
-// 최적화
-@Service
-@Scope("prototype")  // 필요시 인스턴스 생성
-public class ReportGenerator {
-    @PostConstruct
-    public void init() {
-        // 무거운 초기화 작업
-    }
-}
+Container 환경에서는 JVM이 cgroup memory limit을 인식하더라도 `-Xmx`, `MaxRAMPercentage`, request/limit, native memory를 함께 설계해야 한다.
 
-@RestController
-@RequiredArgsConstructor
-public class ReportController {
-    private final ObjectFactory<ReportGenerator> generatorFactory;
-
-    @GetMapping("/report")
-    public Report generate() {
-        return generatorFactory.getObject().generate();
-    }
-}
-```
-
-
-### 5.2 캐싱 전략
-
-```java
-@Configuration
-@EnableCaching
-public class CacheConfig extends CachingConfigurerSupport {
-    @Bean
-    public CacheManager cacheManager() {
-        return new ConcurrentMapCacheManager("users");
-    }
-}
-
-@Service
-public class UserService {
-    @Cacheable("users")
-    public User getUserById(Long id) {
-        // DB 조회 로직
-        return repository.findById(id).orElseThrow();
-    }
-}
-```
-
----
-
-## 6. 결론: 핵심 개념 요약
-
-| 구분 | 주요 내용 | 성능 영향 요소 |
-| :-- | :-- | :-- |
-| 메모리 관리 | 스택·힙의 개념적 역할, GC root 도달 가능성 기반 추적 | 객체 생명주기와 도달 가능성 |
-| 람다 특성 | 캡처 변수의 불변성 유지, 함수형 인터페이스 구현 | 스택 트레이스 복잡도 증가 |
-| GC 전략 | 세대별 분리 수집, Stop-The-World 시간 최소화 | Full GC 발생 빈도 |
-| OOP 설계 | 인터페이스 분리 원칙(ISP), 의존성 역전(DIP) | 클래스 결합도 |
-| Spring 최적화 | 빈 스코프 관리, 캐싱, 연결 풀 설정 | 컨텍스트 로드 시간 |
-
-**성능 개선을 위한 체크리스트**:
-
-1. 불필요한 객체 생성 줄이기 (예: 정적 팩토리 메서드)
-2. `@Cacheable`을 활용한 반복 작업 캐싱
-3. 스레드 풀 적절한 설정 (`TaskExecutor` 튜닝)
-4. JPA N+1 문제 방지 (페치 조인 사용)
-5. GC 로그 분석을 통한 힙 크기 조정
+Native memory, direct buffer, metaspace, thread stack은 heap dump만으로 보이지 않는다. `jcmd VM.native_memory` 같은 Native Memory Tracking은 별도 활성화가 필요하다.
 
 ## 근거, 완료 및 불확실성
 
-아래 링크 대부분은 2차 블로그입니다. 언어 규칙은 JLS/JVMS, collector는 대상 JDK 공식 문서와 JEP, Spring은 사용 버전의 공식 reference를 우선합니다. 성능 변경은 동일 부하에서 allocation rate, pause, p95/p99 지연, 처리량, 오류율을 전후 비교하고 회귀 시 되돌릴 수 있어야 완료입니다.
+언어 규칙은 JLS/JVMS, collector는 대상 JDK 공식 문서와 JEP, Spring은 사용 버전의 공식 reference를 우선합니다. 성능 변경은 동일 부하에서 allocation rate, pause, p95/p99 지연, 처리량, 오류율을 전후 비교하고 회귀 시 되돌릴 수 있어야 완료입니다.
 
-<div style="text-align: center">⁂</div>
+## 11. 최종 체크리스트 (Definition of Done)
 
-[^1]: https://inblog.ai/muaga/jvm-실행-시-저장-진행-상황static-heap-stack-20575
+- [ ] heap, stack, metaspace의 역할을 구분한다.
+- [ ] GC root와 reachability 개념을 설명할 수 있다.
+- [ ] static collection, cache, ThreadLocal leak 패턴을 알고 있다.
+- [ ] lambda의 effectively final capture 규칙을 이해한다.
+- [ ] GC log를 켜고 pause와 heap 변화를 볼 수 있다.
+- [ ] heap dump 수집 절차와 보안 영향을 알고 있다.
+- [ ] OOM 대응 시 heap dump, GC log, thread dump를 함께 수집한다.
+- [ ] collector 변경 전 workload와 지표를 먼저 검증한다.
 
-[^2]: https://8iggy.tistory.com/230
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-[^3]: https://velog.io/@redjen/lambda-vs-inner-anonymous-class
-
-[^4]: https://kim-oriental.tistory.com/48
-
-[^5]: https://velog.io/@gale4739/Spring-Boot-Interface-골격-구현-클래스-클래스-구조-변경Feat.-Composition
-
-[^6]: https://www.lgcns.com/blog/cns-tech/aws-ambassador/49072/
-
-[^7]: https://meal-coding.tistory.com/16
-
-[^8]: https://velog.io/@newd/실전-스프링-부트와-JPA-활용2-API-개발과-성능-최적화-정리4
-
-[^9]: https://sharplee7.tistory.com/54
-
-[^10]: https://velog.io/@dmchoi224/참조형-변수-짚고-가기
-
-[^11]: https://inpa.tistory.com/entry/☕-Lambda-Expression
-
-[^12]: https://devloo.tistory.com/entry/Spring-Boot-의-성능을-향상시키는-10가지-방법
-
-[^13]: https://sjh836.tistory.com/173
-
-[^14]: https://bbidag.tistory.com/27
-
-[^15]: https://tech.kakaopay.com/post/spring-batch-performance/
-
-[^16]: https://cbjh-4.tistory.com/79
-
-[^17]: https://inpa.tistory.com/entry/JAVA-☕-그림으로-보는-자바-코드의-메모리-영역스택-힙
-
-[^18]: https://lealea.tistory.com/273
-
-[^19]: https://lucas-owner.tistory.com/38
-
-[^20]: https://velog.io/@devnoong/JAVA-Stack-과-Heap에-대해서
-
-[^21]: https://inpa.tistory.com/entry/☕-Lambda-Expression
-
-[^22]: https://velog.io/@haminggu/Java-가비지-컬렉션-동작-원리
-
-[^23]: https://gnidinger.tistory.com/entry/Java인터페이스의-활용-예제
-
-[^24]: https://devloo.tistory.com/entry/Spring-Boot-의-성능을-향상시키는-10가지-방법
-
-[^25]: https://blog.naver.com/senshig/221759831074
-
-[^26]: https://jerrys-ai-lab.tistory.com/34
-
-[^27]: https://breakcoding.tistory.com/4
-
-[^28]: https://inpa.tistory.com/entry/JAVA-☕-가비지-컬렉션GC-동작-원리-알고리즘-💯-총정리
-
-[^29]: https://velog.io/@songsunkook/함수형-인터페이스와-표준-API
-
-[^30]: https://codegym.cc/ko/groups/posts/ko.250.javaui-lamda-pyohyeonsig-e-daehan-seolmyeong-ibnida-yejewa-jag-eob-i-issseubnida-1-bu
-
-[^31]: https://www.inflearn.com/blogs/6665
-
-[^32]: https://nohriter.tistory.com/166
-
-[^33]: https://butter-shower.tistory.com/85
-
-[^34]: https://velog.io/@koo8624/Spring-JPA-성능-최적화
-
-[^35]: https://devloo.tistory.com/entry/스프링-부트-지금-당장-적용해야-할-25가지-Spring-Boot-모범-사례
-
-[^36]: https://yoonseon.tistory.com/35
-
-[^37]: https://nightsky-stars.tistory.com/entry/springboot-실전-스프링부트와-JPA-활용2-API-개발과-성능-최적화-2-API-개발-고급-준비-지연-로딩과-조회-성능-최적화
-
-[^38]: https://youseong.tistory.com/29
-
-[^39]: https://aspring.tistory.com/entry/스프링부트-실전-스프링-부트와-JPA-활용2-컬렉션-조회-최적화-31-페이징과-한계-돌파
-
+Java GC는 “필요 없어 보이는 객체”가 아니라 GC roots에서 도달할 수 없는 객체를 회수한다. 메모리 문제는 heap 크기보다 reference chain, allocation rate, live set, GC log로 설명해야 한다.
