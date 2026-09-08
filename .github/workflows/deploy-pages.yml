@@ -22,6 +22,26 @@ env:
   BUILD_TIMESTAMP: ${{ github.run_id }}-${{ github.run_number }}
 
 jobs:
+  verify-ai:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install live browser verification
+        working-directory: src
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Verify configured AI service from the documentation origin
+        env:
+          AI_API_BASE_URL: ${{ secrets.AI_API_BASE_URL }}
+          AI_API_TOKEN: ${{ secrets.AI_API_TOKEN }}
+          AI_MODEL_NAME: ${{ secrets.AI_MODEL_NAME }}
+        run: node src/qa/ai-live-smoke.cjs --private-probe
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -74,9 +94,9 @@ jobs:
 
       - name: Generate public AI configuration
         env:
-          PUBLIC_AI_API_BASE_URL: ${{ vars.PUBLIC_AI_API_BASE_URL }}
+          PUBLIC_AI_API_BASE_URL: ${{ vars.PUBLIC_AI_API_BASE_URL || secrets.AI_API_BASE_URL }}
           PUBLIC_AI_API_TOKEN: ${{ vars.PUBLIC_AI_API_TOKEN }}
-          PUBLIC_AI_MODEL_NAME: ${{ vars.PUBLIC_AI_MODEL_NAME }}
+          PUBLIC_AI_MODEL_NAME: ${{ vars.PUBLIC_AI_MODEL_NAME || secrets.AI_MODEL_NAME }}
           PUBLIC_OPEN_NOTEBOOK_ENABLED: ${{ vars.PUBLIC_OPEN_NOTEBOOK_ENABLED }}
           PUBLIC_OPEN_NOTEBOOK_URL: ${{ vars.PUBLIC_OPEN_NOTEBOOK_URL }}
           PUBLIC_OPEN_NOTEBOOK_TOKEN: ${{ vars.PUBLIC_OPEN_NOTEBOOK_TOKEN }}
@@ -187,7 +207,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build, verify-ai]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     steps:
       - name: Deploy to GitHub Pages
@@ -200,3 +220,19 @@ jobs:
           echo "  URL: ${{ steps.deployment.outputs.page_url }}"
           echo "  Commit: ${{ github.sha }}"
           echo "  Time: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+  verify-deployed-ai:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install live browser verification
+        working-directory: src
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Verify actual published AI without configuration overrides
+        run: node src/qa/ai-live-smoke.cjs
