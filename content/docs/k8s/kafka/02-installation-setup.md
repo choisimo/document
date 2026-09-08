@@ -549,8 +549,8 @@ rm -rf /tmp/zookeeper
 
 ## 📚 다음 단계
 
-- [Producer/Consumer 실습](03-producer-consumer.md)
-- [토픽과 파티션 관리](04-topics-partitions.md)
+- Producer/Consumer 실습 (문서 준비 중)
+- 토픽과 파티션 관리 (문서 준비 중)
 
 ## 🔗 참고 자료
 

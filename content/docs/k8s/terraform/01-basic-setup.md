@@ -285,7 +285,7 @@ terraform force-unlock <LOCK_ID>
 ## 📚 다음 단계
 
 - [AWS EC2 실습 예제](02-aws-ec2-example.md)
-- [상태 관리와 모듈화](03-state-management.md)
+- 상태 관리와 모듈화 (문서 준비 중)
 
 ## 🔗 참고 자료
 

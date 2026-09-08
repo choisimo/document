@@ -1,3 +1,58 @@
+---
+title: "데이터베이스"
+---
+
+# 데이터베이스 {#_1}
+
+<nav class="hub-directory" aria-label="데이터베이스 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">주요 문서</h2>
+
+- [데이터베이스 및 애플리케이션 설치](installation.md)
+- [PostgreSQL 주요 명령어](postgresql-guide.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">Redis</h2>
+
+- [Redis 개요](redis/overview.md)
+- [Redis Spring Boot Integration](redis/springboot-integration.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">JPA와 쿼리</h2>
+
+- [JPA 개요 및 복합키](jpa/overview.md)
+- [JPA Entity Relationships](jpa/relationships.md)
+- [QueryDSL과 JPA 연동](jpa/querydsl.md)
+- [Spring Bean Lifecycle 관리](jpa/lifecycle.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-4" markdown="1">
+
+<h2 id="directory-group-4">함께 읽기</h2>
+
+- [Java](../java/index.md)
+- [Docker 설치 가이드](../development/docker/installation.md)
+- [Prometheus, Grafana, Loki 관측 스택](../infrastructure/monitoring/prometheus-grafana-loki.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>기존 문서 안내</summary>
+
 # 데이터베이스 문서
 
 데이터베이스 설치, Redis 캐싱, JPA/QueryDSL 활용에 관한 가이드입니다.
@@ -244,3 +299,5 @@ List<User> findAllWithOrders();
 - [PostgreSQL Manual](https://www.postgresql.org/docs/)
 - [Redis Documentation](https://redis.io/documentation)
 - [Spring Data JPA Reference](https://docs.spring.io/spring-data/jpa/docs/current/reference/html/)
+
+</details>

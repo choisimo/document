@@ -1,3 +1,69 @@
+---
+title: "미디어 Compose 스택"
+---
+
+# 미디어 Compose 스택 {#media-docker-stacks}
+
+<nav class="hub-directory" aria-label="미디어 Compose 스택 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">컬렉션 탐색</h2>
+
+- [Compose 스택](../index.md)
+- [Docker Compose 컬렉션](../../index.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">ghost</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/media/ghost/docker-compose.yaml)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">gluetun-qbittorrent</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/media/gluetun-qbittorrent/docker-compose.yaml)
+- [README.md](/extra/docker/stacks/media/gluetun-qbittorrent/README.md)
+- [.env.example](/extra/docker/stacks/media/gluetun-qbittorrent/.env.example)
+- [wireguard.yaml](/extra/docker/stacks/media/gluetun-qbittorrent/wireguard.yaml)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-4" markdown="1">
+
+<h2 id="directory-group-4">qbittorrent-advanced</h2>
+
+- [docker-compose.yml](/extra/docker/stacks/media/qbittorrent-advanced/docker-compose.yml)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-5" markdown="1">
+
+<h2 id="directory-group-5">qbittorrent-mediamanager</h2>
+
+- [docker-compose.yml](/extra/docker/stacks/media/qbittorrent-mediamanager/docker-compose.yml)
+- [docker-compose.arr.yml](/extra/docker/stacks/media/qbittorrent-mediamanager/docker-compose.arr.yml)
+- [docker-compose.mediamanager.yml](/extra/docker/stacks/media/qbittorrent-mediamanager/docker-compose.mediamanager.yml)
+- [docker-compose.rclone.yml](/extra/docker/stacks/media/qbittorrent-mediamanager/docker-compose.rclone.yml)
+- [.env.example](/extra/docker/stacks/media/qbittorrent-mediamanager/.env.example)
+- [.env.example.arr](/extra/docker/stacks/media/qbittorrent-mediamanager/.env.example.arr)
+- [.env.example.rclone](/extra/docker/stacks/media/qbittorrent-mediamanager/.env.example.rclone)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>기존 문서 안내</summary>
+
 <!-- markdownlint-disable MD033 MD030 -->
 # Media Stacks
 
@@ -113,3 +179,5 @@ docker compose up -d
   </div>
 
 </div>
+
+</details>

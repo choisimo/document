@@ -27,6 +27,8 @@ pub struct ValidationIssue {
 pub struct ValidationOptions {
     pub source_root: PathBuf,
     pub docs_base: PathBuf,
+    /// Optional fallback for root-absolute links missing from the source tree.
+    pub link_root: Option<PathBuf>,
     pub check_mermaid: bool,
     pub check_links: bool,
     pub check_format: bool,
@@ -35,6 +37,7 @@ pub struct ValidationOptions {
 #[derive(Debug, Default, Clone)]
 pub struct ValidationReport {
     pub scanned_files: usize,
+    pub scanned_paths: Vec<PathBuf>,
     pub mermaid_blocks: usize,
     pub links_checked: usize,
     pub format_files_checked: usize,
@@ -70,6 +73,18 @@ pub fn validate(options: &ValidationOptions) -> Result<ValidationReport> {
     if !docs_base.exists() {
         bail!("docs base does not exist: {}", docs_base.display());
     }
+    let link_root = options
+        .link_root
+        .as_ref()
+        .map(|path| {
+            let root = normalize_absolute(path)?;
+            if !root.is_dir() {
+                bail!("link root is not an existing directory: {}", root.display());
+            }
+            fs::canonicalize(&root)
+                .with_context(|| format!("failed to resolve link root: {}", root.display()))
+        })
+        .transpose()?;
 
     let source_files = collect_markdown_files(&source_root)?;
     let source_set: HashSet<PathBuf> = source_files.iter().cloned().collect();
@@ -107,6 +122,7 @@ pub fn validate(options: &ValidationOptions) -> Result<ValidationReport> {
 
     let mut report = ValidationReport {
         scanned_files: source_files.len(),
+        scanned_paths: source_files.clone(),
         ..ValidationReport::default()
     };
 
@@ -145,7 +161,13 @@ pub fn validate(options: &ValidationOptions) -> Result<ValidationReport> {
 
             report.links_checked += scanned.links.len();
             for link in &scanned.links {
-                if let Some(detail) = validate_link_target(file, link, &docs_base, &anchor_index)? {
+                if let Some(detail) = validate_link_target(
+                    file,
+                    link,
+                    &docs_base,
+                    link_root.as_deref(),
+                    &mut anchor_index,
+                )? {
                     report.issues.push(ValidationIssue {
                         kind: CheckKind::Links,
                         file: file.clone(),
@@ -412,7 +434,8 @@ fn validate_link_target(
     source_file: &Path,
     link: &LinkRef,
     docs_base: &Path,
-    anchor_index: &HashMap<PathBuf, HashSet<String>>,
+    link_root: Option<&Path>,
+    anchor_index: &mut HashMap<PathBuf, HashSet<String>>,
 ) -> Result<Option<String>> {
     let raw = normalize_link_target(&link.target);
     if raw.is_empty() {
@@ -423,14 +446,18 @@ fn validate_link_target(
     }
 
     let (path_part, fragment) = split_fragment(&raw);
-    let target_path = if path_part.is_empty() {
-        normalize_absolute(source_file)?
+    let (target_path, from_link_root) = if path_part.is_empty() {
+        (normalize_absolute(source_file)?, false)
+    } else if let Some(resolved) = resolve_target_path(source_file, path_part, docs_base) {
+        // A source match owns its anchor validation. Never retry an invalid
+        // source fragment against generated HTML or another Markdown copy.
+        (resolved, false)
     } else {
-        let resolved = resolve_target_path(source_file, path_part, docs_base);
+        let resolved = link_root.and_then(|root| resolve_link_root_target(path_part, root));
         let Some(resolved) = resolved else {
             return Ok(Some(format!("target not found: {path_part}")));
         };
-        resolved
+        (resolved, true)
     };
 
     if !target_path.exists() {
@@ -447,6 +474,10 @@ fn validate_link_target(
                 return Ok(None);
             }
 
+            if from_link_root && !anchor_index.contains_key(&target_path) {
+                let scanned = scan_markdown(&target_path, false, false, false)?;
+                anchor_index.insert(target_path.clone(), scanned.anchors);
+            }
             let Some(anchors) = anchor_index.get(&target_path) else {
                 return Ok(Some(format!(
                     "anchor index missing for markdown target: {}",
@@ -544,7 +575,9 @@ fn is_single_line_html_comment(trimmed: &str) -> bool {
 }
 
 fn is_fence_close(trimmed: &str, delim: &str) -> bool {
-    trimmed.starts_with(delim)
+    let marker = delim.chars().next().unwrap_or('`');
+    let run = trimmed.chars().take_while(|&ch| ch == marker).count();
+    run >= delim.len() && trimmed[run..].trim().is_empty()
 }
 
 fn extract_markdown_links(line: &str) -> Vec<String> {
@@ -652,6 +685,36 @@ fn resolve_path_candidates(path: PathBuf, had_trailing_slash: bool) -> Option<Pa
     None
 }
 
+fn resolve_link_root_target(raw_path: &str, link_root: &Path) -> Option<PathBuf> {
+    let path_without_query = raw_path.split('?').next().unwrap_or(raw_path).trim();
+    if !path_without_query.starts_with('/') || path_without_query.starts_with("//") {
+        return None;
+    }
+    let decoded = urlencoding::decode(path_without_query).ok()?;
+    if decoded.starts_with("//") {
+        return None;
+    }
+    let candidate = normalize_path(link_root.join(decoded.trim_start_matches('/')));
+    if !candidate.starts_with(link_root) {
+        return None;
+    }
+    let resolved = if !decoded.ends_with('/') && candidate.is_file() {
+        candidate
+    } else if candidate.is_dir() {
+        let index = candidate.join("index.html");
+        if !index.is_file() {
+            return None;
+        }
+        index
+    } else {
+        return None;
+    };
+    // An existing directory or a symlink to an unpublished outside file is not
+    // evidence that this root contains a deployable target.
+    let canonical = fs::canonicalize(resolved).ok()?;
+    canonical.starts_with(link_root).then_some(canonical)
+}
+
 fn normalize_fragment(fragment: &str) -> String {
     let decoded = urlencoding::decode(fragment)
         .map(|v| v.into_owned())
@@ -682,7 +745,8 @@ fn slugify_heading(input: &str) -> String {
 
 fn collect_markdown_files(root: &Path) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
-    for entry in WalkDir::new(root).into_iter().filter_map(|e| e.ok()) {
+    for entry in WalkDir::new(root) {
+        let entry = entry.with_context(|| format!("failed to scan {}", root.display()))?;
         if !entry.file_type().is_file() {
             continue;
         }
@@ -765,6 +829,207 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
+    fn link_root_checks_real_targets_without_expanding_the_source_manifest() {
+        let dir = tempdir().expect("tempdir");
+        let docs = dir.path().join("docs");
+        let site = dir.path().join("site");
+        fs::create_dir_all(&docs).unwrap();
+        fs::create_dir_all(site.join("raw/catalog")).unwrap();
+        fs::create_dir_all(site.join("raw/empty")).unwrap();
+        fs::write(site.join("raw/compose.yaml"), "services: {}\n").unwrap();
+        fs::write(site.join("raw/config copy.json"), "{}\n").unwrap();
+        fs::write(site.join("raw/catalog/index.html"), "<h1>Catalog</h1>").unwrap();
+        fs::write(
+            site.join("raw/unreferenced.md"),
+            "[Not in source scope](missing.md)\n```mermaid\nflowchart TD\n A -->\n```\n",
+        )
+        .unwrap();
+        let index = docs.join("index.md");
+        fs::write(
+            &index,
+            "# Home\n\n[Compose](/raw/compose.yaml)\n[Catalog](/raw/catalog/)\n[Encoded](/raw/config%20copy.json?download=1)\n[Relative](raw/compose.yaml)\n[Typo](/raw/missing.yaml)\n[Empty](/raw/empty/)\n",
+        )
+        .unwrap();
+        let mut options = ValidationOptions {
+            source_root: docs.clone(),
+            docs_base: docs,
+            link_root: None,
+            check_mermaid: true,
+            check_links: true,
+            check_format: true,
+        };
+        let without_root = validate(&options).unwrap();
+        assert_eq!(without_root.issues.len(), 6);
+        options.link_root = Some(site);
+        let report = validate(&options).unwrap();
+        assert_eq!(report.scanned_paths, vec![index]);
+        assert_eq!(report.format_files_checked, 1);
+        assert_eq!(report.mermaid_blocks, 0);
+        assert_eq!(report.links_checked, 6);
+        let details: Vec<_> = report
+            .issues
+            .iter()
+            .map(|issue| issue.detail.as_str())
+            .collect();
+        assert_eq!(
+            details,
+            vec![
+                "target not found: raw/compose.yaml",
+                "target not found: /raw/missing.yaml",
+                "target not found: /raw/empty/",
+            ]
+        );
+    }
+
+    #[test]
+    fn source_anchors_take_priority_and_link_root_markdown_anchors_are_checked() {
+        let dir = tempdir().expect("tempdir");
+        let docs = dir.path().join("docs");
+        let site = dir.path().join("site");
+        fs::create_dir_all(docs.join("guide")).unwrap();
+        fs::create_dir_all(site.join("guide")).unwrap();
+        fs::create_dir_all(site.join("raw")).unwrap();
+        fs::write(docs.join("guide/index.md"), "# Source Anchor\n").unwrap();
+        fs::write(site.join("guide/index.md"), "# Generated Anchor\n").unwrap();
+        fs::write(
+            site.join("guide/index.html"),
+            "<h1 id=\"generated-anchor\">Generated</h1>",
+        )
+        .unwrap();
+        fs::write(
+            site.join("raw/README.md"),
+            "# Install\n\n<span id=\"custom\"></span>\n",
+        )
+        .unwrap();
+        let index = docs.join("index.md");
+        fs::write(
+            &index,
+            "# Home\n\n[Source](/guide/#source-anchor)\n[Do not bypass](/guide/#generated-anchor)\n[Install](/raw/README.md#install)\n[Custom](/raw/README.md#custom)\n[Bad fragment](/raw/README.md#absent)\n",
+        )
+        .unwrap();
+        let report = validate(&ValidationOptions {
+            source_root: index.clone(),
+            docs_base: docs.clone(),
+            link_root: Some(site.clone()),
+            check_mermaid: false,
+            check_links: true,
+            check_format: false,
+        })
+        .unwrap();
+        assert_eq!(report.scanned_paths, vec![index]);
+        assert_eq!(report.links_checked, 5);
+        assert_eq!(report.issues.len(), 2);
+        assert!(report.issues[0]
+            .detail
+            .contains("missing anchor '#generated-anchor'"));
+        assert!(report.issues[0]
+            .detail
+            .contains(docs.join("guide/index.md").to_str().unwrap()));
+        assert!(report.issues[1].detail.contains("missing anchor '#absent'"));
+        assert!(report.issues[1]
+            .detail
+            .contains(site.join("raw/README.md").to_str().unwrap()));
+    }
+
+    #[test]
+    fn link_root_requires_published_urls_instead_of_source_markdown_aliases() {
+        let dir = tempdir().expect("tempdir");
+        let docs = dir.path().join("docs");
+        let site = dir.path().join("site");
+        fs::create_dir_all(&docs).unwrap();
+        fs::create_dir_all(site.join("raw/md-only")).unwrap();
+        fs::write(site.join("raw/topic.md"), "# Topic\n").unwrap();
+        fs::write(site.join("raw/md-only/index.md"), "# Index\n").unwrap();
+        fs::write(
+            docs.join("index.md"),
+            "# Home\n\n[No alias](/raw/topic)\n[No Markdown index](/raw/md-only/)\n[Not a directory](/raw/topic.md/)\n[Exact Markdown](/raw/topic.md#topic)\n",
+        )
+        .unwrap();
+        let report = validate(&ValidationOptions {
+            source_root: docs.clone(),
+            docs_base: docs,
+            link_root: Some(site),
+            check_mermaid: false,
+            check_links: true,
+            check_format: false,
+        })
+        .unwrap();
+        assert_eq!(report.links_checked, 4);
+        assert_eq!(report.issues.len(), 3);
+        for (issue, target) in
+            report
+                .issues
+                .iter()
+                .zip(["/raw/topic", "/raw/md-only/", "/raw/topic.md/"])
+        {
+            assert_eq!(issue.detail, format!("target not found: {target}"));
+        }
+    }
+
+    #[test]
+    fn link_root_must_be_an_existing_directory() {
+        let dir = tempdir().expect("tempdir");
+        let docs = dir.path().join("docs");
+        fs::create_dir(&docs).unwrap();
+        fs::write(docs.join("index.md"), "# Home\n").unwrap();
+        let root = dir.path().join("site");
+        let options = ValidationOptions {
+            source_root: docs.clone(),
+            docs_base: docs,
+            link_root: Some(root.clone()),
+            check_mermaid: false,
+            check_links: true,
+            check_format: false,
+        };
+        assert!(validate(&options)
+            .unwrap_err()
+            .to_string()
+            .contains("link root is not an existing directory"));
+        fs::write(root, "a regular file is not a site root").unwrap();
+        assert!(validate(&options)
+            .unwrap_err()
+            .to_string()
+            .contains("link root is not an existing directory"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn link_root_rejects_outside_files_and_protocol_relative_targets() {
+        use std::os::unix::fs::symlink;
+        let dir = tempdir().expect("tempdir");
+        let docs = dir.path().join("source/docs");
+        let site = dir.path().join("build/site");
+        fs::create_dir_all(&docs).unwrap();
+        fs::create_dir_all(site.join("example.org")).unwrap();
+        let outside = dir.path().join("build/outside.txt");
+        fs::write(&outside, "not published").unwrap();
+        fs::write(site.join("example.org/file.txt"), "not a local URL").unwrap();
+        fs::write(site.join("inside.txt"), "published").unwrap();
+        symlink(&outside, site.join("escape.txt")).unwrap();
+        symlink(site.join("inside.txt"), site.join("alias.txt")).unwrap();
+        fs::write(
+            docs.join("index.md"),
+            "# Home\n\n[Traversal](/../outside.txt)\n[Encoded traversal](/%2E%2E/outside.txt)\n[Outside symlink](/escape.txt)\n[Network path](//example.org/file.txt)\n[Inside alias](/alias.txt)\n",
+        )
+        .unwrap();
+        let report = validate(&ValidationOptions {
+            source_root: docs.clone(),
+            docs_base: docs,
+            link_root: Some(site),
+            check_mermaid: false,
+            check_links: true,
+            check_format: false,
+        })
+        .unwrap();
+        assert_eq!(report.links_checked, 5);
+        assert_eq!(report.issues.len(), 4);
+        assert!(report
+            .issues
+            .iter()
+            .all(|issue| issue.detail.starts_with("target not found:")));
+    }
+
+    #[test]
     fn strict_mermaid_validation_detects_invalid_syntax() {
         let dir = tempdir().expect("tempdir");
         let docs = dir.path().join("docs");
@@ -784,6 +1049,7 @@ mod tests {
         let report = validate(&ValidationOptions {
             source_root: docs.clone(),
             docs_base: docs,
+            link_root: None,
             check_mermaid: true,
             check_links: false,
             check_format: false,
@@ -834,6 +1100,7 @@ Bad anchor link: [Bad Anchor](target.md#does-not-exist)
         let report = validate(&ValidationOptions {
             source_root: docs.clone(),
             docs_base: docs,
+            link_root: None,
             check_mermaid: false,
             check_links: true,
             check_format: false,
@@ -869,6 +1136,7 @@ Bad anchor link: [Bad Anchor](target.md#does-not-exist)
         let report = validate(&ValidationOptions {
             source_root: docs.clone(),
             docs_base: docs,
+            link_root: None,
             check_mermaid: false,
             check_links: false,
             check_format: true,
@@ -911,6 +1179,7 @@ Bad anchor link: [Bad Anchor](target.md#does-not-exist)
         let report = validate(&ValidationOptions {
             source_root: docs.clone(),
             docs_base: docs,
+            link_root: None,
             check_mermaid: false,
             check_links: false,
             check_format: true,
@@ -918,5 +1187,25 @@ Bad anchor link: [Bad Anchor](target.md#does-not-exist)
         .expect("validate");
 
         assert!(!report.issues.iter().any(|i| i.kind == CheckKind::Format));
+    }
+
+    #[test]
+    fn fence_content_with_language_label_does_not_hide_later_anchors() {
+        let dir = tempdir().expect("tempdir");
+        let docs = dir.path().join("docs");
+        fs::create_dir_all(&docs).expect("mkdir");
+        fs::write(
+            docs.join("nested.md"),
+            "# Example\n\n[Result](#result)\n\n```text\n```python\nprint(1)\n```\n\n## Result\n",
+        ).expect("write source");
+        let report = validate(&ValidationOptions {
+            source_root: docs.clone(),
+            docs_base: docs,
+            link_root: None,
+            check_mermaid: false,
+            check_links: true,
+            check_format: false,
+        }).expect("validate");
+        assert!(report.issues.is_empty(), "{:?}", report.issues);
     }
 }

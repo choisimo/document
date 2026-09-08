@@ -1,3 +1,59 @@
+---
+title: "도구와 보조 리소스"
+---
+
+# 도구와 보조 리소스 {#extra}
+
+<nav class="hub-directory" aria-label="도구와 보조 리소스 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group hub-directory__group--wide" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">원본 파일과 도구</h2>
+
+- [알고리즘 시뮬레이터](/extra/algorithm-simulator/index.html)
+- [알고리즘 소스 모음](/extra/algorithm-code/)
+- [자동화 스크립트](/extra/scripts/)
+- [서버 설정 파일](/extra/configs/)
+- [프로젝트 자료](/extra/project-docs/)
+- [보관 문서](/extra/legacy/)
+- [프롬프트 원본](/extra/prompts-raw/)
+- [MCP 설정](/extra/mcp/)
+- [작업 메모](/extra/memo/)
+- [시뮬레이터 소스](/extra/algorithm-code/simulator/)
+- [알고리즘 구현 코드](/extra/algorithm-code/code/)
+- [이진 탐색 트리 구현](/extra/algorithm-code/data-structures/tree/binary-search-tree/)
+- [배포 스크립트](/extra/scripts/deployment/deploy.sh)
+- [컨테이너 이미지 소스](/extra/docker/images/)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">주요 문서</h2>
+
+- [API 키 대시보드](api-key-dashboard.html)
+- [Docker Compose 컬렉션](docker/index.md)
+- [Compose 스택](docker/stacks/index.md)
+- [자동화 Compose 스택](docker/stacks/automation/index.md)
+- [데이터베이스 Compose 스택](docker/stacks/databases/index.md)
+- [개발 도구 Compose 스택](docker/stacks/devtools/index.md)
+- [미디어 Compose 스택](docker/stacks/media/index.md)
+- [기타 서비스 Compose 스택](docker/stacks/misc/index.md)
+- [모니터링 Compose 스택](docker/stacks/monitoring/index.md)
+- [프록시 Compose 스택](docker/stacks/proxy/index.md)
+- [보안 Compose 스택](docker/stacks/security/index.md)
+- [스토리지 Compose 스택](docker/stacks/storage/index.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>기존 문서 안내</summary>
+
 # Extra Resources
 
 이 섹션에서는 문서 외의 추가 리소스들을 확인할 수 있습니다.
@@ -121,3 +177,5 @@
 | [BST Implementation](/extra/algorithm-code/data-structures/tree/binary-search-tree/){ target="_blank" } | 4개 언어 BST 구현 | :material-code-braces: Multi-lang |
 | [Deploy Script](/extra/scripts/deployment/deploy.sh){ target="_blank" } | 배포 스크립트 | :material-bash: Shell |
 | [Docker Images](/extra/docker/images/){ target="_blank" } | 개발 환경 Docker 이미지 | :material-docker: Docker |
+
+</details>

@@ -141,3 +141,7 @@ playwright-console-errors.log
 qa-shots/*.png
 src/examples/templates/algorithm-architect/github-pages-docs/validation-artifacts/*.png
 tabs-*.png
+
+# Track site automation; generated site output remains ignored.
+!src/automation/site/
+!src/automation/site/*.py

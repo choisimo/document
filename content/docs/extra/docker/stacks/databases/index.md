@@ -1,3 +1,59 @@
+---
+title: "데이터베이스 Compose 스택"
+---
+
+# 데이터베이스 Compose 스택 {#database-docker-stacks}
+
+<nav class="hub-directory" aria-label="데이터베이스 Compose 스택 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">컬렉션 탐색</h2>
+
+- [Compose 스택](../index.md)
+- [Docker Compose 컬렉션](../../index.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">mariadb</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/databases/mariadb/docker-compose.yaml)
+- [README.md](/extra/docker/stacks/databases/mariadb/README.md)
+- [.env.example](/extra/docker/stacks/databases/mariadb/.env.example)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">mongodb</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/databases/mongodb/docker-compose.yaml)
+- [README.md](/extra/docker/stacks/databases/mongodb/README.md)
+- [.env.example](/extra/docker/stacks/databases/mongodb/.env.example)
+- [init-keyfile.sh](/extra/docker/stacks/databases/mongodb/scripts/init-keyfile.sh)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-4" markdown="1">
+
+<h2 id="directory-group-4">supabase</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/databases/supabase/docker-compose.yaml)
+- [README.md](/extra/docker/stacks/databases/supabase/README.md)
+- [.env.example](/extra/docker/stacks/databases/supabase/.env.example)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>기존 문서 안내</summary>
+
 <!-- markdownlint-disable MD033 MD030 -->
 # Databases Stacks
 
@@ -93,3 +149,5 @@ docker compose up -d
   </div>
 
 </div>
+
+</details>

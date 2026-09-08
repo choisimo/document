@@ -394,7 +394,7 @@ record.key = "constant-value"
 ## 📚 다음 단계
 
 - [로컬 설치 및 실행](02-installation-setup.md)
-- [Producer/Consumer 실습](03-producer-consumer.md)
+- Producer/Consumer 실습 (문서 준비 중)
 
 ## 🔗 참고 자료
 

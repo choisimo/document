@@ -1,3 +1,37 @@
+---
+title: "프로젝트"
+---
+
+# 프로젝트 {#projects}
+
+<nav class="hub-directory" aria-label="프로젝트 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">주요 문서</h2>
+
+- [CBT Diary System](cbt-system.md)
+- [Emotion Diary](emotion-diary.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">함께 읽기</h2>
+
+- [Architecture Design Prompts](../prompts/architecture.md)
+- [Database Education Prompt](../prompts/database.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>기존 문서 안내</summary>
+
 # Projects Documentation
 
 > Project planning, architecture, and implementation documents
@@ -69,3 +103,5 @@ Looking to start a new project? Check out:
 
 - [Architecture Design Prompts](../prompts/architecture.md)
 - [Database Schema Guide](../prompts/database.md)
+
+</details>

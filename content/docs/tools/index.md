@@ -1,3 +1,79 @@
+---
+title: "작업 도구"
+---
+
+# 작업 도구 {#tools}
+
+<nav class="hub-directory" aria-label="작업 도구 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">터미널</h2>
+
+- [Modern CLI Tools](terminal/modern-cli-tools.md)
+- [Tmux](terminal/tmux.md)
+- [Vim](terminal/vim.md)
+- [Linux Commands](terminal/linux-commands.md)
+- [Pet](terminal/pet.md)
+- [GNU Stow](terminal/stow.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">주요 문서</h2>
+
+- [Split View](split-view.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">원격 접속</h2>
+
+- [Apache Guacamole](remote/guacamole.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-4" markdown="1">
+
+<h2 id="directory-group-4">자동화</h2>
+
+- [Selenium](automation/selenium.md)
+- [Change Detection](automation/change-detection.md)
+- [Schedule Manager](automation/schedule-manager.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-5" markdown="1">
+
+<h2 id="directory-group-5">AI 도구</h2>
+
+- [Gemini Shell](ai/gemini-shell.md)
+- [MCP (Model Context Protocol)](ai/mcp.md)
+- [Langflow](ai/langflow.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-6" markdown="1">
+
+<h2 id="directory-group-6">함께 읽기</h2>
+
+- [Linux 명령어 참조](../linux/commands.md)
+- [SSH Configuration](../security/ssh/configuration.md)
+- [Docker 설치 가이드](../development/docker/installation.md)
+- [code-server 원격 개발 환경](../development/ide/code-server.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>기존 문서 안내</summary>
+
 # 도구 문서
 
 
@@ -289,3 +365,5 @@ flowchart LR
 - [Vim Adventures](https://vim-adventures.com/) - 게임으로 Vim 학습
 - [Selenium Documentation](https://www.selenium.dev/documentation/)
 - [Apache Guacamole](https://guacamole.apache.org/)
+
+</details>

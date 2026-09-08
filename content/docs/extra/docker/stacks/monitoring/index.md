@@ -1,3 +1,44 @@
+---
+title: "모니터링 Compose 스택"
+---
+
+# 모니터링 Compose 스택 {#monitoring-docker-stacks}
+
+<nav class="hub-directory" aria-label="모니터링 Compose 스택 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">컬렉션 탐색</h2>
+
+- [Compose 스택](../index.md)
+- [Docker Compose 컬렉션](../../index.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">changedetection</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/monitoring/changedetection/docker-compose.yaml)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">prometheus-grafana</h2>
+
+- [prometheus.yml](/extra/docker/stacks/monitoring/prometheus-grafana/prometheus.yml)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>기존 문서 안내</summary>
+
 <!-- markdownlint-disable MD033 MD030 -->
 # Monitoring Stacks
 
@@ -68,3 +109,5 @@ docker compose up -d
   </div>
 
 </div>
+
+</details>

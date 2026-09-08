@@ -1,153 +1,124 @@
-# Documentation Hub
+---
+title: Documentation Hub
+description: 컴퓨터 과학, 개발 환경, 데이터, 인프라와 보안 문서를 찾아보세요.
+hide:
+  - navigation
+  - toc
+---
 
-## 허브 유지 계약
+<div class="hub-home" markdown="1">
 
-- 이 페이지의 문서 수와 카테고리 수는 게시 시점의 탐색용 스냅샷이며 자동으로 최신 상태를 보장하지 않습니다.
-- 운영 절차를 실행하기 전에 대상 문서의 OS·제품 버전, 권한, 비밀, 데이터 손실 위험과 완료 증거를 확인합니다.
-- 새 문서를 추가하거나 경로를 바꾸면 카드 링크, 통계 문구와 관련 문서를 같은 변경에서 갱신합니다.
+<header class="hub-home__intro" markdown="1">
 
-<div class="compose-hero home-hero" markdown>
-<span class="compose-kicker">Documentation Hub</span>
+# 문서 찾아보기
 
-## 인프라부터 개발 환경까지 한곳에서 찾는 운영 문서 허브
+학습 노트부터 개발 환경과 운영 가이드까지, 필요한 문서로 바로 이동하세요.
 
-실무에서 반복해서 찾게 되는 서버 구성, 보안 설정, 개발 도구, Docker Compose 예제를 빠르게 탐색할 수 있도록 정리했습니다.
+</header>
 
-<div class="home-stat-list" markdown>
-<span>100+ 문서</span>
-<span>15개 주제 영역</span>
-<span>Docker Compose 50+</span>
+<div class="hub-home__search">
+  <button class="hub-home__search-button" type="button" data-home-search disabled aria-label="전체 문서 검색 열기">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m16 16 5 5"></path></svg>
+    <span>문서 검색</span>
+    <span class="hub-home__search-hint">키워드로 찾아보세요</span>
+    <svg class="hub-home__search-arrow" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"></path></svg>
+  </button>
+  <noscript><p>아래 주제별 링크에서 문서를 찾아보세요.</p></noscript>
 </div>
 
-<div class="compose-actions" markdown>
-[:octicons-arrow-right-24: 인프라부터 둘러보기](infrastructure/index.md){ .md-button .md-button--primary }
-[:material-docker: Docker Compose 컬렉션](extra/docker/stacks/){ .md-button }
-[:material-console: 도구 문서](tools/index.md){ .md-button }
-</div>
-</div>
+<nav class="hub-home__shortcuts" aria-label="자주 찾는 자료" markdown="1">
 
-## 핵심 문서 영역
+<span class="hub-home__shortcuts-label">바로가기</span>
 
-가장 자주 참조하는 기술 영역부터 바로 들어갈 수 있도록 정리했습니다.
+- [Docker Compose 컬렉션](extra/docker/index.md)
+- [CS 레퍼런스 · 한국어 / English](books/cs-reference/index.md)
 
-<div class="grid cards compose-grid home-section-grid" markdown>
+</nav>
 
--   :material-server:{ .lg .middle } **인프라**
+<div class="hub-home__directory" markdown="1">
 
-    ---
+<h2 class="hub-home__directory-title" id="home-topics">주제별 문서</h2>
 
-    Proxmox · 네트워크 · 스토리지 · 모니터링
+<div class="hub-home__topics" markdown="1">
 
-    [:octicons-arrow-right-24: 인프라 문서](infrastructure/index.md)
+<section class="hub-home__topic" aria-labelledby="home-cs" markdown="1">
 
--   :material-shield-lock:{ .lg .middle } **보안**
+<h3 id="home-cs">컴퓨터 과학</h3>
 
-    ---
+자료구조와 알고리즘부터 시스템 내부 동작까지.
 
-    SSH · VPN · Zero Trust · 접근 제어
+- [알고리즘과 구현](algorithms/index.md)
+- [운영체제](os/index.md)
+- [컴파일러](compiler/index.md)
+- [책으로 읽는 CS](books/index.md)
 
-    [:octicons-arrow-right-24: 보안 문서](security/index.md)
+</section>
 
--   :material-code-braces:{ .lg .middle } **개발**
+<section class="hub-home__topic" aria-labelledby="home-development" markdown="1">
 
-    ---
+<h3 id="home-development">개발 환경</h3>
 
-    Docker · Git · IDE · 프로그래밍 환경
+코드를 작성하고 실행하는 환경을 구성합니다.
 
-    [:octicons-arrow-right-24: 개발 문서](development/index.md)
+- [개발 환경 가이드](development/index.md)
+- [Docker 설치와 사용](development/docker/installation.md)
+- [Git 브랜치 관리](development/git/branch-management.md)
+- [Java 핵심 개념](java/index.md)
 
--   :material-database:{ .lg .middle } **데이터베이스**
+</section>
 
-    ---
+<section class="hub-home__topic" aria-labelledby="home-data" markdown="1">
 
-    Redis · JPA · QueryDSL
+<h3 id="home-data">데이터와 AI</h3>
 
-    [:octicons-arrow-right-24: 데이터베이스 문서](databases/index.md)
+데이터 저장·캐시와 검색·AI 흐름을 살펴봅니다.
 
--   :fontawesome-brands-linux:{ .lg .middle } **Linux**
+- [데이터베이스](databases/index.md)
+- [Redis와 캐시](databases/redis/overview.md)
+- [BM25와 Attention 비교](ai/bm25-vs-attention.md)
+- [LangChain과 LangGraph 비교](ai/langchain-vs-langgraph.md)
 
-    ---
+</section>
 
-    명령어 · 파일시스템 · Arch Linux
+<section class="hub-home__topic" aria-labelledby="home-operations" markdown="1">
 
-    [:octicons-arrow-right-24: Linux 문서](linux/index.md)
+<h3 id="home-operations">인프라 운영</h3>
 
--   :material-console:{ .lg .middle } **도구**
+서버와 네트워크를 구성하고 상태를 점검합니다.
 
-    ---
+- [인프라 가이드](infrastructure/index.md)
+- [Proxmox 클러스터](infrastructure/proxmox/cluster.md)
+- [Prometheus · Grafana · Loki](infrastructure/monitoring/prometheus-grafana-loki.md)
+- [Nginx 설정과 배포](nginx/index.md)
 
-    Tmux · Vim · 자동화 · 원격 접근
+</section>
 
-    [:octicons-arrow-right-24: 도구 문서](tools/index.md)
+<section class="hub-home__topic" aria-labelledby="home-security" markdown="1">
 
--   :material-bookshelf:{ .lg .middle } **Books Library**
+<h3 id="home-security">Linux와 보안</h3>
 
-    ---
+운영체제를 다루고 접속·권한을 관리합니다.
 
-    Systems · Algorithms · CS References (EN/KR)
+- [Linux 명령과 환경 설정](linux/index.md)
+- [보안 가이드](security/index.md)
+- [SSH 설정](security/ssh/configuration.md)
+- [WireGuard VPN](security/vpn/wireguard.md)
 
-    [:octicons-arrow-right-24: Books 문서](books/index.md)
+</section>
 
-</div>
+<section class="hub-home__topic" aria-labelledby="home-resources" markdown="1">
 
-## 운영용 Docker Compose 컬렉션
+<h3 id="home-resources">도구와 자료실</h3>
 
-실제로 운영에 활용하는 Compose 스택을 카테고리별로 빠르게 찾아볼 수 있습니다.
+작업 도구, 프로젝트 기록과 참고 자료를 찾습니다.
 
-<div class="grid cards compose-grid" markdown>
+- [터미널 · 원격 접속 · 자동화 도구](tools/index.md)
+- [보조 리소스](extra/index.md)
+- [프로젝트 기록](projects/index.md)
+- [프롬프트 모음](prompts/index.md)
 
--   :material-database-outline:{ .lg .middle } **데이터베이스**
-
-    ---
-
-    MariaDB · MongoDB · Supabase
-
-    [:octicons-arrow-right-24: 데이터베이스 스택](extra/docker/stacks/databases/)
-
--   :material-cog-outline:{ .lg .middle } **자동화**
-
-    ---
-
-    n8n · Change Detection
-
-    [:octicons-arrow-right-24: 자동화 스택](extra/docker/stacks/automation/)
-
--   :material-source-branch:{ .lg .middle } **개발 도구**
-
-    ---
-
-    Gitea · Sourcebot
-
-    [:octicons-arrow-right-24: 개발 도구 스택](extra/docker/stacks/devtools/)
-
--   :material-lock-outline:{ .lg .middle } **보안**
-
-    ---
-
-    Vaultwarden · Nginx Proxy
-
-    [:octicons-arrow-right-24: 보안 스택](extra/docker/stacks/security/)
+</section>
 
 </div>
-
-## 바로가기
-
-<div class="grid cards home-link-grid" markdown>
-
--   :material-github:{ .lg .middle } **GitHub 저장소**
-
-    ---
-
-    문서 원본, 변경 이력, 배포 구성을 확인합니다.
-
-    [:octicons-arrow-right-24: 저장소 방문](https://github.com/choisimo/document)
-
--   :material-account-circle:{ .lg .middle } **작성자 프로필**
-
-    ---
-
-    관련 프로젝트와 추가 리소스를 확인합니다.
-
-    [:octicons-arrow-right-24: GitHub 프로필](https://github.com/choisimo)
-
+</div>
 </div>

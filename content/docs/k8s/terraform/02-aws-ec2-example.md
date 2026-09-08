@@ -483,8 +483,8 @@ curl ifconfig.me
 
 ## 📚 다음 단계
 
-- [상태 관리와 모듈화](03-state-management.md)
-- [변수와 출력](04-variables-outputs.md)
+- 상태 관리와 모듈화 (문서 준비 중)
+- 변수와 출력 (문서 준비 중)
 
 ## 🔗 참고 자료
 

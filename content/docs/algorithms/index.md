@@ -1,3 +1,40 @@
+---
+title: "알고리즘"
+---
+
+# 알고리즘 {#algorithms-data-structures}
+
+<nav class="hub-directory" aria-label="알고리즘 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">주요 문서</h2>
+
+- [C/C++ 포인터](pointers.md)
+- [함수 포인터와 콜백](function-pointers.md)
+- [Python OOP 패턴](oop-patterns.md)
+- [실전 알고리즘](algorithm-architect/index.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">함께 읽기</h2>
+
+- [컴파일러](../compiler/index.md)
+- [Java 핵심 개념](../java/core-concepts.md)
+- [운영체제](../os/index.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>기존 문서 안내</summary>
+
 # Algorithms & Data Structures
 
 > Learning resources for algorithms, data structures, and OOP patterns
@@ -111,3 +148,5 @@ int result = func_ptr(3, 4); // Call
 - [Compiler Theory](../compiler/index.md)
 - [Java Core Concepts](../java/core-concepts.md)
 - [Operating Systems](../os/index.md)
+
+</details>

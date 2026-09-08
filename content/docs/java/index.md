@@ -1,3 +1,38 @@
+---
+title: "Java"
+---
+
+# Java {#java}
+
+<nav class="hub-directory" aria-label="Java 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">주요 문서</h2>
+
+- [Java 핵심 개념](core-concepts.md)
+- [Java 메모리와 GC](memory-gc.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">함께 읽기</h2>
+
+- [JPA 개요 및 복합키](../databases/jpa/overview.md)
+- [Redis Spring Boot Integration](../databases/redis/springboot-integration.md)
+- [Java JDK 설치 및 환경 구성](../development/languages/java-install.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>기존 문서 안내</summary>
+
 # Java 문서
 
 Java 언어와 HotSpot JVM의 입문 자료 인덱스입니다. 예제는 JDK 17·21 중심이지만 공급업체 지원 기간과 내부 동작은 버전·GC 옵션마다 다릅니다. `java -version`과 `javac -version`을 기록하세요.
@@ -170,3 +205,5 @@ CompletableFuture<String> future = CompletableFuture
 - [Oracle Java Documentation](https://docs.oracle.com/en/java/)
 - [Baeldung](https://www.baeldung.com/) - Java 튜토리얼
 - [Java Design Patterns](https://java-design-patterns.com/)
+
+</details>

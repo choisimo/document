@@ -185,6 +185,8 @@ docker logs vaultwarden-tunnel
 
 ---
 
+<a id="4-전체-통합-구성-nginx--cloudflare-tunnel"></a>
+
 ## 4. 전체 통합 구성 (Nginx + Cloudflare Tunnel)
 
 Nginx와 tunnel을 결합한 예시이며 production readiness는 version 고정, 위협 모델, secret, monitoring, backup·restore와 update 정책을 추가로 검증해야 합니다.

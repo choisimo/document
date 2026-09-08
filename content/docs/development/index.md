@@ -1,3 +1,71 @@
+---
+title: "개발 환경"
+---
+
+# 개발 환경 {#_1}
+
+<nav class="hub-directory" aria-label="개발 환경 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">Docker</h2>
+
+- [Docker 설치 가이드](docker/installation.md)
+- [Docker 권한 및 재시작 명령](docker/commands.md)
+- [Docker 네트워킹](docker/networking.md)
+- [Docker Volumes](docker/volumes.md)
+- [Vaultwarden Docker Compose 배포](docker/vaultwarden.md)
+- [LiteLLM Proxy 안전 구성](docker/litellm_copilot_guide.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">Git</h2>
+
+- [Git 브랜치 업스트림 관리](git/branch-management.md)
+- [Git Deploy Keys 설정](git/deployment.md)
+- [Git 삭제 복구 및 고아 브랜치](git/restore-deletion.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">편집기와 원격 개발</h2>
+
+- [VS Code 확장 관리](ide/vscode-plugins.md)
+- [code-server 원격 개발 환경](ide/code-server.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-4" markdown="1">
+
+<h2 id="directory-group-4">언어 환경</h2>
+
+- [Java JDK 설치 및 환경 구성](languages/java-install.md)
+- [GCC C/C++ 빌드 환경](languages/gcc.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-5" markdown="1">
+
+<h2 id="directory-group-5">함께 읽기</h2>
+
+- [Java](../java/index.md)
+- [데이터베이스](../databases/index.md)
+- [Linux 명령어 참조](../linux/commands.md)
+- [SSH Configuration](../security/ssh/configuration.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>기존 문서 안내</summary>
+
 # 개발 문서
 
 Docker, Git, IDE 설정, 프로그래밍 언어 환경 구성에 관한 가이드입니다.
@@ -367,3 +435,5 @@ project/
 - [Git Book](https://git-scm.com/book/ko/v2)
 - [VS Code Documentation](https://code.visualstudio.com/docs)
 - [SDKMAN!](https://sdkman.io/)
+
+</details>

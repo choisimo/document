@@ -1,3 +1,43 @@
+---
+title: "Compose 스택"
+---
+
+# Compose 스택 {#docker-compose-stacks}
+
+<nav class="hub-directory" aria-label="Compose 스택 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">컬렉션 탐색</h2>
+
+- [Docker Compose 컬렉션](../index.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">카테고리</h2>
+
+- [데이터베이스 Compose 스택](databases/index.md)
+- [자동화 Compose 스택](automation/index.md)
+- [개발 도구 Compose 스택](devtools/index.md)
+- [보안 Compose 스택](security/index.md)
+- [미디어 Compose 스택](media/index.md)
+- [스토리지 Compose 스택](storage/index.md)
+- [모니터링 Compose 스택](monitoring/index.md)
+- [프록시 Compose 스택](proxy/index.md)
+- [기타 서비스 Compose 스택](misc/index.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>기존 문서 안내</summary>
+
 <!-- markdownlint-disable MD033 MD030 -->
 # Docker Compose Stacks
 
@@ -115,3 +155,5 @@ docker compose up -d
 
 !!! tip "포트 충돌"
     이미 사용 중인 포트가 있다면 `.env` 또는 Compose 파일의 포트 매핑을 변경하세요.
+
+</details>

@@ -1,3 +1,65 @@
+---
+title: "보안"
+---
+
+# 보안 {#security}
+
+<nav class="hub-directory" aria-label="보안 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">SSH</h2>
+
+- [SSH Configuration](ssh/configuration.md)
+- [SSH Key Management](ssh/key-management.md)
+- [SSH Match Rules](ssh/match-rules.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">VPN</h2>
+
+- [Tailscale VPN](vpn/tailscale.md)
+- [WireGuard VPN](vpn/wireguard.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">Zero Trust</h2>
+
+- [Cloudflare Zero Trust](zerotrust/cloudflare.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-4" markdown="1">
+
+<h2 id="directory-group-4">접근 제어</h2>
+
+- [User and ACL Management](access/user-acl.md)
+- [Remote Access Permissions](access/permissions.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-5" markdown="1">
+
+<h2 id="directory-group-5">함께 읽기</h2>
+
+- [리눅스 고정 IP 설정 기준](../infrastructure/networking/network-settings.md)
+- [Prometheus, Grafana, Loki 관측 스택](../infrastructure/monitoring/prometheus-grafana-loki.md)
+- [Docker 설치 가이드](../development/docker/installation.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>기존 문서 안내</summary>
+
 # 보안 문서
 
 
@@ -279,3 +341,5 @@ graph TD
 - [네트워크 설정](../infrastructure/networking/network-settings.md)
 - [모니터링](../infrastructure/monitoring/prometheus-grafana-loki.md)
 - [Docker 설치](../development/docker/installation.md)
+
+</details>
