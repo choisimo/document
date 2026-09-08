@@ -2,6 +2,8 @@
 
 이 섹션은 Terraform, Ansible, Kafka, Kubernetes를 하나의 운영 흐름으로 학습하기 위한 문서 묶음이다. 목표는 도구별 명령을 외우는 것이 아니라 “인프라 생성, 서버 설정, 애플리케이션 배포, 이벤트 흐름”의 경계를 이해하는 것이다.
 
+이 문서군은 로컬 또는 격리된 학습 환경을 대상으로 한다. OS·아키텍처·컨테이너 런타임·kubectl·클러스터·Terraform/provider·Ansible/collection·Kafka 버전을 기록한다. 자원 요구량은 동시 실행 규모와 데이터 보존량으로 정하며, 실습 완료를 운영 보안·가용성 검증으로 확대하지 않는다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 현대 DevOps 환경에서는 하나의 도구로 전체 배포를 끝내기 어렵다. Terraform은 클라우드 리소스를 만들고, Ansible은 서버 설정을 맞추고, Kubernetes는 컨테이너를 배포하고, Kafka는 서비스 간 이벤트 흐름을 담당한다.
@@ -54,7 +56,7 @@ Terraform
 
 Terraform은 provider API를 통해 인프라 리소스를 생성하고 state로 추적한다.
 
-Ansible은 inventory에 있는 host에 SSH로 접속해 package, file, service 상태를 idempotent하게 맞춘다.
+Ansible은 inventory의 host에 접속해 module을 실행한다. package, file, service 전용 module의 반복 적용 결과를 확인하고, command·shell·외부 API의 멱등성을 별도로 설계한다.
 
 Kubernetes는 API server에 선언한 desired state를 controller가 계속 reconcile하는 구조다.
 
@@ -128,7 +130,7 @@ plan
 
 Terraform으로 만든 리소스를 콘솔에서 직접 수정하면 state와 실제 인프라가 drift된다.
 
-Ansible task가 매번 changed로 표시되면 idempotency가 깨진 것이다. 운영 자동화에서는 변경 여부가 신뢰 가능한 신호여야 한다.
+Ansible task의 changed 표시와 실제 상태 변경은 구분한다. 두 번째 실행에서도 예상하지 않은 변경이 발생하면 module 선택, changed_when과 대상 상태를 확인한다.
 
 Kubernetes manifest의 `apiVersion`이 cluster에서 지원되지 않으면 apply가 실패한다. 실습 전 cluster version과 공식 API 문서를 확인한다.
 
@@ -143,6 +145,10 @@ Terraform과 Ansible은 겹치는 영역이 있지만 책임을 분리하는 편
 Kubernetes는 application desired state를 관리하지만, cluster 자체 provisioning은 Terraform, Cluster API, managed service 도구가 담당할 수 있다.
 
 Kafka는 Kubernetes 위에서 운영할 수도 있지만 stateful workload이므로 storage, broker identity, rolling update, backup, monitoring을 더 엄격히 설계해야 한다.
+
+## 실습 완료 및 실패 증거
+
+Kubernetes는 rollout과 이벤트, Terraform은 plan/state, Ansible은 두 번째 실행 recap, Kafka는 생산·소비 offset을 기록합니다. 명령 성공만으로 서비스 정상이나 데이터 정합성을 단정하지 않습니다. 실패 시 부분 생성 리소스와 외부 비용, 재실행의 멱등성을 확인하고 마지막에 클라우드 리소스, 로컬 volume과 자격 증명을 정리합니다.
 
 ## 11. 최종 체크리스트 (Definition of Done)
 

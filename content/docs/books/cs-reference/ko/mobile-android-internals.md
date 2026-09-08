@@ -1,5 +1,7 @@
 # Android 및 모바일 내부 동작 학습 및 기록 노트
 
+> **읽기 계약:** 이 문서는 Android의 대표 데이터 흐름을 설명하는 학습 모델이며, Binder·ART·HWUI·Compose·LMK 구현은 Android 릴리스, API 수준, 커널, ART/JDK, 기기 공급자와 Compose Compiler 버전에 따라 달라집니다. 플랫폼 API가 보장하는 사실과 AOSP 구현 예, 기기별 임계값·메모리 수치를 분리합니다. 항목은 대상 빌드의 공식 문서·AOSP 태그·기기 측정에서 호출 경로와 실패 조건이 확인된 뒤 완료됩니다. 버전 변경이나 추적 결과가 다르면 해당 도식은 미확정으로 돌리고 호환 경로를 확인합니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Android 앱은 Kotlin 코드와 UI만으로 동작하지 않는다. Activity 호출은 Binder IPC를 지나 system_server로 전달되고, DEX는 ART에서 JIT/AOT로 최적화되며, UI는 Choreographer/Vsync/SurfaceFlinger/GPU 합성 경로를 통과한다. Compose 상태 변경도 SlotTable과 Recomposer를 거쳐 실제 화면 갱신으로 이어진다.
@@ -39,7 +41,7 @@ flowchart TD
     G --> J
 ```
 
-Android data flow는 앱 프로세스 안에서 끝나지 않는다. 대부분의 중요한 작업은 Binder를 통해 system_server나 vendor HAL로 넘어간다.
+Android의 여러 Framework·앱 서비스 호출은 Binder를 통해 system_server나 vendor 서비스로 전달된다. 소켓, 파이프, 공유 메모리와 장치별 IPC 경로도 있으므로 중요한 작업이나 교차 프로세스 통신이 모두 Binder를 통과한다고 일반화하지 않는다.
 
 ## 5. 핵심 구성요소 (Building Blocks)
 

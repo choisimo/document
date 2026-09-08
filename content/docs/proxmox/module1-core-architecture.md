@@ -2,6 +2,15 @@
 
 이 모듈은 Proxmox VE의 핵심 구조인 pmxcfs, Corosync, quorum, 주요 데몬, API 계층을 이해하기 위한 문서다.
 
+## 버전·근거·완료 계약
+
+- 대상은 Proxmox VE 8.x입니다. pmxcfs, Corosync, daemon, systemd unit과 API 세부는 설치된 패키지 버전과 공식 소스로 확인합니다.
+- 개념도는 정상 경로를 단순화합니다. quorum 상실, node partition, local mode, certificate·time 오류와 service 재시작 실패를 별도 상태로 추적합니다.
+- `/etc/pve` 변경은 cluster 전체에 전파될 수 있습니다. 현재 quorum, 변경 대상, backup과 console/rollback 경로를 확인한 뒤 실행합니다.
+- 모듈 완료 증거는 명령 암기가 아니라 node별 quorum·mount·daemon 상태와 의도한 config 수렴, 실패 주입 후 복구 결과입니다.
+
+아래 흐름은 정상 경로의 개념도다. 모든 CLI 명령이 pveproxy/pvedaemon을 거치거나 비동기 task를 만든다는 뜻은 아니며, 실제 handler와 동기·비동기 실행 방식은 명령별로 확인한다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Proxmox VE에서 VM 설정을 바꾸면 단순히 한 파일이 수정되는 것이 아니다. Web UI나 CLI 요청은 권한 검사를 거쳐 `/etc/pve` 아래 설정을 바꾸고, pmxcfs가 이 설정을 클러스터 전체에 복제하며, 관련 데몬이 런타임 상태를 반영한다.
@@ -95,7 +104,7 @@ VM 100의 CPU core 수를 변경한다고 가정한다.
 
 ```text
 qm set 100 --cores 4
-  -> API task is created
+  -> command/API handler validates and updates the configuration
   -> /etc/pve/nodes/<node>/qemu-server/100.conf is locked and updated
   -> pmxcfs stores the new config
   -> other nodes see the same config through cluster replication

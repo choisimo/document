@@ -2,6 +2,13 @@
 
 이 문서는 Proxmox VE를 실습할 때 VM, CT, 스토리지, 네트워크, 클러스터, HA, 백업, 방화벽, 권한, Cloud-Init을 어떤 순서로 검증할지 정리한 랩 가이드다.
 
+## 실습 범위와 완료 증거
+
+- **범위:** 실습은 Proxmox VE 8.x 계열의 격리된 lab을 가정합니다. bare metal·nested virtualization, node 수, CPU virtualization, RAM, storage, bridge/VLAN, DNS와 Internet 접근을 기록합니다.
+- **수치 전제:** 4GB RAM, 32GB storage와 같은 값은 최소 보장이 아니라 특정 기초 실습의 시작 예시입니다. Ceph, HA, 여러 guest와 nested 환경은 별도 capacity·quorum 계획이 필요합니다.
+- **안전 전제:** production cluster·network·disk를 사용하지 않고 각 lab의 snapshot, backup 또는 reset 경로를 만듭니다. device, subnet, VMID와 삭제 대상을 실행 전에 확인합니다.
+- **실패·완료:** 명령 성공만으로 완료하지 않습니다. UI/API 상태, guest connectivity, storage data, failover·restore, 권한의 허용/거부와 reset 후 재현성을 lab별 checklist로 확인합니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Proxmox VE는 실습 없이 문서만 읽으면 구조가 손에 잡히지 않는다. 하지만 무작정 명령을 따라 하면 관리망이 끊기거나 디스크를 지우거나 HA 테스트 중 클러스터를 불안정하게 만들 수 있다.
@@ -93,7 +100,7 @@ stateDiagram-v2
 - 네트워크 랩 전에는 로컬 콘솔이나 out-of-band 접근을 준비한다.
 - 디스크를 초기화하거나 pool을 만드는 명령은 대상 디스크를 두 번 확인한 뒤 실행한다.
 - 방화벽을 켜기 전 SSH와 Web UI 허용 규칙을 먼저 둔다.
-- HA 랩은 quorum, shared storage, fencing/watchdog 조건을 먼저 확인한다.
+- HA 랩은 quorum, 대상 노드의 데이터 접근 또는 지원되는 복제, fencing/watchdog와 용량 조건을 먼저 확인한다.
 - 백업 랩은 반드시 새 VMID로 복원 테스트까지 포함한다.
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
@@ -110,7 +117,7 @@ qm status 100
 qm config 100
 ```
 
-설치 후 guest agent를 켰다면 호스트에서 다음을 확인한다.
+VMID 100·스토리지·ISO 경로는 실제 실습 자원으로 바꾸고 각 명령 성공을 확인한 뒤 다음 명령을 실행한다. OS 설치 후 디스크 부팅 순서로 변경하고, guest 안에 agent를 설치·시작하며 Proxmox의 agent 옵션도 활성화한 뒤 호스트에서 다음을 확인한다.
 
 ```bash
 qm agent 100 ping

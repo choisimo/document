@@ -2,6 +2,14 @@
 
 프로세스 관리는 실행 중인 프로그램을 운영체제가 어떤 단위로 만들고, 멈추고, 다시 실행하고, 종료시키는지 설명하는 운영체제의 출발점이다.
 
+## Scope, assumptions, and completion criteria
+
+- **Scope:** This guide describes POSIX `fork()` with a Linux-style copy-on-write implementation. It does not describe Windows process creation, every Unix implementation, or all process attributes.
+- **Assumptions:** The fork example uses single-threaded private process state. Shared mappings, open file descriptions, pending signals, locks, threads, and device state follow separate rules.
+- **Evidence and environment:** Confirm behavior against the target OS/kernel, libc, `fork(2)`, and trace output. Equal pointer values are virtual addresses and do not prove equal physical pages.
+- **Failure/retry:** On `fork() == -1`, preserve `errno` and do not enter parent/child logic. Retry only selected transient resource failures with a bound; uncontrolled retry can worsen PID or memory pressure.
+- **Completion evidence:** The parent must account for or intentionally detach the child, collect its status where applicable, and record both exit paths. In a multithreaded child, call only async-signal-safe operations until `exec()` unless an explicitly supported mechanism is used.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 프로그램 파일은 디스크에 있는 정적인 데이터다. 사용자가 실행하는 순간 운영체제는 주소 공간, 열린 파일, 레지스터 상태, 권한, 스케줄링 정보를 가진 프로세스를 만든다.
@@ -50,7 +58,7 @@ executable file
 parent running
   -> fork system call
   -> child PCB 생성
-  -> 부모 주소 공간을 copy-on-write로 공유
+  -> 별도 가상 주소 공간; private writable pages may use COW
   -> parent는 child pid를 받음
   -> child는 0을 받음
   -> 둘 다 fork 다음 명령부터 실행
@@ -63,7 +71,7 @@ parent running
 - PCB: 커널이 프로세스를 추적하기 위해 보관하는 구조. PID, 상태, PC, 레지스터, 스케줄링 정보, 파일 정보 등을 담는다.
 - Address Space: code, data, heap, stack, memory mapping으로 구성되는 가상 메모리 공간.
 - System Call: 프로세스가 커널 기능을 요청하는 경계.
-- `fork`: 현재 프로세스와 거의 같은 자식 프로세스를 만든다.
+- `fork`: 새로운 PID의 자식을 만들고 POSIX 규칙에 따라 속성을 상속하거나 공유한다. 실패하면 -1과 errno를 반환하며 자식은 생성되지 않는다.
 - `exec`: 현재 프로세스의 주소 공간을 새 프로그램 이미지로 교체한다.
 - `wait`: 부모가 자식의 종료 상태를 수거한다.
 
@@ -88,7 +96,7 @@ stateDiagram-v2
 ```text
 parent forks child
 child exits
-child becomes zombie until parent waits
+child may remain zombie until status is reaped under normal SIGCHLD handling
 parent calls wait
 kernel releases child's remaining process table entry
 ```
@@ -98,19 +106,24 @@ kernel releases child's remaining process table entry
 - 각 프로세스는 자기 가상 주소 공간만 직접 접근해야 한다.
 - 커널은 runnable 프로세스를 ready queue에서 잃어버리면 안 된다.
 - context switch는 이전 프로세스의 레지스터 상태를 복원 가능하게 저장해야 한다.
-- `fork()` 이후 부모와 자식의 쓰기 변경은 서로의 주소 공간을 오염시키면 안 된다.
-- 종료된 자식의 exit status는 부모가 수거할 때까지 보존되어야 한다.
+- fork 이후 private mapping의 쓰기는 서로 분리되어야 한다. MAP_SHARED나 shared open file description의 상태는 해당 공유 계약을 따른다.
+- 기본적인 자식 상태 수거 모델에서는 종료 상태를 wait/waitpid로 회수한다. SIGCHLD 설정·reparenting 등 자동 수거 정책을 쓰면 그 동작을 별도로 명시한다.
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
 
 ```c
 #include <stdio.h>
+#include <errno.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
 int main(void) {
     int value = 5;
     pid_t pid = fork();
+    if (pid < 0) {
+        perror("fork");
+        return 1;
+    }
 
     if (pid == 0) {
         value = 10;
@@ -119,19 +132,31 @@ int main(void) {
     }
 
     value = 20;
-    wait(NULL);
+    int status;
+    pid_t waited;
+    do {
+        waited = waitpid(pid, &status, 0);
+    } while (waited < 0 && errno == EINTR);
+    if (waited < 0) {
+        perror("waitpid");
+        return 1;
+    }
+    if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+        fprintf(stderr, "child did not exit successfully\n");
+        return 1;
+    }
     printf("parent value=%d\n", value);
     return 0;
 }
 ```
 
-이 코드에서 부모와 자식은 `fork()` 다음 줄부터 실행된다. 같은 변수 이름과 같은 가상 주소를 보더라도 쓰기가 발생하면 copy-on-write 때문에 서로 다른 물리 페이지를 보게 된다.
+성공한 fork 뒤 두 프로세스는 이어서 실행되며 private 변수 값은 child=10, parent=20으로 분리된다. 부모는 waitpid로 자식을 수거한 뒤 출력하므로 이 예제의 child 출력이 먼저 완료된다. 이것만으로 실제 물리 page 공유·복사 시점은 증명되지 않으며 Linux의 COW는 private page와 page-table metadata·write fault 비용을 별도 관측해야 한다.
 
 ## 9. 실패 사례 (What could go wrong?)
 
 - 부모가 `wait()`하지 않으면 종료된 자식이 zombie로 남을 수 있다.
-- `fork()` 직후 양쪽 프로세스가 같은 파일 디스크립터를 공유한다는 점을 놓치면 출력 순서나 파일 위치가 예상과 달라진다.
-- `exec()` 뒤에는 이전 주소 공간의 코드와 데이터가 사라진다.
+- fork 뒤 부모와 자식의 descriptor table은 별도지만 대응 descriptor가 같은 open file description을 공유할 수 있어 file offset·status flag·출력 순서에 영향을 준다.
+- exec 계열이 성공하면 기존 프로그램 이미지를 대체하고 반환하지 않는다. 실패하면 기존 이미지에서 오류를 반환하므로 자식 실패 종료 경로가 필요하다.
 - multi-threaded process에서 `fork()`를 호출하면 자식에는 호출한 스레드만 남기 때문에 lock 상태가 꼬일 수 있다.
 - 프로세스 수 제한, 메모리 부족, 권한 제한 때문에 `fork()`는 실패할 수 있다.
 

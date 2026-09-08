@@ -2,6 +2,13 @@
 
 SSD와 NVMe 상태 점검은 `smartctl` 출력에서 하나의 숫자만 보는 일이 아니다. 드라이브 종류, 제조사별 SMART attribute, 쓰기량, 온도, 오류 증가 추세, 백업 상태를 함께 보고 교체 시점을 판단해야 한다.
 
+## Diagnostic boundary
+
+- SMART attributes and normalized raw values are vendor-, model-, firmware-, and interface-specific. Use the drive data sheet and vendor threshold before a generic table.
+- A `PASSED` summary does not predict continued operation, and a warning does not prove immediate failure. Correlate trends, self-tests, kernel errors, controller logs, workload, and backups.
+- Record device identity, firmware, power-on hours, temperature context, `smartctl` version, command, and timestamp for each sample.
+- Health review is complete only when current backups are restorable and replacement criteria, owner, spare, and maintenance window are defined.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 스토리지는 장애가 발생하면 가장 복구 비용이 크다. 디스크가 완전히 죽은 뒤에는 모니터링도, SMART 출력도 의미가 없다. 특히 SSD는 갑작스러운 읽기 전용 전환이나 컨트롤러 장애가 발생할 수 있어 “현재 정상”보다 “오류가 증가하는지”를 추적해야 한다.
@@ -60,7 +67,7 @@ warning signal
 
 | 구성요소 | 역할 | 대표 확인 |
 | --- | --- | --- |
-| `smartctl -H` | 건강 상태 요약 | 빠른 실패 여부 확인 |
+| `smartctl -H` | 장치가 보고한 건강 상태 요약 | 다른 지표·추세·오류 로그와 함께 해석 |
 | `smartctl -a` | 전체 SMART 정보 | SATA와 NVMe 상세 출력 |
 | `smartctl -x` | 확장 정보 | 지원 장치에서 더 많은 로그 확인 |
 | Self-test | 장치 내부 테스트 | short, long 테스트 결과 |

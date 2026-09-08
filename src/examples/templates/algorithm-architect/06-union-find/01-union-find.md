@@ -6,8 +6,17 @@
 |------|------|
 | **Use Case** | 집합 합치기, 연결 요소 판별, 크루스칼 알고리즘 |
 | **Components** | Parent Array, Rank Array (최적화) |
-| **Constraint** | Path Compression + Union by Rank |
-| **시간 복잡도** | O(α(N)) ≈ O(1) (거의 상수) |
+| **Constraint** | 두 최적화는 α(N) amortized bound의 전제; deletion은 직접 지원하지 않음 |
+| **시간 복잡도** | operation sequence에서 amortized O(α(N)); strict O(1) 아님 |
+
+---
+
+## 적용 범위와 검증 기준
+
+- **범위:** insertion과 union/connectivity query가 있는 disjoint-set 문제입니다. 일반적인 edge deletion이나 historical connectivity는 별도 구조가 필요합니다.
+- **복잡도 전제:** path compression과 union by rank/size를 함께 사용한 operation sequence의 amortized bound가 `O(α(N))`입니다. 개별 operation이 strict `O(1)`이라는 뜻은 아닙니다.
+- **실패 조건:** uninitialized parent, invalid index, rank/size update 오류, recursion depth와 Kruskal의 disconnected graph를 포함합니다.
+- **완료 증거:** naive set-label reference와 random union/find sequence를 비교하고 parent forest·representative·component count invariant를 확인합니다.
 
 ---
 

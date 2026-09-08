@@ -1,5 +1,10 @@
 # ADR-001: 저장소 레이아웃 재편 학습 및 기록 노트
 
+- **상태**: Accepted
+- **날짜**: 2026-03-15
+- **결정자**: nodove
+- **검증 상태**: 아래 체크리스트의 실행 증거가 이 문서에는 첨부되지 않음
+
 > 💡 **이 글을 쓰는 이유:** 문서, 인프라 설정, 실행 코드, 빌드 산출물이 한 저장소 안에서 섞이면 파일을 어디에 두고 무엇을 수정해도 되는지 계속 헷갈린다. 이 ADR은 `apps/`, `content/`, `infra/`, `src/`, `dist/`라는 경계를 왜 만들었고, 그 결정이 어떤 문제를 해결하는지 기록한다.
 
 ---
@@ -36,6 +41,19 @@
 * **레고 블록 2 (`content/`):** 사람이 읽는 모든 문서의 루트다. 출판 소스, 파생 산출물, 보관 문서, 프롬프트, 메모, 리서치를 편집 규칙별로 나눈다.
 * **레고 블록 3 (`infra/`, `src/`, `dist/`):** 운영 설정, 실행 코드/스크립트, 빌드 산출물의 경계를 분리한다.
 * **서로 어떻게 맞물려 돌아가는가?:** `apps/docs-site`는 `content/docs`를 읽어 사이트를 만들고, 자동화 코드는 `src/`에서 실행되며, 결과물은 `dist/`에 쌓인다. 인프라 배포 설정은 `infra/`에 남아 문서와 실행 경로를 오염시키지 않는다.
+
+### 세부 매핑
+
+`content/` 내부는 편집 권한으로 추가 분류합니다:
+
+| 하위 경로 | 편집 권한 | 설명 |
+|-----------|-----------|------|
+| `content/docs/` | 자유 편집 | MkDocs 출판 소스 |
+| `content/rendered/` | 원본만 수정 | 파생 산출물 |
+| `content/archive/legacy/` | 보존 편집 | 기능 확장 대신 사실 오류, 안전 경고, 출처·마이그레이션 메타데이터만 보정 |
+| `content/prompts/` | 자유 편집 | AI 프롬프트 |
+| `content/notes/` | 자유 편집 | 개인 메모 |
+| `content/research/` | 자유 편집 | 리서치 문서 |
 
 ## 6. 상태 전이 (State Transition)
 
@@ -87,15 +105,26 @@ dist/     -> 빌드 산출물
 - [x] 1초 만에 이해하는 한 문장 요약이 있는가?
 - [x] 일목요연한 상태 전이 표를 채웠는가?
 - [x] 머릿속 그림을 표현한 구조도(다이어그램)가 포함되었는가?
-- [x] 직접 굴려본 실습 결과(코드/로그)를 첨부했는가?
+- [ ] 직접 굴려본 실습 결과(코드/로그)를 첨부했는가?
 - [x] 에러를 마주하고 해결한 오답 노트가 있는가?
 - [x] 주니어 동료에게 막힘없이 설명할 수 있는 수준인가?
 
-검증 명령:
+## 검증 기준
+
+각 항목은 명령의 종료 코드와 실행 revision을 기록해야 완료로 표시합니다. 파일이 새 위치에 존재한다는 사실만으로 정본 전환이나 구 경로 제거가 끝났다고 판정하지 않습니다.
+
+- [ ] `cd apps/docs-site && mkdocs build --clean` 성공
+- [ ] CI `deploy-pages.yml` 로컬 경로 검증 통과
+- [ ] `src/automation/site/sync-extra-assets.sh` 정상 실행
+- [ ] `cargo test --manifest-path src/tools/docs-validator-rs/Cargo.toml` 통과
+- [ ] 저장소 설정·스크립트·문서에서 제거 대상 구 경로 참조가 없음
+- [ ] 외부 링크 리디렉션 또는 호환 경로의 유지·종료 정책 기록
+
+검증 명령은 저장소 루트에서 각각 실행한다. 빌드 명령의 작업 디렉터리가 다음 명령에 남지 않도록 subshell을 사용한다.
 
 ```bash
-cd apps/docs-site && mkdocs build --clean
-cargo test --manifest-path src/tools/docs-validator-rs/Cargo.toml
+(cd apps/docs-site && mkdocs build --clean)
+cargo test --locked --manifest-path src/tools/docs-validator-rs/Cargo.toml
 ```
 
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)

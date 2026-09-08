@@ -1,5 +1,12 @@
 # NFA 학습 및 기록 노트
 
+## 범위와 판정 기준
+
+- 이 문서는 ε-NFA를 포함하는 정의를 사용하며, 한 입력 접두사 뒤의 현재 상태는 단일 상태가 아니라 상태 집합입니다.
+- 문자열은 입력 전체를 소비한 뒤 현재 상태 집합이 수용 상태와 교차하면 수용됩니다. 한 경로의 실패만으로 거부하지 않습니다.
+- 직접 시뮬레이션 비용은 상태·전이 표현과 ε-closure 계산에 따라 달라집니다. 부분집합 구성은 최대 `2^|Q|`개의 DFA 상태를 만들 수 있습니다.
+- 예제 완료 증거는 전이표, ε-closure, 단계별 상태 집합과 수용·거부 문자열을 함께 제시하는 것입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 NFA(Non-deterministic Finite Automaton)는 정규표현식을 automata로 바꾸기 쉬운 중간 표현이다. 하나의 상태와 입력 symbol에서 여러 다음 상태로 갈 수 있고, 입력 없이 이동하는 ε-transition도 허용할 수 있다. 이 구조는 설계는 단순하지만 실행 시에는 가능한 상태 집합을 계속 추적해야 한다.
@@ -30,7 +37,7 @@ flowchart TD
     B --> C[NFA states/transitions]
     C --> D[epsilon-closure of start]
     D --> E[Read next symbol]
-    E --> F[move(current states, symbol)]
+    E --> F["move(current states, symbol)"]
     F --> G[epsilon-closure]
     G --> H{Any accepting state?}
     H -->|after input end yes| I[Accept]
@@ -58,11 +65,13 @@ NFA 실행은 현재 상태 하나를 추적하는 것이 아니라, 현재 도�
 ```mermaid
 stateDiagram-v2
     [*] --> StartClosure
-    StartClosure --> MoveOnSymbol
+    StartClosure --> MoveOnSymbol: input remains
+    StartClosure --> Accept: input ended and accepting state 포함
+    StartClosure --> Reject: input ended and accepting state 없음
     MoveOnSymbol --> NextClosure
     NextClosure --> MoveOnSymbol: input remains
-    NextClosure --> Accept: accepting state 포함
-    NextClosure --> Reject: accepting state 없음
+    NextClosure --> Accept: input ended and accepting state 포함
+    NextClosure --> Reject: input ended and accepting state 없음
     Accept --> [*]
     Reject --> [*]
 ```

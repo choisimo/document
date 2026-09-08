@@ -6,6 +6,15 @@ Spring Data JPA의 derived query method만으로는 복잡한 검색 조건, 동
 
 이 문서는 원문의 QueryDSL custom repository 구현 내용을 `JPAQueryFactory`, 동적 predicate, Spring Data JPA 통합 중심으로 재작성한다.
 
+---
+
+## 적용 범위와 검증 기준
+
+- **범위:** QueryDSL, Jakarta/JPA, Spring Data JPA, Hibernate와 데이터베이스 dialect의 버전을 함께 기록합니다. 예제 import와 생성된 Q 타입은 해당 조합에서만 그대로 적용됩니다.
+- **전제:** transaction 경계, association fetch 전략, nullability, pagination 정렬, 영속성 컨텍스트 상태와 데이터 규모를 명시합니다.
+- **사실과 추론:** 타입 검사와 생성 SQL은 관찰 가능한 사실이고, N+1·index 사용·성능 원인은 SQL log와 실행 계획을 보기 전까지 가설입니다.
+- **실패·완료:** compile, repository 통합 테스트, 경계값·빈 결과·동시 수정, 실제 SQL과 query count를 확인하고 rollback 및 bulk 연산 뒤의 entity 상태가 의도와 일치할 때 완료로 판정합니다.
+
 ## 2. 현재 나의 상태 (Baseline)
 
 - Spring Data JPA repository와 QueryDSL이라는 도구 이름은 알고 있다.
@@ -16,7 +25,7 @@ Spring Data JPA의 derived query method만으로는 복잡한 검색 조건, 동
 
 ## 3. 도달하고 싶은 목표 (Target State)
 
-- Q-type을 기반으로 compile-time checked query를 작성한다.
+- Q-type과 Java 표현식의 타입 불일치를 컴파일 시점에 일부 검출한다. 실제 SQL·dialect·cardinality·데이터 오류는 실행 시 검증한다.
 - `EntityManager`를 통해 `JPAQueryFactory`를 주입하거나 Bean으로 등록한다.
 - Optional search parameter를 안전하게 predicate로 조합한다.
 - Spring Data repository와 custom repository를 역할별로 분리한다.
@@ -61,20 +70,21 @@ stateDiagram-v2
     BuildQuery --> ExecuteFetch
     ExecuteFetch --> MapResult
     MapResult --> ReturnResponse
-    BuildQuery --> ExecuteBulk
-    ExecuteBulk --> FlushAndClear
-    FlushAndClear --> ReturnResponse
+    BuildQuery --> FlushPendingChanges: bulk 준비
+    FlushPendingChanges --> ExecuteBulk
+    ExecuteBulk --> ClearContext
+    ClearContext --> ReturnResponse
     ReturnResponse --> [*]
 ```
 
-조회 query는 결과 mapping으로 끝나지만, bulk update/delete는 persistence context에 남아 있는 managed entity와 DB 상태가 어긋날 수 있어 flush/clear 전략이 필요하다.
+조회 query는 결과 mapping으로 끝나지만, bulk update/delete는 persistence context를 우회한다. 필요한 미반영 변경을 먼저 flush하고 bulk를 실행한 뒤 clear 또는 대상 refresh로 managed state를 다시 맞춘다. clear는 아직 flush하지 않은 변경도 버리므로 실행 순서를 명시한다.
 
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
 - QueryDSL Q-type은 entity field 변경과 함께 재생성되어야 한다.
 - `JPAQueryFactory`는 유효한 `EntityManager`를 통해 생성되어야 한다.
 - Optional parameter가 null일 때 전체 조건이 의도치 않게 풀리지 않도록 predicate 조합을 명확히 해야 한다.
-- `fetchOne()`은 결과가 0개 또는 2개 이상인 경우의 처리를 고려해야 한다.
+- `fetchOne()`은 결과가 없으면 null을 반환하고, 둘 이상이면 non-unique result 예외가 발생하므로 cardinality 계약을 확인해야 한다.
 - Bulk update/delete는 persistence context를 우회하므로 이후 managed entity 상태를 정리해야 한다.
 - Fetch join은 N+1을 줄일 수 있지만 collection fetch join과 pagination 조합은 주의해야 한다.
 - Repository custom implementation은 Spring Data가 찾을 수 있는 naming과 package 구조를 지켜야 한다.

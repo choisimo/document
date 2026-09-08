@@ -1,6 +1,62 @@
-# Devtools Docker Stacks 학습 및 기록 노트
+---
+title: "개발 도구 Compose 스택"
+---
+
+# 개발 도구 Compose 스택 {#devtools-docker-stacks}
+
+<nav class="hub-directory" aria-label="개발 도구 Compose 스택 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">컬렉션 탐색</h2>
+
+- [Compose 스택](../index.md)
+- [Docker Compose 컬렉션](../../index.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">gitea</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/devtools/gitea/docker-compose.yaml)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">sourcebot</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/devtools/sourcebot/docker-compose.yaml)
+- [README.md](/extra/docker/stacks/devtools/sourcebot/README.md)
+- [env.example](/extra/docker/stacks/devtools/sourcebot/env.example)
+- [config.json](/extra/docker/stacks/devtools/sourcebot/config.json)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-4" markdown="1">
+
+<h2 id="directory-group-4">termix</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/devtools/termix/docker-compose.yaml)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
 
 Devtools 카테고리는 Git 서버, 코드 검색 도구, 웹 터미널처럼 개발과 운영 작업을 직접 다루는 서비스를 모은다. 이 계층은 저장소, 토큰, SSH 접속, 터미널 세션을 다룰 수 있으므로 기본 비밀번호와 공개 포트를 반드시 검토해야 한다.
+
+## 도구 스택 점검 기준
+
+- Docker socket, 소스 디렉터리, SSH 키와 클라우드 토큰을 마운트하면 도구 컨테이너가 갖는 권한을 명시합니다.
+- UI·API 공개 범위와 인증을 먼저 설정하고, 이미지와 플러그인 버전을 함께 고정합니다.
+- 완료 기준은 health 상태, 최소 권한 계정의 실제 작업 1건, 재시작과 설정 복원 결과입니다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -182,3 +238,5 @@ Termix는 웹 터미널 특성상 프록시 인증, IP 제한, 세션 만료, �
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 Devtools 스택은 개발 편의 도구가 아니라 `__________`, 토큰, SSH 권한을 여는 서비스다. 실행 전 기본 `__________`를 바꾸고, 포트는 `__________` 또는 인증 프록시 뒤에 둔다.
+
+</details>

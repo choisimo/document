@@ -1,6 +1,73 @@
-# Linux 문서
+---
+title: "Linux"
+---
+
+# Linux {#linux}
+
+<nav class="hub-directory" aria-label="Linux 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">주요 문서</h2>
+
+- [Linux 명령어 참조](commands.md)
+- [Linux 파일시스템과 파일 I/O](filesystem.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">Arch Linux</h2>
+
+- [Arch Linux UEFI 수동 설치](arch/installation.md)
+- [KDE Plasma 테마와 설정 관리](arch/kde-theme.md)
+- [Arch Linux 문제 해결](arch/troubleshooting.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">Proxmox</h2>
+
+- [Proxmox 물리 디스크 VM 연결](proxmox/drive-mount.md)
+- [Proxmox OS 디스크 마이그레이션](proxmox/migration.md)
+- [Proxmox 환경 WireGuard VPN](proxmox/wireguard-vpn.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-4" markdown="1">
+
+<h2 id="directory-group-4">미디어</h2>
+
+- [FFmpeg 동영상 분할](multimedia/ffmpeg.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-5" markdown="1">
+
+<h2 id="directory-group-5">함께 읽기</h2>
+
+- [Proxmox QDevice 투표 문제 해결](../infrastructure/proxmox/cluster.md)
+- [리눅스 고정 IP 설정 기준](../infrastructure/networking/network-settings.md)
+- [SSH Configuration](../security/ssh/configuration.md)
+- [Vim](../tools/terminal/vim.md)
+- [Tmux](../tools/terminal/tmux.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
 
 이 섹션은 Linux 기본 명령, 파일시스템, Arch Linux, Proxmox 관련 운영 작업, FFmpeg 사용법을 한 흐름으로 묶는다. 목표는 배포판별 명령어를 외우는 것이 아니라 시스템 상태를 읽고 안전하게 변경하는 습관을 만드는 것이다.
+
+## 이 페이지의 적용 범위
+
+이 페이지는 Linux 문서 탐색용 색인입니다. FHS, package 관리, service·permission 명령은 배포판·release·init system·desktop에 따라 달라집니다. 아래 학습 경로는 탐색을 돕는 요약이며 실제 적용은 연결된 문서와 해당 배포판의 현재 공식 문서에서 version·권한·backup·rollback 조건을 확인한 뒤 수행합니다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -118,7 +185,7 @@ pwd
 ls -la
 stat .
 namei -l /etc/passwd
-find /var/log -type f -name '*.log' -maxdepth 2
+find /var/log -maxdepth 2 -type f -name '*.log'
 ```
 
 문서 탐색은 다음 순서로 시작한다.
@@ -160,3 +227,5 @@ Linux 운영 능력은 단일 배포판 지식보다 상태를 읽는 능력에 
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 Linux 문서의 핵심은 명령어 나열이 아니라 상태를 읽고 안전하게 바꾸는 순서다. 먼저 관찰하고, 변경 범위를 정한 뒤, 검증하고 기록한다.
+
+</details>

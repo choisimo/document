@@ -1,6 +1,6 @@
 # Java 메모리와 GC
 
-Java 메모리 관리는 “객체를 직접 free하지 않아도 된다”가 아니라 “객체가 어디에서 참조되고, 언제 더 이상 reachable하지 않은가”를 이해하는 일이다. 이 문서는 JVM memory area, reference reachability, garbage collection, leak 진단의 기본 기준을 정리한다.
+Java 메모리 관리는 “객체를 직접 free하지 않아도 된다”가 아니라 “객체가 어디에서 참조되고, 언제 더 이상 reachable하지 않은가”를 이해하는 일이다. 이 문서는 JVM memory area, reference reachability, garbage collection, leak 진단의 기본 기준을 정리한다. JDK 17·21의 일반적인 HotSpot을 중심으로 Java 명세의 보장과 javac/JVM 구현 관찰을 구분한다. 실제 배치·참조 크기·용어는 collector와 압축 참조 옵션 등에 따라 달라진다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -57,7 +57,7 @@ Metaspace는 class metadata를 저장한다. classloader leak이 있으면 metas
 
 GC roots는 thread stack, static field, JNI reference, system class 등 reachability 분석의 시작점이다.
 
-G1 GC는 JDK 9 이후 HotSpot의 기본 collector로 쓰인다. Oracle의 GC tuning guide는 일반적으로 G1 기본값을 사용하고 필요하면 pause-time goal과 maximum heap size를 조정하는 접근을 권장한다.
+G1은 많은 HotSpot JDK 9+ 서버 구성의 기본 collector지만 플랫폼, 공급업체와 실행 옵션에 따라 다르다. 대상 JVM의 실제 flags·GC 로그를 확인한 뒤 heap 크기와 pause-time goal을 workload 기준으로 조정한다.
 
 ## 6. 상태 전이 (State Transition)
 
@@ -67,14 +67,14 @@ G1 GC는 JDK 9 이후 HotSpot의 기본 collector로 쓰인다. Oracle의 GC tun
 allocated
   -> referenced
   -> reachable
-  -> no longer referenced
+  -> strong path from GC roots no longer exists
   -> unreachable
   -> reclaimed by GC
 ```
 
 memory leak은 객체가 논리적으로는 필요 없지만 reference chain 때문에 `reachable` 상태에 계속 남는 것이다.
 
-GC 운영 상태는 다음처럼 관측한다.
+아래는 세대별 collector의 개념적 관측 흐름이다. 모든 collector가 young/old 구획이나 mixed/full GC 용어를 동일하게 쓰지는 않는다.
 
 ```text
 normal allocation
@@ -110,7 +110,7 @@ public final class MemoryExample {
 }
 ```
 
-`localRef`가 가리키는 객체는 method 실행 중 stack frame을 통해 reachable하다. `fieldRef`가 가리키는 객체는 `MemoryExample` instance가 reachable한 동안 함께 reachable하다.
+`localRef`는 실행 프레임의 local-variable slot으로 다뤄지지만 실제 JVM/JIT의 liveness 분석에 따라 메서드 반환 전에도 객체가 회수 대상이 될 수 있다. `fieldRef`는 reachable한 `MemoryExample` 인스턴스에서 이어지는 참조 경로를 만든다.
 
 static collection leak 예시는 다음과 같다.
 
@@ -147,21 +147,21 @@ lambda는 instance field `counter`를 변경할 수 있지만, capture한 local 
 GC log를 켜고 실행한다.
 
 ```bash
-java -Xms512m -Xmx512m -Xlog:gc*,safepoint:file=gc.log:time,uptime,level,tags -jar app.jar
+java -Xms512m -Xmx512m '-Xlog:gc*,safepoint:file=gc.log:time,uptime,level,tags' -jar app.jar
 ```
 
 운영 중 heap 상태를 본다.
 
 ```bash
-jcmd <pid> GC.heap_info
-jcmd <pid> VM.flags
-jcmd <pid> Thread.print
+jcmd "${jvm_pid:?set jvm_pid to the target JVM PID}" GC.heap_info
+jcmd "${jvm_pid:?set jvm_pid to the target JVM PID}" VM.flags
+jcmd "${jvm_pid:?set jvm_pid to the target JVM PID}" Thread.print
 ```
 
 heap dump는 장애 대응 절차에 맞춰 저장한다.
 
 ```bash
-jcmd <pid> GC.heap_dump /tmp/app.hprof
+jcmd "${jvm_pid:?set jvm_pid to the target JVM PID}" GC.heap_dump /tmp/app.hprof
 ```
 
 ## 9. 실패 사례 (What could go wrong?)
@@ -183,6 +183,10 @@ G1은 대부분의 서버 애플리케이션에서 기본 출발점이다. low-l
 Container 환경에서는 JVM이 cgroup memory limit을 인식하더라도 `-Xmx`, `MaxRAMPercentage`, request/limit, native memory를 함께 설계해야 한다.
 
 Native memory, direct buffer, metaspace, thread stack은 heap dump만으로 보이지 않는다. `jcmd VM.native_memory` 같은 Native Memory Tracking은 별도 활성화가 필요하다.
+
+## 근거, 완료 및 불확실성
+
+언어 규칙은 JLS/JVMS, collector는 대상 JDK 공식 문서와 JEP, Spring은 사용 버전의 공식 reference를 우선합니다. 성능 변경은 동일 부하에서 allocation rate, pause, p95/p99 지연, 처리량, 오류율을 전후 비교하고 회귀 시 되돌릴 수 있어야 완료입니다.
 
 ## 11. 최종 체크리스트 (Definition of Done)
 

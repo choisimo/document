@@ -6,8 +6,17 @@
 |------|------|
 | **Use Case** | 두 노드의 공통 조상 찾기 |
 | **Components** | Tree Structure, Parent Tracking |
-| **Constraint** | 트리 구조 필수 |
-| **시간 복잡도** | O(N) |
+| **Constraint** | rooted tree, node 존재와 identity·ancestor 정의 필요 |
+| **시간 복잡도** | 이 single-query traversal template은 O(N) |
+
+---
+
+## 적용 범위와 검증 기준
+
+- **범위:** 이 template은 rooted tree에서 한 query를 `O(N)`에 처리하는 방식입니다. 많은 query에는 parent/depth preprocessing, binary lifting 또는 Euler/RMQ 등 다른 trade-off가 있습니다.
+- **전제:** 두 node의 존재, identity 비교, root와 ancestor 정의를 명시합니다. BST ordering을 이용하는 LCA와 일반 binary tree LCA를 구분합니다.
+- **실패 조건:** node 하나/둘 모두 없음, 동일 node, duplicate value, disconnected forest와 deep recursion을 포함합니다.
+- **완료 증거:** ancestor-descendant, 서로 다른 subtree, root, missing-node fixture에서 path-to-root reference와 비교합니다.
 
 ---
 

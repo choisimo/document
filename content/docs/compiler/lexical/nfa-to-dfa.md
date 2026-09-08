@@ -1,5 +1,12 @@
 # NFA to DFA 변환 학습 및 기록 노트
 
+## 변환 계약
+
+- 알파벳은 `{0, 1}`이고 NFA의 시작 상태는 A, 수용 상태는 C다. 전이는 `δ(A,0)={B}`, `δ(B,0)={B}`, `δ(B,1)={B,C}`이며 나머지는 공집합이다. 이 예제에는 ε-전이가 없다.
+- DFA의 한 상태는 NFA 상태의 집합입니다. ε-전이가 있으면 각 이동 전후에 ε-closure를 계산합니다.
+- 아직 나타나지 않은 전이 결과도 공집합 상태를 포함해 기록해야 완전한 DFA가 됩니다.
+- 완료 기준은 시작 부분집합에서 도달 가능한 모든 부분집합을 처리하고, 원본 NFA와 결과 DFA가 같은 수용·거부 표본을 통과하는 것입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 정규표현식은 보통 NFA로 만들기 쉽지만, 실제 scanner는 입력 문자마다 다음 상태가 하나로 결정되는 DFA가 더 실행하기 쉽다. NFA-to-DFA 변환은 여러 NFA 상태의 가능성을 하나의 DFA 상태 집합으로 묶어 deterministic execution model로 바꾸는 과정이다.
@@ -24,8 +31,8 @@
 
 ```mermaid
 flowchart LR
-    A[Regex: 0(0|1)*1] --> B[NFA]
-    B --> C[Start set: {A}]
+    A["Regex: 0(0|1)*1"] --> B[NFA]
+    B --> C["Start set: {A}"]
     C --> D[Move on symbol]
     D --> E[Reachable NFA state set]
     E --> F[DFA state]
@@ -40,7 +47,7 @@ Subset construction은 "현재 NFA가 있을 수 있는 모든 상태"를 하나
 | 구성요소 | 예제 값 | 의미 |
 | --- | --- | --- |
 | Alphabet | `{0, 1}` | 입력 symbol 집합 |
-| Regex | `0(0|1)*1` | 0으로 시작하고 1로 끝나는 문자열 |
+| Regex | `0(0\|1)*1` | 길이 2 이상이며 0으로 시작하고 1로 끝나는 문자열 |
 | NFA start | `A` | 변환 시작 상태 |
 | NFA accept | `C` | 수락 상태 |
 | DFA state `A` | `{A}` | 아직 첫 0을 읽기 전 |
@@ -92,7 +99,7 @@ flowchart LR
     T -- "0,1" --> T
 ```
 
-예를 들어 `01011010101`은 `A -> B -> B -> BC -> BC -> B -> B -> BC -> B -> B -> BC`로 끝나며 `BC`가 accepting state라서 accept된다.
+예를 들어 `01011010101`의 DFA 경로는 `A -> B -> BC -> B -> BC -> BC -> B -> BC -> B -> BC -> B -> BC`다. 11개 symbol을 모두 소비한 뒤 `BC`가 accepting state이므로 accept된다.
 
 ## 9. 실패 사례 (What could go wrong?)
 

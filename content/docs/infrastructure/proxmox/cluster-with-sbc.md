@@ -2,6 +2,8 @@
 
 Raspberry Pi, NanoPi NEO3 같은 SBC는 Proxmox VE를 설치하는 세 번째 노드가 아니라 외부 QDevice 서버로 사용할 수 있다. 이 문서는 2노드 Proxmox 클러스터에 외부 `corosync-qnetd` 투표 장치를 추가할 때의 조건과 검증 순서를 정리한다.
 
+지원 여부는 설치된 Proxmox VE·Corosync와 SBC OS 버전의 공식 문서로 확인한다. 특정 SBC나 커뮤니티 이미지가 실행 가능하다는 사실은 공급자 지원을 뜻하지 않는다. 과반 투표가 quorum 기준이며 홀수 표 자체가 보편적인 필수 조건은 아니다. 설정 전 정상 quorum과 콘솔·유지보수 창을 확보하고, 모든 노드의 expected/total votes·QDevice 연결과 양쪽 로그를 비교한다. QNetd 상실, QNetd에 접근 가능한 한 노드 상실, 관련 네트워크 분리를 분리해 시험하고 fencing과 남은 용량을 검증한다. 예상과 다르면 공식 제거 절차와 이전 SSH·방화벽 정책으로 복원한다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Proxmox 클러스터는 quorum이 있어야 클러스터 설정 파일시스템과 HA 판단을 안전하게 유지한다. 2노드 클러스터는 한 노드가 사라지면 남은 한 노드가 과반을 확보하지 못해 quorum을 잃기 쉽다.
@@ -27,7 +29,7 @@ QDevice는 별도 장비가 투표 판단에 참여하도록 만들어 2노드 �
 - SBC에는 `corosync-qnetd`만 설치한다.
 - 모든 Proxmox 노드에는 `corosync-qdevice`를 설치한다.
 - Proxmox 노드에서 SBC의 5403/TCP에 접근할 수 있다.
-- QDevice 설정 후 `pvecm status`와 `pvecm qdevice status`로 상태를 확인한다.
+- QDevice 설정 후 `pvecm status`, 클라이언트 서비스 상태와 journal로 확인한다.
 
 ## 4. 시스템 번역 (Data Flow)
 
@@ -85,7 +87,7 @@ SBC QDevice 작업은 다음 상태로 진행한다.
 - Proxmox 노드에서 QDevice host의 5403/TCP에 접근 가능해야 한다.
 - QDevice는 quorum vote만 보강하며 shared storage나 VM 데이터 일관성을 제공하지 않는다.
 - root SSH 허용은 설정에 필요한 경우만 임시로 사용하고, 설정 후 정책을 되돌린다.
-- `pvecm expected 1` 같은 강제 quorum 명령은 복구 목적의 임시 조치로만 사용한다.
+- expected votes 강제 변경은 일반 설정 절차가 아니다. 다른 partition의 writer가 배제됐다는 증거와 해당 버전의 복구 절차 없이 수행하지 않는다.
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
 
@@ -122,7 +124,8 @@ pvecm qdevice setup 192.168.1.55
 
 ```bash
 pvecm status
-pvecm qdevice status
+systemctl status corosync-qdevice --no-pager
+journalctl -u corosync-qdevice --since "-15 min"
 corosync-quorumtool -s
 ```
 

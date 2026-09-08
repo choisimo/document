@@ -2,6 +2,19 @@
 
 Cloudflare Zero Trust 구성은 Cloudflare Tunnel로 origin을 직접 노출하지 않고 연결하고, Access policy로 사용자가 애플리케이션에 도달할 수 있는지 평가하는 접근 제어 구조다.
 
+## 문서 상태와 실행 게이트
+
+이 문서는 Docker 기반 cloudflared connector와 Access 정책의 설계 예시입니다. 선택한 Cloudflare/cloudflared 버전과 실제 origin topology에서 명령·인증·노출 경계를 확인한 뒤 적용합니다.
+
+- **범위와 버전**: Cloudflare 플랜, Access 정책 모델, 터널 유형, cloudflared 이미지와 바이너리 버전, Ubuntu 및 Docker 버전을 기록합니다. 비용, 업로드 크기, 프로토콜 지원은 현재 플랜에서 확인합니다.
+- **신뢰 경계**: Tunnel은 오리진을 자동으로 인가하지 않습니다. 기본 거부 Access 정책, MFA, 서비스 토큰 수명과 회수, 최소 권한 API 토큰, 오리진의 직접 접근 차단을 별도로 검증합니다.
+- **비밀과 공급망**: 터널 토큰, credentials 파일, API 키와 비밀번호를 명령 기록이나 Compose 파일에 넣지 않습니다. 패키지 서명과 체크섬을 검증하고 이미지와 바이너리를 승인 버전 또는 digest로 고정합니다.
+- **진단 원칙**: HTTP 521, 502와 context canceled는 여러 원인이 가능한 증상입니다. DNS, 터널 상태, 컨테이너 네트워크, 오리진 리슨 주소, TLS 검증, 타임아웃을 계층별 증거로 분리하며 noTLSVerify를 일반 해결책으로 사용하지 않습니다.
+- **변경과 롤백**: 현재 설정과 인증서를 백업하고 구문 검사를 통과한 뒤 한 계층씩 적용합니다. 기존 관리 경로를 유지하고 실패하면 마지막 정상 설정과 고정 이미지로 되돌립니다.
+- **완료 조건**: 비인가 요청 거부, 승인 사용자와 서비스 토큰 성공, 오리진 직접 접근 차단, WebSocket과 업로드 시험, 재시작 후 터널 복구, 감사 로그와 경보 수신을 기록합니다.
+
+장애 로그는 해당 환경·시점의 관찰값으로 취급합니다. debug 로그에는 헤더와 token이 포함될 수 있으므로 수집 범위와 보존을 제한하고 공유 전에 redaction합니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 홈서버나 내부 애플리케이션을 공개하려고 공유기 포트포워딩과 공인 IP 노출을 사용하면 origin이 직접 공격면이 된다. Reverse proxy만 세워도 인증과 정책을 별도로 붙이지 않으면 우회 경로가 남는다.
@@ -28,7 +41,7 @@ Cloudflare Tunnel은 `cloudflared`가 내부에서 Cloudflare로 outbound 연결
 - Access policy의 action, rule type, selector, value를 구분한다.
 - Include, Require, Exclude의 논리 차이를 설명한다.
 - tunnel token과 service token을 비밀값으로 관리한다.
-- origin 방화벽에서 Cloudflare/Tunnel 경로 외 직접 접근을 차단한다.
+- origin은 인터넷에 직접 노출하지 않고 connector의 승인된 내부 경로로만 접근하게 한다. Tunnel은 outbound 연결이므로 공개 origin 포트를 열거나 Cloudflare IP의 inbound 허용을 필수로 가정하지 않는다.
 
 ## 4. 시스템 번역 (Data Flow)
 
@@ -98,35 +111,41 @@ stateDiagram-v2
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
 
-Docker Compose에서 `cloudflared`를 실행하는 최소 형태는 다음과 같다.
+아래는 기존 `app` 컨테이너가 포트 8080으로 서비스하며 공유 Docker network에 연결된 경우다. app의 8080은 public host port로 publish하지 않는다. `ORIGIN_NETWORK`는 app도 연결된 기존 network 이름이며 `CLOUDFLARED_IMAGE`는 검토한 공식 image tag/digest다.
 
 ```yaml
 services:
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    image: "${CLOUDFLARED_IMAGE:?set reviewed cloudflared tag or digest}"
     command: tunnel --no-autoupdate run
     environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+      TUNNEL_TOKEN: "${CLOUDFLARE_TUNNEL_TOKEN:?provide tunnel token securely}"
+    networks:
+      - origin
     restart: unless-stopped
+networks:
+  origin:
+    external: true
+    name: "${ORIGIN_NETWORK:?set the existing app network}"
 ```
 
-public hostname 매핑 예:
+실제 token은 권한이 제한된 비추적 환경 파일 또는 secret 저장소에서 주입한다. Compose의 reference에는 값이 없지만 렌더링 결과와 container inspect에는 비밀이 나타날 수 있으므로 공유하지 않는다.
+
+먼저 `app.example.com`의 Access application을 만들고 기본 거부 및 승인 조건을 검토한다. 그 뒤 public hostname을 연결하며 비인가 요청이 origin에 도달하지 않는지 확인한다.
 
 ```text
-Hostname: app.example.com
-Service: http://localhost:8080
+Access action: Allow
+Include: approved organizational identity/group
+Require: the explicitly chosen MFA/device conditions
+Exclude: explicitly blocked identities or conditions
+
+Tunnel hostname: app.example.com
+Tunnel service: http://app:8080
 ```
 
-Access policy 예:
+Docker connector 내부의 `localhost`는 connector 자신이므로 위 app을 가리키지 않는다. host에서 실행하는 origin은 다른 topology이며 그 실행 위치에서 도달 가능한 private 경로를 별도로 검증한다. Access rule의 OR/AND와 여러 policy의 action 우선순위는 설치된 정책 모델에서 확인한다.
 
-```text
-Action: Allow
-Include: email ending in @example.com
-Require: MFA or device posture if configured
-Exclude: blocked users or countries if needed
-```
-
-검증은 브라우저 인증 화면, `cloudflared` 로그, origin access log, 직접 origin 접속 차단 여부를 함께 본다.
+검증은 비인가 거부·승인 사용자 성공, origin 직접 접근 차단, connector의 DNS/서비스 도달성, WebSocket, 재시작과 token 회수 결과를 함께 확인한다.
 
 ## 9. 실패 사례 (What could go wrong?)
 

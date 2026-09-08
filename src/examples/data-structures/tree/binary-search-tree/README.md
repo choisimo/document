@@ -1,6 +1,7 @@
 # Binary Search Tree (BST) - 이진 탐색 트리
 
 > **"First Principles"** 관점에서 BST의 본질을 이해하고, 메모리 구조와 런타임 거동을 시각적으로 시뮬레이션합니다.
+> 범위: 예시는 중복 key를 저장하지 않는 BST를 가정합니다. duplicate insert와 missing delete가 size를 바꾸는지 구현별로 명시하고 같은 invariant로 시험합니다. 주소·객체 배치 그림은 개념 모델입니다.
 
 ---
 
@@ -16,6 +17,8 @@
 ```
 
 ### 시간 복잡도
+
+정확한 표현은 트리 높이 `h`에 대해 탐색·삽입·삭제가 `O(h)`입니다. 평균 `O(log n)`은 입력 순서가 충분히 섞였거나 트리가 균형에 가까운 경우의 기대이며 일반 BST가 균형을 보장하지 않습니다.
 
 | 연산 | Average | Worst (Skewed) |
 |------|---------|----------------|
@@ -164,10 +167,10 @@ Strategy: In-order Successor (오른쪽 서브트리의 최소값)
 
 | Language | Focus | File |
 |----------|-------|------|
-| Python | 직관적 이해, Reference Counting | `01_python/bst.py` |
-| JavaScript | V8 엔진 최적화, Hidden Class | `02_javascript/bst.js` |
-| Java | JVM 메모리 모델, GC 생애 주기 | `03_java/BinarySearchTree.java` |
-| Rust | Ownership, Zero-cost Abstraction | `04_rust/src/lib.rs` |
+| Python | 직관적 이해, Reference Counting | [python/bst.py](python/bst.py) |
+| JavaScript | V8 엔진 최적화, Hidden Class | [javascript/bst.js](javascript/bst.js) |
+| Java | JVM 메모리 모델, GC 생애 주기 | [java/BinarySearchTree.java](java/BinarySearchTree.java) |
+| Rust | Ownership, Zero-cost Abstraction | [rust/src/lib.rs](rust/src/lib.rs) |
 
 ---
 

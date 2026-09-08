@@ -1,6 +1,51 @@
-# Docker Compose Stacks 전체 색인 학습 노트
+---
+title: "Compose 스택"
+---
+
+# Compose 스택 {#docker-compose-stacks}
+
+<nav class="hub-directory" aria-label="Compose 스택 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">컬렉션 탐색</h2>
+
+- [Docker Compose 컬렉션](../index.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">카테고리</h2>
+
+- [데이터베이스 Compose 스택](databases/index.md)
+- [자동화 Compose 스택](automation/index.md)
+- [개발 도구 Compose 스택](devtools/index.md)
+- [보안 Compose 스택](security/index.md)
+- [미디어 Compose 스택](media/index.md)
+- [스토리지 Compose 스택](storage/index.md)
+- [모니터링 Compose 스택](monitoring/index.md)
+- [프록시 Compose 스택](proxy/index.md)
+- [기타 서비스 Compose 스택](misc/index.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
 
 이 문서는 `infra/docker/stacks` 아래의 Compose 스택을 전체 카테고리 관점에서 정리한다. 각 카테고리 문서는 서비스별 실행 파일을 안내하고, 이 문서는 모든 스택에 공통으로 적용되는 실행 전 검증 절차를 담당한다.
+
+## 공통 실행 계약
+
+- `docker compose config`로 변수 치환과 최종 포트·볼륨·네트워크를 먼저 검토합니다.
+- 이미지 태그 또는 digest, 비밀 주입, 자원 한도, healthcheck, 로그 보존과 데이터 백업을 명시합니다.
+- 시작 성공, 준비 완료, 데이터 복구 가능, 외부 공개 안전을 서로 다른 검증 항목으로 기록합니다.
+- 업그레이드는 현재 데이터의 백업·복원 시험과 이전 이미지로의 롤백 조건을 만든 뒤 수행합니다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -110,9 +155,15 @@ stacks/index.md
 
 ```bash
 cd infra/docker/stacks/automation/n8n
-cp .env.example .env
-docker compose config
-docker compose up -d
+# .env가 이미 있으면 복사하지 않고 기존 설정과 차이를 검토한다.
+test ! -e .env && (umask 077; cp .env.example .env)
+chmod 600 .env
+```
+
+여기서 `.env`의 자리표시자를 실제 비밀 저장소 값과 환경별 설정으로 교체한다. 필수 값, 이미지 고정, 포트와 volume 경계를 검토한 후 다음 블록을 실행한다. 기존 `.env`를 샘플로 덮어쓰지 않는다. 렌더링된 Compose에는 비밀이 포함될 수 있으므로 공유 로그에 출력하지 않는다.
+
+```bash
+docker compose config --quiet && docker compose up -d
 docker compose ps
 ```
 
@@ -173,3 +224,5 @@ Compose 파일이 복잡해지면 profile, override 파일, 공통 `.env` 전략
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 Docker Compose 스택 색인은 실행 버튼이 아니라 `__________`를 찾는 지도다. 실제 실행은 `__________` 아래에서 하고, 실행 전에는 `.env`, README, `__________` 출력을 확인한다.
+
+</details>

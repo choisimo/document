@@ -5,9 +5,18 @@
 | 항목 | 설명 |
 |------|------|
 | **Use Case** | 배낭에 물건 넣기 (각 물건 0개 또는 1개) |
-| **Components** | 2D DP (items × capacity) |
+| **Components** | items × capacity DP; dependency에 따라 1D optimization 가능 |
 | **Constraint** | 무게 제한 내 최대 가치 |
-| **시간 복잡도** | O(N × W) |
+| **시간 복잡도** | integer capacity W에 대한 pseudo-polynomial O(NW) |
+
+---
+
+## 적용 범위와 검증 기준
+
+- **범위:** `N` items와 integer capacity `W`를 index로 쓰는 DP입니다. `O(NW)`는 `W`의 numeric value에 비례하는 pseudo-polynomial bound이며 input bit length에 대한 polynomial 보장이 아닙니다.
+- **전제:** 0/1은 item당 한 번, unbounded는 반복 사용입니다. 1D optimization에서 capacity descending/ascending 순서가 이 차이를 결정합니다.
+- **실패 조건:** zero/negative weight, overflow, impossible capacity, item 재사용과 reconstruction 누락을 포함합니다.
+- **완료 증거:** 작은 item set을 subset/enumeration reference와 비교하고 capacity invariant와 0/1·unbounded 결과 차이를 확인합니다.
 
 ---
 

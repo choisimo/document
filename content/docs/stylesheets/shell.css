@@ -1,0 +1,367 @@
+/* Shared Material shell. Home and catalog own their content layout. */
+:root {
+  --shell-font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --shell-body-size: 17px;
+  --shell-reading-width: 72ch;
+  --shell-control-size: 44px;
+  --shell-motion: 140ms var(--ease-out-expo, ease-out);
+}
+
+.md-header {
+  background: var(--color-bg);
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: none;
+  font-family: var(--shell-font);
+}
+
+.md-header__inner {
+  min-height: 64px;
+  padding: 8px 12px;
+  gap: 4px;
+}
+
+.md-header__title {
+  min-width: 0;
+  margin-inline: 8px 12px;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.md-header__button {
+  min-width: var(--shell-control-size);
+  min-height: var(--shell-control-size);
+  margin: 0;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  opacity: 1;
+  transition: opacity var(--shell-motion), transform var(--shell-motion);
+}
+
+.md-header__button:hover {
+  color: var(--color-text);
+  background: var(--color-surface-raised);
+  opacity: 1;
+}
+
+.md-header__button:active {
+  transform: scale(0.96);
+}
+
+.md-header__button.md-logo {
+  color: var(--color-text);
+}
+
+.md-header .md-source {
+  display: flex;
+  align-items: center;
+  min-height: var(--shell-control-size);
+  color: var(--color-text-muted);
+}
+
+.md-header .md-source:hover {
+  color: var(--color-text);
+}
+
+.md-header .md-search__form {
+  min-height: 46px;
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.md-header .md-search__input {
+  min-height: var(--shell-control-size);
+  font-family: var(--shell-font);
+  font-size: 15px;
+  color: var(--color-text);
+}
+
+.md-header .md-search__input::placeholder {
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+
+.md-header .md-search__icon {
+  color: var(--color-text-muted);
+}
+
+/* Seven navigation groups fit normally; longer translations can wrap. */
+.md-tabs {
+  min-height: 52px;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  border-top: 1px solid var(--color-border);
+}
+
+.md-tabs__list {
+  min-height: 52px;
+  height: auto;
+  margin: 0;
+  padding: 4px 12px;
+  gap: 4px;
+  flex-wrap: wrap;
+  overflow: visible;
+  -webkit-mask-image: none;
+  mask-image: none;
+  scrollbar-width: auto;
+}
+
+.md-tabs__item {
+  height: auto;
+}
+
+.md-tabs__link {
+  min-height: var(--shell-control-size);
+  margin-top: 0;
+  padding: 8px 14px;
+  font-family: var(--shell-font);
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  opacity: 1;
+  transition: opacity var(--shell-motion);
+}
+
+.md-tabs__link:hover,
+[data-md-color-scheme="slate"] .md-tabs__link:hover {
+  color: var(--color-text);
+  background: var(--color-surface-raised);
+}
+
+.md-tabs__item--active > .md-tabs__link,
+.md-tabs__link--active,
+[data-md-color-scheme="slate"] .md-tabs__link--active {
+  color: var(--color-accent);
+  background: var(--color-accent-light);
+  font-weight: 650;
+  opacity: 1;
+}
+
+.md-nav {
+  font-family: var(--shell-font);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.md-nav__link {
+  display: flex;
+  align-items: center;
+  min-height: var(--shell-control-size);
+  margin-block: 0;
+  padding-block: 6px;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+  transition: opacity var(--shell-motion);
+}
+
+.md-nav__link:hover {
+  color: var(--color-accent);
+  background: var(--color-surface);
+}
+
+.md-nav__item--active > .md-nav__link {
+  color: var(--color-accent);
+}
+
+.md-nav--secondary .md-nav__link {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.md-sidebar__scrollwrap {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
+/* Use an English measure of 72ch, approximately 40 CJK glyphs at this size.
+   Do not constrain navigation hubs: their own styles set their widths. */
+.md-content__inner:where(:not(.hub-home, .hub-catalog)):where(:not(:has(.hub-home, .hub-catalog))) {
+  max-width: var(--shell-reading-width);
+  margin-inline: 24px;
+  padding-inline: 0;
+  font-family: var(--shell-font);
+  font-size: var(--shell-body-size);
+  line-height: 1.8;
+  color: var(--color-text);
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+
+.md-content__inner:where(:not(.hub-home, .hub-catalog)):where(:not(:has(.hub-home, .hub-catalog))) :is(h1, h2, h3, h4) {
+  font-family: var(--shell-font);
+  color: var(--color-text);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  scroll-margin-top: 144px;
+}
+
+.md-content__inner:where(:not(.hub-home, .hub-catalog)):where(:not(:has(.hub-home, .hub-catalog))) h1 {
+  clear: both;
+  margin: 16px 0 24px;
+  padding: 0;
+  border: 0;
+  font-size: clamp(28px, 2.6vw, 36px);
+  line-height: 1.3;
+  letter-spacing: -0.025em;
+  font-weight: 700;
+}
+
+.md-content__inner:where(:not(.hub-home, .hub-catalog)):where(:not(:has(.hub-home, .hub-catalog))) h2 {
+  margin-top: 40px;
+  padding-bottom: 10px;
+  font-size: 25px;
+  line-height: 1.4;
+  font-weight: 650;
+}
+
+.md-content__inner:where(:not(.hub-home, .hub-catalog)):where(:not(:has(.hub-home, .hub-catalog))) h3 {
+  margin-top: 28px;
+  font-size: 21px;
+  line-height: 1.45;
+}
+
+.md-content__inner:where(:not(.hub-home, .hub-catalog)):where(:not(:has(.hub-home, .hub-catalog))) h4 {
+  font-size: 18px;
+}
+
+/* Source/edit actions get their own line. No float can steal heading width.
+   Generated text reuses Material's localized title and keeps both links intact. */
+.md-content__inner > .md-content__button {
+  float: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: var(--shell-control-size);
+  min-height: var(--shell-control-size);
+  margin: 0 4px 4px 0;
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-family: var(--shell-font);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  vertical-align: top;
+  text-decoration: none;
+  transition: opacity var(--shell-motion), transform var(--shell-motion);
+}
+
+.md-content__inner > .md-content__button::after {
+  content: attr(title);
+}
+
+.md-content__inner > .md-content__button > svg {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.md-content__inner > .md-content__button .external-icon {
+  /* The enhancement script supplies display:inline-block inline. */
+  display: none !important;
+}
+
+.md-content__inner > .md-content__button:hover {
+  color: var(--color-accent);
+  background: var(--color-accent-light);
+  border-color: var(--color-accent);
+  text-decoration: none;
+}
+
+.md-content__inner > .md-content__button:active {
+  transform: scale(0.97);
+}
+
+:is(.md-header__button, .md-search__input, .md-search__icon, .md-source,
+    .md-tabs__link, .md-nav__link, .md-content__button):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+.md-header__button[disabled],
+.md-content__button[aria-disabled="true"] {
+  opacity: 0.5;
+}
+
+@media screen and (max-width: 76.1875em) {
+  /* Off-canvas links must leave the focus order while the drawer is closed. */
+  [data-md-toggle="drawer"]:not(:checked) ~ .md-container .md-sidebar--primary {
+    visibility: hidden;
+  }
+
+  .md-nav--primary .md-nav__toggle:not(:checked) ~ .md-nav {
+    visibility: hidden;
+  }
+
+  /* A nested panel covers its parent's controls, which must also leave Tab order. */
+  :is(.md-nav--primary, .md-nav--primary .md-nav):has(> .md-nav__list > .md-nav__item > .md-nav__toggle:checked) > :is(.md-nav__title, .md-nav__source),
+  :is(.md-nav--primary, .md-nav--primary .md-nav):has(> .md-nav__list > .md-nav__item > .md-nav__toggle:checked) > .md-nav__list > .md-nav__item > .md-nav__link {
+    visibility: hidden;
+  }
+
+  .md-header__inner {
+    min-height: 56px;
+    padding: 4px 8px;
+    gap: 0;
+  }
+
+  .md-nav--primary > .md-nav__title {
+    background: var(--color-bg);
+    color: var(--color-text);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .md-nav--primary .md-nav__source {
+    background: var(--color-surface-raised);
+    color: var(--color-text);
+  }
+
+  .md-content__inner:where(:not(.hub-home, .hub-catalog)):where(:not(:has(.hub-home, .hub-catalog))) {
+    margin-inline: auto;
+    padding-inline: 24px;
+  }
+}
+
+@media screen and (max-width: 599px) {
+  .md-header__title {
+    margin-inline: 4px;
+    font-size: 14px;
+  }
+
+  .md-content__inner:where(:not(.hub-home, .hub-catalog)):where(:not(:has(.hub-home, .hub-catalog))) {
+    margin-inline: 0;
+    padding-inline: 20px;
+  }
+
+  .md-content__inner:where(:not(.hub-home, .hub-catalog)):where(:not(:has(.hub-home, .hub-catalog))) h2 {
+    margin-top: 32px;
+    font-size: 23px;
+  }
+
+  .md-content__inner:where(:not(.hub-home, .hub-catalog)):where(:not(:has(.hub-home, .hub-catalog))) :is(h1, h2, h3, h4) {
+    scroll-margin-top: 80px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .md-header__button,
+  .md-tabs__link,
+  .md-nav__link,
+  .md-content__inner > .md-content__button {
+    transition: none;
+    transform: none;
+  }
+}
+
+@media print {
+  .md-content__inner > .md-content__button {
+    display: none;
+  }
+}

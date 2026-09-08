@@ -2,6 +2,8 @@
 
 Prometheus, Grafana, Loki는 메트릭과 로그를 함께 보는 관측 스택이다. 이 문서의 중심은 세 VM의 로그를 중앙에서 보기 위한 흐름이며, 신규 로그 수집 에이전트는 Promtail이 아니라 Grafana Alloy를 기준으로 검토한다.
 
+이 문서는 관측 흐름과 확인 명령을 설명하며 Prometheus·Loki·Grafana의 설치가 완료됐다는 뜻이 아니다. 기존 Promtail 2.x 설정과 신규 수집기 설정을 섞지 않고, 선택한 수집기·Loki schema·Grafana 버전 세트를 기록한다. Loki의 단일 replica와 로컬 저장소는 고가용성 구성이 아니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 서버가 여러 대로 나뉘면 장애 원인을 찾기 위해 각 VM에 SSH로 접속해 로그를 보는 방식은 곧 한계에 닿는다. 메트릭은 Prometheus, 로그는 Loki, 시각화는 Grafana로 모으면 시간대별로 증상과 원인을 함께 볼 수 있다.
@@ -164,6 +166,10 @@ journalctl -u promtail --since today
 Prometheus와 Loki를 함께 쓰면 장애 시점의 metric spike와 관련 로그를 같은 시간축에서 볼 수 있다. 이때 host label, service label, environment label을 일관되게 맞추는 것이 중요하다.
 
 공식 기준은 Grafana Loki local install, storage schema, Alloy migration 문서를 우선한다.
+
+## 운영 완료 기준과 롤백
+
+설정, 수집기가 사용하는 offset/state 디렉터리와 Loki 데이터 경로를 백업한다. 구성 파싱, 수집기·Loki의 준비 상태, 고유한 테스트 로그의 종단 간 조회, 재시작 후 읽기 위치와 중복 여부를 확인해야 완료다. Promtail positions 파일과 Alloy 상태 저장 방식은 각각의 설정을 기준으로 확인한다. 오류율이나 지연이 악화되면 직전 설정으로 되돌리고 같은 테스트 로그로 회귀 여부를 확인합니다. `auth_enabled: false`와 평문 HTTP는 제한된 신뢰망 실습에만 사용합니다.
 
 ## 11. 최종 체크리스트 (Definition of Done)
 

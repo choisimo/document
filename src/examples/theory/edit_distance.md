@@ -2,9 +2,18 @@
 
 이 문서는 **Competitive Programmer's Handbook**과 **Introduction to Algorithms (Third Edition)**에 기반하여, **Edit Distance (편집 거리)**, 특히 Levenshtein Distance에서 두 문자열을 비교하고 가중치를 결정하는 핵심 원리를 설명합니다. 단순 암기가 아닌, 알고리즘이 '왜' 이렇게 작동하는지 이해하는 것을 목표로 합니다.
 
+## 적용 범위와 검증 기준
+
+- **범위:** 기본 설명은 insertion·deletion·substitution cost가 1이고 match가 0인 Levenshtein distance입니다. transposition을 포함하는 Damerau 계열과 weighted variant는 다른 문제입니다.
+- **입력 전제:** 비교 단위가 byte, Unicode code point, grapheme cluster 중 무엇인지와 normalization, case/locale policy를 정의합니다.
+- **복잡도 전제:** 길이 `N`, `M`의 full table은 `O(NM)` time·space이며 distance만 필요하고 dependency가 맞으면 space를 `O(min(N,M))`로 줄일 수 있습니다.
+- **실패·완료:** empty string, combining character, asymmetric/negative weight, overflow와 path reconstruction을 시험합니다. 작은 입력의 exhaustive/reference 결과, recurrence와 boundary row/column이 일치할 때 완료입니다.
+
+---
+
 ## 1. 가중치(Cost) 결정의 핵심 로직
 
-두 문자열 $x$와 $y$가 있을 때, **가중치 비교 연산**은 현재 비교하고 있는 두 문자가 **'같으냐 다르냐'**에 따라 결정됩니다. 이를 소스 자료에서는 $cost(a, b)$ 함수로 표현하고 있습니다.
+unit-cost Levenshtein에서 현재 두 문자의 동일성은 match/substitution cost를 결정합니다. insertion과 deletion cost는 별도 transition이며 weighted variant에서는 함수가 달라집니다. 이를 소스 자료에서는 $cost(a, b)$ 함수로 표현하고 있습니다.
 
 *   **문자가 일치할 때 ($x[a] == y[b]$):**
     두 문자가 동일하다면 편집할 필요가 없으므로 가중치(비용)는 **0**입니다. 이를 **매치(Match)** 또는 **Copy**라고 부릅니다.
@@ -23,7 +32,7 @@ $$distance(a, b) = \min \begin{cases} distance(a, b-1) + 1 & \text{(삽입, Inse
 
 ## 3. 가중치의 일반화 (Weighted Edit Distance)
 
-기본적인 Levenshtein 거리에서는 모든 연산(삽입, 삭제, 교체)의 가중치가 1이지만, 문제의 정의에 따라 가중치는 달라질 수 있습니다.
+unit-cost Levenshtein에서는 insertion·deletion·substitution cost가 1이고 match cost가 0입니다. weighted cost는 문제별로 달라지며 symmetry·triangle inequality 같은 metric 성질이 유지되는지 별도 확인합니다.
 
 *   **다양한 연산 비용:** 예를 들어, **Copy** (문자 유지) 비용과 **Replace** (문자 교체) 비용이 서로 다를 수 있으며, **Delete**나 **Insert** 비용이 교체 비용보다 클 수도 있습니다.
 *   **DNA 서열 정렬 예시:** 생물학적 응용에서는 유사도를 측정하기 위해 다른 점수 체계를 사용하기도 합니다. 예를 들어, 문자가 일치하면 **+1**, 불일치하면 **-1**, 공백(삽입/삭제)에는 **-2**의 점수를 부여하여 점수의 합을 최대화하는 방식으로 변형될 수 있습니다.

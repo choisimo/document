@@ -1,8 +1,10 @@
 # Algorithmic Thinking 내부 메커니즘 학습 및 기록 노트
 
+> **Reading contract:** Scope is the named 2021 Zingaro text and the problem variants summarized here. Diagrams and memory layouts are reconstructions, while load-factor thresholds, byte counts, and cache statements are implementation assumptions rather than book-independent facts. For each result, record the input constraints, graph or weight model, data-structure variant, and whether the bound is worst-case, expected, or amortized. A technique is ready to reuse only when its invariant and failure case are explicit; otherwise revert to the stated provisional model and measure the target implementation.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
-Daniel Zingaro의 Algorithmic Thinking은 문제 풀이에서 자료구조 선택이 곧 알고리즘 선택이라는 점을 반복해서 보여준다. 같은 중복 탐지 문제도 배열로 모든 쌍을 비교하면 `O(n^2)`이고, 해시 테이블을 쓰면 평균 `O(n)`이 된다. 같은 최단 이동 문제도 DFS로 깊게 파고들면 최소 거리를 보장하지 못하지만 BFS는 queue 순서 하나로 보장한다.
+Daniel Zingaro의 Algorithmic Thinking은 문제 풀이에서 자료구조 선택이 곧 알고리즘 선택이라는 점을 반복해서 보여준다. 같은 중복 탐지 문제도 배열로 모든 쌍을 비교하면 `O(n^2)`이고, 기대 상수 시간 해싱을 전제한 해시 테이블을 쓰면 기대 `O(n)`이 된다. 유한한 무가중 그래프의 최단 이동 문제에서 DFS는 최소 거리를 보장하지 못하지만, BFS는 FIFO frontier와 방문 상태를 유지해 최소 이동 횟수를 구한다.
 
 이 문서는 원문의 문제 기반 설명을 내부 상태, 메모리 구조, 전이 규칙 중심으로 재정리한다.
 
@@ -77,7 +79,7 @@ Zingaro식 문제 풀이는 "코드를 먼저 쓰기"보다 "어떤 상태를 �
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
 - 해시 테이블은 같은 key가 항상 같은 bucket/probe sequence로 찾아져야 한다.
-- BFS는 vertex를 처음 발견한 거리가 최단 거리여야 하며, 중복 enqueue를 막아야 한다.
+- 유한한 무가중 그래프의 BFS는 vertex를 처음 발견한 거리가 최단 거리여야 하며, 중복 enqueue를 막아야 한다.
 - DP table은 참조하는 이전 상태가 이미 계산되어 있어야 한다.
 - Heap은 부모 priority가 자식 priority보다 항상 작거나 같아야 한다.
 - Segment tree의 각 node 값은 자신이 담당하는 구간의 aggregate와 일치해야 한다.

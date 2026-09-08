@@ -1,6 +1,43 @@
-# Nginx 문서
+---
+title: "Nginx"
+---
+
+# Nginx {#nginx}
+
+<nav class="hub-directory" aria-label="Nginx 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">주요 문서</h2>
+
+- [Nginx 설정 가이드](configuration.md)
+- [Nginx Proxy Manager 운영](proxy-manager.md)
+- [Nginx Docker와 Kubernetes 배포](docker-k8s-deployment.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">함께 읽기</h2>
+
+- [Docker 네트워킹](../development/docker/networking.md)
+- [SSH Configuration](../security/ssh/configuration.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
 
 이 섹션은 Nginx를 정적 파일 서버, reverse proxy, load balancer, container workload, Nginx Proxy Manager로 운영할 때 필요한 문서를 묶는다. 목표는 설정 예제를 복사하는 것이 아니라 요청이 어느 server block, location, upstream, backend로 흐르는지 검증하는 것이다.
+
+## Scope of This Index
+
+This page is a navigation and quick-reference entry point. Nginx directives, process behavior, package paths, TLS options, and deployment commands depend on the Nginx or OpenResty build, modules, OS or image, and topology. Treat summaries as pointers; verify syntax, security assumptions, failure behavior, and rollback in the linked guide and the documentation for the deployed version.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -98,8 +135,7 @@ client error
 설정을 테스트한다.
 
 ```bash
-sudo nginx -t
-sudo systemctl reload nginx
+sudo nginx -t && sudo systemctl reload nginx
 systemctl status nginx
 ```
 
@@ -163,3 +199,5 @@ Nginx는 web server이면서 reverse proxy, cache, load balancer, TCP/UDP stream
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 Nginx 운영의 핵심은 요청이 어떤 server block과 location을 지나 backend나 static file로 가는지 검증하는 것이다. 설정은 반드시 test, reload, log 확인까지 하나의 변경 단위로 다룬다.
+
+</details>

@@ -1,4 +1,55 @@
-# 컴파일러 이론 인덱스 학습 및 기록 노트
+---
+title: "컴파일러"
+---
+
+# 컴파일러 {#_1}
+
+<nav class="hub-directory" aria-label="컴파일러 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">어휘 분석</h2>
+
+- [NFA](lexical/nfa.md)
+- [DFA와 최소화](lexical/dfa.md)
+- [NFA to DFA 변환](lexical/nfa-to-dfa.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">구문 분석</h2>
+
+- [Context-Free Grammar](parsing/cfg.md)
+- [LL Parser](parsing/ll-parser.md)
+- [LR Parser](parsing/lr-parser.md)
+- [Bottom-Up Parsing](parsing/bottom-up.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">함께 읽기</h2>
+
+- [알고리즘](../algorithms/index.md)
+- [운영체제](../os/index.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
+
+## 문서군의 범위
+
+- 이 인덱스는 현재 연결된 어휘·구문 분석 학습 문서를 안내하며, 전체 컴파일러 구현이 완성됐음을 뜻하지 않습니다.
+- 각 문서는 입력 알파벳 또는 문법, 알고리즘의 산출물, 충돌·거부 조건을 독립적으로 명시해야 합니다.
+- 예제 오토마타와 파싱 표의 완료 기준은 모든 도달 상태 또는 항목 집합을 처리하고 수용·거부 표본을 추적하는 것입니다.
+- 의미 분석, IR, 최적화, 코드 생성 항목은 실제 문서나 구현 링크가 있을 때만 완료된 범위로 표시합니다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -126,3 +177,5 @@ a = t2
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 컴파일러는 문자를 한 번에 기계어로 바꾸는 장치가 아니라, token, syntax tree, IR, machine code로 계약을 이어 가는 pipeline이다.
+
+</details>

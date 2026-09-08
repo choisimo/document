@@ -1,5 +1,12 @@
 # C++ Internals 학습 및 기록 노트
 
+## Scope and verification
+
+- The source predates modern C++ revisions. Separate language-standard guarantees from compiler, ABI, standard-library, allocator, and operating-system behavior.
+- Object diagrams show one plausible ABI layout. Confirm target triple, compiler version, flags, packing and generated layout before using an offset.
+- Complexity guarantees do not fix growth factors, node layouts, instruction counts, or wall-clock cost.
+- A claim is complete when the relevant standard rule is named and implementation claims are supported by `sizeof`, compiler layout output, assembly, or a reproducible benchmark.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 C++는 "C with classes"가 아니라 compile-time abstraction과 opt-in runtime mechanism을 결합한 언어다. Object layout, vptr/vtable, template instantiation, exception unwinding, `new`/`delete`, name mangling, standard library container layout을 모르면 성능 비용과 undefined behavior 위험을 설명하기 어렵다.
@@ -77,7 +84,7 @@ stateDiagram-v2
     StorageReleased --> [*]
 ```
 
-Object lifetime은 memory allocation과 constructor 실행이 분리되고, destructor와 deallocation도 분리된다. Exception은 stack unwinding 중 자동 객체 destructor를 호출해 RAII cleanup을 보장한다.
+Object lifetime은 storage allocation과 constructor 실행이 분리되고, destructor와 deallocation도 분리된다. 예외가 handler까지 전파되며 scope를 벗어날 때는 생성이 완료된 자동 객체의 destructor가 실행된다. 생성 실패한 객체 자체, 누수된 동적 storage, std::terminate와 비정상 프로세스 종료까지 정리를 보장하지는 않는다.
 
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
@@ -120,7 +127,7 @@ delete p;
 
 ## 9. 실패 사례 (What could go wrong?)
 
-- Virtual destructor가 없는 base pointer로 derived object를 delete해 derived cleanup이 누락된다.
+- 비가상 base destructor를 가진 Base*로 실제 Derived 객체를 delete하면 일반적으로 undefined behavior이며, 단순한 derived cleanup 누락으로만 설명할 수 없다.
 - Object slicing으로 derived state가 사라진 base object만 복사된다.
 - Multiple inheritance pointer adjustment를 무시한 unsafe cast로 잘못된 subobject를 가리킨다.
 - Template을 무분별하게 instantiate해 binary size가 커지고 compile time이 늘어난다.

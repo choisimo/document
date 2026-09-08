@@ -8,6 +8,12 @@
 ## 원본 템플릿
 - Source: [01-graph/05-floyd-warshall.md](../../01-graph/05-floyd-warshall.md)
 
+## 적용 계약과 근거 경계
+
+- 노드 `1..n`과 directed edge tuple을 전제로 하며 평행 간선은 최소 가중치를 사용합니다.
+- 음수 간선은 허용하지만 `dist[v][v] < 0`이면 음수 사이클의 영향을 받는 쌍에는 유한 최단 거리가 없습니다. 아래 함수는 이 경우 예외를 냅니다.
+- 시간 `O(V³)`, 공간 `O(V²)`이므로 “정점 수가 적다”는 고정 숫자가 아니라 메모리·시간 예산으로 판단합니다.
+
 ## 내부 메커니즘 (Flow)
 ```mermaid
 flowchart TD
@@ -59,7 +65,7 @@ def floyd_warshall(graph, n):
     
     # 초기 간선 정보 입력
     for u, v, weight in graph:
-        dist[u][v] = weight
+        dist[u][v] = min(dist[u][v], weight)
     
     # 2. 3중 루프 (Triple Loop)
     #    - k: 경유 노드
@@ -73,6 +79,9 @@ def floyd_warshall(graph, n):
                 if dist[i][k] + dist[k][j] < dist[i][j]:
                     dist[i][j] = dist[i][k] + dist[k][j]
     
+    if any(dist[v][v] < 0 for v in range(1, n + 1)):
+        raise ValueError("negative cycle detected")
+
     return dist
 ```
 
@@ -84,7 +93,7 @@ def floyd_warshall(graph, n):
 - **Termination**: 목표 도달, 범위 소진, 큐/스택 고갈, 사이클 검출 등으로 종료한다.
 
 ## 실전 적용 체크리스트
-- 입력 자료구조 형식(인접 리스트, 간선 리스트, 정렬 여부, 1-index/0-index)을 먼저 고정한다.
-- 시간 복잡도 한계에 맞게 자료구조를 교체한다 (`list.pop(0)` -> `deque.popleft` 등).
-- 실패/예외 경로를 명시한다 (도달 불가, 음수 사이클, 빈 결과, 사이클 존재).
-- 테스트는 최소 3개: 정상 케이스, 경계 케이스, 반례 케이스를 포함한다.
+- endpoint 범위, directed/undirected 입력과 평행 간선 규칙을 확인합니다.
+- 대각선 0, `inf` 도달 불가, 음수 간선과 음수 사이클을 각각 시험합니다.
+- 각 `k` 단계에서 허용된 중간 정점만 쓰는 불변식을 설명합니다.
+- 작은 그래프는 각 시작점 Bellman-Ford 결과와 행별로 대조합니다.

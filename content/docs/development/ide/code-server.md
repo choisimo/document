@@ -2,6 +2,13 @@
 
 `code-server`는 VS Code 계열 편집기를 서버에서 실행하고 브라우저로 접속하게 해 주는 원격 개발 도구다. 설치 자체보다 중요한 기준은 접속 경계다. 편집기에는 소스 코드, 터미널, SSH 키, 환경 변수, 빌드 산출물이 함께 노출될 수 있으므로, 기본값을 이해하지 않고 인터넷에 열면 개발 서버 전체를 노출하는 결과가 된다.
 
+## 적용 범위와 보안 검증 기준
+
+- **범위:** code-server, OS, 설치 방식, service manager, extension과 reverse proxy 버전을 기록합니다. installer URL, 설정 키와 기본 인증 동작은 변경될 수 있습니다.
+- **노출 전제:** bind address, TLS 종료, WebSocket forwarding, 인증·SSO, proxy header 신뢰, firewall와 update 정책을 먼저 정합니다. 인터넷 노출 시 password 하나만으로 충분하다고 가정하지 않습니다.
+- **근거와 불확실성:** process 실행과 login 화면은 일부 근거입니다. extension 호환성, remote filesystem 권한, terminal 권한과 장시간 연결은 별도 검증합니다.
+- **실패·완료:** 인증 우회, 잘못된 외부 bind, certificate·WebSocket 오류, restart 실패와 extension 공급망 위험을 확인하고 최소 권한·reboot 후 접속·log·rollback이 검증될 때 완료입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 로컬 장비마다 개발 도구와 확장, 런타임, 빌드 캐시를 맞추면 환경 차이 때문에 같은 저장소도 다르게 동작할 수 있다. 노트북 성능이 부족하거나 태블릿처럼 로컬 개발 도구 설치가 제한된 장비에서는 개발 환경 자체를 원격 서버로 옮기는 편이 더 단순하다.
@@ -63,6 +70,8 @@ password: change-this-password
 cert: false
 ```
 
+위 password는 설명용 자리표시자이며 사용 전에 강한 값으로 교체하고 설정 파일 권한을 제한한다.
+
 외부에서 바로 접속하려고 `bind-addr`를 `0.0.0.0`으로 바꾸기 전에, 먼저 HTTPS 프록시나 VPN 경계를 정해야 한다.
 
 ## 6. 상태 전이 (State Transition)
@@ -82,7 +91,7 @@ cert: false
 각 상태에서 다음 상태로 넘어가기 전에 확인해야 할 조건이 있다.
 
 - 설치됨: `code-server --version`이 성공해야 한다.
-- 로컬 실행됨: `curl http://127.0.0.1:8080` 또는 브라우저 접속이 가능해야 한다.
+- 로컬 실행됨: `curl --fail --silent --show-error --connect-timeout 5 --max-time 15 http://127.0.0.1:8080` 또는 브라우저 접속이 가능해야 한다.
 - 인증 확인됨: 비밀번호가 임시값이 아니고 설정 파일 권한이 제한되어야 한다.
 - 프록시 배치됨: WebSocket 연결이 끊기지 않아야 한다.
 - 운영 검증됨: `systemctl`과 `journalctl`로 상태를 확인할 수 있어야 한다.
@@ -101,16 +110,25 @@ cert: false
 가장 작은 안전한 설치 흐름은 로컬 바인딩으로 시작하는 것이다.
 
 ```bash
-curl -fsSL https://code-server.dev/install.sh | sh -s -- --dry-run
-curl -fsSL https://code-server.dev/install.sh | sh
-sudo systemctl enable --now code-server@$USER
-systemctl status code-server@$USER
+(
+  set -eu
+  installer=$(mktemp)
+  trap 'rm -f -- "$installer"' EXIT
+  curl --fail --silent --show-error --location --connect-timeout 10 --max-time 60 \
+    https://code-server.dev/install.sh --output "$installer"
+  less "$installer"
+  sh "$installer" --dry-run
+  # 검토한 설치 계획과 version을 확인한 뒤 같은 파일을 실행한다.
+  sh "$installer"
+  sudo systemctl enable --now "code-server@$USER"
+  systemctl status "code-server@$USER"
+)
 ```
 
 설정 파일을 확인한다.
 
 ```bash
-sed -n '1,120p' ~/.config/code-server/config.yaml
+sed -n -E '/^(bind-addr|auth|cert):/p' ~/.config/code-server/config.yaml
 chmod 700 ~/.config/code-server
 chmod 600 ~/.config/code-server/config.yaml
 ```
@@ -118,15 +136,15 @@ chmod 600 ~/.config/code-server/config.yaml
 Docker로 격리해서 실행할 때는 호스트의 루프백 주소에만 먼저 바인딩한다.
 
 ```bash
-mkdir -p ~/.config
+mkdir -p "$HOME/code-server-data/local" "$HOME/code-server-data/config"
 docker run -it --name code-server \
   -p 127.0.0.1:8080:8080 \
-  -v "$HOME/.local:/home/coder/.local" \
-  -v "$HOME/.config:/home/coder/.config" \
+  -v "$HOME/code-server-data/local:/home/coder/.local" \
+  -v "$HOME/code-server-data/config:/home/coder/.config" \
   -v "$PWD:/home/coder/project" \
   -u "$(id -u):$(id -g)" \
   -e "DOCKER_USER=$USER" \
-  codercom/code-server:latest
+  "${CODE_SERVER_IMAGE:?set reviewed code-server tag or digest}"
 ```
 
 Nginx 뒤에 둘 때는 WebSocket 업그레이드를 전달한다.

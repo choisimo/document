@@ -1,6 +1,47 @@
-# Operating Systems
+---
+title: "운영체제"
+---
+
+# 운영체제 {#operating-systems}
+
+<nav class="hub-directory" aria-label="운영체제 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">주요 문서</h2>
+
+- [CPU Scheduling](cpu-scheduling.md)
+- [Synchronization Tools](synchronization.md)
+- [Deadlocks](deadlocks.md)
+- [Main Memory](memory.md)
+- [Process Management](process.md)
+- [Virtualization](virtualization.md)
+- [Distributed Deadlocks](distributed-deadlocks.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">함께 읽기</h2>
+
+- [백그라운드 프로세스 관리](../infrastructure/monitoring/process-management.md)
+- [컴파일러](../compiler/index.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
 
 운영체제 문서는 프로세스, 스케줄링, 동기화, 교착 상태, 메모리, 가상화처럼 서로 이어지는 개념을 한 번에 외우는 대신 실행 흐름으로 이해하기 위한 학습 지도다.
+
+## Scope and use
+
+This index links to teaching models, not configuration advice for a specific kernel. Algorithm properties assume the workload stated in each guide; implementation claims and timings require an OS/kernel version, hardware, workload, and trace. A lab is complete only when inputs, assumptions, failure states, commands, and raw results are recorded. Retry failed experiments only after preserving the error and changing one controlled condition.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -93,7 +134,7 @@ stateDiagram-v2
 A는 CPU를 쓰다가 디스크 I/O를 기다린다.
 커널은 A를 waiting으로 옮기고 B를 running으로 dispatch한다.
 B가 공유 큐에 접근할 때 lock을 잡는다.
-A가 돌아와 같은 lock을 요청하면 ready가 아니라 waiting에 머문다.
+A의 I/O가 끝나면 ready가 되고 dispatch된 뒤 lock을 요청한다. B가 아직 보유한 blocking mutex라면 A는 다시 waiting으로 전이한다.
 lock이 해제되면 A는 ready로 돌아간다.
 ```
 
@@ -103,7 +144,7 @@ lock이 해제되면 A는 ready로 돌아간다.
 
 - time quantum이 너무 크면 대화형 응답성이 나빠진다.
 - time quantum이 너무 작으면 context switch 비용이 커진다.
-- lock 순서가 통일되지 않으면 교착 상태가 생긴다.
+- lock 순서가 뒤집히는 경로가 있으면 특정 interleaving에서 교착 상태가 생길 수 있다.
 - semaphore 카운트를 잘못 관리하면 wake-up이 사라지거나 과도하게 허용된다.
 - 페이지 테이블과 TLB를 이해하지 못하면 메모리 성능 병목을 잘못 진단한다.
 - 컨테이너를 VM과 같은 격리 수준으로 착각하면 보안 경계가 약해진다.
@@ -112,7 +153,7 @@ lock이 해제되면 A는 ready로 돌아간다.
 
 기본 개념을 익힌 뒤에는 다음 방향으로 확장한다.
 
-- Linux CFS, 실시간 스케줄링, CPU affinity를 비교한다.
+- Linux fair class의 역사적 CFS와 EEVDF를 도입한 커널의 정책, 실시간 스케줄링과 CPU affinity를 대상 버전별로 비교한다.
 - mutex와 semaphore를 실제 언어의 런타임 구현과 연결한다.
 - page fault, copy-on-write, memory-mapped file을 운영체제 호출과 연결한다.
 - VM의 하드웨어 가상화와 컨테이너의 namespace/cgroup 격리를 비교한다.
@@ -130,3 +171,5 @@ lock이 해제되면 A는 ready로 돌아간다.
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 운영체제는 `프로세스`를 상태 전이로 관리하고, `CPU`를 스케줄링하며, `공유 자원`을 동기화하고, `메모리`를 주소 변환으로 보호하는 시스템이다.
+
+</details>

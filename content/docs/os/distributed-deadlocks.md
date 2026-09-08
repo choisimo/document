@@ -1,10 +1,18 @@
 # Distributed Deadlocks
 
-분산 교착 상태는 여러 노드에 흩어진 프로세스나 트랜잭션이 서로의 자원을 기다리며 전체 진행이 멈추는 상태다. 단일 머신과 달리 전역 상태를 즉시 알 수 없기 때문에 탐지 자체가 어려워진다.
+분산 교착 상태는 여러 노드에 흩어진 작업 집합이 서로 유발할 사건이나 자원 해제를 기다려 진행할 수 없는 상태다. 관련 없는 작업은 진행할 수 있으며 전역 대기 상태를 즉시 관찰하기 어려워 탐지에 별도 프로토콜이 필요하다.
+
+## 문서 범위와 프로토콜 전제
+
+- **범위**: 분산 lock/resource manager가 명시적인 wait-for 관계를 관측할 수 있는 교과서 모델을 설명합니다. 일반 메시지 지연, 합의 교착, 애플리케이션 livelock을 모두 다루는 알고리즘은 아닙니다.
+- **전제**: Chandy-Misra-Haas에는 AND/OR 대기 모델별 변형이 있으며, 프로세스·사이트 식별자, 메시지 전달, 중복 억제와 wait 관계의 유효 시점을 정의해야 합니다.
+- **근거 상태와 환경**: “효율적”이라는 평가는 메시지 수, 탐지 지연, WFG 변화율과 장애 모델을 고정한 뒤 비교해야 합니다. 운영 적용은 대상 DB/lock manager 버전의 공식 프로토콜과 로그로 확인합니다.
+- **실패/재시도**: probe 지연·중복·유실, 사이트 단절과 stale edge를 교착으로 즉시 확정하지 않습니다. 탐지 epoch와 TTL을 두고 제한 재시도하며, 결과 불명 상태는 재검증 또는 운영자 격리로 전환합니다.
+- **완료 증거**: 선언된 교착은 동일 epoch의 cycle/probe 기록으로 입증하고, 해결은 희생 트랜잭션의 abort·보상, 자원 해제와 나머지 작업의 진행을 확인해야 완료입니다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
-단일 운영체제 안에서는 커널이 자원 대기 관계를 한곳에서 관찰할 수 있다. 분산 시스템에서는 각 노드가 자기 일부 상태만 알고, 메시지는 지연되며, 이미 해소된 대기 관계가 늦게 도착할 수 있다.
+단일 머신의 lock/resource manager도 자신이 관측하는 자원 관계만 알 수 있다. 분산 환경에서는 각 노드가 일부 상태만 알고 메시지 지연·재정렬 때문에 이미 해소된 대기 관계가 늦게 도착할 수 있다.
 
 그래서 분산 교착 상태는 "cycle이 있는가"뿐 아니라 "그 cycle이 지금도 실제로 존재하는가"를 따져야 한다. 잘못 탐지하면 정상 트랜잭션을 중단시키는 phantom deadlock이 생긴다.
 
@@ -49,7 +57,7 @@ initiator creates probe
 probe follows local wait relation
 remote wait sends probe to another node
 probe returns to initiator
-cycle is reported
+valid returning probe identifies a candidate; protocol validates current waits
 ```
 
 ## 5. 핵심 구성요소 (Building Blocks)
@@ -73,12 +81,15 @@ stateDiagram-v2
     LocallyWaiting --> RemotelyWaiting: dependency crosses node
     RemotelyWaiting --> ProbeSent: detection starts
     ProbeSent --> DeadlockSuspected: probe path forms cycle
-    DeadlockSuspected --> Resolved: abort or rollback victim
+    DeadlockSuspected --> DeadlockConfirmed: model/epoch/wait validation
+    DeadlockConfirmed --> RecoveryPending: one victim selected
+    RecoveryPending --> Resolved: abort/compensation and progress verified
+    RecoveryPending --> RecoveryUncertain: timeout or partial failure
     LocallyWaiting --> Running: resource granted
     RemotelyWaiting --> Running: remote wait clears
 ```
 
-오탐을 줄이려면 `DeadlockSuspected`에서 바로 중단하지 않고 timestamp, dependency freshness, 중복 탐지 여부를 확인할 수 있다.
+DeadlockSuspected에서는 해당 대기 모델과 프로토콜의 epoch·중복 억제·유효한 dependency 조건을 검사한다. timestamp 하나나 timeout만으로 현재 cycle을 증명할 수 없으며 복구가 불명확하면 재검증·격리로 남긴다.
 
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
@@ -99,7 +110,7 @@ Node B: T2 waits for T3
 Node C: T3 waits for T1
 ```
 
-Chandy-Misra-Haas 스타일 probe는 다음처럼 이동한다.
+아래는 AND 대기 모델에서 세 트랜잭션이 해당 의존 관계로 계속 blocked 상태인 하나의 탐지 epoch를 가정한 Chandy-Misra-Haas 스타일 설명이다. probe는 중복 억제와 현재 대기 관계 검사 규칙을 따른다.
 
 ```text
 probe(T1, T1, T2)
@@ -107,7 +118,7 @@ probe(T1, T2, T3)
 probe(T1, T3, T1)
 ```
 
-probe가 initiator인 `T1`로 돌아오면 `T1 -> T2 -> T3 -> T1` cycle이 관찰된 것이다.
+유효한 probe가 T1으로 돌아오면 이 모델에서 T1→T2→T3→T1의 교착 후보를 얻는다. 현재 wait 관계를 프로토콜 규칙으로 재확인하고 단일 victim 복구 뒤 자원 해제·다른 작업 진행까지 관찰해야 해소되었다고 판단한다.
 
 ## 9. 실패 사례 (What could go wrong?)
 

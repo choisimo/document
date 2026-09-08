@@ -1,5 +1,7 @@
 # 기타 CS 내부 동작 학습 및 기록 노트
 
+> **읽기 계약:** 이 문서는 그래픽, 게임 엔진, IoT, IaC, SRE, 테스트, 데이터베이스와 운영체제의 대표 메커니즘을 묶은 학습용 개요입니다. 별도 참고문헌·제품 버전·벤치마크 환경이 없는 설명은 **개념 모델**, 제품명과 구조가 연결된 설명은 **구현 예**, 지연시간·메모리·배율은 **예시 수치**로 구분합니다. 수치를 적용하려면 엔진·GPU·프로토콜·도구 버전, 하드웨어, 구성, 부하와 측정 시점을 기록해야 합니다. 항목은 공식 사양 또는 재현 가능한 측정, 성공 조건, 실패·복구 경로가 연결된 뒤에만 검증 완료로 봅니다. 전제가 맞지 않으면 단정문을 유지하지 않고 미확정 상태로 되돌립니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 기타 CS 문서는 그래픽스, 게임 엔진, IoT, IaC, SRE, 테스트, 셰이더 컴파일, 데이터베이스 실행 엔진, CI/CD, OS 스케줄링처럼 서로 멀어 보이는 주제를 한데 모은다. 공통점은 모두 "도구 사용법"이 아니라 내부 상태가 어떻게 흐르고 실패가 어디서 생기는지를 다룬다는 점이다.
@@ -50,7 +52,7 @@ flowchart TD
 | Physics loop | fixed timestep, accumulator | 물리와 렌더링 시간을 분리한다. |
 | MQTT | broker session, packet id, QoS state | QoS 1은 중복 가능, QoS 2는 handshake 비용이 있다. |
 | Terraform | state.json, lock, resource DAG | 실제 상태와 desired state diff가 기준이다. |
-| Ansible | module result, changed flag | idempotency가 유지되어야 한다. |
+| Ansible | module result, changed flag | 사용하는 모듈의 멱등성·check mode 지원을 확인하고 반복 적용 및 실제 부작용을 검증한다. |
 | SRE | error budget, burn rate | 짧은 창과 긴 창을 함께 봐야 한다. |
 | OpenTelemetry | traceId, spanId, parentSpanId | context propagation이 끊기면 trace tree가 깨진다. |
 | Mutation testing | killed/survived mutant | survived mutant는 테스트 공백이다. |
@@ -108,7 +110,7 @@ sequenceDiagram
 
 ## 9. 실패 사례 (What could go wrong?)
 
-- Shader에서 `discard`를 사용해 Early-Z 최적화가 깨지고 overdraw 비용이 커진다.
+- Shader의 깊이 쓰기나 `discard`가 GPU와 렌더 상태에 따라 Early-Z를 제한하거나 늦춰 overdraw 비용을 늘릴 수 있다. 항상 완전히 비활성화된다고 단정하지 않는다.
 - ECS에서 component 변경이 잦아 archetype 이동 비용이 과도해진다.
 - MQTT QoS 1 메시지를 idempotent하게 처리하지 않아 중복 이벤트가 상태를 오염시킨다.
 - Terraform state를 수동 수정하거나 lock 없이 동시에 apply한다.

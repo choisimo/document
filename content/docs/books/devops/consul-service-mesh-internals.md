@@ -4,6 +4,8 @@
 
 ---
 
+> **Reading contract:** This guide is based on a 2017 tutorial and is historical unless a Consul version and edition are added. It is for operators learning component boundaries, not a runbook for a current cluster. API behavior, ports, consistency modes, Connect identities, defaults, limits, and recovery commands must be checked against the deployed Consul version and configuration. Treat topology diagrams as models and timings as examples. Completion requires quorum and health evidence, a tested snapshot restore, observed retry/backoff behavior, and rollback criteria; failed checks return the procedure to blocked or provisional status.
+
 ## 1. What Consul Actually Is: A Distributed Systems Coordination Plane
 
 Consul is a **Go binary** that simultaneously acts as:
@@ -13,7 +15,7 @@ Consul is a **Go binary** that simultaneously acts as:
 - A **DNS server** (resolve `service.consul` to healthy pod IPs)
 - A **service mesh control plane** (intention-based mTLS authorization)
 
-All of these are embedded in a single binary with no external dependencies (no ZooKeeper, no etcd, no external database).
+These capabilities have been distributed through the Consul agent/server binary and associated proxies or integrations in different releases. "No external dependencies" applies only to the core server state path; Connect deployments, storage, telemetry, DNS forwarding, CA backends, and production operations can require external components.
 
 ```mermaid
 block-beta
@@ -75,7 +77,7 @@ sequenceDiagram
   Note over F1,F2: followers apply committed entry\nwhen leader advances commit index
 ```
 
-**Quorum requirement**: 3-server cluster tolerates 1 failure; 5-server tolerates 2 failures. Even number of servers should be avoided — with 4 servers, quorum = 3 same as with 3 servers, but 4 nodes must fail (network partition) to lose quorum — no improvement over 3.
+**Quorum requirement**: A 3-server cluster tolerates 1 unavailable voter and a 5-server cluster tolerates 2. A 4-voter cluster also needs 3 votes and therefore still tolerates only 1 unavailable voter; losing 2 voters loses quorum. Failure domains and planned maintenance must be included in this calculation.
 
 ### CAP Theorem Tradeoff
 
@@ -170,7 +172,7 @@ sequenceDiagram
   Note over APP: application re-subscribes with new index
 ```
 
-This enables **zero-latency config updates** without polling overhead — the HTTP connection blocks until something changes.
+This reduces repeated polling and can deliver changes promptly, but latency is not zero. Commit, watch notification, scheduling, network, timeout, reconnect, and handler execution all contribute; clients must retry blocking queries with backoff and the returned index.
 
 ---
 
@@ -481,4 +483,4 @@ flowchart TD
   DNS --> CLIENTS["Clients connect to\nhealthy service instances only"]
 ```
 
-Every piece of Consul's distributed coordination — from service health to config distribution to leader election — flows through this same Raft-gossip-catalog pipeline. The Raft log is the single source of truth; gossip provides failure detection without burdening the Raft leader; and the blocking query system turns the catalog into a push-based event stream.
+The diagram summarizes common Consul paths, not one exact path for every feature. Raft-backed state, gossip membership, agent health checks, DNS/API reads, sessions, and Connect policy have distinct consistency and failure behavior. Confirm the path with the deployed version's API consistency mode, logs, metrics, and a controlled failure exercise.

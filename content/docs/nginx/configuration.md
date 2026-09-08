@@ -2,6 +2,13 @@
 
 이 문서는 Nginx 설정을 server block, location, static file, reverse proxy, upstream, TLS, cache, log, rate limit 관점에서 정리한다. 목표는 예제를 붙여 넣는 것이 아니라 요청이 어떤 규칙에 매칭되고 어떤 backend로 전달되는지 검증하는 것이다.
 
+## 적용 범위와 운영 검증 기준
+
+- **범위:** Nginx/OpenResty version과 build modules, OS 또는 image, worker·event model, TLS library, upstream protocol, DNS, cache storage와 deployment topology를 기록합니다.
+- **전제:** 예제의 path, user, certificate, timeout, buffer, connection 수와 load-balancing 동작은 환경별 설정입니다. 설정 문법 성공과 production 적합성을 같은 의미로 보지 않습니다.
+- **사실과 추론:** `nginx -T/-t`, access/error log, response·TLS 검사와 metrics는 근거이고, latency·resource 병목과 cache·load-balancer 효과는 부하 시험 전까지 가설입니다.
+- **실패·완료:** syntax 외에도 upstream 실패, reload 중 연결, certificate 갱신, cache 오류, header spoofing, timeout, overload와 rollback을 시험합니다. canary에서 response·TLS·log·SLO가 기준을 만족한 뒤 단계적으로 반영해야 완료입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Nginx 설정은 문법은 단순하지만 동작 규칙은 섬세하다. `location` 우선순위, `root`와 `alias`, `proxy_pass` trailing slash, header 전달, TLS redirect 중 하나만 틀려도 404, redirect loop, 502, cache 오염이 발생할 수 있다.
@@ -147,6 +154,7 @@ server {
     location / {
         proxy_pass http://app_backend;
         proxy_http_version 1.1;
+        proxy_set_header Connection "";
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -154,6 +162,8 @@ server {
     }
 }
 ```
+
+위 upstream은 서버가 하나뿐이므로 max_fails/fail_timeout으로 다른 서버로 failover할 수 없다. Forwarded 헤더는 신뢰하는 proxy 경계에서만 해석하고, 외부에서 주입한 X-Forwarded-For를 backend가 무조건 신뢰하지 않도록 한다.
 
 WebSocket이 필요하면 upgrade header를 추가한다.
 
@@ -177,7 +187,7 @@ server {
 }
 ```
 
-HTTPS redirect와 TLS server block 예시다.
+HTTPS redirect와 TLS server block 예시다. 인증서·키·TLS 라이브러리와 해당 버전의 HTTP/2 문법을 확인한다. TLS의 보호 범위는 검증된 client와 종료 지점 사이이며 endpoint 침해나 종료 이후 평문 구간을 보호하지 않는다.
 
 ```nginx
 server {
@@ -251,8 +261,7 @@ server {
 검증한다.
 
 ```bash
-sudo nginx -t
-sudo systemctl reload nginx
+sudo nginx -t && sudo systemctl reload nginx
 curl -I http://app.example.com
 tail -n 100 /var/log/nginx/error.log
 ```

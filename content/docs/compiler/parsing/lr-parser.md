@@ -1,5 +1,12 @@
 # LR Parser 학습 및 기록 노트
 
+## 범위와 완료 조건
+
+- 입력은 EOF와 새 시작 규칙 `S' → S`가 추가된 증강 문법입니다.
+- 상태는 단일 아이템이 아니라 closure가 끝난 아이템 집합이며, 같은 집합은 하나의 상태로 재사용합니다.
+- 점이 RHS 끝에 있는 아이템은 환원 후보입니다. 실제 reduce 또는 accept 행동은 항목 종류와 표의 충돌 여부까지 확인해야 합니다.
+- 더 이상 새 항목 집합이나 GOTO 전이가 없고 모든 ACTION/GOTO 셀의 충돌이 보고됐을 때 구성이 완료됩니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 LR parser는 input을 left-to-right로 읽으면서 rightmost derivation의 역순을 bottom-up으로 복원한다. LL parser보다 넓은 문법을 다룰 수 있지만, LR item, closure, goto, Action/Goto table을 이해하지 못하면 shift/reduce conflict와 reduce/reduce conflict의 원인을 추적하기 어렵다.
@@ -27,7 +34,7 @@ LR parser는 input을 left-to-right로 읽으면서 rightmost derivation의 역�
 ```mermaid
 flowchart TD
     A[Grammar] --> B[Augmented grammar]
-    B --> C[Initial item S' -> .S]
+    B --> C["Initial item S' -> .S"]
     C --> D[Closure]
     D --> E[LR item set state]
     E --> F[GOTO on grammar symbol]
@@ -67,7 +74,7 @@ stateDiagram-v2
     Accept --> [*]
 ```
 
-LR(0)는 lookahead 없이 item set만 보고 action을 결정한다. 이 때문에 complete item과 shift 가능한 item이 같은 상태에 있으면 conflict가 발생할 수 있다.
+LR(0) 아이템 자체에는 lookahead가 없지만 실행기는 현재 상태와 다음 token으로 ACTION 표를 조회한다. 일반 complete item의 reduce를 모든 terminal과 EOF 열에 넣으므로 같은 상태의 shift 또는 다른 reduce와 충돌할 수 있다.
 
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
@@ -117,18 +124,18 @@ flowchart LR
     I2 -- S --> I3[I3]
     I2 -- "(" --> I2
     I3 -- ")" --> I4[I4]
-    I4 -- S --> I5[I5: reduce S -> (S)S]
+    I4 -- S --> I5["I5: reduce S -> (S)S"]
     I4 -- "(" --> I2
 ```
 
-이 예제의 `I0`에는 `S -> .` complete item과 `S -> . ( S ) S` shift 가능 item이 함께 있다. LR(0)는 lookahead를 보지 않으므로 conflict가 생기지만, SLR은 `S -> epsilon` reduce를 FOLLOW(S)인 `)`와 `$`에서만 적용해 `(` shift와 분리할 수 있다.
+이 예제의 I0에는 `S -> .` complete item과 `S -> . ( S ) S` shift 가능 item이 함께 있다. LR(0)는 epsilon reduce를 모든 terminal과 EOF 열에 넣어 `(` 열에서 conflict가 생긴다. SLR은 reduce를 FOLLOW(S)인 `)`와 `$`로 제한해 `(` shift와 분리한다.
 
 ## 9. 실패 사례 (What could go wrong?)
 
 - Closure를 한 번만 적용하고 새로 추가된 item의 dot 뒤 nonterminal을 다시 확장하지 않는다.
 - DFA state를 item 하나로 착각해 관련 production 후보를 누락한다.
 - Complete item이 있는 모든 상태를 무조건 accept로 처리한다.
-- LR(0) reduce action을 lookahead 없이 모든 terminal에 넣어 conflict를 만든다.
+- LR(0)의 일반 reduce를 모든 terminal과 EOF 열에 넣어 생긴 conflict를 숨기거나 임의로 지운다. Conflict는 문법이 해당 parser family의 조건을 만족하지 않는다는 증거로 보고한다.
 - Shift/reduce conflict를 grammar 의미 분석 없이 precedence 선언으로만 덮는다.
 - Reduce/reduce conflict에서 production 순서로 선택해 실제 모호성을 숨긴다.
 - SLR/LALR/LR(1)의 lookahead 범위 차이를 무시한다.

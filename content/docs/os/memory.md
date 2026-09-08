@@ -2,6 +2,14 @@
 
 메모리 관리는 프로세스가 자기만의 연속된 주소 공간을 가진 것처럼 보이게 하면서, 실제 물리 메모리를 안전하고 효율적으로 나누는 운영체제 기능이다.
 
+## 문서 범위와 검증 기준
+
+- **범위**: 연속 할당, 단순 paging과 swapping을 설명하는 교과서형 모델입니다. 실제 x86-64/ARM MMU, Linux page reclaim, NUMA, huge page와 보안 완화의 전체 구현을 대신하지 않습니다.
+- **전제**: 주소·TLB 계산은 문제에 명시된 주소 폭, page/PTE 크기, page-walk 횟수와 cache 미적중 모델을 사용합니다. 의사 코드는 kernel code가 아니며 race, overflow와 오류 처리가 생략될 수 있습니다.
+- **근거 상태와 환경**: page table 형식, canonical virtual-address 폭, TLB와 swap 정책은 CPU·OS·커널 버전별 공식 문서로 확인합니다. ns, MB/s, hit ratio와 임계값은 예제 입력이지 현대 시스템의 기본값이 아닙니다.
+- **실패/재시도**: page fault, allocation 실패, swap I/O 오류와 OOM은 구분해 기록합니다. 재시도는 회수 가능한 page가 생길 조건과 상한을 두고, 무한 reclaim/thrashing은 실패 상태로 전환합니다.
+- **완료 증거**: 계산에는 bit 분할과 단위를, 실험에는 CPU/커널, page size, NUMA·huge-page 설정, workload와 page-fault/TLB/swap trace를 남깁니다. 보호는 허용 접근과 거부 접근을 모두 관측해야 완료입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 여러 프로세스가 동시에 실행되면 모두 메모리를 필요로 한다. 각 프로세스가 실제 물리 주소를 직접 다루면 서로의 데이터를 덮어쓰거나 커널 영역을 침범할 수 있다.
@@ -44,11 +52,11 @@ CPU generates virtual address
   -> memory is accessed
 ```
 
-페이지가 메모리에 없으면 흐름이 길어진다.
+매핑은 유효하지만 page가 아직 resident하지 않은 demand fault라면 다음과 같이 처리할 수 있다. invalid mapping·접근 권한 위반은 별도 오류이고 모든 fault가 disk I/O로 이어지지는 않는다.
 
 ```text
 page table entry says not present
-  -> page fault trap
+  -> page fault trap and mapping/permission validation
   -> kernel chooses free frame or victim frame
   -> page is loaded from disk if needed
   -> page table and TLB are updated
@@ -78,22 +86,28 @@ stateDiagram-v2
     Access --> TLBHit: translation cached
     Access --> TLBMiss: translation absent
     TLBMiss --> PageTableHit: page present
-    PageTableHit --> AccessMemory: update TLB
+    PageTableHit --> CheckRights: cache translation
+    TLBHit --> CheckRights
+    CheckRights --> AccessMemory: access permitted
+    CheckRights --> PageFault: protection fault
     TLBMiss --> PageFault: page not present
-    PageFault --> LoadPage: fetch or allocate frame
-    LoadPage --> AccessMemory: restart instruction
+    PageFault --> ValidateFault
+    ValidateFault --> AccessDenied: invalid mapping or denied access
+    ValidateFault --> LoadPage: valid demand/COW fault
+    LoadPage --> Access: mapping updated; retry instruction
+    LoadPage --> RecoveryFailed: allocation or I/O failure
 ```
 
-메모리 압박이 심하면 `LoadPage` 단계에서 victim page를 고르고, dirty page라면 디스크에 먼저 써야 한다.
+보존해야 할 dirty victim page를 reclaim하려면 적합한 file·swap backing에 반영해야 한다. clean file-backed page는 버린 뒤 다시 읽을 수 있고 익명 page의 swap·압축 정책과 allocation/I/O 실패 처리는 커널 구성에 따라 다르다.
 
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-- user process는 kernel memory에 직접 접근하면 안 된다.
+- MMU 권한과 OS page-table 관리는 user process의 허용되지 않은 접근을 제한해야 한다. 공유 mapping, DMA/IOMMU와 hardware/kernel 결함까지 포함한 완전한 격리를 이 장치 하나로 보장하지는 않는다.
 - page table entry의 권한 비트는 실제 접근 권한과 일치해야 한다.
 - page와 frame 크기는 주소 변환 계산에서 동일해야 한다.
 - TLB entry는 page table 변경 후 stale 상태로 남으면 안 된다.
-- dirty page는 버리기 전에 backing store나 파일에 반영되어야 한다.
-- copy-on-write page는 쓰기 시점에 독립된 frame으로 분리되어야 한다.
+- 이후에도 내용을 보존해야 하는 dirty page는 reclaim 전에 backing file/swap 등에 반영한다. 매핑 폐기·프로세스 종료로 더 이상 필요 없는 내용은 별도 조건이다.
+- copy-on-write에서는 쓰기 결과가 다른 private mapping에 보이지 않아야 한다. 실제 복사는 공유 상태에 따라 필요하며 이미 독점된 page는 안전하게 재사용할 수 있다.
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
 

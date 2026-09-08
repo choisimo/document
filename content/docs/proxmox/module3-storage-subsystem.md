@@ -2,6 +2,13 @@
 
 이 모듈은 Proxmox VE에서 VM/CT 디스크, ISO, 백업, 템플릿이 어떤 스토리지 백엔드에 저장되고 어떤 명령으로 관리되는지 설명한다.
 
+## 데이터 보호와 측정 계약
+
+- storage backend와 기능 지원은 Proxmox VE, kernel/ZFS/Ceph/NFS 버전, guest 유형과 volume format에 따라 달라집니다.
+- `pvesm`, LVM, ZFS, Ceph 변경 전 실제 storage ID, device serial, mount, guest 사용 관계와 복원 가능한 backup을 확인합니다.
+- snapshot, thin provisioning, replication, RAID/Ceph redundancy와 backup을 구분합니다. 어느 하나도 단독으로 삭제·침해·사이트 장애 전체를 막지 않습니다.
+- 완료 증거는 capacity 표시뿐 아니라 guest fsync/latency 분포, failure 상태, 재부팅, backup restore와 경보 임곗값 검증입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 가상화 환경의 성능과 복구 능력은 스토리지 선택에 크게 좌우된다. 같은 VM 디스크라도 Directory의 이미지 파일, LVM-thin의 thin volume, ZFS zvol, Ceph RBD는 성능, 스냅샷, 공유성, 복구 방식이 다르다.
@@ -16,7 +23,7 @@
 - raw와 qcow2를 단순히 파일 확장자로만 이해한다.
 - thin provisioning을 실제 공간이 무한한 것처럼 생각한다.
 - ZFS snapshot과 Proxmox backup을 같은 보호 수단으로 본다.
-- 공유 스토리지 없이 live migration을 기대한다.
+- 공유 스토리지와 로컬 디스크 전송을 포함한 migration의 지원 조건·시간·영향을 구분하지 않는다.
 - `pvesm status`와 `zfs list`, `lvs`, `rbd ls` 결과를 연결하지 못한다.
 
 ## 3. 도달하고 싶은 목표 (Target State)
@@ -125,7 +132,7 @@ VM 100의 디스크가 어디에 있는지 확인할 때는 `qm config 100`의 v
 - ZFS SLOG를 단일 저품질 장치로 추가하면 동기 쓰기 장애 위험이 커질 수 있다.
 - NFS 스토리지 지연이 커지면 VM I/O latency가 급증한다.
 - Ceph는 replica와 네트워크 설계가 부족하면 단순 로컬 스토리지보다 불안정할 수 있다.
-- `qm unlink --delete` 같은 삭제 작업은 되돌릴 수 없는 데이터 손실을 만들 수 있다.
+- 디스크 분리와 실제 volume 삭제는 다르다. 설치 버전의 qm disk/unlink 도움말로 대상과 삭제 옵션을 확인하고, volume을 삭제하면 되돌릴 수 없는 데이터 손실이 생길 수 있다.
 
 ## 10. 뇌 확장하기 (Evolution & Variants)
 

@@ -1,5 +1,9 @@
 # 함수 포인터와 콜백 학습 및 기록 노트
 
+## 문서 지도와 구현 경계
+
+이 파일은 C/C++ 함수 포인터, Python callable, Java functional interface·method reference, JVM memory·GC를 콜백과 객체 수명 관점으로 비교한다. 언어 간 “주소”를 동일한 runtime 개념으로 취급하지 않는다. C/C++ 함수 포인터는 언어가 정의한 pointer 값이고, Python과 Java는 raw address가 아닌 object/reference와 호출 계약을 노출한다. 첫 Java 예제의 `add`와 `apply`는 반환값에 맞는 `int` signature를 사용한다. JVM object 배치·lambda 구현·GC는 Java와 JVM version·collector에 따라 달라지며, 완료된 비교는 대상 version과 compile·runtime 관찰 결과를 함께 제시해야 한다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 C/C++에서는 함수 이름이 호출 가능한 코드 위치를 가리키고, 함수 포인터로 그 주소를 값처럼 전달할 수 있다. 하지만 Java와 Python에서는 같은 문제를 "함수를 값처럼 전달한다"는 더 높은 수준의 추상화로 해결한다.

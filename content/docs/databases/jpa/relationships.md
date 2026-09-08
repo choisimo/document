@@ -1,5 +1,12 @@
 # JPA Entity Relationships 학습 및 기록 노트
 
+## Scope and Verification Contract
+
+- **Scope:** State the JPA specification level, provider and version, enhancement or proxy mode, database dialect, and transaction boundary. Provider behavior must not be presented as a portable JPA guarantee.
+- **Assumptions:** Define the owning side, aggregate boundary, nullability, expected cardinality, fetch plan, cascade intent, orphan lifecycle, and serialization boundary before choosing a mapping.
+- **Facts and inference:** Annotation semantics are contract claims; generated SQL, join count, proxy initialization, and performance are implementation observations that require logs and tests.
+- **Failure and completion:** Test both sides of an association, detached access, delete and orphan behavior, rollback, N+1 queries, and constraint failures. A mapping is complete when database rows and the in-memory graph remain consistent across those paths.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 JPA 관계 매핑은 Java object reference와 database foreign key를 연결하는 계약이다. 단방향/양방향 관계, owner side, `mappedBy`, fetch type, cascade, orphan removal을 정확히 이해하지 못하면 FK가 갱신되지 않거나 N+1 query, JSON infinite recursion, 의도하지 않은 delete가 발생한다.
@@ -19,7 +26,7 @@ JPA 관계 매핑은 Java object reference와 database foreign key를 연결하�
 - 관계 유형별 DB FK 위치와 JPA owner side를 구분한다.
 - 단방향 `ManyToOne`을 기본 관계로 이해한다.
 - 양방향 `OneToMany`/`ManyToOne`에서 `mappedBy`와 helper method를 올바르게 사용한다.
-- `FetchType.LAZY`를 기본으로 두고 필요한 query에서 명시적으로 fetch한다.
+- 필요한 association을 query별 fetch 계획으로 정하고, LAZY 지원·트랜잭션 경계·분리된 객체 접근·쿼리 수를 확인한다.
 - Cascade와 orphan removal을 aggregate boundary 안에서만 제한적으로 사용한다.
 
 ## 4. 시스템 번역 (Data Flow)
@@ -27,15 +34,15 @@ JPA 관계 매핑은 Java object reference와 database foreign key를 연결하�
 ```mermaid
 flowchart TD
     A[Java object reference 변경] --> B{Owner side인가?}
-    B -->|yes| C[Foreign key update SQL 생성]
+    B -->|yes| C[Owner association 변경 추적]
     B -->|no mappedBy| D[DB 관계 변경 없음]
-    C --> E[(Database FK)]
+    C --> G[Persistence context flush]
     D --> F[In-memory graph만 변경]
-    E --> G[Persistence context flush]
+    G --> E[(Database FK)]
     F --> H[불일치 위험]
 ```
 
-JPA에서 관계를 바꿨다는 것은 object reference를 바꾼 것만이 아니라, owner side가 관리하는 FK 값이 flush 시 SQL로 반영된다는 뜻이다.
+JPA에서 owner side는 association의 DB 관계 값을 결정하며 flush 시 SQL에 반영된다. inverse side 변경만으로 FK가 재설정되지는 않지만, orphanRemoval이나 cascade가 설정된 경우에는 collection 변경에 별도 삭제·전파 효과가 있을 수 있다.
 
 ## 5. 핵심 구성요소 (Building Blocks)
 
@@ -46,8 +53,8 @@ JPA에서 관계를 바꿨다는 것은 object reference를 바꾼 것만이 아
 | `@OneToOne` | 1:1 association | FK 소유 side 결정 필요 |
 | `@ManyToMany` | join table 기반 N:M | 실무에서는 join entity 선호 |
 | `@JoinColumn` | FK column 지정 | nullable/unique 제약과 일치 |
-| `mappedBy` | inverse side 표시 | 관계 변경 SQL을 만들지 않음 |
-| `FetchType.LAZY` | 접근 시점에 로딩 | transaction boundary 필요 |
+| `mappedBy` | inverse side 표시 | FK 갱신 기준은 owner, orphanRemoval/cascade 효과는 별도 |
+| `FetchType.LAZY` | 지연 로딩을 요청하는 힌트 | provider 지원·프록시·컨텍스트 경계를 확인 |
 | Cascade | parent operation 전파 | remove 전파 주의 |
 | orphanRemoval | collection에서 빠진 child 삭제 | aggregate 내부에만 적합 |
 
@@ -55,8 +62,8 @@ JPA에서 관계를 바꿨다는 것은 object reference를 바꾼 것만이 아
 
 ```mermaid
 stateDiagram-v2
-    [*] --> DetachedGraph
-    DetachedGraph --> ManagedGraph: load/persist
+    [*] --> NewOrStoredEntity
+    NewOrStoredEntity --> ManagedGraph: 신규 persist / 기존 find
     ManagedGraph --> AssociationChanged: owner side 변경
     AssociationChanged --> SyncedInMemory: helper로 양방향 동기화
     SyncedInMemory --> Flushed: transaction flush
@@ -68,10 +75,10 @@ stateDiagram-v2
 
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-- FK를 가진 owner side가 관계 변경의 기준이다.
+- 관계의 owner side가 DB association 값의 기준이다. 양방향 N:1에서는 보통 FK를 가진 N 쪽이며, join table 매핑에서는 owner가 연결 테이블을 관리한다.
 - `mappedBy`가 붙은 inverse side만 수정하면 DB FK는 바뀌지 않는다.
 - 양방향 관계 helper method는 양쪽 reference/collection을 함께 갱신해야 한다.
-- 기본 전략은 `LAZY`로 두고 필요한 query에서 fetch join 또는 entity graph를 사용한다.
+- 명시적인 fetch 계획을 세운다. LAZY의 적합성은 provider 지원, transaction 경계, aggregate 크기, query 수와 detached 접근으로 판단하고 생성 SQL로 검증한다.
 - Cascade remove와 orphan removal은 child lifecycle이 parent에 종속될 때만 사용한다.
 - Collection fetch join과 pagination을 함께 사용할 때 결과 왜곡과 메모리 처리 위험을 확인해야 한다.
 - Entity를 JSON으로 바로 노출하면 양방향 관계에서 infinite recursion이 생길 수 있다.
@@ -90,6 +97,9 @@ public class Comment {
     private Post post;
 
     public void setPost(Post post) {
+        if (post == null || (this.post != null && this.post != post)) {
+            throw new IllegalArgumentException("Comment cannot change its owning Post");
+        }
         this.post = post;
     }
 }
@@ -104,13 +114,16 @@ public class Post {
     private List<Comment> comments = new ArrayList<>();
 
     public void addComment(Comment comment) {
-        comments.add(comment);
+        java.util.Objects.requireNonNull(comment, "comment");
         comment.setPost(this);
+        if (!comments.contains(comment)) {
+            comments.add(comment);
+        }
     }
 }
 ```
 
-이 예제에서 FK owner는 `Comment.post`다. `Post.comments`는 `mappedBy` inverse side이므로 helper method가 `comment.setPost(this)`를 호출해야 DB 관계도 갱신된다.
+이 예제에서 FK owner는 `Comment.post`다. 추가는 `Post.addComment`를 통해 양쪽을 맞추며 `Comment`는 한 `Post`의 lifecycle에만 속한다고 제한한다. 다른 `Post`로 이동·제거하는 동작은 이 최소 예제에 없고 orphanRemoval·rollback을 포함한 별도 정책과 테스트가 필요하다.
 
 ## 9. 실패 사례 (What could go wrong?)
 
@@ -139,4 +152,4 @@ public class Post {
 
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-JPA 관계 매핑에서 DB를 바꾸는 쪽은 object graph에서 보기 편한 쪽이 아니라 foreign key를 가진 owner side다.
+JPA 관계 매핑의 DB association 값은 owner side를 기준으로 반영하며, inverse graph·fetch 계획·cascade와 orphan lifecycle은 별도로 일관되게 맞춰야 한다.

@@ -2,6 +2,13 @@
 
 이 문서는 Kafka를 로컬에서 실행하고 topic, producer, consumer, consumer group을 확인하는 최소 실습 기준을 정리한다. 신규 실습은 ZooKeeper가 아니라 KRaft 기반 Kafka를 기본으로 둔다.
 
+## 로컬 실습 경계
+
+- 아래 실습은 단일 KRaft broker를 사용합니다. 로컬 개편에서 제거한 ZooKeeper Compose를 현재 예제로 설명하지 않습니다. 이미지 변수와 지원 버전은 사용한 Kafka 릴리스 문서에서 확인합니다.
+- 단일 호스트·평문 listener·예시 자격 증명은 프로덕션에 사용하지 않습니다. 외부 공개, TLS/SASL, 권한, persistent volume과 복제 장애는 별도 범위입니다.
+- 다운로드와 이미지는 버전과 checksum/digest를 고정하고, `down -v`와 로그 디렉터리 삭제가 지우는 데이터를 먼저 확인합니다.
+- 완료 기준은 broker process가 아니라 topic 생성, produce/consume, consumer group 상태, 재시작 후 데이터와 의도한 정리 결과입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Kafka 개념은 topic과 partition을 읽는 것만으로는 잘 익혀지지 않는다. 직접 broker를 띄우고 event를 쓰고 읽고 offset을 확인해야 producer/consumer 흐름이 선명해진다.
@@ -94,10 +101,10 @@ Kafka archive extracted
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
 
-Docker로 단일 broker를 실행한다. 버전은 공식 quickstart의 현재 예시를 확인하고 pin한다.
+Docker로 단일 broker를 실행한다. 아래는 [Kafka 4.3 Quick Start](https://kafka.apache.org/43/getting-started/quickstart/)에서 확인한 4.3.1 예시를 고정한 것으로, 실행 결과는 별도로 기록한다. 외부 클라이언트가 필요하면 listener와 인증을 먼저 설계한다.
 
 ```bash
-docker run -d --name kafka-quickstart -p 9092:9092 apache/kafka:4.3.0
+docker run -d --name kafka-quickstart -p 127.0.0.1:9092:9092 apache/kafka:4.3.1
 docker logs -f kafka-quickstart
 ```
 
@@ -162,8 +169,9 @@ docker rm -f kafka-quickstart
 Native 실행은 Java 17 이상이 필요하다.
 
 ```bash
-tar -xzf kafka_2.13-4.3.0.tgz
-cd kafka_2.13-4.3.0
+# Apache에서 배포한 4.3.1 파일과 checksum/signature를 먼저 확인한다.
+tar -xzf kafka_2.13-4.3.1.tgz
+cd kafka_2.13-4.3.1
 KAFKA_CLUSTER_ID="$(bin/kafka-storage.sh random-uuid)"
 bin/kafka-storage.sh format --standalone -t "$KAFKA_CLUSTER_ID" -c config/server.properties
 bin/kafka-server-start.sh config/server.properties

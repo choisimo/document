@@ -1,13 +1,20 @@
 # Linux Kernel Development — Under the Hood
 > Based on *Linux Kernel Development, 3rd Edition* by Robert Love
 
-This document maps the internal machinery of the Linux kernel: how processes flow through memory, how the scheduler dispatches CPU time, how system calls cross the privilege boundary, how synchronization primitives prevent races, and how the memory subsystem carves up physical RAM. The goal is to visualize every data path exactly — through `struct` fields, kernel stacks, CPU registers, and memory zones.
+## Historical and platform boundary
+
+- The book describes an older Linux generation. Structure fields, sizes, scheduler policy, page-cache indexes, syscall entry, memory zones and block I/O paths vary by kernel version and architecture.
+- Diagrams are teaching paths, not exact traces for every filesystem, cache state, security hook or device driver.
+- Before using a symbol or field, record the kernel release, architecture, configuration and source commit, then confirm it in that tree.
+- Runtime completion evidence combines tracepoints or BPF data, counters, return values and failure-path observations; a diagram alone is not proof.
+
+This document maps representative Linux kernel mechanisms: tasks, scheduling, system calls, synchronization, memory and I/O. It preserves the cited book's conceptual value while marking version-specific structures as historical examples.
 
 ---
 
 ## 1. Process Model: task_struct and the Task List
 
-Every runnable entity in the kernel — process or thread — is represented by `struct task_struct`, defined in `<linux/sched.h>`. At ~1.7 KB on 32-bit, it contains the complete runtime state of a process.
+Linux represents each task with `struct task_struct`, but its definition, size and related structures vary by release, architecture and configuration. The historical `~1.7 KB on 32-bit` figure is not a current invariant, and task state also references shared or external kernel objects rather than containing everything inline.
 
 ```mermaid
 block-beta
@@ -42,10 +49,12 @@ flowchart TB
 ```
 
 On **x86** (register-poor), `current` is computed by masking the stack pointer:
+
 ```
 current_thread_info() = (stack_pointer & ~(8192-1))
 current = current_thread_info()->task
 ```
+
 Assembly: `movl $-8192, %eax ; andl %esp, %eax`
 
 On **PowerPC** (register-rich), `current` is simply register `r2`.
@@ -97,7 +106,7 @@ sequenceDiagram
 
 ## 2. Process Scheduling: CFS and the Runqueue
 
-The Completely Fair Scheduler (CFS) replaced O(1) scheduler in 2.6.23. It uses a red-black tree (`rbtree`) keyed by **virtual runtime** (`vruntime`) — how long the task has run, weighted by priority.
+Linux 2.6.23 introduced CFS in place of the earlier O(1) scheduler, using virtual-runtime ordering as a central model. Later kernels have changed fair-scheduling selection, including EEVDF-based behavior, so the red-black-tree explanation must be tied to the cited kernel era rather than treated as the current scheduler contract.
 
 ### CFS Data Structures
 
@@ -118,6 +127,7 @@ flowchart LR
 ### vruntime Calculation
 
 Every task gets a **time slice** proportional to its weight. `vruntime` accumulates at rate:
+
 ```
 vruntime_delta = actual_runtime × (NICE_0_LOAD / task_weight)
 ```
@@ -342,14 +352,14 @@ The buddy system tracks free pages in 11 free lists, for orders 0–10 (1, 2, 4,
 
 ```mermaid
 flowchart LR
-  subgraph "free_area[order]"
+  subgraph FreeArea["free_area#91;order#93;"]
     O0["order 0: list of 4KB free pages"]
     O1["order 1: list of 8KB free pairs"]
     O2["order 2: 16KB quads"]
     O9["order 9: 2MB blocks"]
     O10["order 10: 4MB blocks"]
   end
-  REQ["alloc_pages(GFP_KERNEL, 0)\nwants 1 page (order 0)"]
+  REQ["alloc_pages(GFP_KERNEL, 0)<br/>wants 1 page (order 0)"]
   REQ --> O0
   O0 -->|"empty → split from order 1"| O1
   O1 -->|"split: give 1 page, buddy goes to order 0 free list"| O0
@@ -586,4 +596,4 @@ flowchart TD
   IRQ -->|"softirq / workqueue"| KRN
 ```
 
-Every `read()` call traces a path: user registers → `syscall` → `sys_read` frame on kernel stack → VFS → page cache radix tree lookup → (on miss) bio construction → I/O scheduler → DMA → IRQ → `bio_endio` → `copy_to_user` → `sysret` → user registers. The kernel stack, `current`, page frame flags, and zone allocator are the connective tissue throughout.
+A `read()` may traverse syscall entry, VFS, filesystem and page-cache logic, but the exact path branches on file type, cache state, direct I/O, asynchronous interfaces, filesystem, block stack and architecture. Modern kernels may use XArray rather than the historical radix-tree path. Capture a trace for the named kernel and workload before asserting that BIO, DMA, IRQ or `copy_to_user` occurred.

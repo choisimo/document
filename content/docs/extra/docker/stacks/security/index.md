@@ -1,6 +1,48 @@
-# Security Docker Stacks 학습 및 기록 노트
+---
+title: "보안 Compose 스택"
+---
+
+# 보안 Compose 스택 {#security-docker-stacks}
+
+<nav class="hub-directory" aria-label="보안 Compose 스택 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">컬렉션 탐색</h2>
+
+- [Compose 스택](../index.md)
+- [Docker Compose 컬렉션](../../index.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">vaultwarden</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/security/vaultwarden/docker-compose.yaml)
+- [docker-compose.nginx.yaml](/extra/docker/stacks/security/vaultwarden/docker-compose.nginx.yaml)
+- [docker-compose.cloudflared.yaml](/extra/docker/stacks/security/vaultwarden/docker-compose.cloudflared.yaml)
+- [docker-compose.full.yaml](/extra/docker/stacks/security/vaultwarden/docker-compose.full.yaml)
+- [.env.example](/extra/docker/stacks/security/vaultwarden/.env.example)
+- [vaultwarden.conf](/extra/docker/stacks/security/vaultwarden/nginx/vaultwarden.conf)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
 
 Security 카테고리는 비밀번호와 인증 경계를 다루는 서비스를 모은다. 현재는 Vaultwarden 스택 하나가 있고, 기본 Compose, Nginx 변형, Cloudflare Tunnel 변형, full 변형이 제공된다.
+
+## 보안 스택 점검 기준
+
+- 초기 관리자 자격 증명, 암호화 키와 복구 코드는 생성·배포·회전·폐기 소유자를 정한 뒤 주입합니다.
+- `up -d` 성공을 보안 완료로 간주하지 않습니다. TLS 체인, 접근 정책, 감사 로그, 백업 암호화와 복구 권한을 시험합니다.
+- 잠금 또는 키 유실 시 복구 절차와 break-glass 접근을 별도 보관하고 정기적으로 검증합니다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -197,3 +239,5 @@ Vaultwarden 운영은 Compose보다 백업, 복구, 업데이트, 알림, 로그
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 Vaultwarden 스택은 비밀번호 저장소라서 실행보다 `__________`와 복구가 먼저다. `DISABLE_ADMIN_TOKEN`을 admin page 비활성화로 오해하지 말고, 실제 노출 경계는 `__________` 또는 `__________` 설정으로 검증한다.
+
+</details>

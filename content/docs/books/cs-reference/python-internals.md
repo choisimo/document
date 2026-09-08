@@ -1,5 +1,15 @@
 # Python Internals 학습 및 기록 노트
 
+## Scope, CPython Version, and Verification
+
+This document primarily describes CPython. Python language guarantees, CPython implementation details, build-time options, and observations from one interpreter process are explicitly separated.
+
+- **Scope:** Record Python and CPython version, build and ABI, platform and architecture, optimization or debug mode, allocator, garbage-collector settings, and concurrency build options.
+- **Guarantee boundary:** Object identity, interning, cache ranges, bytecode, dictionary layout, resizing, specialization, GIL behavior, and frame representation are implementation details unless the language reference says otherwise.
+- **Numeric assumptions:** Object sizes, opcode and call times, GC pauses, cache ranges, and allocation growth depend on build, workload, warmup, CPU, and measurement tool. Any reference values are illustrative, not a performance contract.
+- **Evidence and uncertainty:** Use disassembly, interpreter and allocator statistics, GC callbacks, profiles, and repeatable benchmarks. `is` establishes identity, not value equality, and must not be used to infer an interning guarantee.
+- **Failure and completion:** Include exceptions, cycles, finalizers, cancellation, thread or process contention, memory pressure, and alternate interpreters. Completion requires correct semantics and a reproducible improvement without memory or tail-latency regression.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Python 코드는 간결하지만 CPython 내부에서는 모든 값이 `PyObject`이고, reference counting과 cyclic GC가 객체 수명을 관리하며, bytecode eval loop가 opcode를 실행한다. GIL, PyMalloc, descriptor protocol, generator frame, compact dict, import cache 같은 내부 구조를 이해하면 성능 병목과 메모리 누수를 더 정확히 설명할 수 있다.
@@ -16,7 +26,7 @@ Python 코드는 간결하지만 CPython 내부에서는 모든 값이 `PyObject
 
 ## 3. 도달하고 싶은 목표 (Target State)
 
-- 모든 Python 값이 heap object이고 type pointer를 통해 동작이 dispatch됨을 설명한다.
+- Python의 값은 객체라는 언어 의미와 CPython의 `PyObject` 계열 표현을 구분한다. 캐시·불멸 객체·최적화가 있으므로 소스의 값마다 새 힙 할당이 생긴다고 설명하지 않는다.
 - Reference counting과 cyclic GC의 역할을 구분한다.
 - Source -> AST -> code object -> frame -> eval loop 흐름을 이해한다.
 - GIL과 multiprocessing, asyncio, C extension의 관계를 구분한다.
@@ -86,8 +96,8 @@ Generator는 frame을 버리지 않고 `yield` 지점에서 중단한다. `next(
 - GIL이 보호하는 CPython 내부 상태는 동시에 여러 thread가 변경하면 안 된다.
 - Descriptor lookup 순서는 data descriptor, instance dict, non-data descriptor, class attribute 순서를 지켜야 한다.
 - Dict lookup은 hash와 key equality를 모두 확인해야 한다.
-- Import는 `sys.modules` cache를 통해 같은 module object를 재사용해야 한다.
-- CPU-bound 순수 Python thread가 여러 개여도 GIL 때문에 동시에 bytecode를 실행하지 못한다.
+- 일반적인 import는 같은 이름의 성공적으로 초기화된 module을 `sys.modules`에서 재사용한다. 초기화 실패, cache 제거, reload와 사용자 loader 경로는 별도로 다룬다.
+- GIL이 활성화된 CPython 인터프리터에서는 해당 GIL을 공유하는 thread들이 Python bytecode를 동시에 실행하지 못한다. Free-threaded 빌드와 GIL을 해제하는 네이티브 코드는 대상 버전·확장 모듈을 따로 확인한다.
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
 
@@ -115,8 +125,8 @@ user.name 조회 순서:
 ## 9. 실패 사례 (What could go wrong?)
 
 - 순환 참조가 있는 객체에 `__del__`이나 외부 리소스가 얽혀 회수 타이밍이 예상과 달라진다.
-- CPU-bound 작업을 thread로 병렬화하려고 해도 GIL 때문에 속도가 늘지 않는다.
-- `str += part`를 loop에서 반복해 매번 새 문자열을 만들고 `O(n^2)` 비용을 만든다.
+- GIL 활성화 CPython에서 순수 Python CPU-bound 작업을 같은 인터프리터의 thread로 나누고 병렬 실행을 기대한다. 네이티브 코드의 GIL 해제나 free-threaded 빌드는 별도의 조건으로 측정해야 한다.
+- 반복적인 `str += part`는 구현과 참조 상태에 따라 `O(n^2)`에 가까워질 수 있지만 일부 CPython 경로는 최적화된다. 많은 조각은 `"".join(parts)`와 실제 입력에서 비교한다.
 - 전역 변수 lookup과 attribute lookup이 hot loop 안에서 반복되어 bytecode overhead가 커진다.
 - Generator/coroutine frame이 참조를 유지해 큰 객체가 예상보다 오래 살아남는다.
 - Import top-level code가 무겁고 cold import latency가 커진다.

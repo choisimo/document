@@ -1,5 +1,14 @@
 # Learning Apache Kafka 학습 및 기록 노트
 
+## Historical boundary
+
+- This document is an explicit Kafka 0.8.x study guide. ZooKeeper paths, high-level consumer APIs, offset storage, message formats, defaults, and controller behavior are historical unless a section says otherwise.
+- Do not apply commands or sizing advice to a current cluster without mapping the concept to the deployed Kafka version and KRaft/ZooKeeper mode.
+- Performance ratios are illustrative. Reproduce them with named storage, batching, compression, page-cache state, payload and percentile.
+- For migration, record which invariant remains, which API or component was replaced, and how current logs and metrics prove the equivalent behavior.
+
+이 노트의 consumer 예시는 ZooKeeper에 offset을 저장하는 당시의 high-level consumer 경로를 가정한다. 같은 0.8.x라도 정확한 client와 release의 offset 저장 옵션을 확인해야 한다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Nishant Garg의 *Learning Apache Kafka*는 Kafka 0.8.x 시대의 broker, ZooKeeper coordination, partition log, ISR replication, producer/consumer offset 흐름을 설명한다. 이 시기의 Kafka는 modern Kafka와 다르게 consumer offset과 group coordination을 ZooKeeper에 크게 의존하므로, 현재 Kafka 구조를 이해할 때도 무엇이 바뀌었는지 비교 기준이 된다.
@@ -49,7 +58,7 @@ Kafka 0.8의 핵심 data flow는 sequential log append, follower pull replicatio
 | --- | --- | --- |
 | Segment log | partition data 저장 | active segment, offset, byte position |
 | Index file | offset에서 segment byte 위치 탐색 | sparse offset index |
-| OS page cache | broker heap 대신 disk I/O 완충 | hot/warm/cold page |
+| OS page cache | log I/O의 주요 완충 계층 | broker의 요청·인덱스·버퍼·metadata는 별도로 JVM heap 또는 native memory를 사용할 수 있다. |
 | ZooKeeper znode | cluster metadata와 liveness 저장 | ephemeral node, watch |
 | Controller broker | metadata 변경과 leader election 조정 | broker session, ISR state |
 | ISR | leader와 동기화된 replica 집합 | in-sync, lagging, out-of-ISR |

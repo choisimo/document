@@ -2,6 +2,13 @@
 
 이 문서는 Terraform으로 AWS VPC, public subnet, security group, EC2 web server를 만드는 최소 실습을 정리한다. 실제 AWS 리소스를 생성하므로 권한, 비용, SSH 노출 범위, 삭제 절차를 먼저 확인해야 한다.
 
+## 비용·권한·정리 경계
+
+- 이 실습은 실제 AWS 비용과 quota를 사용합니다. 별도 sandbox 계정, 예산 알림, owner/expiry 태그와 실행 종료 시각을 먼저 정합니다.
+- 장기 access key를 코드·`tfvars`·셸 기록에 저장하지 말고 SSO 또는 단기 role 자격 증명과 최소 권한을 사용합니다.
+- provider와 module 버전, 원격 state 암호화·잠금, AMI와 region을 고정합니다. 예제 기본값이 현재 Free Tier임을 가정하지 않습니다.
+- 완료 기준은 plan 승인, 제한된 source IP의 SSH/HTTP, 인스턴스 초기화 로그, `destroy` 후 EC2·EBS·EIP·VPC와 비용 잔여 확인입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 로컬 `local_file` 실습은 Terraform workflow를 익히기에는 충분하지만, cloud provider에서 생기는 권한, quota, 네트워크, 과금 문제를 보여주지 않는다. EC2 하나를 만들더라도 VPC, subnet, route, security group, key pair, AMI, user data가 함께 맞아야 한다.
@@ -49,13 +56,13 @@ EC2 instance만 단독으로 존재하지 않는다. 인터넷에서 접근하�
 
 ## 5. 핵심 구성요소 (Building Blocks)
 
-AWS provider는 AWS API와 통신한다. 2026년 현재 Terraform Registry의 AWS provider 최신 major는 6.x 계열이므로 예제는 `~> 6.0` 범위를 사용한다.
+AWS provider는 AWS API와 통신한다. 이 예제는 `~> 6.0` API 범위를 사용한다. 선택한 정확한 provider 버전과 checksum은 `.terraform.lock.hcl`에 기록하며, 최신 버전이라는 이유만으로 변경하지 않는다.
 
 VPC는 네트워크 경계다. 이 실습은 `10.0.0.0/16` 하나만 사용한다.
 
 Public subnet은 internet gateway로 가는 기본 route가 있고 instance에 public IP를 부여한다.
 
-Security group은 instance 방화벽 역할을 한다. 최신 AWS provider 문서는 `aws_vpc_security_group_ingress_rule`, `aws_vpc_security_group_egress_rule`을 별도 리소스로 관리하는 방식을 권장한다.
+Security group은 instance 방화벽 역할을 한다. 이 예제는 `aws_vpc_security_group_ingress_rule`, `aws_vpc_security_group_egress_rule`을 별도 리소스로 사용하며 inline rule과 섞지 않는다.
 
 AMI data source는 조건에 맞는 최신 image를 조회한다. 편하지만 새 AMI가 나오면 다음 plan에서 instance 교체가 제안될 수 있다.
 
@@ -113,6 +120,7 @@ aws configure get region
 SSH key pair는 AWS에 미리 있어야 한다. 새 실습용 key pair를 CLI로 만들려면 다음처럼 생성한다.
 
 ```bash
+umask 077
 aws ec2 create-key-pair --key-name tf-web-lab --query 'KeyMaterial' --output text > ~/.ssh/tf-web-lab.pem
 chmod 400 ~/.ssh/tf-web-lab.pem
 ```
@@ -148,8 +156,8 @@ variable "allowed_ssh_cidr" {
   type        = string
 
   validation {
-    condition     = can(cidrhost(var.allowed_ssh_cidr, 0))
-    error_message = "allowed_ssh_cidr must be a valid CIDR, for example 203.0.113.10/32."
+    condition     = can(cidrnetmask(var.allowed_ssh_cidr)) && endswith(var.allowed_ssh_cidr, "/32")
+    error_message = "allowed_ssh_cidr must be a single trusted IPv4 /32, for example 203.0.113.10/32."
   }
 }
 ```
@@ -346,7 +354,8 @@ output "ssh_command" {
 내 공인 IP만 SSH에 허용하도록 `terraform.tfvars`를 만든다.
 
 ```bash
-MY_IP="$(curl -4 https://checkip.amazonaws.com | tr -d '\n')"
+set -eu
+MY_IP="$(curl -4 --fail --show-error --silent --connect-timeout 10 --max-time 20 https://checkip.amazonaws.com)"
 cat > terraform.tfvars <<EOF
 aws_region       = "ap-northeast-2"
 project          = "tf-web-lab"

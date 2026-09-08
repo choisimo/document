@@ -2,6 +2,15 @@
 
 이 문서는 SSHFS 같은 원격 파일 접근에서 사용자 이름은 같아도 권한이 거부되는 문제를 UID/GID, FUSE 옵션, 디렉터리 권한 관점으로 정리한다.
 
+## 적용 범위와 권한 검증 기준
+
+- **범위:** SSHFS·libfuse·kernel·SSH client/server 버전, mount 실행 사용자와 namespace, local/remote UID·GID·supplementary groups, remote filesystem ACL과 mount options를 기록합니다.
+- **권한 전제:** remote SSH authorization, SSHFS의 attribute mapping, `default_permissions`의 local kernel check, parent directory execute 권한과 application access를 분리해 확인합니다.
+- **사실과 추론:** 양쪽 `id`, path component 권한·ACL, mount table, SSHFS debug와 실제 open error는 근거이고, 동일 username이나 한 번의 permission denied만으로 UID mismatch를 원인으로 확정하지 않습니다.
+- **실패·완료:** 다른 사용자 노출, 예상 밖 root credential, read/write 차이, stale mount, reconnect와 unmount 실패를 시험합니다. 최소 권한으로 필요한 operation만 성공하고 금지 사용자는 거부되며 reboot/reconnect 뒤에도 mapping이 유지될 때 완료입니다.
+
+---
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Linux 권한은 사용자 이름 문자열이 아니라 UID와 GID 숫자를 기준으로 평가된다. 로컬과 원격에 같은 `nodove` 사용자가 있어도 UID가 다르면 SSHFS 마운트 후 파일 소유권과 접근 권한이 예상과 다르게 보일 수 있다.
@@ -35,12 +44,11 @@ SSHFS 접근 흐름은 다음과 같다.
 
 ```text
 local process accesses mount point
-  -> kernel routes operation to FUSE
-  -> sshfs process sends SFTP request over SSH
-  -> remote sshd evaluates remote user permissions
-  -> sshfs maps remote UID/GID to local view
-  -> local kernel may apply default_permissions checks
-  -> application receives success or permission denied
+  -> local mount ownership/parent traversal and FUSE access rules
+  -> optional default_permissions check using mapped file attributes
+  -> sshfs sends the allowed filesystem request over its SSH session
+  -> remote SFTP service checks that remote account's filesystem permissions
+  -> application receives success or a local/remote error
 ```
 
 권한 오류는 로컬 마운트 지점, FUSE 옵션, SSH 인증, 원격 파일 권한 중 어느 단계에서도 발생할 수 있다.
@@ -101,10 +109,10 @@ sshfs -o idmap=user user@example.com:/home/user ~/remote
 다른 로컬 사용자도 접근해야 하는 경우에만 `allow_other`를 검토한다.
 
 ```bash
-sshfs -o idmap=user,allow_other user@example.com:/srv/share /mnt/share
+sshfs -o idmap=user,allow_other,default_permissions user@example.com:/srv/share /mnt/share
 ```
 
-이때 `/etc/fuse.conf`의 `user_allow_other` 설정과 마운트 포인트 권한을 함께 확인한다.
+이때 `/etc/fuse.conf`의 `user_allow_other`, mount point와 상위 경로의 권한, mapped UID/GID와 ACL을 함께 확인한다. 모든 로컬 사용자의 원격 요청은 이 mount를 연 동일한 SSH 계정 권한으로 실행되며 `idmap=user`가 원격 계정을 바꾸지는 않는다. 허용 사용자와 거부 사용자 각각의 read/write를 검증한 뒤 공유한다.
 
 ## 9. 실패 사례 (What could go wrong?)
 

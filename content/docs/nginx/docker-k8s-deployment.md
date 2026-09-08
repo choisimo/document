@@ -2,6 +2,15 @@
 
 이 문서는 Nginx를 Docker image와 Kubernetes workload로 배포할 때 필요한 최소 구성을 정리한다. 목표는 Nginx 설정을 image에 넣을지, ConfigMap으로 분리할지, Service와 Ingress가 어떤 트래픽 경계를 담당하는지 구분하는 것이다.
 
+## 적용 범위와 배포 완료 기준
+
+- **범위:** Nginx image digest/version, Docker build platform, Kubernetes·API version, namespace, Ingress controller, CNI와 cluster policy를 기록합니다.
+- **전제:** immutable image, non-root filesystem·user, resource request/limit, health probe, ConfigMap 반영 방식, Service·Ingress의 실제 controller와 TLS 종료 지점을 정합니다.
+- **사실과 추론:** rendered manifest, admitted object, image digest, Pod event·log와 endpoint 응답은 근거이고, 가용성·확장성·성능은 rollout 및 부하 시험 전까지 추론입니다.
+- **실패·완료:** image pull, invalid config, probe 실패, unavailable replica, ConfigMap 불일치, routing·TLS 오류와 rollback을 시험합니다. desired replica, endpoint, SLO, security context와 이전 revision 복구가 확인될 때 완료입니다.
+
+---
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Nginx는 단일 binary처럼 보이지만 container와 Kubernetes에서는 image, config, volume, port, health check, Service, Ingress가 함께 맞아야 한다. `nginx:latest`로 빨리 띄우면 재현성과 rollback 기준이 약해진다.
@@ -105,6 +114,8 @@ manifest applied
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
 
+다음은 HTTP 경로를 확인하는 최소 lab이다. nginx:1.29-alpine은 minor 계열 tag이므로 immutable pin이 아니다. 실제 배포 전 검증한 digest로 교체하고, non-root user·쓰기 가능한 cache/PID/temp 경로·securityContext를 함께 구성한 뒤 위 배포 계약을 검증한다. 이 예제만으로 그 조건들이 완료되지는 않는다.
+
 정적 파일 image를 만든다.
 
 ```dockerfile
@@ -132,8 +143,8 @@ Docker로 검증한다.
 
 ```bash
 docker build -t local/nginx-static:1.0.0 .
-docker run --rm -p 8080:80 local/nginx-static:1.0.0 nginx -t
-docker run --rm -d --name nginx-static -p 8080:80 local/nginx-static:1.0.0
+docker run --rm local/nginx-static:1.0.0 nginx -t
+docker run --rm -d --name nginx-static -p 127.0.0.1:8080:80 local/nginx-static:1.0.0
 curl -I http://127.0.0.1:8080
 docker logs nginx-static
 docker rm -f nginx-static
@@ -160,7 +171,7 @@ data:
     }
 ```
 
-Deployment를 만든다.
+Deployment를 만든다. 아래 stock image는 기본 페이지를 제공한다. 앞에서 빌드한 index.html을 배포하려면 registry에 올린 동일 image digest로 바꾼다. subPath로 연결한 ConfigMap 파일은 변경을 자동 반영하지 않으므로 새 설정을 검증한 뒤 rollout한다.
 
 ```yaml
 apiVersion: apps/v1
@@ -228,7 +239,7 @@ spec:
     targetPort: 80
 ```
 
-Ingress를 만든다.
+Ingress를 만든다. ingressClassName은 실제 설치한 controller의 class로 바꾸며, 여기의 nginx라는 이름이 controller 설치를 대신하지 않는다. TLS·도메인·외부 노출은 별도 설정과 검증이 필요하다.
 
 ```yaml
 apiVersion: networking.k8s.io/v1

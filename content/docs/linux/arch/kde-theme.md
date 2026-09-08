@@ -2,9 +2,18 @@
 
 이 문서는 KDE Plasma에서 global theme, Plasma style, color scheme, icon, cursor, font, window decoration을 안전하게 바꾸는 기준을 정리한다. 목표는 예쁜 테마 목록을 외우는 것이 아니라 어떤 설정이 어떤 파일과 UI 영역에 영향을 주는지 이해하는 것이다.
 
+## 적용 범위와 복구 기준
+
+- **범위:** KDE Plasma·Frameworks·Qt 버전, Arch package snapshot, Wayland/X11 session, display manager, GPU driver와 theme source/version을 기록합니다.
+- **전제:** global theme, color, icon, font, window decoration, panel, widget와 SDDM은 서로 다른 구성 범위입니다. 한 항목의 변경이 desktop 전체에 동일하게 적용된다고 가정하지 않습니다.
+- **사실과 추론:** 적용된 package·설정 파일과 session log는 사실이고, theme 호환성·성능·오류 원인은 재현 전까지 추론입니다. 인기·미관·“최고” 평가는 사용자와 시점에 종속됩니다.
+- **실패·완료:** 깨진 login, unreadable text, missing widget, shortcut·locale·accessibility 회귀를 확인하고, 기존 설정 backup에서 복구할 수 있으며 재로그인 후 선택한 구성 요소만 의도대로 적용될 때 완료입니다.
+
+---
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
-KDE Plasma는 설정 범위가 넓다. Global theme 하나를 적용하면 색상, 패널, 창 장식, 아이콘, 커서, 폰트, 로그인 화면까지 여러 요소가 한 번에 바뀔 수 있다.
+KDE Plasma는 설정 범위가 넓다. Global theme가 어떤 색상·패널·장식·아이콘·커서·폰트를 포함하고 적용하는지는 theme package와 선택한 항목에 따라 다르다. SDDM 로그인 화면은 사용자 Plasma 세션과 별도 범위로 확인한다.
 
 무작정 테마 스크립트를 실행하면 사용자 설정이 덮이거나 SDDM 같은 system 영역까지 바뀐다. 복구하려면 어떤 설정이 user scope인지 system scope인지 알아야 한다.
 
@@ -107,11 +116,17 @@ echo "$XDG_CURRENT_DESKTOP"
 주요 사용자 설정을 백업한다.
 
 ```bash
-mkdir -p ~/kde-config-backup
-cp ~/.config/kdeglobals ~/kde-config-backup/ 2>/dev/null || true
-cp ~/.config/kwinrc ~/kde-config-backup/ 2>/dev/null || true
-cp ~/.config/plasmarc ~/kde-config-backup/ 2>/dev/null || true
-cp ~/.config/plasma-org.kde.plasma.desktop-appletsrc ~/kde-config-backup/ 2>/dev/null || true
+kde_backup_dir=$(mktemp -d "${HOME}/kde-config-backup.XXXXXX") || exit 1
+for kde_config in kdeglobals kwinrc plasmarc plasma-org.kde.plasma.desktop-appletsrc; do
+    kde_source="${XDG_CONFIG_HOME:-${HOME}/.config}/${kde_config}"
+    if [ -e "$kde_source" ] || [ -L "$kde_source" ]; then
+        cp -a -- "$kde_source" "$kde_backup_dir/" || exit 1
+    fi
+done
+printf 'Backup directory: %s\n' "$kde_backup_dir"
+
+
+
 ```
 
 System Settings를 연다.
@@ -138,7 +153,7 @@ find ~/.local/share/icons -maxdepth 2 -type d 2>/dev/null
 find ~/.local/share/color-schemes -maxdepth 1 -type f 2>/dev/null
 ```
 
-기본 Breeze 계열로 되돌리는 가장 안전한 방법은 GUI에서 기본 테마를 다시 적용하는 것이다.
+GUI가 접근 가능하면 System Settings에서 기본 Breeze 테마를 다시 적용해 확인한다. 로그인이나 shell이 깨졌다면 TTY와 사전 backup을 통한 별도 복구 경로가 필요하다.
 
 ```text
 System Settings
@@ -163,7 +178,7 @@ sudo pacman -S plasma kde-applications noto-fonts noto-fonts-cjk noto-fonts-emoj
 
 ## 9. 실패 사례 (What could go wrong?)
 
-Global theme 적용 후 panel이 사라지면 `plasma-org.kde.plasma.desktop-appletsrc`가 영향을 받았을 수 있다. 백업에서 되돌리거나 새 panel을 만든다.
+Global theme 적용 후 panel이 사라지면 `plasma-org.kde.plasma.desktop-appletsrc` 변경을 확인한다. backup 복원은 Plasma 세션을 종료한 상태에서 수행해 실행 중 shell이 이전 설정을 다시 덮어쓰지 않도록 한다.
 
 외부 script가 `~/.config`, `~/.local/share`, `/usr/share`를 동시에 수정하면 원복 범위가 커진다. 설치 전 script가 쓰는 경로를 확인한다.
 

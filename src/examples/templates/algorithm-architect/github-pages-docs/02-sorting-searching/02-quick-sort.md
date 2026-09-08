@@ -8,6 +8,12 @@
 ## 원본 템플릿
 - Source: [02-sorting-searching/02-quick-sort.md](../../02-sorting-searching/02-quick-sort.md)
 
+## 적용 계약과 근거 경계
+
+- Python 3.x의 상호 비교 가능한 값 sequence를 받아 새 list를 반환하며 입력을 수정하지 않습니다.
+- 중간 **위치**의 값을 피벗으로 고르는 것은 최악 분할 방지 보장이 아닙니다. 시간은 보통 `O(N log N)`, 피벗이 반복해서 극단값이면 `O(N²)`입니다.
+- list comprehension과 연결로 추가 할당이 발생합니다. 내장 `sorted`보다 빠르다는 주장은 벤치마크 없이 할 수 없습니다.
+
 ## 내부 메커니즘 (Flow)
 ```mermaid
 flowchart TD
@@ -45,7 +51,7 @@ sequenceDiagram
 # [Quick Sort 템플릿: 아키텍트 버전]
 # Use Case: 평균 O(N log N) 정렬
 # Components: Pivot, Partition
-# Constraint: 최악 O(N²) (이미 정렬된 경우)
+# Constraint: 최악 O(N²) (피벗이 반복해서 극단값이 되는 입력)
 
 def quick_sort(arr):
     # 1. 베이스 케이스 (Base Case)
@@ -53,7 +59,7 @@ def quick_sort(arr):
         return arr
     
     # 2. 피벗 선택 (Pivot Selection)
-    #    - 중간값을 피벗으로 (최악 케이스 방지)
+    #    - 중간 위치의 값을 피벗으로 선택하되 최악 케이스를 보장해 피하지는 않음
     pivot = arr[len(arr) // 2]
     
     # 3. 분할 로직 (Partition Logic)
@@ -74,7 +80,7 @@ def quick_sort(arr):
 - **Termination**: 목표 도달, 범위 소진, 큐/스택 고갈, 사이클 검출 등으로 종료한다.
 
 ## 실전 적용 체크리스트
-- 입력 자료구조 형식(인접 리스트, 간선 리스트, 정렬 여부, 1-index/0-index)을 먼저 고정한다.
-- 시간 복잡도 한계에 맞게 자료구조를 교체한다 (`list.pop(0)` -> `deque.popleft` 등).
-- 실패/예외 경로를 명시한다 (도달 불가, 음수 사이클, 빈 결과, 사이클 존재).
-- 테스트는 최소 3개: 정상 케이스, 경계 케이스, 반례 케이스를 포함한다.
+- 빈·단일·정렬·역정렬·전체 동일·중복 많은 입력을 시험합니다.
+- 분할 결과가 원소 multiset을 보존하고 left/middle/right 조건을 만족하는지 확인합니다.
+- 결과를 `sorted(arr)`와 무작위·적대적 입력에서 대조합니다.
+- 재귀 깊이와 할당량이 한도를 넘으면 내장 정렬이나 보장된 알고리즘으로 전환합니다.

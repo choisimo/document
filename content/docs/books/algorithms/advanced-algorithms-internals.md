@@ -1,5 +1,9 @@
 # Advanced Algorithms 내부 메커니즘 학습 및 기록 노트
 
+## Assumptions and proof boundaries
+
+Complexity and correctness claims in this synthesis depend on the graph model, edge-weight ties, computation model, randomization, and error probability. In the MST diagram, a light edge is guaranteed to belong to some MST under the cut-property conditions; it belongs to every MST only with an appropriate uniqueness condition. Likewise, a cycle edge is excluded from every MST only when it is uniquely heaviest. Treat “all known algorithms” and register-level descriptions as explanatory synthesis rather than a theorem from the cited course. A section is complete when it states the input model, maintained invariant, tie or probability assumptions, proof step, and time·space bound in the same model.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 고급 알고리즘은 단순 구현보다 증명 불변식과 상태 압축 기법이 핵심이다. MST, 매칭, metric embedding, Johnson-Lindenstrauss 차원 축소, streaming sketch, algebraic matching, APSP는 서로 다른 분야처럼 보이지만 모두 "큰 상태를 더 작은 표현으로 보존하거나 필터링한다"는 공통 구조를 가진다.
@@ -45,8 +49,8 @@ flowchart TD
 
 | 구성요소 | 핵심 상태 | 보존해야 할 규칙 |
 | --- | --- | --- |
-| MST cut rule | 선택된 blue edge 집합 | cut을 가로지르는 최소 간선은 안전하다. |
-| MST cycle rule | 제거된 red edge 집합 | cycle의 최대 간선은 MST에 필요 없다. |
+| MST cut rule | 선택된 blue edge 집합 | 선택 간선을 가로지르지 않는 cut의 최소 간선은 어떤 MST로의 확장에 안전하며, 모든 MST에 속한다는 결론에는 유일성 조건이 필요하다. |
+| MST cycle rule | 제거된 red edge 집합 | cycle에서 유일하게 가장 무거운 간선은 모든 MST에서 제외된다. 최대 가중치가 동률이면 특정 최대 간선을 제외하는 MST가 존재한다. |
 | Union-Find | component parent/rank | 같은 component를 잇는 간선은 cycle을 만든다. |
 | Augmenting path | matching edge 집합 | 경로 edge를 toggle하면 matching 크기가 1 증가한다. |
 | Blossom contraction | odd cycle super-node | 축약 그래프의 augmenting path를 원래 그래프로 lift한다. |

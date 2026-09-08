@@ -1,6 +1,39 @@
-# Java 문서
+---
+title: "Java"
+---
 
-Java 문서는 언어 문법, JVM 실행 모델, 메모리 관리, 객체지향 설계를 연결해서 학습하기 위한 진입점이다. 이 섹션은 “코드를 어떻게 작성하는가”와 “JVM이 그 코드를 어떻게 실행하는가”를 함께 다룬다.
+# Java {#java}
+
+<nav class="hub-directory" aria-label="Java 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">주요 문서</h2>
+
+- [Java 핵심 개념](core-concepts.md)
+- [Java 메모리와 GC](memory-gc.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">함께 읽기</h2>
+
+- [JPA 개요 및 복합키](../databases/jpa/overview.md)
+- [Redis Spring Boot Integration](../databases/redis/springboot-integration.md)
+- [Java JDK 설치 및 환경 구성](../development/languages/java-install.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
+
+Java 문서는 언어 문법, JVM 실행 모델, 메모리 관리, 객체지향 설계를 연결해서 학습하기 위한 진입점이다. 이 섹션은 “코드를 어떻게 작성하는가”와 “JVM이 그 코드를 어떻게 실행하는가”를 함께 다룬다. 언어 규칙과 HotSpot 구현을 구분하며 예제는 JDK 17·21을 중심으로 읽는다. 공급업체 지원과 내부 동작은 버전·GC 옵션별로 확인하고 java/javac 버전을 함께 기록한다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -132,11 +165,15 @@ Spring bean lifecycle 문제를 Java object lifecycle과 분리해서 생각하�
 
 ## 10. 뇌 확장하기 (Evolution & Variants)
 
-Java release cadence는 계속 움직인다. 2026년 기준 Oracle 문서와 Java SE specification은 Java SE 25/JDK 25 계열을 제공하며, Java 21에서 Java 25로 넘어가는 LTS 전환도 vendor별 정책을 확인해야 한다.
+Java 릴리스와 LTS 지원 정책은 공급업체별로 확인한다. 특정 연도의 최신 JDK를 정적 문서에서 보장하지 않고 프로젝트 toolchain·의존성·배포 환경의 지원 조합을 기록한다.
 
 Virtual threads는 thread-per-request 스타일을 다시 가능하게 만들지만, blocking I/O, synchronized block, connection pool 크기 같은 기존 병목이 사라지는 것은 아니다.
 
 GraalVM native image, Quarkus, Micronaut 같은 stack은 startup과 memory footprint를 줄일 수 있지만 reflection, dynamic proxy, resource loading 제약을 함께 고려해야 한다.
+
+## 학습 완료 기준
+
+코드가 대상 JDK에서 컴파일되고 예상 출력과 실패 예외를 설명할 수 있어야 합니다. GC·성능 설명은 JFR, GC 로그, JMH 같은 측정 없이 특정 지연이나 처리량을 보장하지 않습니다. 링크 존재와 예제 빌드는 별도로 검사하고 결과를 남겨야 합니다.
 
 ## 11. 최종 체크리스트 (Definition of Done)
 
@@ -151,3 +188,5 @@ GraalVM native image, Quarkus, Micronaut 같은 stack은 startup과 memory footp
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 Java 학습은 문법에서 끝나지 않는다. source code는 bytecode가 되고, JVM 위에서 object, memory, GC, exception, thread 계약으로 실행된다.
+
+</details>

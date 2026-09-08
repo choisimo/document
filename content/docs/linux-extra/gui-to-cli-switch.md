@@ -2,6 +2,13 @@
 
 이 문서는 systemd 기반 Linux에서 GUI 환경을 CLI 중심 환경으로 전환하는 방법을 정리한다. 목표는 desktop package를 바로 삭제하는 것이 아니라 `graphical.target`, `multi-user.target`, display manager, TTY의 차이를 이해하고 안전하게 전환하는 것이다.
 
+## 전환 종류와 복구 경계
+
+- `Ctrl+Alt+Fn` 가상 콘솔 전환, display manager 일시 중지, 기본 systemd target 변경, GUI package 제거는 영향과 복구가 다른 작업입니다.
+- 이 문서의 지속 설정은 systemd 기반 배포판을 대상으로 합니다. init system, display manager, 원격 세션과 Wayland/X11 구성을 먼저 확인합니다.
+- 원격 SSH 또는 물리 콘솔과 원래 target 복구 명령을 확보한 뒤 실행하며, 그래픽 세션의 저장되지 않은 작업이 종료될 수 있음을 알립니다.
+- 완료 기준은 재부팅 후 의도한 target, TTY/SSH 로그인, 필수 서비스와 원래 GUI target으로의 복귀가 모두 동작하는 것입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 서버나 저사양 장비에서는 GUI가 불필요한 memory, CPU, GPU 자원을 사용할 수 있다. 장애 복구 중에는 그래픽 세션 대신 TTY나 SSH에서 작업해야 할 때도 있다.
@@ -57,7 +64,7 @@ systemd default target
 
 `graphical.target`은 GUI login까지 포함하는 systemd target이다.
 
-`multi-user.target`은 network와 multi-user login은 제공하지만 graphical login은 시작하지 않는 target이다.
+`multi-user.target`은 일반적인 비그래픽 다중 사용자 target이다. network·SSH·getty 제공 여부는 실제 unit 의존성, enable 상태와 현재 환경을 확인해야 하며 target 이름만으로 접속 가능성이 보장되지는 않는다.
 
 Display manager는 GDM, SDDM, LightDM처럼 graphical login을 제공하는 service다.
 
@@ -134,7 +141,7 @@ GUI로 돌아간다. 배포판과 display manager에 따라 F1, F2, F7 중 하�
 Ctrl+Alt+F1
 ```
 
-현재 boot에서만 CLI target으로 전환한다.
+현재 boot에서만 CLI target으로 전환한다. 실행 전에 저장되지 않은 GUI 작업을 저장하고, 실제로 새 SSH 세션 또는 물리 TTY에서 로그인·sudo를 확인한다. 복구 명령과 원래 target은 그 세션에서도 사용할 수 있어야 한다.
 
 ```bash
 sudo systemctl isolate multi-user.target
@@ -175,7 +182,7 @@ sudo systemctl enable sddm
 원격 서버에서 작업 전 SSH 상태를 확인한다.
 
 ```bash
-systemctl status ssh
+systemctl status ssh.service sshd.service
 ss -tulpen | rg ':22'
 ```
 
@@ -187,7 +194,7 @@ Desktop package를 purge하면 나중에 GUI 복구가 target 변경만으로 �
 
 Display manager가 `gdm`인지 `gdm3`인지, `sddm`인지 확인하지 않고 disable하면 효과가 없거나 다른 service를 건드릴 수 있다.
 
-NetworkManager가 GUI session에 의존한다고 오해하면 CLI 전환 후 network가 끊길 수 있다. 실제 service enable 상태를 확인한다.
+NetworkManager daemon의 활성화와 connection profile의 autoconnect·사용자 권한을 함께 확인한다. GUI session에서만 시작된 연결이나 SSH에 의존하는 경로가 있으면 CLI 전환 후에도 유지되는지 실제 새 연결로 검증한다.
 
 GPU driver 문제로 GUI가 깨진 경우 desktop package 삭제는 원인 해결이 아닐 수 있다. journal과 display manager log를 먼저 본다.
 

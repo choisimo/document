@@ -1,6 +1,13 @@
 # 감정 일기장 분석기 시스템 흐름도 및 구조 설계
 
-감정 일기장 분석기 프로젝트의 시스템 흐름도, 구현 프레임 구조, 데이터베이스 설계안을 정리한다. 유사 서비스 구조 비교를 통해 설계 방향을 제시한다.
+감정 일기장 분석기 프로젝트의 시스템 흐름, 컴포넌트 후보, 데이터베이스 초안을 제시합니다. 이 문서는 구현 결과나 최적 설계를 증명하지 않으며, 비교 항목도 출처가 연결되기 전까지 설계 가설로 취급합니다.
+
+| 항목 | 현재 상태 | 확정에 필요한 증거 |
+| --- | --- | --- |
+| 시스템 흐름 | 제안 | 사용자 안전 검토와 실패·재시도 시나리오 승인 |
+| 기술 스택 | 후보 | 최소 기능 검증, 운영 비용, 지원 버전, 담당자 |
+| 데이터 모델 | 초안 | 엔터티별 기준 저장소, 보존·삭제·마이그레이션 정책 |
+| 성능·비교 주장 | 미검증 | 출처, 평가 데이터, 측정 환경과 재현 결과 |
 
 ## 시스템 흐름도 (Mermaid 코드)
 
@@ -28,7 +35,7 @@ flowchart TD
     J --> G
 ```
 
-이 흐름도는 감정 일기 입력부터 AI 분석, 감정 유형별 대응 경로, 그리고 인지행동치료(CBT) 모듈까지의 전체 프로세스를 보여줍니다.
+이 흐름도는 감정 일기 입력부터 AI 분석, 감정 유형별 대응 경로, 인지행동치료(CBT) 콘텐츠 후보까지의 개념 흐름을 보여줍니다. `긍정적/부정적 우세`와 `심각도 높음/낮음`의 판정 기준은 아직 정의되지 않았습니다. 자동 분석은 진단이나 위기 판정을 대신하지 않으며, 위기 가능성이 있으면 공식 지원 수단을 우선 안내하고 모델 결과는 검토 대상으로 남깁니다.
 
 ## 시스템 아키텍처 구조
 
@@ -43,27 +50,27 @@ flowchart TD
         VIS[데이터 시각화]
         EDI[일기 에디터]
     end
-    
+
     subgraph "Backend"
         API[REST API]
         AUTH[인증/인가]
         BL[비즈니스 로직]
         CACHE[캐싱 시스템]
     end
-    
+
     subgraph "AI Module"
         NLP[텍스트 처리]
         EA[감정 분석]
         CBT[인지행동치료 엔진]
         REC[제안 시스템]
     end
-    
+
     subgraph "Database"
         RDB[관계형 DB]
         NOSQL[NoSQL DB]
         REDIS[Redis 캐시]
     end
-    
+
     UI --> API
     VIS --> API
     EDI --> API
@@ -91,18 +98,18 @@ flowchart TD
         REDUX[Redux]
         TAILWIND[Tailwind CSS]
     end
-    
+
     subgraph "UI Components"
         MUI[Material-UI]
         EDITOR[Rich Text Editor]
         CHARTS[Chart.js/D3.js]
     end
-    
+
     subgraph "Communications"
         AXIOS[Axios]
         WS[WebSocket]
     end
-    
+
     NEXT --> REACT
     REACT --> REDUX
     REACT --> TAILWIND
@@ -122,19 +129,19 @@ flowchart TD
         SECURITY[Spring Security]
         JPA[Spring Data JPA]
     end
-    
+
     subgraph "API Layer"
         REST[REST Controllers]
         SWAGGER[Swagger]
         JWT[JWT Auth]
     end
-    
+
     subgraph "Service Layer"
         BL[Business Logic]
         INTEG[AI Integration]
         CACHE[Cache Manager]
     end
-    
+
     SPRING --> SECURITY
     SPRING --> JPA
     SPRING --> REST
@@ -154,18 +161,18 @@ flowchart TD
         NLP[NLP Processors]
         EMO[감정 분석 엔진]
     end
-    
+
     subgraph "CBT Module"
         PAT[패턴 인식기]
         RES[사고 재구성]
         ACT[행동 활성화]
     end
-    
+
     subgraph "API Layer"
         FLASK[Flask/FastAPI]
         INFER[추론 엔진]
     end
-    
+
     GPT --> NLP
     NLP --> EMO
     EMO --> PAT
@@ -178,6 +185,8 @@ flowchart TD
 
 ## 데이터베이스 스키마 설계
 
+관계형 DB와 MongoDB 양쪽에 `users`, `journals`, 분석 결과를 중복 저장하는 현재 안은 기준 데이터가 갈라질 위험이 있습니다. 구현 전 엔터티마다 하나의 기준 저장소를 지정하고, 다른 저장소에는 식별자와 재생성 가능한 파생 데이터만 보관해야 합니다. 삭제 요청은 캐시·검색 인덱스·분석 원문까지 추적할 수 있어야 완료로 처리합니다.
+
 ### 관계형 데이터베이스 (PostgreSQL/MariaDB)
 
 ```mermaid
@@ -187,7 +196,7 @@ erDiagram
     JOURNALS ||--o{ EMOTION_ANALYSES : has
     EMOTION_ANALYSES ||--o{ RECOMMENDATIONS : generates
     EMOTION_ANALYSES ||--|{ COGNITIVE_PATTERNS : identifies
-    
+
     USERS {
         int user_id PK
         string username
@@ -197,7 +206,7 @@ erDiagram
         date last_login
         json preferences
     }
-    
+
     JOURNALS {
         int journal_id PK
         int user_id FK
@@ -206,7 +215,7 @@ erDiagram
         json metadata
         boolean is_deleted
     }
-    
+
     EMOTION_ANALYSES {
         int analysis_id PK
         int journal_id FK
@@ -216,7 +225,7 @@ erDiagram
         datetime created_at
         json raw_analysis
     }
-    
+
     COGNITIVE_PATTERNS {
         int pattern_id PK
         int analysis_id FK
@@ -225,7 +234,7 @@ erDiagram
         json alternatives
         int confidence_score
     }
-    
+
     RECOMMENDATIONS {
         int recommendation_id PK
         int analysis_id FK
@@ -234,7 +243,7 @@ erDiagram
         boolean is_completed
         datetime created_at
     }
-    
+
     ACTIVITIES {
         int activity_id PK
         int user_id FK
@@ -268,7 +277,7 @@ flowchart TD
         SE -->|심각도 낮음| AC[CBT 모듈 활성화]
         SE -->|심각도 높음| PR[전문가 연결]
     end
-    
+
     subgraph "인지적 왜곡 식별"
         PAT1[흑백논리 탐지]
         PAT2[과잉일반화 탐지]
@@ -276,19 +285,19 @@ flowchart TD
         PAT4[감정적 추론 탐지]
         PAT5[마음읽기 탐지]
     end
-    
+
     subgraph "사고 재구성"
         QUES[소크라테스식 질문 생성]
         ALT[대안적 해석 제시]
         EVID[증거 검토 절차]
     end
-    
+
     subgraph "행동 활성화"
         ACT1[단계적 과제 설계]
         ACT2[즐거운 활동 스케줄링]
         ACT3[성취감 경험 유도]
     end
-    
+
     ND --> SE
     AC --> PAT1
     AC --> PAT2
@@ -310,6 +319,8 @@ flowchart TD
 
 ## 유사 감정 분석 서비스와의 데이터베이스 구조 비교
 
+이 절의 데이터셋 규모, 제품 기능, 차별화 표현에는 본문 내 출처가 없습니다. 따라서 채택 근거가 아니라 조사 체크리스트로 사용하며, 공식 문서와 라이선스·언어·평가 방식 확인 후 비교표를 갱신합니다.
+
 ### 1. 감정 분석 데이터셋 접근법 비교
 
 현재 감정 분석 관련 데이터셋들은 다양한 방식으로 구조화되어 있습니다:
@@ -321,17 +332,17 @@ flowchart LR
         OUR2[강도 측정(1-10)]
         OUR3[인지왜곡 유형 분류]
     end
-    
+
     subgraph "EMOTIC 데이터셋"
         EMO1[26가지 감정 카테고리]
         EMO2[Valence-Arousal-Dominance]
     end
-    
+
     subgraph "EmoBank"
         EB1[VAD 표현 방식]
         EB2[다중 장르 균형]
     end
-    
+
     subgraph "ExpW 데이터셋"
         EX1[7가지 기본 표정 인식]
         EX2[91,793 얼굴 이미지]
@@ -351,17 +362,17 @@ flowchart TD
         OUR_B[인지행동치료 통합]
         OUR_C[맞춤형 활동 제안]
     end
-    
+
     subgraph "IBM Watson NLU"
         IBM_A[5가지 감정 분류]
         IBM_B[감정 점수 제공]
     end
-    
+
     subgraph "ParallelDots"
         PD_A[6가지 감정 분류]
         PD_B[신뢰도 점수]
     end
-    
+
     subgraph "Symanto - Ekman"
         SE_A[기본 6가지 감정]
         SE_B[소셜 미디어 특화]
@@ -372,7 +383,7 @@ flowchart TD
 
 ### 애자일 개발 방법론 적용
 
-이 프로젝트는 애자일 방법론을 적용하여 8개의 스프린트로 개발됩니다:
+이 프로젝트는 8개 스프린트 개발안을 제안했습니다. 아래 2025년 날짜는 과거 계획이며 실제 완료 상태를 나타내지 않습니다.
 
 ```mermaid
 gantt
@@ -395,6 +406,6 @@ gantt
 
 ## 결론
 
-감정 일기장 분석기는 현대인의 정신 건강 관리를 위한 서비스 설계안이다. 제시된 Mermaid 다이어그램과 시스템 설계는 서비스의 개발 방향을 정리하며, 인지행동치료(CBT) 모듈을 통합해 부정적 감정 감지 시 전문가 연결 또는 자기 관리 절차로 이어지는 구조를 정의한다.
+이 문서는 감정 기록, 분석, 추천 흐름을 논의하기 위한 구조 초안입니다. CBT 관련 기능은 전문적 개입 자체가 아니라 검토된 자기 성찰 콘텐츠를 전달하는 후보로 한정합니다.
 
-이 프로젝트는 사용자 중심의 AI 기반 정신 건강 관리 서비스로, 감정 데이터베이스 구축과 패턴 인식을 통해 감정 관리 의사결정을 지원한다.
+다음 설계 단계는 심각도·저신뢰도 상태 정의, 엔터티별 기준 저장소 결정, 외부 AI 전송과 삭제 정책 승인, 평가 데이터와 합격 기준 확정입니다. 이 네 항목이 완료되기 전에는 운영 효과나 정신 건강 증진을 결과로 주장하지 않습니다.

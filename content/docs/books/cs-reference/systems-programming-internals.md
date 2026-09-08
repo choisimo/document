@@ -1,8 +1,10 @@
 # Systems Programming Internals 학습 및 기록 노트
 
+> **Reading contract:** This note targets systems programmers who already distinguish language guarantees from one Linux, libc, compiler, allocator, and CPU implementation. Bind each low-level claim to ISA and memory model, kernel and libc version, compiler flags, allocator build, architecture, and benchmark conditions. Safe-language guarantees are **facts within their defined subset**; diagrams of futex words, registers, bins, and nanoseconds are **implementation examples**. Completion requires source or disassembly evidence, a failure boundary, and a repeatable trace or benchmark. Retry after controlling noise; invalidate results when the environment changes.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
-시스템 프로그래밍은 사용자 공간 코드가 CPU, memory model, kernel, scheduler, allocator, file system과 직접 만나는 영역이다. 같은 mutex라도 uncontended fast path는 사용자 공간 CAS로 끝나지만, contended path는 futex syscall로 kernel wait queue에 들어간다. 같은 load/store도 CPU memory model과 fence에 따라 다른 thread에서 보이는 순서가 달라질 수 있다.
+시스템 프로그래밍은 사용자 공간 코드가 CPU, memory model, kernel, scheduler, allocator, file system과 직접 만나는 영역이다. 대표적인 futex 기반 mutex는 비경합 시 사용자 공간 원자 연산으로 끝날 수 있고, 경합 시에는 적응형 스핀이나 futex wait/wake를 선택한다. 정확한 경로와 syscall 수는 mutex 속성과 구현에 따라 다르다. 같은 load/store도 CPU memory model과 fence에 따라 다른 thread에서 보이는 순서가 달라질 수 있다.
 
 이 문서는 원문의 systems programming internals 내용을 memory ordering, syscall, futex, Rust ownership, pthread, allocator, POSIX I/O 중심으로 재작성한다.
 
@@ -11,7 +13,7 @@
 - Syscall, mutex, thread, malloc, file I/O, Rust ownership의 기본 개념은 알고 있다.
 - Store buffer, memory fence, atomic RMW가 실제 동시성 버그와 어떻게 연결되는지 정리해야 한다.
 - Futex가 왜 빠른 mutex 구현의 핵심인지 fast path/slow path로 구분해야 한다.
-- pthread가 Linux `task_struct`와 CFS scheduler에 어떻게 매핑되는지 더 명확히 해야 한다.
+- pthread가 Linux `task_struct`와 대상 커널의 fair scheduling 정책에 어떻게 매핑되는지 정리해야 한다. CFS와 EEVDF 세부는 커널 버전을 구분한다.
 - Allocator의 bin/cache 구조와 fragmentation, contention 문제를 이해해야 한다.
 
 ## 3. 도달하고 싶은 목표 (Target State)
@@ -19,7 +21,7 @@
 - CPU memory model과 fence가 load/store ordering을 어떻게 제한하는지 설명한다.
 - Syscall이 user mode에서 kernel mode로 전환되는 경로를 추적한다.
 - Futex 기반 mutex의 uncontended/contended path를 구분한다.
-- Rust borrow checker가 compile time에 use-after-free와 data race를 막는 방식을 설명한다.
+- safe Rust의 borrow checking이 언어의 타입·aliasing 모델 안에서 많은 use-after-free와 data race를 배제하는 방식을 설명하고, unsafe/FFI와 Send/Sync 경계는 별도로 검토한다.
 - Thread scheduling, TLS, allocator, POSIX file I/O를 내부 상태와 연결한다.
 
 ## 4. 시스템 번역 (Data Flow)
@@ -30,7 +32,7 @@ flowchart TD
     B -->|atomic/load/store| C[CPU memory model]
     B -->|syscall| D[User -> Kernel boundary]
     B -->|lock| E[CAS fast path / futex slow path]
-    B -->|thread| F[pthread -> task_struct -> CFS]
+    B -->|thread| F[pthread -> task_struct -> versioned fair scheduler]
     B -->|allocation| G[allocator bins/cache]
     B -->|file I/O| H[VFS/page cache/device]
     C --> I[결과와 부작용]
@@ -72,7 +74,7 @@ stateDiagram-v2
     Scheduled --> UserSpace
 ```
 
-Mutex는 평소에는 사용자 공간 CAS로 끝나고, 경합이 생겼을 때만 futex syscall로 kernel에 들어간다. 이 fast/slow path 분리가 성능의 핵심이다.
+대표적인 futex 기반 mutex는 사용자 공간 fast path와 필요 시 잠들 수 있는 slow path를 나눈다. 경합이 발생했다고 반드시 바로 sleep하거나 고정된 횟수의 syscall을 수행하는 것은 아니며, 적응형 스핀과 wait/wake 정책을 대상 구현에서 확인한다.
 
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
@@ -80,7 +82,7 @@ Mutex는 평소에는 사용자 공간 CAS로 끝나고, 경합이 생겼을 때
 - Syscall 인자는 kernel이 검증할 수 있는 사용자 공간 주소와 권한을 가져야 한다.
 - Futex wait는 기대한 user word 값이 유지될 때만 sleep해야 lost wakeup을 피할 수 있다.
 - Spinlock은 오래 기다릴 수 있는 critical section에 쓰면 CPU를 낭비한다.
-- Rust에서는 `&mut`와 공유 참조가 동시에 활성화되면 안 된다.
+- safe Rust에서는 동일한 값에 대한 ordinary shared borrow와 exclusive mutable borrow의 유효 범위가 충돌하면 안 된다. 내부 가변성·unsafe·FFI의 별도 규칙도 확인한다.
 - pthread stack과 TLS는 thread별로 독립되어야 한다.
 - Allocator는 free된 chunk metadata가 손상되면 임의 코드 실행 취약점으로 이어질 수 있다.
 - File I/O는 page cache, fsync, rename atomicity의 의미를 정확히 구분해야 한다.
@@ -89,14 +91,16 @@ Mutex는 평소에는 사용자 공간 CAS로 끝나고, 경합이 생겼을 때
 
 ```c
 // 개념 모델: uncontended mutex fast path
-if (atomic_compare_exchange_strong(&lock_word, 0, 1)) {
+int expected = 0;
+if (atomic_compare_exchange_strong_explicit(&lock_word, &expected, 1,
+                                           memory_order_acquire, memory_order_relaxed)) {
     // user space에서 lock 획득, syscall 없음
 } else {
     // contended: futex_wait로 kernel wait queue 진입
 }
 ```
 
-이 예제는 시스템 프로그래밍의 핵심 최적화를 보여준다. 대부분의 lock/unlock은 kernel에 들어가지 않고, 진짜 경합이 있을 때만 syscall 비용을 낸다.
+이 예제는 사용자 공간 원자 연산으로 lock을 얻는 fast path의 개념만 보인다. 실제 lock/unlock의 syscall 여부와 비용은 mutex 속성, 경합, 스핀·wait/wake 정책에 따라 측정해야 하며 완전한 mutex 구현은 아니다.
 
 ## 9. 실패 사례 (What could go wrong?)
 

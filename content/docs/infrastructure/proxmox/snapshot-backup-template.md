@@ -2,6 +2,8 @@
 
 Proxmox VE의 snapshot, backup, template은 모두 VM/CT 상태를 다루지만 목적이 다르다. 이 문서는 세 기능을 “롤백”, “복구”, “표준 배포”라는 운영 경계로 나누어 정리한다.
 
+Proxmox VE 버전, VM/CT 종류, 스토리지 백엔드, guest agent와 백업 모드에 따라 지원 기능·생성 시간·일관성이 다르다. 모든 snapshot이 같은 delta 방식은 아니며 파일시스템 freeze만으로 DB의 애플리케이션 일관성이 보장되지는 않는다. 복원 시험에는 backup 데이터 외에 키·카탈로그·권한도 필요하다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Proxmox 운영에서 가장 흔한 실수는 snapshot을 backup처럼 믿거나, template을 변경 가능한 VM처럼 다루거나, backup을 만들고 restore를 검증하지 않는 것이다.
@@ -34,7 +36,7 @@ snapshot은 빠른 되돌리기에는 좋지만 원본 storage 장애에는 무�
 
 ```text
 Snapshot
-  -> same storage delta
+  -> backend-specific snapshot state
   -> short rollback point
 
 Backup
@@ -49,7 +51,7 @@ Template
   -> cloud-init personalization
 ```
 
-snapshot은 원본과 같은 장애 도메인에 남는다. backup은 원본과 분리된 복구 산출물이다. template은 복구 산출물이 아니라 새 VM을 찍어내는 기준 이미지다.
+snapshot은 대개 원본과 같은 스토리지 장애 도메인에 남는다. backup은 별도 장애 도메인과 복구에 필요한 키·카탈로그까지 확보해야 원본 손상에 독립적인 복구 산출물이 된다. template은 복구 산출물이 아니라 새 VM을 찍어내는 기준 이미지다.
 
 ## 5. 핵심 구성요소 (Building Blocks)
 
@@ -129,20 +131,19 @@ qm rollback 100 before-upgrade
 qm delsnapshot 100 before-upgrade
 ```
 
-즉시 backup을 만든다.
+외부 파일 기반 backup storage인 `backup-dir`가 등록되고 충분한 공간이 있는지 확인한 뒤 backup을 만든다. PBS를 선택하면 파일 archive 경로 대신 PBS volume ID와 해당 복원 절차를 사용한다.
 
 ```bash
-vzdump 100 --storage pbs-storage --compress zstd --mode snapshot
+vzdump 100 --storage backup-dir --compress zstd --mode snapshot
 ```
 
-복구 테스트는 새 VMID로 수행한다.
+작업 로그에서 실제 archive 경로를 확인한다. 아래 경로는 예시이므로 해당 경로로 바꾸고, 비어 있는 새 VMID와 격리된 네트워크로 복원한다. 원본과 같은 IP·서비스가 동시에 활성화되지 않도록 NIC 설정을 검토한 뒤 별도로 부팅한다.
 
 ```bash
 qmrestore /var/lib/vz/dump/vzdump-qemu-100-2026_05_27-020000.vma.zst 9100 --storage local-lvm
-qm start 9100
 ```
 
-cloud image 기반 template의 최소 흐름은 다음과 같다.
+cloud image 기반 template의 최소 흐름은 다음과 같다. 이미지를 공식 checksum·서명으로 검증하고 버전과 digest를 기록한다. VMID·스토리지·importdisk 결과의 실제 volume ID를 확인한 뒤 다음 단계를 진행한다.
 
 ```bash
 wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
@@ -182,6 +183,10 @@ Proxmox Backup Server를 쓰면 deduplication, prune, verify, namespace, encrypt
 ZFS, Ceph, LVM-thin 같은 storage backend는 snapshot과 clone 동작 특성이 다르다. 운영 표준은 storage backend 기준으로 다시 검토해야 한다.
 
 대규모 배포에서는 template 관리가 image pipeline이 된다. base image update, security patch, vulnerability scan, cloud-init test, template versioning을 자동화 대상으로 둔다.
+
+## 완료, 실패 및 복구 증거
+
+스냅샷은 테스트 VM 롤백, 백업은 격리된 VM ID로의 실제 복원, 템플릿은 clone 후 machine-id·SSH host key·cloud-init·네트워크 중복 확인까지 통과해야 완료입니다. 목록과 작업 성공 표시는 복구 증거가 아닙니다. 실패한 부분 clone/restore는 원본 VM ID를 덮어쓰지 말고 정리한 뒤 재시도합니다.
 
 ## 11. 최종 체크리스트 (Definition of Done)
 

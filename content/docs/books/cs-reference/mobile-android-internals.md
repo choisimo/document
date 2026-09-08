@@ -1,5 +1,15 @@
 # Android & Mobile Internals 학습 및 기록 노트
 
+## Scope, Platform Assumptions, and Validation
+
+This document describes representative Android platform internals. Android API behavior, AOSP implementation details, vendor kernels, HALs, and device-specific performance are different layers of evidence.
+
+- **Scope:** Record Android release and AOSP branch, device and SoC, kernel, ART mode, graphics stack, app build, refresh rate, and vendor modifications before applying an internal path.
+- **Implementation limits:** Binder is the primary Android RPC mechanism for many framework services, but sockets, shared memory, files, and device-specific IPC also exist. Terms such as zero-copy describe a reduced-copy design, not the absence of every copy.
+- **Numeric assumptions:** Frame budgets, IPC latency, heap thresholds, zRAM ratios, JIT thresholds, and camera timing depend on device, build, load, thermal state, and configuration.
+- **Evidence and uncertainty:** Treat a framework contract as stable only for its documented API level; treat an internal call path or performance explanation as a version-specific hypothesis until traced.
+- **Failure and completion:** Validate cold and warm startup, jank and missed frames, Binder errors, process death, memory pressure, configuration changes, and lifecycle restoration with Perfetto, system traces, logs, and reproducible device conditions.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Android 앱은 Kotlin 코드와 UI 계층만으로 동작하지 않는다. Activity 호출은 Binder IPC를 지나 `system_server`로 전달되고, DEX는 ART에서 interpreter, JIT, profile-guided AOT 경로를 탄다. UI 갱신은 View traversal, Compose recomposition, RenderThread, BufferQueue, SurfaceFlinger, HWComposer를 거쳐 화면에 나타난다.
@@ -41,7 +51,7 @@ flowchart TD
     J --> L
 ```
 
-Android data flow는 앱 프로세스 안에서 끝나지 않는다. 중요한 작업은 Binder를 통해 system service나 vendor HAL로 넘어가고, 화면 출력은 GPU와 display compositor까지 이어진다.
+Android의 여러 Framework·앱 서비스 호출은 Binder를 통해 system_server나 vendor 서비스로 전달된다. 소켓, 파이프, 공유 메모리와 장치별 IPC 경로도 있으므로 중요한 작업이나 교차 프로세스 통신이 모두 Binder를 통과한다고 일반화하지 않는다.
 
 ## 5. 핵심 구성요소 (Building Blocks)
 

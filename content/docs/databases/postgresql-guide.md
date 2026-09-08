@@ -1,4 +1,13 @@
-# PostgreSQL 필수 명령어 학습 및 기록 노트
+# PostgreSQL 주요 명령어 학습 및 기록 노트
+
+## 적용 범위와 검증 기준
+
+- **범위:** PostgreSQL 서버와 `psql`의 버전, 접속 데이터베이스, schema, role, locale와 extension을 기록합니다. 메타 명령과 SQL 기능은 버전에 따라 달라질 수 있습니다.
+- **전제:** 예제는 권한과 transaction 상태를 확인한 비프로덕션 환경에서 먼저 실행합니다. DDL·대량 DML 전에는 영향 행, lock, WAL, 복제 지연과 rollback 방법을 정합니다.
+- **사실과 추론:** 명령 결과와 `EXPLAIN (ANALYZE, BUFFERS)` 관측은 근거이고, index 선택이나 병목 설명은 계획과 통계 확인 전까지 추론입니다.
+- **실패·완료:** SQL 오류, lock timeout, 부분 적용, 제약 위반과 복제 지연을 실패 조건으로 두고, 기대 행 수·schema·권한·성능과 복구 절차를 확인해야 작업 완료로 판정합니다.
+
+---
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -72,7 +81,7 @@ stateDiagram-v2
     Inspecting --> [*]
 ```
 
-변경 작업은 transaction 안에서 실행하고, 적용 전후 상태를 다시 inspect하는 습관이 중요하다.
+Transaction은 statement들의 원자적 commit·rollback 경계를 제공한다. 데이터 무결성은 constraint, isolation, application invariant와 오류 처리도 충족해야 하며 적용 전후 상태를 확인한다.
 
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
@@ -111,7 +120,7 @@ COMMIT;
 6. COMMIT 또는 ROLLBACK
 ```
 
-이 예제는 PostgreSQL 변경 작업이 SQL 실행뿐 아니라 접속 확인, 구조 확인, transaction 종료까지 포함한다는 점을 보여준다.
+이 예제는 비프로덕션 `accounts` 테이블에서 트랜잭션 문법만 보여준다. 실행문의 `COMMIT` 전에 각 UPDATE의 영향 행이 1인지와 잔액 등 도메인 제약을 확인하고 실패하면 ROLLBACK해야 한다. 그대로 복사한 두 UPDATE만으로 계좌 존재·잔액·동시성 불변식이 보장되지는 않는다.
 
 ## 9. 실패 사례 (What could go wrong?)
 
@@ -125,7 +134,7 @@ COMMIT;
 
 ## 10. 뇌 확장하기 (Evolution & Variants)
 
-- Query 성능은 `EXPLAIN`과 `EXPLAIN ANALYZE`로 execution plan을 확인한다.
+- Query 성능은 `EXPLAIN`으로 계획을 확인하고 필요할 때 `EXPLAIN ANALYZE`로 실제 실행을 관측한다. ANALYZE는 문장을 실행하므로 변경 쿼리는 안전한 실험 데이터와 명시적인 rollback·부작용 검토가 필요하다.
 - Schema 관리는 migration tool과 code review를 통해 변경 이력을 남긴다.
 - JSONB는 document flexibility와 relational constraint 사이의 trade-off를 판단한다.
 - View는 query 재사용에 유용하지만 성능과 permission boundary를 함께 본다.
@@ -136,7 +145,7 @@ COMMIT;
 - [x] `psql` 메타 커맨드를 운영 탐색 기준으로 정리했다.
 - [x] DML, DDL, transaction, JSONB, view 사용 흐름을 포함했다.
 - [x] 변경 작업 전 접속/구조/transaction 확인 불변식을 정리했다.
-- [x] 안전한 transaction 최소 예제를 제시했다.
+- [x] transaction 문법 예제와 별도로 검증해야 하는 행 수·무결성 조건을 제시했다.
 - [x] 원문 PostgreSQL guide 문서를 12개 섹션 템플릿으로 재작성했다.
 
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)

@@ -1,5 +1,9 @@
 # Computer Architecture Internals 학습 및 기록 노트
 
+## Model assumptions
+
+The five-stage pipeline example is a pedagogical RISC model; the out-of-order execution examples are separate illustrative models, not additional stages of that same machine. Cache sizes, address-bit slices, latency, branch accuracy, TLB shape, reorder-buffer entries, and bandwidth are parameters of a specific microarchitecture, not architectural invariants. A numeric comparison is complete only with CPU SKU/stepping, clock policy, memory configuration, benchmark, counter names, sample count, and percentile or dispersion.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 소프트웨어 성능 문제는 종종 코드가 아니라 하드웨어 상태 전이에서 발생한다. pipeline hazard, cache miss, TLB miss, branch misprediction, memory ordering, DMA, interrupt, floating point rounding은 모두 코드 한 줄 아래에서 실행 시간을 결정한다.

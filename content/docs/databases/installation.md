@@ -1,5 +1,12 @@
 # 데이터베이스 및 애플리케이션 설치 학습 및 기록 노트
 
+## 실행 전 계약
+
+- 대상 OS, CPU 아키텍처, DB·컨테이너 이미지 버전과 신뢰할 저장소를 고정합니다. `latest` 또는 배포판 기본 버전은 재현 가능한 사양이 아닙니다.
+- 예시 암호, 자체 서명 인증서, `0.0.0.0/0`, 호스트 포트 공개는 운영 금지 항목입니다. 비밀 저장소, 조직 CA, 신뢰 CIDR과 방화벽 정책으로 교체합니다.
+- 설치 완료는 프로세스 기동이 아니라 인증된 TLS 연결, 최소 권한 계정, 영속 볼륨, 재시작, 백업·복원과 로그 확인까지 포함합니다.
+- 변경 전 기존 데이터 백업과 롤백 절차를 만들고, 실패한 단계에서 부분 생성된 컨테이너·사용자·인증서를 어떻게 정리할지 기록합니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 데이터베이스와 관련 애플리케이션은 단순히 패키지를 설치하거나 컨테이너를 실행하는 것으로 끝나지 않는다. 데이터 볼륨, 인증, TLS 인증서, 포트 노출, 방화벽, 초기 사용자, backup, log 확인이 함께 맞아야 실제로 안전하게 운영할 수 있다. 제품별 명령은 버전과 배포판에 따라 달라지므로, 설치 문서는 고정 명령어보다 상태 전이와 검증 기준을 먼저 잡아야 한다.
@@ -84,14 +91,15 @@ stateDiagram-v2
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
 
-PostgreSQL 컨테이너 실행의 개념 예시:
+PostgreSQL 컨테이너의 로컬 학습 예시다. 현재 환경에서 검증된 운영 절차가 아니며 TLS·최소 권한 계정·복원 검증을 포함하지 않는다. `postgres:15`는 변경될 수 있는 major 태그이므로 재현 실험에서는 검증한 digest를 고정한다. 실행 전에 `POSTGRES_PASSWORD` 환경 변수에 학습용 비밀 값을 설정한다.
 
 ```bash
+: "${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD before running this local example}"
 docker volume create pg_data
 docker run -d --name postgres \
   -v pg_data:/var/lib/postgresql/data \
-  -e POSTGRES_PASSWORD='change-me' \
-  -p 5432:5432 \
+  -e POSTGRES_PASSWORD \
+  -p 127.0.0.1:5432:5432 \
   postgres:15
 ```
 
@@ -103,7 +111,7 @@ ss -tulwn | grep 5432
 docker exec -it postgres psql -U postgres -c 'select 1;'
 ```
 
-이 예제는 설치의 최소 단위가 image 실행이 아니라 volume, credential, port, log, client query까지 포함한다는 점을 보여준다.
+이 예제의 `docker exec` 쿼리는 컨테이너 내부 연결만 확인한다. 호스트 TCP 인증, TLS, 재시작 후 데이터 유지와 백업·복원은 별도로 검증해야 한다.
 
 ## 9. 실패 사례 (What could go wrong?)
 

@@ -2,6 +2,13 @@
 
 Apache Kafka는 메시지를 즉시 소비하고 삭제하는 단순 queue라기보다, partitioned log에 event를 append하고 consumer group이 offset으로 읽기 위치를 관리하는 분산 이벤트 스트리밍 플랫폼이다.
 
+## 적용 범위와 보장 경계
+
+- 이 문서는 Kafka의 논리 개념을 설명합니다. controller 모드, group protocol, 기본 설정과 도구 명령은 배포 버전에서 다시 확인합니다.
+- 순서는 partition 안에서 기록된 순서이며, key가 같은 partition에 남는지는 partitioner와 partition 수가 유지되는 동안의 계약입니다.
+- producer acknowledgement, 복제 commit, consumer visibility, 애플리케이션 처리와 offset commit은 서로 다른 완료 상태입니다.
+- 전달 보장은 재시도, transaction, isolation level과 외부 부작용의 멱등성까지 고정하고 장애 시험으로 확인합니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 마이크로서비스가 늘어나면 동기 HTTP 호출만으로는 주문, 결제, 알림, 분석, 로그 수집 같은 흐름을 느슨하게 연결하기 어렵다. 한 서비스 장애가 다른 서비스의 요청 지연으로 번지고, 같은 이벤트를 여러 시스템에서 재사용하기도 힘들다.
@@ -59,7 +66,7 @@ Broker는 partition log를 저장하고 producer/consumer 요청을 처리하는
 
 Replication은 partition의 leader/follower replica를 여러 broker에 둬 장애 시 data availability를 높인다.
 
-Producer는 key와 value를 serialize해 topic에 전송한다. Key가 있으면 보통 같은 key가 같은 partition으로 라우팅되어 key 단위 순서를 유지한다.
+Producer는 key와 value를 serialize해 topic에 전송한다. 같은 key를 같은 partition에 배치하려면 key 직렬화, partitioner와 partition 수가 유지되어야 한다. Partition 수나 라우팅 정책을 바꾸면 이 대응 관계가 달라질 수 있다.
 
 Consumer group은 여러 consumer가 partition을 나눠 읽는 단위다. 같은 group 안에서는 하나의 partition이 동시에 여러 consumer에게 할당되지 않는다.
 

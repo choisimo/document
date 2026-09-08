@@ -2,11 +2,19 @@
 
 동기화는 여러 실행 흐름이 같은 데이터나 자원에 접근할 때, 가능한 실행 순서를 제한해 불변식이 깨지지 않도록 만드는 기술이다.
 
+## 문서 범위와 검증 기준
+
+- **범위**: 임계 구역과 mutex/semaphore/monitor를 설명하는 교과서 의사 코드입니다. 표시된 C 함수는 완전한 POSIX 구현이 아니며 원자성·메모리 순서·오류 처리가 생략될 수 있습니다.
+- **전제**: Peterson 증명은 두 참여자, sequential consistency와 원자적 load/store 모델을 전제로 합니다. 실제 C/C++의 비원자 공유 접근은 data race이며 단순히 fence 하나를 추가하는 것으로 이식성이 자동 확보되지 않습니다.
+- **근거 상태와 환경**: mutex blocking, fairness, condition-variable wakeup과 atomic ordering은 언어·라이브러리·OS 버전의 계약으로 확인합니다. “빠름/짧음”은 고정 기준이 아니며 hold time, contention과 tail latency로 측정합니다.
+- **실패/재시도**: lock/condition wait에는 timeout·취소·spurious wakeup·owner failure 정책을 둡니다. 실패 뒤 lock 소유 여부를 확인하지 않은 재시도나 무한 spin은 허용하지 않습니다.
+- **완료 증거**: 상호 배제뿐 아니라 progress, bounded waiting 또는 명시한 fairness 수준, 취소·예외 경로의 unlock과 종료를 stress trace/검사로 입증해야 완료입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 동시 실행은 성능과 응답성을 높이지만, 공유 상태를 잘못 다루면 결과가 실행 순서에 따라 달라진다. 두 스레드가 같은 카운터를 동시에 증가시키면 `read -> add -> write` 단계가 서로 끼어들 수 있고, 최종 값은 예상보다 작아질 수 있다.
 
-동기화의 목적은 모든 실행을 직렬로 만드는 것이 아니다. 반드시 보호해야 하는 구간만 제한해서 정확성과 병렬성을 함께 얻는 것이다.
+동기화는 보호해야 하는 공유 접근 사이에 언어 메모리 모델에 맞는 happens-before·원자성 계약을 세운다. 소스 코드의 순서나 동시에 실행되지 않을 것이라는 기대만으로는 보장되지 않으며 필요한 구간에 적합한 primitive를 선택한다.
 
 ## 2. 현재 나의 상태 (Baseline)
 
@@ -48,7 +56,8 @@ condition variable은 별도 흐름을 가진다.
 ```text
 lock mutex
 while condition is false:
-  wait condition variable and release mutex atomically
+  wait atomically releases mutex and begins waiting
+  before returning, wait reacquires mutex
 condition is true
 modify shared state
 unlock mutex
@@ -58,17 +67,17 @@ unlock mutex
 
 - Race condition: 실행 순서에 따라 결과가 달라지는 상태.
 - Critical section: 공유 상태의 불변식을 깨뜨릴 수 있는 코드 구간.
-- Mutex: 한 번에 하나의 실행 흐름만 임계 구역에 들어가게 하는 상호 배제 도구.
+- Mutex: 소유권이 있는 상호 배제 도구. 구현별 user-space fast path, adaptive spin과 kernel blocking을 조합할 수 있으며 fairness는 별도 계약이다.
 - Spinlock: lock을 얻을 때까지 CPU를 쓰며 반복 확인하는 lock.
 - Semaphore: 정수 카운터로 사용 가능한 자원 수나 이벤트 순서를 표현하는 도구.
 - Binary semaphore: 값이 0 또는 1인 semaphore. mutex처럼 쓸 수 있지만 소유권 의미가 다르다.
 - Monitor: 공유 데이터와 해당 데이터를 다루는 동기화 절차를 묶은 추상화.
 - Condition variable: 특정 조건이 참이 될 때까지 mutex와 함께 기다리는 도구.
-- Atomic operation: 중간에 끼어들 수 없는 단일 연산으로 보장되는 조작.
+- Atomic operation: 대상 언어 계약에서 다른 실행 흐름이 중간 상태를 관찰하지 않는 조작. 다른 메모리 접근의 가시성·순서는 선택한 memory order가 결정하며 전체 실행 중 interrupt가 금지된다는 뜻은 아니다.
 
 ## 6. 상태 전이 (State Transition)
 
-mutex를 기준으로 보면 스레드는 다음 상태를 오간다.
+아래는 mutex 경합 시 blocking을 사용하는 경로의 상태 예시다. 실제 구현은 먼저 spin할 수도 있고 wakeup이 즉시 소유권 획득을 보장하지 않는다.
 
 ```mermaid
 stateDiagram-v2
@@ -102,7 +111,7 @@ condition checked again
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
 
-잘못된 카운터 증가:
+다음은 read/add/write로 추상화한 lost-update interleaving이다. 일반 C/C++ 비원자 count를 실제로 동시에 수정하면 data race로 undefined behavior가 되므로 결과가 단지 1이 된다고 제한할 수 없다.
 
 ```text
 Thread A reads count = 0
@@ -121,7 +130,7 @@ count = count + 1;
 pthread_mutex_unlock(&lock);
 ```
 
-핵심은 `count = count + 1`이 하나의 기계 명령이 아니라 읽기, 계산, 쓰기의 묶음이라는 점이다.
+핵심은 count 증가가 사용하는 언어·타입·연산의 계약에서 원자적으로 보장되는지다. count = count + 1은 일반 C 공유 정수에 대해 원자성을 보장하지 않으며 기계 명령 개수만으로 판단할 수 없다. 위 pthread 조각은 성공한 lock과 모든 접근의 같은 mutex 사용을 전제로 한다.
 
 ## 9. 실패 사례 (What could go wrong?)
 

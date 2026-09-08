@@ -1,5 +1,9 @@
 # Python OOP 패턴 학습 및 기록 노트
 
+## 적용 버전과 성능 증거
+
+타입 hint와 design pattern은 프로젝트 규모만으로 반드시 적용되는 규칙이 아니라 경계·변경 비용을 줄일 때 선택하는 도구다. GIL 설명은 기본 GIL을 사용하는 CPython의 CPU-bound Python bytecode를 전제로 하며, I/O 작업·GIL을 해제하는 extension·다른 interpreter에는 같은 결론을 일반화하지 않는다. dict·set 연산의 `O(1)` 설명은 평균 복잡도이고 충돌·resize 등 최악 조건은 별도다. multiprocessing, asyncio, `__slots__`의 개선 폭은 workload·직렬화·IPC·Python version에 따라 달라지므로 benchmark와 memory profile로 판정한다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Python은 Java나 C++보다 객체 모델이 유연하다. 다중 상속, 덕 타이핑, 런타임 속성 추가, 함수와 객체의 자유로운 조합이 가능하다. 이 유연성은 빠른 개발에 유리하지만, 프로젝트가 커지면 타입 계약이 흐려지고 상속 순서, 자료구조 선택, 동시성 모델을 잘못 잡아 성능과 유지보수성이 동시에 흔들릴 수 있다.
@@ -50,7 +54,7 @@ flowchart TD
 | ABC | 반드시 구현해야 하는 메서드를 명시한다. | 과도하게 쓰면 Python의 유연성을 줄인다. |
 | Protocol | 구조적 타입 계약을 표현한다. | 실제 속성/메서드 존재 여부가 핵심이다. |
 | `__slots__` | 인스턴스 속성 저장 방식을 제한한다. | 동적 속성 추가가 막히고 상속 설계가 까다로워질 수 있다. |
-| GIL | 한 프로세스 안의 Python 바이트코드 실행을 제한한다. | CPU 바운드 병렬성에는 프로세스가 더 적합하다. |
+| GIL | GIL 활성 CPython 인터프리터의 bytecode 실행을 제한한다. | 프로세스·네이티브 확장·free-threaded 빌드는 직렬화 비용과 지원 범위를 확인해 비교한다. |
 
 ## 6. 상태 전이 (State Transition)
 
@@ -102,7 +106,9 @@ class QueueProcessor(ABC):
 
     def flush(self) -> None:
         while self._queue:
-            self._repository.save(self.transform(self._queue.popleft()))
+            item = self._queue[0]
+            self._repository.save(self.transform(item))
+            self._queue.popleft()
 
     @abstractmethod
     def transform(self, item: str) -> str:

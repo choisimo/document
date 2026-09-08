@@ -2,6 +2,13 @@
 
 이 모듈은 Proxmox VE에서 VM/CT 트래픽이 Linux bridge, VLAN, bond, SDN 계층을 거쳐 물리 네트워크로 나가는 과정을 설명한다.
 
+## 네트워크 변경 계약
+
+- 대상 Proxmox VE·ifupdown2·kernel·SDN plugin 버전과 switch/router 구성을 고정합니다.
+- 관리 IP, Corosync, storage, migration과 guest traffic을 분리해 영향 경로를 표시합니다. 하나의 bridge 변경이 여러 경로를 동시에 끊을 수 있습니다.
+- 물리 console 또는 별도 out-of-band 경로, 현재 설정 backup, 자동 rollback 시간을 확보한 뒤 적용합니다.
+- 완료 증거는 config 저장이 아니라 host·guest·cluster·storage 경로, MTU/VLAN, failover와 재부팅 후 상태가 모두 의도와 일치하는 것입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Proxmox VE 네트워크 문제는 VM 내부 IP 설정만 봐서는 해결되지 않는다. VM의 `net0`은 tap 또는 veth 인터페이스로 이어지고, 이 인터페이스는 `vmbr`에 붙으며, bridge는 물리 NIC, bond, VLAN, SDN VNet과 연결된다.
@@ -27,7 +34,7 @@ Proxmox VE 네트워크 문제는 VM 내부 IP 설정만 봐서는 해결되지 
 - bond mode별 목적과 스위치 요구사항을 설명한다.
 - routed, bridged, NAT 모델의 차이를 말한다.
 - SDN Zone과 VNet의 관계를 이해한다.
-- 변경 전후에 `ip`, `bridge`, `ifreload`, `pvesh`로 상태를 확인할 수 있다.
+- `ip`, `bridge`, `pvesh`로 상태를 확인하고 `ifreload`는 실제 설정을 반영하는 변경 명령으로 구분한다.
 
 ## 4. 시스템 번역 (Data Flow)
 

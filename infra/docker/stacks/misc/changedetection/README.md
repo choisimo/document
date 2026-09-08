@@ -1,6 +1,12 @@
 # ChangeDetection.io Stack
 
-Website change monitoring with Playwright browser support.
+Website change-monitoring stack with Playwright rendering support; target access, rate, false-change behavior and browser isolation require validation.
+
+## Deployment and Collection Contract
+
+Pin ChangeDetection and Playwright images, browser sandbox, storage, notification providers and published ports. Treat monitored URLs and rendered content as untrusted: constrain private-network access, downloads, credentials, request rate and retention. Test JavaScript rendering, false positive/negative changes, target outage, notification failure, restart, backup/restore and rollback before completion.
+
+---
 
 ## Quick Start
 

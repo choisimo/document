@@ -1,6 +1,8 @@
 # SSH Match 지시어 활용 예시 및 설명
 
-SSH 서버 구성 파일(sshd_config)의 Match 지시어는 특정 조건에 따라 다양한 SSH 설정을 적용할 수 있게 해주는 강력한 기능입니다. 여러 상황에 맞게 활용할 수 있는 다양한 예시들을 살펴보겠습니다.
+SSH 서버 구성 파일의 `Match`는 접속 조건에 따라 **허용된 서버 지시어**의 값을 바꿉니다. 이 파일은 서로 독립적으로 작성된 레거시 예시 모음이며, 모든 블록을 하나의 `sshd_config`에 결합할 수 있다는 뜻이 아닙니다. 클라이언트 전용 지시어, 해당 OpenSSH 버전에서 `Match` 안에 허용되지 않는 지시어, 서로 겹치는 조건이 포함될 수 있습니다.
+
+각 예제를 적용할 때는 대상 사용자·그룹·원격 주소·로컬 주소·포트를 하나의 테스트 케이스로 고정합니다. `sshd -t`로 문법을 확인하고 `sshd -T -C user=<USER>,addr=<CLIENT_IP>,laddr=<SERVER_IP>,lport=<PORT>`로 실제 유효 값을 확인한 뒤 기존 관리 세션을 유지한 채 reload합니다.
 
 ## 예시 1: SFTP 전용 사용자 설정
 
@@ -87,12 +89,12 @@ Match Host *-dev
     X11Forwarding yes
     PasswordAuthentication yes
     PermitLocalCommand yes
-    
+
 # 테스트 환경용 설정
 Match Host *-test Address 192.168.0.0/16
     X11Forwarding yes
     PasswordAuthentication no
-    
+
 # 프로덕션 환경용 보안 강화 설정
 Match Host *-prod
     PasswordAuthentication no
@@ -118,14 +120,14 @@ Match User db-* Address 10.0.0.0/8
     X11Forwarding no
     PermitTTY yes
     ForceCommand /usr/local/bin/db-session-wrapper
-    
+
 # 웹 서버용 설정
 Match User web-* Address 10.0.0.0/8
     AllowTcpForwarding no
     X11Forwarding no
     PermitTTY yes
     ForceCommand /usr/local/bin/web-session-wrapper
-    
+
 # 모니터링 시스템용 설정
 Match User monitoring-* Address 10.0.0.0/8
     PermitTTY no
@@ -138,7 +140,7 @@ Match User monitoring-* Address 10.0.0.0/8
 
 ## 결론
 
-SSH Match 지시어는 사용자, 그룹, 호스트, IP 주소 등 다양한 조건을 기반으로 세밀한 접근 제어를 구현할 수 있는 도구입니다. 이러한 예시를 응용하여 자신의 환경에 맞는 보안 정책을 구현할 수 있습니다. 설정 변경 후에는 SSH 서비스를 재시작하여 변경 사항을 적용하고, 설정 오류로 인한 접근 문제를 방지하기 위해 변경 전 테스트를 수행한다.
+`Match` 변경의 완료 조건은 서비스 재시작이 아닙니다. 허용 조합이 새 세션에서 성공하고, 각 비허용 조합이 의도한 단계에서 거부되며, 포워딩·TTY·SFTP 제한이 실제 세션에서 확인돼야 합니다. 문법 검사가 성공하면 일반적으로 reload로 새 연결에 반영할 수 있으며, 기존 복구 세션은 검증이 끝날 때까지 닫지 않습니다.
 
 
 <hr/>
@@ -294,7 +296,7 @@ Match LocalPort 22
 Match LocalPort 2222
     PasswordAuthentication yes
     AllowTcpForwarding yes
-    
+
 # 여러 포트에 적용
 Match LocalPort 22,2222,2022
     MaxSessions 10
@@ -323,7 +325,7 @@ Match User lead-dev Group developers
 Match User admin Address 10.0.0.0/8
     PasswordAuthentication yes
     PermitRootLogin yes
-    
+
 # 외부 네트워크에서 접속하는 관리자에게 적용
 Match User admin Address !10.0.0.0/8,*
     PasswordAuthentication no
@@ -340,7 +342,7 @@ Match User admin Address !10.0.0.0/8,*
 Match Host dev.example.com LocalPort 2222
     PasswordAuthentication yes
     X11Forwarding yes
-    
+
 # 프로덕션 서버의 관리 포트에 적용
 Match Host prod.example.com LocalPort 2222
     PasswordAuthentication no
@@ -362,13 +364,13 @@ Match User dev* Group developers Address 10.0.0.0/8
     PasswordAuthentication yes
     X11Forwarding yes
     AllowTcpForwarding yes
-    
+
 # 원격 관리자 제한적 권한
 Match User admin* Group admins Address !10.0.0.0/8,*
     PubkeyAuthentication yes
     PermitTTY yes
     ForceCommand /usr/local/bin/admin-menu.sh
-    
+
 # 모니터링 시스템 전용 접근
 Match User monitor Address 192.168.5.0/24 LocalPort 22
     PubkeyAuthentication yes
@@ -553,13 +555,13 @@ Match Group admins
     AllowTcpForwarding yes
     X11Forwarding yes
     PermitTTY yes
-    
+
 # 개발자 그룹은 제한된 SSH 기능만 사용 가능
 Match Group developers
     AllowTcpForwarding no
     X11Forwarding no
     PermitTTY yes
-    
+
 # 데이터 업로드 그룹은 SFTP만 사용 가능
 Match Group uploaders
     ForceCommand internal-sftp
@@ -624,7 +626,7 @@ Match Group developers Address 10.0.0.0/8
     AllowTcpForwarding yes
     X11Forwarding yes
     PermitTTY yes
-    
+
 # 외부 네트워크의 개발자에게는 제한된 SSH 기능만 허용
 Match Group developers Address !10.0.0.0/8,*
     AllowTcpForwarding no

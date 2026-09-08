@@ -1,5 +1,14 @@
 # Redis 개요 학습 및 기록 노트
 
+## 적용 범위와 검증 기준
+
+- **범위:** Redis 버전, standalone·Sentinel·Cluster 모드, Docker image tag, persistence, eviction, ACL/TLS와 Spring client 버전을 명시합니다.
+- **환경 전제:** 메모리 한도, 데이터 크기와 TTL 분포, 연결 수, network, durability 목표와 장애 시 허용 가능한 손실량을 먼저 정합니다.
+- **근거와 불확실성:** latency, hit rate, memory 비율과 client 수는 workload별 관측값입니다. 고정 임계값보다 baseline과 SLO 대비 추세로 alert를 설계합니다.
+- **실패·완료:** 인증 실패, timeout, eviction, OOM, restart, persistence 손상과 failover를 시험하고 key·TTL·권한·복구 시간·허용 손실이 기준을 만족할 때 완료로 판정합니다.
+
+---
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Redis는 빠른 in-memory data structure store로 cache, session store, ranking, queue, pub/sub에 자주 쓰인다. 하지만 Redis를 단순 key-value cache로만 이해하면 TTL, eviction, persistence, memory limit, security, hot key, cache invalidation 문제를 놓치게 된다. Redis는 빠른 만큼 운영 정책을 명확히 잡아야 한다.
@@ -20,7 +29,7 @@ Redis는 빠른 in-memory data structure store로 cache, session store, ranking,
 - Docker 또는 host에서 Redis를 실행할 때 volume, config, password, port를 함께 설정한다.
 - TTL과 eviction policy를 데이터 특성에 맞게 고른다.
 - `redis-cli`, `INFO`, `CLIENT LIST`, memory metrics로 상태를 확인한다.
-- 운영 노출 시 bind, firewall, auth, TLS, command rename 같은 보안 기준을 적용한다.
+- 운영 노출 시 bind, firewall, ACL, 인증과 TLS 정책을 확인한다. 명령 이름 변경만으로 권한 경계를 대신하지 않는다.
 
 ## 4. 시스템 번역 (Data Flow)
 
@@ -54,7 +63,7 @@ Redis data flow는 application이 어떤 consistency와 lifetime을 기대하는
 | Pub/Sub | `PUBLISH`, `SUBSCRIBE` | 실시간 알림 |
 | Stream | `XADD`, `XREADGROUP` | consumer group 기반 event stream |
 | RDB | snapshot persistence | 빠른 재시작, snapshot 손실 가능 |
-| AOF | append-only persistence | 더 강한 durability, write overhead |
+| AOF | append-only persistence | fsync 정책·장애 유형에 따른 durability와 write overhead |
 | Eviction policy | `allkeys-lru` 등 | memory limit 도달 시 동작 |
 
 ## 6. 상태 전이 (State Transition)
@@ -86,17 +95,17 @@ Cache key는 영구 상태가 아니다. TTL 만료, eviction, explicit delete�
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
 
-Docker Compose 개념 예시:
+로컬 학습용 Docker Compose 예시다. 실행 전에 `REDIS_PASSWORD` 환경 변수에 실습 비밀 값을 설정한다. `redis:7.2`는 mutable 태그이며 운영에는 검증한 버전·digest, ACL/TLS, 메모리 한도와 복원 검증을 별도로 정한다.
 
 ```yaml
 services:
   redis:
     image: redis:7.2
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes --requirepass change-me
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD before running}"]
 
 volumes:
   redis_data:
@@ -105,13 +114,17 @@ volumes:
 검증:
 
 ```bash
-docker exec -it redis redis-cli
-AUTH change-me
+docker compose exec redis redis-cli --askpass
+```
+
+암호 입력 뒤 redis-cli 프롬프트에서 실행한다:
+
+```text
 PING
 INFO memory
 ```
 
-이 예제는 Redis 실행의 최소 단위가 image 실행뿐 아니라 data volume, password, persistence, health check까지 포함한다는 점을 보여준다.
+이 예제는 내부 Redis 연결과 기본 응답만 확인한다. key·TTL·권한, 재시작 후 데이터, persistence 복구와 손실 허용량을 검증해야 운영 완료 기준에 도달한다.
 
 ## 9. 실패 사례 (What could go wrong?)
 

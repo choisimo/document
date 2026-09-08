@@ -2,6 +2,10 @@
 
 > Source synthesis: Container orchestration reference books (comp 244, 380, 398–417) covering Docker Engine architecture, container runtime internals, Kubernetes control plane mechanics, and network/storage subsystems.
 
+## Version and implementation scope
+
+Docker/containerd/runc, Linux cgroup mode, Kubernetes, and CNI/CSI implementations evolve independently. The diagrams are concrete examples, not a single mandatory path. Before using a path operationally, record component versions, runtime, cgroup v1/v2, network/storage plugins, feature gates, kube-proxy replacement, and the API object or metric that proves completion.
+
 ---
 
 ## 1. Container Runtime Architecture
@@ -99,6 +103,8 @@ flowchart TD
 
 ## 3. OverlayFS — Container Image Layers
 
+In cgroup v2, CPU bandwidth is configured through `cpu.max`; `cpu.cfs_quota_us` and `cpu.cfs_period_us` are cgroup v1 names even though they appear in the preceding v2 diagram. Kubernetes' on-disk cgroup paths also depend on the cgroup driver and QoS hierarchy.
+
 ```mermaid
 flowchart BT
     subgraph OverlayFS Mount
@@ -126,6 +132,8 @@ flowchart BT
 
 ### Image Layer Storage
 
+OverlayFS copy-up operates on a lower file/inode when it is first modified, not on a single memory page as the preceding flowchart suggests. Metadata-only operations may use metacopy when enabled, and large-file copy-up cost depends on filesystem and mount options.
+
 ```mermaid
 block-beta
   columns 3
@@ -144,6 +152,8 @@ block-beta
 ---
 
 ## 4. Container Networking — CNI Internals
+
+The following bridge/VXLAN path is a flannel-style example. Routed Calico, Cilium/eBPF, cloud VPC CNI, and other plugins may omit `cni0`, use different IPAM, or program routes/maps instead of a VXLAN bridge. `RunPodSandbox` and CNI success are the stable integration boundaries; Linux commands are implementation details.
 
 ### veth Pair + Bridge (Docker bridge / flannel VXLAN)
 
@@ -274,6 +284,8 @@ stateDiagram-v2
 
 ## 7. kube-scheduler — Filter + Score Pipeline
 
+Kubernetes Pod `status.phase` values are `Pending`, `Running`, `Succeeded`, `Failed`, and `Unknown`. `Scheduled` is a condition, while `ContainerCreating`, `CrashLoopBackOff`, `Terminating`, and `OOMKilled` are kubectl/container waiting or termination reasons. Alerting and automation must read the correct field rather than treating every label in the preceding UI-oriented state diagram as an API phase.
+
 ```mermaid
 flowchart TD
     Watch["Watch: unscheduled Pod\n(spec.nodeName == \"\")"]
@@ -394,6 +406,8 @@ sequenceDiagram
 
 ## 11. Kubernetes RBAC — Authorization Internals
 
+The CSI sequence combines controller and node responsibilities. For attachable block storage, `ControllerPublishVolume` normally attaches the volume before `NodeStageVolume`; node staging formats/mounts the already attached device, and `NodePublishVolume` exposes it to the Pod. Drivers and access modes may omit staging or attachment, so success is determined by CSI calls and Pod/PVC events, not a fixed count of three RPCs.
+
 ```mermaid
 flowchart TD
     Req["API Request:\nGET /apis/apps/v1/namespaces/default/deployments"]
@@ -415,6 +429,8 @@ flowchart TD
 ---
 
 ## 12. StatefulSet — Ordered Deployment Internals
+
+Admission plugins are not a universal fixed sequence matching the earlier numbered list. Built-in plugin enablement/order is apiserver-version/configuration-specific, mutating webhooks run before validating webhooks within defined phases, and webhook ordering within a configuration needs explicit review. Authorization also precedes admission and read requests do not follow the same mutation path as writes.
 
 ```mermaid
 sequenceDiagram
@@ -498,6 +514,8 @@ flowchart LR
 ---
 
 ## 15. Performance Characteristics Summary
+
+These values are experiment candidates, not Kubernetes or OCI guarantees. A usable result must include kernel/runtime/Kubernetes/plugin versions, node and control-plane resources, image size/cache state, cluster size, packet size, rule/service count, storage latency, load generator, repetitions, loss/error rate, and percentiles.
 
 ```mermaid
 block-beta

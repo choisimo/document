@@ -1,5 +1,12 @@
 # Vaultwarden Docker Compose 배포 학습 및 기록 노트
 
+## 적용 범위와 보안 검증 기준
+
+- **범위:** Vaultwarden·database·proxy·tunnel·backup image의 version 또는 digest, Docker/Compose, domain, TLS 종료 지점과 외부 노출 경계를 기록합니다.
+- **보안 전제:** secret은 repository와 image에서 분리하고 registration·admin endpoint·2FA·rate limit·proxy header·ACL을 위협 모델에 맞게 설정합니다. 예제 구성이 production readiness를 보장하지 않습니다.
+- **근거와 불확실성:** image health, HTTPS 접속과 backup 생성은 일부 근거일 뿐입니다. proxy chain, mail, WebSocket, update 호환성, third-party backup image와 restore 가능성은 별도 검증합니다.
+- **실패·완료:** 인증 우회, 잘못된 header 신뢰, secret 노출, database 손상, backup 유실과 update rollback을 시험합니다. 암호화된 backup의 독립 restore와 계정 복구까지 성공해야 배포 완료입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Vaultwarden은 비밀번호와 2FA secret 같은 고위험 데이터를 다루는 서비스다. Docker Compose로 쉽게 실행할 수 있지만, 도메인, HTTPS, signup 정책, admin page, backup, restore, reverse proxy, Cloudflare Tunnel을 잘못 설정하면 credential vault 전체가 위험해진다. 특히 `DISABLE_ADMIN_TOKEN`은 admin page 비활성화가 아니라 admin token 요구를 끄는 설정이라 매우 주의해야 한다.
@@ -32,7 +39,7 @@ flowchart TD
     B -->|Cloudflare Tunnel| E[cloudflared]
     D --> C
     E --> C
-    C --> F[/data volume]
+    C --> F["/data volume"]
     F --> G[SQLite/files/attachments]
     F --> H[Backup job]
 ```
@@ -87,7 +94,7 @@ Vaultwarden은 `ContainerStarted`만으로 운영 준비가 된 것이 아니다
 ```yaml
 services:
   vaultwarden:
-    image: vaultwarden/server:latest
+    image: "${VAULTWARDEN_IMAGE:?set reviewed Vaultwarden tag or digest}"
     container_name: vaultwarden
     restart: unless-stopped
     security_opt:
@@ -104,9 +111,10 @@ services:
 검증:
 
 ```bash
-docker compose up -d
-docker compose logs -f vaultwarden
-curl -I http://127.0.0.1:8080/alive
+docker compose config --quiet && docker compose up -d
+docker compose logs --tail 100 vaultwarden
+curl --fail --silent --show-error --connect-timeout 5 --max-time 15 \
+  http://127.0.0.1:8080/alive
 ```
 
 이 예제는 container port를 localhost에만 bind하고, TLS는 별도 reverse proxy에서 처리한다는 전제를 둔다.

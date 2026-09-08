@@ -4,9 +4,11 @@
 
 ---
 
+> **Reading contract:** This document combines Erickson 2019 and Zingaro 2021, whose examples and notation are not interchangeable by default. Recurrence trees assume a particular recurrence and base case; graph and DP bounds assume a finite representation and named edge or dependency conditions. Tag statements as theorem, proof sketch, implementation model, or heuristic. A section is complete only when its state definition, invariant, input domain, termination or failure condition, complexity measure, and source are explicit; otherwise do not generalize the diagram beyond its example.
+
 ## 1. Recursion Tree Arithmetic — Where Time Complexity Lives
 
-Every divide-and-conquer recurrence T(n) = r·T(n/c) + f(n) decomposes into a **recursion tree** whose total node-value sum is the running time.
+A recurrence of the form T(n) = r·T(n/c) + f(n), with a specified rounding rule and base case, can be represented by a **recursion tree** whose node costs sum to the modeled running time. Unequal subproblem sizes or input-dependent work require the corresponding recurrence rather than this uniform template.
 
 ```mermaid
 graph TD
@@ -147,7 +149,7 @@ sequenceDiagram
 
 ## 4. Dynamic Programming — Dependency Graph as DAG
 
-Every DP algorithm is **topological order evaluation of a DAG** where:
+A finite acyclic DP dependency system can be viewed as **topological-order evaluation of a DAG** where:
 - Node = subproblem
 - Edge u → v = "solving u requires solving v first"
 - Node value = optimal subproblem answer
@@ -246,16 +248,16 @@ sequenceDiagram
     participant DFS_B as DFS(B)
     participant DFS_C as DFS(C)
 
-    DFS_A->>DFS_A: pre[A] = clock++; color[A] = GRAY
+    DFS_A->>DFS_A: pre[A] = clock++#59; color[A] = GRAY
     DFS_A->>DFS_B: neighbor B is WHITE → recurse
-    DFS_B->>DFS_B: pre[B] = clock++; color[B] = GRAY
+    DFS_B->>DFS_B: pre[B] = clock++#59; color[B] = GRAY
     DFS_B->>DFS_C: neighbor C is WHITE → recurse
-    DFS_C->>DFS_C: pre[C] = clock++; no unvisited neighbors
-    DFS_C->>DFS_C: post[C] = clock++; color[C] = BLACK
+    DFS_C->>DFS_C: pre[C] = clock++#59; no unvisited neighbors
+    DFS_C->>DFS_C: post[C] = clock++#59; color[C] = BLACK
     DFS_C-->>DFS_B: return
-    DFS_B->>DFS_B: post[B] = clock++; color[B] = BLACK
+    DFS_B->>DFS_B: post[B] = clock++#59; color[B] = BLACK
     DFS_B-->>DFS_A: return
-    DFS_A->>DFS_A: post[A] = clock++; color[A] = BLACK
+    DFS_A->>DFS_A: post[A] = clock++#59; color[A] = BLACK
 ```
 
 **Topological sort = reverse postorder:** vertices are written to output array in order of **decreasing** post time → O(V+E) single DFS pass.
@@ -645,8 +647,8 @@ graph LR
 The **memo table** is the DFS "visited" array; **computing the answer** is the PostVisit action; **returning the cached value** is the behavior when a node is re-visited (already finished = BLACK in DFS color model).
 
 This unification means:
-- Every DP can be implemented as memoized DFS
-- Every memoized DFS can be implemented as bottom-up DP (if topological order is known)
+- A finite acyclic DP can often be implemented as memoized DFS when recursion depth and state storage are safe
+- The same dependency DAG can be evaluated bottom-up when a valid topological order and reachable state set are known
 - The dependency DAG structure determines both the space complexity (# subproblems) and the time complexity (# edges = work per subproblem × # subproblems)
 
 ---

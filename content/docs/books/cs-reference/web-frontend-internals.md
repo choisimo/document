@@ -1,5 +1,7 @@
 # Web & Frontend Internals 학습 및 기록 노트
 
+> **Reading contract:** This is a browser-engine study guide for frontend engineers. HTML/CSS/ECMAScript and Web protocols are standard-level facts; Chromium/V8, React, service-worker, and performance behavior must name browser, engine, React version, device, flags, and capture date. Pipeline diagrams are simplified execution models, while millisecond slices, speed ratios, and Core Web Vitals examples are measurements or versioned policy. A section is complete only with a reproducible profile or trace, success and failure conditions, and a fallback that works without the optimization. Re-profile after browser or framework upgrades.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 웹 성능과 UI 버그는 HTML/CSS/JavaScript 문법만으로 설명되지 않는다. Browser는 HTML을 DOM으로 파싱하고, CSSOM과 합쳐 render tree를 만들며, layout, paint, composite 단계로 화면을 만든다. JavaScript는 event loop와 microtask queue 위에서 실행되고, V8은 type feedback을 기반으로 JIT 최적화와 deoptimization을 반복한다. React는 Fiber tree와 scheduler로 렌더링 작업을 쪼갠다.
@@ -60,9 +62,10 @@ flowchart TD
 
 ```mermaid
 stateDiagram-v2
+    state "Style" as StylePhase
     [*] --> Parse
-    Parse --> Style
-    Style --> Layout
+    Parse --> StylePhase
+    StylePhase --> Layout
     Layout --> Paint
     Paint --> Composite
     Composite --> [*]
@@ -82,7 +85,7 @@ stateDiagram-v2
 - Promise는 settled 이후 상태가 바뀌면 안 된다.
 - V8 최적화는 guard가 깨지면 deoptimize되어 올바른 의미를 유지해야 한다.
 - 같은 shape를 공유하려면 객체 property 추가 순서가 안정적이어야 한다.
-- React render phase는 중단 가능하지만 commit phase는 DOM mutation 때문에 동기적으로 끝나야 한다.
+- React의 concurrent 기능을 사용하는 render 작업은 중단·재시작될 수 있다. Commit의 DOM mutation 단계는 중간 상태를 노출하지 않도록 동기적으로 처리되며 모든 render가 항상 중단 가능한 것은 아니다.
 - List reconciliation은 key가 안정적이어야 최소 DOM 변경이 가능하다.
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
@@ -93,7 +96,7 @@ Promise.resolve().then(() => {
 });
 
 requestAnimationFrame(() => {
-  console.log("paint before callback");
+  console.log("requestAnimationFrame: before paint");
 });
 
 setTimeout(() => {
@@ -102,15 +105,14 @@ setTimeout(() => {
 ```
 
 ```text
-개념 순서:
-1. 현재 call stack 종료
-2. microtask queue drain
-3. requestAnimationFrame callback
-4. render pipeline
-5. macrotask queue에서 다음 task 선택
+부분 순서:
+1. 현재 task 종료 후 microtask checkpoint에서 Promise callback 처리
+2. 다음 timer task 선택과 rendering opportunity의 상대 순서는 고정하지 않음
+3. Rendering opportunity가 있으면 requestAnimationFrame callback은 그 프레임의 paint 전에 실행
+4. 백그라운드 탭에서는 requestAnimationFrame 실행이 지연되거나 일시 중지될 수 있음
 ```
 
-이 예제는 Promise callback이 macrotask보다 먼저 실행되고, microtask가 계속 추가되면 rendering이 지연될 수 있음을 보여준다.
+이 예제의 Promise callback은 현재 task 뒤의 microtask checkpoint에서 처리된다. `requestAnimationFrame`과 timer callback 사이에는 여기서 보장할 수 있는 고정 순서가 없으며, microtask가 계속 추가되면 다음 task와 rendering이 지연될 수 있다.
 
 ## 9. 실패 사례 (What could go wrong?)
 

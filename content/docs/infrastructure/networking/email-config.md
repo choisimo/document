@@ -2,6 +2,8 @@
 
 서버 이메일은 사람이 작성하는 메일이 아니라 백업, 배치, 모니터링, 보안 작업의 결과를 운영자에게 전달하는 알림 경로다. 이 문서는 리눅스 서버에서 외부 SMTP 릴레이를 사용해 알림 메일을 보내는 최소 구성을 기준으로 정리한다.
 
+Debian/Ubuntu 계열 예시다. `/etc/os-release`, mail 구현과 패키지 버전, SMTP 제공자의 인증 정책을 먼저 확인한다. 명령 종료 코드 0은 로컬 MTA나 SMTP 릴레이의 접수일 수 있으며 최종 받은편지함 도착을 보장하지 않는다. 첨부 옵션은 mailutils·s-nail·BSD mailx별 매뉴얼을 따른다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 서버 작업은 실패해도 화면에 남지 않는 경우가 많다. `cron`, 백업 스크립트, SMART 디스크 검사, 서비스 헬스체크가 조용히 실패하면 운영자는 장애를 늦게 발견한다.
@@ -94,6 +96,7 @@ chmod 700 ~/.config/msmtp
 SMTP 앱 비밀번호나 토큰은 별도 파일에 저장한다.
 
 ```bash
+umask 077
 printf '%s' 'replace-with-provider-token' > ~/.config/msmtp/smtp-token
 chmod 600 ~/.config/msmtp/smtp-token
 ```
@@ -113,7 +116,7 @@ host smtp.example.com
 port 587
 from server-alert@example.com
 user server-alert@example.com
-passwordeval cat /home/admin/.config/msmtp/smtp-token
+passwordeval cat "$HOME/.config/msmtp/smtp-token"
 
 account default : alert
 ```
@@ -150,6 +153,10 @@ TLS 오류가 발생하면 `ca-certificates` 패키지, `tls_trust_file` 경로,
 Proxmox 같은 플랫폼은 자체 알림 대상과 매처를 제공한다. 플랫폼 알림은 일반 리눅스 메일 설정과 분리해서 플랫폼 문서 기준으로 구성한다.
 
 장애 알림의 신뢰도가 중요하면 이메일 하나만 믿지 말고 Grafana Alerting, Gotify, Slack, Discord, SMS 같은 다른 경로를 병행한다. 이메일은 지연되거나 스팸 필터에 걸릴 수 있다.
+
+## 완료, 재시도 및 비밀 관리
+
+이 예제의 `~/.msmtprc`에는 토큰을 읽는 passwordeval 명령이 있고, 실제 토큰은 `~/.config/msmtp/smtp-token`에 저장한다. 두 파일의 읽기 권한을 해당 사용자로 제한하고, 실제 토큰 파일의 회전·백업 제외 정책을 정한다. 테스트는 고유 제목으로 제출 종료 코드, SMTP 로그, 반송, 실제 수신 시각을 연결합니다. 큐를 가진 Postfix와 동기 제출 클라이언트의 재시도 방식은 다르므로 메시지 ID로 중복을 식별하고, 실패 시 기존 알림 채널을 복원하며 노출된 자격 증명을 폐기합니다.
 
 ## 11. 최종 체크리스트 (Definition of Done)
 

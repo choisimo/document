@@ -4,6 +4,18 @@
 
 ---
 
+## Scope, Failure Model, and Evidence Contract
+
+This document describes representative microservice control and data paths, not universal behavior shared by every mesh, broker, database, or orchestrator.
+
+- **Scope:** Tie Envoy, xDS, gRPC, OpenTelemetry, health checks, mTLS, and CDC behavior to product and protocol versions, enabled features, and concrete configuration.
+- **Failure model:** State whether calls, storage, and messaging may time out, duplicate, reorder, partition, restart, or lose volatile state. Distinguish crash-stop from crash-recovery and local transactions from cross-system workflows.
+- **Delivery semantics:** At-most-once, at-least-once, deduplication, ordering, and exactly-once effects are separate properties. A local atomic write does not by itself make broker delivery or consumer side effects exactly once.
+- **Evidence and uncertainty:** Latency and overhead figures require payload, concurrency, topology, retries, sampling, TLS, hardware, and percentile. Treat an inferred bottleneck as a hypothesis until traces, metrics, logs, and message or database records agree.
+- **Failure and completion:** Exercise timeout, retry, duplicate, out-of-order, certificate rotation, dependency outage, and recovery paths. Completion requires preserved invariants, bounded retry/backlog, observable reconciliation, and a tested rollback or compensation path.
+
+---
+
 ## 1. Service Mesh Architecture — Data Plane vs Control Plane
 
 ```mermaid
@@ -432,6 +444,8 @@ sequenceDiagram
 
 ## 13. Performance & Overhead Summary
 
+> The following figures are illustrative observations, not service-mesh or protocol guarantees. Re-measure them with the named versions, payload, topology, concurrency, retry policy, sampling, and percentiles.
+
 ```mermaid
 block-beta
   columns 2
@@ -470,5 +484,5 @@ block-beta
 - **Protobuf varint encoding** packs field number + wire type into a single byte for most fields — typical message is 3–10× smaller than equivalent JSON
 - **Circuit breaker half-open** allows exactly one probe request — all others still fast-fail until the probe succeeds
 - **Saga compensating transactions** must be idempotent — the orchestrator may re-send commands on retry (at-least-once delivery from Kafka)
-- **Outbox pattern** guarantees exactly-once delivery by making DB write + event publish atomic in the same local transaction; Debezium CDC reads WAL at near-zero overhead
+- **Outbox pattern** makes the business write and outbox record atomic within one local database transaction. A CDC relay such as Debezium can still publish duplicates or lag and consumes database, WAL-retention, connector, and network resources; consumers need idempotency or deduplication to achieve an exactly-once effect at their own boundary.
 - **CQRS projections** are rebuilt from event store replay — snapshots every N events reduce replay time from O(all events) to O(events since snapshot)

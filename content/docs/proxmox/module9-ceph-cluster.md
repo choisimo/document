@@ -1,7 +1,7 @@
 # Module 9: Proxmox VE Ceph Cluster
 
 ## 학습 목표
-이 모듈을 완료하면 다음을 이해할 수 있습니다:
+이 모듈의 설명과 실습을 완료하면 다음 항목을 설명하고 cluster health·failure recovery 증거로 검증할 수 있어야 합니다:
 - Ceph 분산 스토리지 아키텍처
 - Ceph 데몬 유형 (MON, MGR, OSD, MDS)
 - Proxmox VE에서 Ceph 배포 및 관리
@@ -9,6 +9,15 @@
 - CephFS 공유 파일시스템
 - RBD (RADOS Block Device) 활용
 - Ceph 모니터링 및 문제 해결
+
+---
+
+## 적용 범위와 학습 검증 기준
+
+- **범위:** Proxmox VE·Ceph release, node/OSD/MON/MGR/MDS 수, failure domain, CRUSH map, pool replica·EC, device class, network와 client workload를 기록합니다.
+- **용량·성능 전제:** raw/usable capacity, recovery reserve, replication, placement group, latency와 throughput은 topology·device·network·failure 상태에 종속됩니다. 본문의 node 수와 수치는 설명용 topology로 읽습니다.
+- **사실과 추론:** `ceph status/health detail`, quorum, OSD tree, PG state, SMART와 network counter는 근거이고, slow I/O·degraded 원인은 해당 지표가 연결되기 전까지 가설입니다.
+- **실패·완료:** node·disk·network failure, full/nearfull, clock skew, recovery/backfill, reboot order와 client I/O를 시험합니다. clean 또는 의도한 degraded state, redundancy, 복구 시간, data 검증과 rollback이 기준을 만족할 때 완료입니다.
 
 ---
 
@@ -1336,4 +1345,4 @@ ceph osd unset <flag>
 | Module 8 | User Management | module8-user-management.md |
 | Module 9 | Ceph Cluster | module9-ceph-cluster.md |
 
-모든 문서는 `/home/nodove/workspace/proxmox/` 디렉토리에 저장되어 있습니다.
+관련 문서 위치는 현재 문서 site의 navigation과 상대 link를 기준으로 확인합니다. 특정 local absolute path에 존재한다고 가정하지 않습니다.

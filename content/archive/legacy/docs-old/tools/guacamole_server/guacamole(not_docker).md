@@ -1,3 +1,9 @@
+# Apache Guacamole 직접 설치 보관 절차
+
+## 실행 차단: 버전과 서비스 경로 불일치
+
+현재 명령은 서버 archive `1.5.5`를 내려받은 뒤 `1.5.0` 디렉터리를 풀고, Tomcat 10을 설치한 뒤 Tomcat 9 경로와 서비스를 사용한다. 이 상태로는 순차 실행할 수 없다. 먼저 하나의 `<GUACAMOLE_VERSION>`과 대상 Ubuntu·Tomcat 버전을 정하고 server, WAR, JDBC extension의 버전·checksum·경로를 일치시킨다. 데이터베이스 비밀번호와 기본 `guacadmin` 자격 증명은 배포 전에 교체하고 HTTP 공개 대신 TLS·방화벽 경계를 구성한다. 적용 전 데이터베이스와 설정을 백업하며, 완료는 guacd·Tomcat·Nginx 상태, HTTPS 로그인, 원격 연결, 재부팅 후 복구를 확인해 판정한다.
+
 Guacamole을 Docker 없이 서버에 직접 설치하려면 아래 단계를 따르면 됩니다. 이는 Guacamole 서버와 클라이언트를 직접 설치하고 Nginx Reverse Proxy를 구성하는 방법입니다.
 
 ---
@@ -21,7 +27,7 @@ mysql-server mysql-client
 ## 2. **Guacamole 서버 및 클라이언트 설치**
 
 ### 2.1 Guacamole 소스코드 다운로드
-Apache Guacamole의 최신 릴리스를 다운로드합니다:
+이 보관 절차에서 사용할 Guacamole 버전을 하나로 정한 뒤 해당 release를 다운로드합니다:
 ```bash
 wget https://downloads.apache.org/guacamole/1.5.5/source/guacamole-server-1.5.5.tar.gz
 tar -xvzf guacamole-server-1.5.0.tar.gz

@@ -1,6 +1,54 @@
-# Automation Docker Stacks 학습 및 기록 노트
+---
+title: "자동화 Compose 스택"
+---
+
+# 자동화 Compose 스택 {#automation-docker-stacks}
+
+<nav class="hub-directory" aria-label="자동화 Compose 스택 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">컬렉션 탐색</h2>
+
+- [Compose 스택](../index.md)
+- [Docker Compose 컬렉션](../../index.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">n8n</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/automation/n8n/docker-compose.yaml)
+- [docker-compose.simple.yaml](/extra/docker/stacks/automation/n8n/docker-compose.simple.yaml)
+- [README.md](/extra/docker/stacks/automation/n8n/README.md)
+- [.env.example](/extra/docker/stacks/automation/n8n/.env.example)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">kimai</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/automation/kimai/docker-compose.yaml)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
 
 Automation 카테고리는 워크플로우 자동화, 시간 추적, 시각적 AI 플로우 도구를 Docker Compose로 실행하기 위한 스택을 모은다. 실제 소스는 `infra/docker/stacks/automation` 아래에 있으며, 현재 `kimai`, `langflow`, `n8n` 스택이 있다.
+
+## 자동화 스택 점검 기준
+
+- webhook·OAuth·API 토큰은 `.env`나 비밀 저장소에서 주입하고 문서·Compose·로그에 실제 값을 남기지 않습니다.
+- 타임존, 재시도, 중복 실행, 작업 timeout과 외부 API rate limit을 워크플로별로 정의합니다.
+- 실행 완료는 UI 접속이 아니라 시험 이벤트 1건의 입력, 단일 처리, 결과 기록과 실패 재처리를 확인한 상태입니다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -189,3 +237,5 @@ Langflow처럼 데이터 볼륨 권한을 보정하는 init 컨테이너가 있�
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 Automation 스택은 컨테이너보다 `__________`, 웹훅 URL, 데이터 저장소가 더 중요하다. n8n은 `__________`를 고정하고, Langflow는 `__________`와 터널 프로필을 분리해서 확인하며, Kimai는 Compose 안의 `__________`를 직접 채워야 한다.
+
+</details>

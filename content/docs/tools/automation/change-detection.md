@@ -2,6 +2,12 @@
 
 Change Detection은 웹 페이지나 API 응답의 변화를 주기적으로 확인하고, 의미 있는 변화가 생겼을 때 알림을 보내는 자동화 패턴이다.
 
+## 적용 범위와 검증 기준
+
+이 문서는 변경 감지 패턴과 changedetection.io 계열 설정의 학습 예시다. 설치한 application·worker·Apprise version, timezone, fetch 주기와 browser/proxy 사용 여부를 기록한다. UI 이름과 duration의 경계는 해당 version에서 시험하며 운영 성공을 문서만으로 보장하지 않는다.
+
+활성 시간은 요청 한 번의 실행 시간이 아니라 검사를 허용할 시간 범위다. worker 지연·queue와 재시도 때문에 정확한 실행 시각이나 비용 절감을 보장하지 않으며 실제 fetch 수·browser/proxy 비용·마지막 성공 시각을 관찰한다. webhook은 발송 권한이 있는 전용 채널에서 만들고 global 설정과 watch별 override 범위를 구분한다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 가격, 공지, 예약 가능 상태, 문서 변경, 재고 같은 정보는 사람이 계속 새로고침하기 어렵다. 변경 감지 도구는 이 반복 확인을 자동화한다.
@@ -35,13 +41,13 @@ Change Detection은 웹 페이지나 API 응답의 변화를 주기적으로 확
 변경 감지 흐름은 다음과 같다.
 
 ```text
-scheduler wakes up
-  -> fetch target URL
+scheduler evaluates active window in the configured timezone
+  -> worker fetches target with a bounded timeout
   -> apply filters or selectors
-  -> compare with previous snapshot
-  -> if changed, create diff
-  -> send notification through configured channel
-  -> store new baseline
+  -> compare with previous valid snapshot
+  -> persist change id/diff and pending notification
+  -> advance baseline under the documented persistence policy
+  -> deliver notification and record acknowledgement or retry state
 ```
 
 시간 제한이 있으면 다음 조건이 추가된다.
@@ -77,7 +83,10 @@ stateDiagram-v2
     Fetching --> Compared
     Compared --> Unchanged
     Compared --> Changed
-    Changed --> Notified
+    Changed --> NotificationPending
+    NotificationPending --> Notified
+    NotificationPending --> NotificationFailed
+    NotificationFailed --> NotificationPending: eligible bounded retry
     Fetching --> Failed
     Notified --> Scheduled
     Unchanged --> Scheduled
@@ -87,35 +96,36 @@ stateDiagram-v2
 
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-- webhook URL은 비밀값으로 관리한다.
-- 대상 사이트에 과도한 요청을 보내지 않는다.
-- selector/filter 없이 noisy page 전체를 비교하지 않는다.
-- duration window와 timezone은 실제 업무 기준 시간으로 검증한다.
-- 인증 쿠키나 세션 토큰을 저장할 때 노출 범위를 검토한다.
-- 알림은 테스트 전송으로 수신 여부를 확인한다.
+- webhook URL·cookie·token은 비밀로 보관하고 유출 시 폐기·재발급한다. 전용 채널의 실제 발송 권한과 global/watch 적용 범위를 확인한다.
+- 대상 사이트의 접근 정책과 rate limit을 지키고 비교할 selector/filter를 정한다. fetch 실패를 새 정상 baseline으로 저장하지 않는다.
+- 활성 시간은 IANA timezone과 날짜 경계·DST·queue 지연을 포함해 시험한다. 24시간 감시에는 지원되는 연속 감시 옵션을 쓰며 23:59 같은 경계 우회로 대체하지 않는다.
+- notification 실패는 감지 결과와 분리하고 change id로 중복을 억제한다. 장애 중 쌓인 변경을 모두 보낼지 최신 상태로 합칠지 정한다.
+- 알림 429는 Retry-After를 따르고 일시적 5xx·네트워크 오류만 횟수·총 시간 상한이 있는 backoff로 재시도한다. 영구 4xx·잘못된 인증은 반복하지 않고 운영자에게 알린다.
+- screenshot·diff·첨부에는 개인정보가 들어갈 수 있다. 접근·보존·용량을 제한하고 page 내용은 신뢰하지 않으며 mention과 payload 크기도 제한한다.
+- 테스트 알림 성공 외에 실제 변경 감지부터 최종 채널 수신까지 검증한다.
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
 
-Discord webhook은 Apprise 형식으로 변환해 Notification URL에 넣는다.
+설치한 Apprise/알림 플러그인이 해당 형식을 지원하는지 확인한 뒤 승인된 Discord 전용 채널의 webhook을 비밀 저장소에서 설정한다. 다음 문자열은 실제 비밀이 없는 형식 설명이다.
 
 ```text
-Discord webhook:
-https://discord.com/api/webhooks/<webhook_id>/<webhook_token>
-
-Apprise notification URL:
-discord://<webhook_id>/<webhook_token>
+Discord webhook shape: https://discord.com/api/webhooks/WEBHOOK_ID/WEBHOOK_TOKEN
+Apprise shape, if supported: discord://WEBHOOK_ID/WEBHOOK_TOKEN
 ```
 
-duration window 예시는 다음과 같다.
+업무 시간 감시의 의도는 다음처럼 기록한다. duration이 8시간이라는 것은 한 HTTP 요청을 8시간 실행한다는 의미가 아니다.
 
 ```text
 timezone: Asia/Seoul
-start at: 09:00
-run duration: 8 hours
-active window: 09:00-17:00
+intended start: 09:00
+intended duration: 8 hours
+intended window: 09:00 to 17:00
+fetch interval: explicitly configured and observed
 ```
 
-최소 설정 후에는 반드시 `Send test notification` 또는 동등한 테스트 기능으로 알림 수신을 확인한다.
+설치한 scheduler에서 시작/종료 포함 여부, queue에 이미 들어간 작업과 마지막 실행 시점을 확인한다. DST가 있는 timezone은 전환일도 별도 시험한다.
+
+최소 시험은 테스트 알림, 의도한 실제 한 번의 변경, 비활성 시간의 동작, 잘못된 webhook과 429/일시 장애를 포함한다. webhook을 폐기한 뒤 더 이상 발송되지 않고 새 비밀로 복구되는지도 확인한다. 서버 측 발송의 DNS/TLS·방화벽 오류를 브라우저 CORS 문제로 해석하지 않는다.
 
 ## 9. 실패 사례 (What could go wrong?)
 
@@ -136,12 +146,13 @@ active window: 09:00-17:00
 
 ## 11. 최종 체크리스트 (Definition of Done)
 
-- [ ] 감시 대상과 비교 영역이 명확하다.
-- [ ] 감지 주기와 duration window가 과도하지 않다.
-- [ ] timezone이 실제 기대 시간과 맞다.
-- [ ] webhook URL이 비밀값으로 관리된다.
-- [ ] 테스트 알림을 보냈고 수신을 확인했다.
-- [ ] 변경 없음, 변경 발생, fetch 실패를 구분할 수 있다.
+- [ ] application·worker·알림 플러그인 version과 실제 fetch 주기를 기록했다.
+- [ ] 비교 영역과 마지막 성공 시각을 확인하고 fetch 실패·변경 없음·변경 발생·발송 실패를 구분한다.
+- [ ] 시작 직전/직후·종료 직전/직후·timezone/DST와 queue 지연을 시험했다.
+- [ ] 실제 변경이 의도한 채널에 한 번 도착하고 장애 backlog·중복 정책이 동작한다.
+- [ ] webhook 비밀 보관·회수·복구와 429/영구 오류 재시도 정책을 검증했다.
+- [ ] screenshot/diff/첨부의 개인정보·보존·크기·mention 경계를 확인했다.
+- [ ] 실제 요청 수와 browser/proxy·재시도 비용을 관찰했다.
 
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 

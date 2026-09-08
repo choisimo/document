@@ -2,6 +2,13 @@
 
 Ansible은 control node에서 inventory의 host로 SSH 접속한 뒤 module을 실행해 원하는 상태를 맞추는 자동화 도구다. 이 문서는 설치 방법 자체보다 “어떤 host에 어떤 사용자와 key로 접속하고, 반복 실행해도 안전한가”를 기준으로 정리한다.
 
+## 실습 범위와 실행 계약
+
+- 이 문서는 격리된 학습 노드에서 첫 inventory와 ad-hoc 작업을 실행하는 범위입니다. 운영 서버 전체 자동화 완료를 뜻하지 않습니다.
+- 제어 노드 OS, Ansible core/collection, 대상 Python과 SSH 서버 버전을 기록하고 inventory 그룹을 시험 환경으로 제한합니다.
+- 명령 전 `--list-hosts`, check mode 지원 여부, `--limit`와 권한 상승 범위를 확인합니다. `all` 대상 실행은 명시적으로 승인된 경우에만 사용합니다.
+- 완료 증거는 SSH host key 검증, idempotent 재실행, 변경·실패 host 요약과 되돌리기 결과입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 서버가 늘어나면 패키지 설치, 설정 파일 배포, 서비스 재시작을 수동으로 반복하기 어렵다. Ansible은 agent를 설치하지 않고 SSH와 Python을 이용해 여러 서버의 상태를 일관되게 맞출 수 있다.
@@ -27,7 +34,7 @@ repository에는 실제 Ansible 예시도 있다.
 - Ansible 설치 경로를 하나로 정한다.
 - inventory에 host와 접속 변수를 명시한다.
 - SSH key 인증과 sudo 권한을 검증한다.
-- `ansible all -m ping`이 성공한다.
+- 명시한 실습 inventory의 webservers 그룹에서 `ansible.builtin.ping`이 성공한다.
 - `--check`와 idempotency 개념을 초기에 이해한다.
 
 ## 4. 시스템 번역 (Data Flow)
@@ -148,7 +155,8 @@ ssh -i ~/.ssh/ansible_key ansible@192.168.56.11
 Ansible 연결을 확인한다.
 
 ```bash
-ansible all -m ping
+ansible webservers --list-hosts
+ansible webservers -m ansible.builtin.ping
 ansible webservers -m ansible.builtin.command -a "uptime"
 ```
 
@@ -159,7 +167,7 @@ ansible webservers -m ansible.builtin.file -a "path=/tmp/ansible-check state=dir
 ansible webservers -m ansible.builtin.file -a "path=/tmp/ansible-check state=directory mode=0755"
 ```
 
-두 번째 실행에서 `changed`가 아니라 `ok`에 가까운 결과가 나와야 한다.
+두 번째 실행에서는 같은 디렉터리 상태가 유지되고, 해당 file task의 changed가 0이며 실패한 host가 없어야 한다.
 
 ## 9. 실패 사례 (What could go wrong?)
 

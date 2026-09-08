@@ -5,11 +5,13 @@
 
 ---
 
+> **Reading contract:** Scope is CTCI 4th edition and the C/C++/Java-style examples reconstructed here. The edition predates current language standards and JVM implementations, so object headers, bucket layouts, integer representation, and synchronization details require an explicit language version, VM, architecture, and flags. Separate language guarantees from one runtime layout and from performance estimates. A claim is complete when its target environment, invariant, failure mode, and source problem or chapter are named; otherwise keep it as an interview model rather than production fact.
+
 ## 1. Bit Manipulation: Integer Memory Layout and Arithmetic
 
 ### 1.1 Integer Representation in Memory
 
-Every integer in a 32-bit system occupies exactly 4 bytes = 32 bits in two's complement representation. Bit position `k` has value `2^k` (LSB = bit 0).
+For a specified 32-bit two's-complement integer type, the representation uses 32 bits and bit position `k` has unsigned weight `2^k` (LSB = bit 0). A "32-bit system" alone does not determine the width or signed representation of every integer type; use fixed-width types or the language's defined `int` model.
 
 ```mermaid
 block-beta
@@ -72,9 +74,11 @@ sequenceDiagram
 ### 2.1 Java HashMap Internal Buckets
 
 ```mermaid
-block-byzantine
+block-beta
   columns 1
-  block:HM["HashMap<K,V> internals"]:1
+  block:HM:1
+    columns 1
+    HMTitle["HashMap#60;K,V#62; internals"]:1
     A["Entry[] table (array of bucket heads)"]
     B["Entry{hash, key, value, next} — linked list nodes"]
     C["loadFactor = 0.75 (default)"]
@@ -182,15 +186,19 @@ O(N) time, O(1) space — versus storing all nodes in an array which is O(N) spa
 ### 4.1 Stack via Linked List vs Array
 
 ```mermaid
-block-byzantine
+block-beta
   columns 2
-  block:LL["Linked-List Stack"]:1
+  block:LL:1
+    columns 1
+    LLTitle["Linked-List Stack"]:1
     A["Each push: heap-allocate Node (32B)"]
     B["Unlimited size, no resize"]
     C["Cache-UNFRIENDLY: nodes scattered"]
     D["GC pressure: O(N) Node objects"]
   end
-  block:Arr["Array Stack (ArrayDeque)"]:1
+  block:Arr:1
+    columns 1
+    ArrTitle["Array Stack (ArrayDeque)"]:1
     E["Pre-allocated array, doubly-indexed"]
     F["Resize doubles array: O(N) amortized"]
     G["Cache-FRIENDLY: contiguous memory"]
@@ -346,9 +354,11 @@ flowchart TD
 ### 6.3 String DP: Edit Distance — 2D Table Layout
 
 ```mermaid
-block-byzantine
+block-beta
   columns 1
-  block:ED["Edit Distance dp[i][j] = edit dist(s1[0..i], s2[0..j])"]:1
+  block:ED:1
+    columns 1
+    EDTitle["Edit Distance dp[i][j] = edit dist(s1[0..i], s2[0..j])"]:1
     R0["dp[0][j] = j (insert j chars)"]
     R1["dp[i][0] = i (delete i chars)"]
     R2["dp[i][j] = dp[i-1][j-1]  if s1[i]==s2[j]"]
@@ -519,7 +529,7 @@ K-way merge uses a min-heap of size K → O(K log K) per element → total O(N l
 
 ### 10.1 Java Monitor — Object Header Lock Word
 
-Every Java object has a **2-word object header**: 8 bytes mark word + 4-byte class pointer (compressed OOPs) = 12 bytes. The **mark word** encodes lock state:
+In one common 64-bit HotSpot configuration with compressed class pointers, a Java object header is often modeled as an 8-byte mark word plus a 4-byte class pointer before alignment. This is not a Java-language guarantee; VM version, compression flags, collector, and alignment determine the actual layout. The mark word may encode lock state in the modeled configuration:
 
 ```mermaid
 stateDiagram-v2
@@ -579,31 +589,31 @@ flowchart TD
 ### 11.2 Space-Time Tradeoff Map
 
 ```mermaid
-block-byzantine
+block-beta
   columns 3
-  block:h1["Problem"]:1
-  block:h2["Time-optimal"]:1
-  block:h3["Space-optimal"]:1
+  h1["Problem"]:1
+  h2["Time-optimal"]:1
+  h3["Space-optimal"]:1
 
-  block:r1["Unique characters"]:1
-  block:r2["O(N) hash set"]:1
-  block:r3["O(1) bit vector\n(if ASCII)"]
+  r1["Unique characters"]:1
+  r2["O(N) hash set"]:1
+  r3["O(1) bit vector<br/>(if ASCII)"]
 
-  block:r4["Two-sum"]:1
-  block:r5["O(N) hash map"]:1
-  block:r6["O(N log N) sort\n+ O(1) two-pointer"]
+  r4["Two-sum"]:1
+  r5["O(N) hash map"]:1
+  r6["O(N log N) sort<br/>+ O(1) two-pointer"]
 
-  block:r7["Palindrome check"]:1
-  block:r8["O(N) with center expand"]:1
-  block:r9["O(1) space, O(N) time\n(no extra array)"]
+  r7["Palindrome check"]:1
+  r8["O(N) with center expand"]:1
+  r9["O(1) space, O(N) time<br/>(no extra array)"]
 
-  block:r10["Anagram detection"]:1
-  block:r11["O(N) frequency array"]:1
-  block:r12["O(N log N) sort both\nO(1) extra space"]
+  r10["Anagram detection"]:1
+  r11["O(N) frequency array"]:1
+  r12["O(N log N) sort both<br/>O(1) extra space"]
 
-  block:r13["LRU cache"]:1
-  block:r14["O(1) HashMap + DoublyLinkedList"]:1
-  block:r15["O(1) space not possible\n(must store N items)"]
+  r13["LRU cache"]:1
+  r14["O(1) HashMap + DoublyLinkedList"]:1
+  r15["O(1) space not possible<br/>(must store N items)"]
 ```
 
 ---

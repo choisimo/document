@@ -1,8 +1,15 @@
 # Redis Spring Boot Integration 학습 및 기록 노트
 
+## Scope and Verification Contract
+
+- **Scope:** Pin Spring Boot, Spring Data Redis, client library, Redis server, serializer, cache and session modules, and deployment mode. Configuration keys and defaults vary by release.
+- **Assumptions:** Define key ownership, TTL, serialization compatibility, cache consistency, connection and command timeouts, retry policy, pooling, and behavior when Redis is unavailable.
+- **Facts and inference:** A successful connection and emitted command are facts; a latency or cache-benefit claim needs application metrics, Redis statistics, and a controlled baseline.
+- **Failure and completion:** Test missing and malformed values, expiry, reconnect, timeout, failover, serializer migration, stale cache, and session loss. Completion requires passing integration tests and bounded fallback or failure behavior.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
-Spring Boot에서 Redis를 붙이면 cache, session, temporary value store를 빠르게 만들 수 있다. 하지만 connection 설정, serializer, TTL, cache invalidation, session namespace, connection pool을 명확히 잡지 않으면 serialization error, stale cache, memory growth, connection timeout이 생긴다.
+Spring Boot에서 Redis는 cache, session, temporary value store로 사용할 수 있다. latency 이점과 consistency는 workload와 설정에 따라 달라지며 connection, serializer, TTL, invalidation, namespace와 장애 동작을 함께 정해야 한다.
 
 이 문서는 원문의 Redis Spring Boot 연동 내용을 dependency, `RedisConnectionFactory`, `RedisTemplate`, `CacheManager`, session, troubleshooting 중심으로 재작성한다.
 
@@ -78,7 +85,7 @@ Cache miss에서는 source DB를 조회한 뒤 serializer를 통해 Redis에 저
 - Cache TTL은 데이터 변경 주기와 stale 허용 범위에 맞아야 한다.
 - Serializer는 배포 버전 간 호환성을 고려해야 한다.
 - `@Cacheable` key와 `@CacheEvict` key는 같은 규칙을 사용해야 한다.
-- Redis 장애 시 cache miss 또는 fallback 동작을 애플리케이션에서 감당할 수 있어야 한다.
+- Redis 장애 시 cache 오류를 요청 실패로 전파할지 제한된 fallback을 적용할지 명시한다. 캐시 오류가 자동으로 cache miss가 되지는 않으며 fallback에는 DB 부하 한도도 필요하다.
 - Session Redis를 쓰면 Redis 장애가 login/session 장애로 이어질 수 있다.
 - Connection timeout과 pool 크기는 request concurrency와 Redis latency에 맞춰야 한다.
 
@@ -110,6 +117,7 @@ public class RedisCacheConfig {
 
         return RedisCacheManager.builder(connectionFactory)
             .cacheDefaults(config)
+            .transactionAware()
             .build();
     }
 }
@@ -118,6 +126,12 @@ public class RedisCacheConfig {
 ```java
 @Service
 public class UserService {
+    private final UserRepository userRepository;
+
+    public UserService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
     @Cacheable(value = "users", key = "#id")
     public User findById(Long id) {
         return userRepository.findById(id).orElse(null);
@@ -130,7 +144,7 @@ public class UserService {
 }
 ```
 
-이 예제는 cache read path와 update invalidation path가 같은 cache name/key 규칙을 공유해야 함을 보여준다.
+이 예제는 Spring Boot 3 계열의 설정 키와 해당 버전에 맞는 serializer API를 전제로 하며 `User`·`UserRepository`·import와 의존성은 프로젝트에 정의해야 한다. cache read와 update는 같은 key 규칙을 사용하고 Spring proxy를 통한 외부 호출에서 적용된다. transaction-aware cache는 DB commit과 put/evict 시점을 맞추지만, 동시 cache miss의 오래된 값 재삽입까지 막지는 않으므로 별도 일관성 정책과 테스트가 필요하다.
 
 ## 9. 실패 사례 (What could go wrong?)
 

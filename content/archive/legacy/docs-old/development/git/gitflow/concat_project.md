@@ -7,105 +7,71 @@ GitHub 저장소에 push가 발생할 때 `file_concatter.sh`를 실행하고, `
 `file_concatter.sh`는 기본 출력 디렉토리를 `total/`, 기본 출력 파일명을 `total.txt`로 둔다. 출력 디렉토리가 없으면 생성하고, 재실행 시 `total/total.txt`가 다시 입력 파일로 병합되지 않도록 출력 디렉토리를 건너뛴다.
 
 ```bash
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# 기본값 설정
 start_dir="."
-output_dir="total"
-output_file_name="total.txt"
-output_path="$output_dir/$output_file_name"
-
-# 도움말 표시 함수
+output_path="total/total.txt"
 show_help() {
-    echo "사용법: $0 [옵션]"
-    echo "옵션:"
-    echo "  -d, --directory DIR  검색 시작 디렉토리 지정 (기본값: 현재 디렉토리)"
-    echo "  -o, --output FILE    출력 파일 지정 (기본값: $output_dir/$output_file_name)"
-    echo "  -h, --help           도움말 표시"
-    exit 0
+    printf '사용법: %s [-d DIR] [-o FILE]\n' "$0"
 }
-
-# 인자 파싱
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        -d|--directory)
-            start_dir="$2"
+while (( $# )); do
+    case "$1" in
+        -d|--directory|-o|--output)
+            if (( $# < 2 )) || [[ -z "$2" ]]; then
+                echo "오류: $1 값이 필요합니다." >&2
+                exit 2
+            fi
+            if [[ "$1" == -d || "$1" == --directory ]]; then
+                start_dir="$2"
+            else
+                output_path="$2"
+            fi
             shift 2
             ;;
-        -o|--output)
-            output_path="$2" # 사용자가 -o 옵션으로 경로를 포함한 파일명을 지정할 수 있도록 함
-            output_dir=$(dirname "$output_path")
-            output_file_name=$(basename "$output_path")
-            shift 2
-            ;;
-        -h|--help)
-            show_help
-            ;;
-        *)
-            echo "알 수 없는 옵션: $1"
-            show_help
-            ;;
+        -h|--help) show_help; exit 0 ;;
+        *) show_help >&2; exit 2 ;;
     esac
 done
 
-# 시작 디렉토리가 존재하는지 확인
-if [ ! -d "$start_dir" ]; then
-    echo "오류: 디렉토리 '$start_dir'가 존재하지 않습니다."
-    exit 1
-fi
+start_dir=$(realpath -e -- "$start_dir")
+[[ -d "$start_dir" ]] || { echo "검색 경로는 디렉터리여야 합니다." >&2; exit 1; }
+mkdir -p -- "$(dirname -- "$output_path")"
+output_dir=$(cd -- "$(dirname -- "$output_path")" && pwd -P)
+output_path="$output_dir/$(basename -- "$output_path")"
+# 출력 경로가 입력 디렉터리이거나 symlink이면 덮어쓰지 않는다.
+[[ ! -d "$output_path" && ! -L "$output_path" ]] || exit 1
 
-# 출력 디렉토리 생성
-mkdir -p "$output_dir"
-if [ ! -d "$output_dir" ]; then
-    echo "오류: 출력 디렉토리 '$output_dir'를 생성할 수 없습니다."
-    exit 1
-fi
+input_list=$(mktemp)
+output_tmp=$(mktemp "$output_dir/.concat.XXXXXX")
+trap 'rm -f -- "$input_list" "$output_tmp"' EXIT
 
-# 결과 파일 초기화
-> "$output_path"
-
-echo "디렉토리 '$start_dir'에서 .h 및 .cpp 파일을 검색하여 '$output_path'에 병합합니다..."
-
-# 파일 카운터 초기화
-file_count=0
-
-# 재귀적으로 .h와 .cpp 파일 찾기
-find "$start_dir" -type f \( -name "*.h" -o -name "*.cpp" \) -print0 |
-while IFS= read -r -d $'\0' file; do
-    # 'total' 디렉토리 내의 파일은 건너뛰기 (무한 루프 방지)
-    if [[ "$file" == "$output_dir"* ]]; then
-        continue
-    fi
-
-    # 파일 카운터 증가
-    ((file_count++))
-
-    # 진행 상황 표시
-    echo "처리 중: $file"
-
-    # 파일 구분자 추가
-    echo -e "\n\n===== $file =====\n" >> "$output_path"
-
-    # 파일 내용을 결과 파일에 추가
-    cat "$file" >> "$output_path"
-done
-
-# 병합 완료 메시지
-# find 명령어의 결과를 직접 사용하여 정확한 파일 수를 얻음
-# (파이프라인 서브셸 문제 회피)
-actual_files_processed_count=$(grep -c "^===== .* ====$" "$output_path")
-
-if [ "$actual_files_processed_count" -eq "0" ] && [ "$file_count" -eq "0" ]; then
-    # wc -l 은 파일이 비어있어도 1을 반환할 수 있으므로, 실제 처리된 파일 구분자로 확인
-    # find로 찾은 파일이 0개이고, grep 결과도 0이면 실제로 처리된 파일이 없는 것
-    echo "주의: 병합할 .h 또는 .cpp 파일을 찾지 못했습니다."
-    # 빈 total.txt 파일이 생성될 수 있으므로, 필요에 따라 이 파일을 삭제하는 로직 추가 가능
-    # rm -f "$output_path"
-    # rmdir "$output_dir" # 디렉토리가 비었을 경우 삭제
+# 경계를 정규화해 total-backup 같은 형제 디렉터리는 제외하지 않는다.
+# 출력 디렉터리가 검색 루트인 경우에는 출력 파일만 제외한다.
+if [[ "$output_dir" == "$start_dir" ]]; then
+    find "$start_dir" -type f \( -name '*.h' -o -name '*.cpp' \) \
+        ! -path "$output_path" -print0 | LC_ALL=C sort -z > "$input_list"
 else
-    echo "완료: $actual_files_processed_count 개의 파일이 '$output_path'에 병합되었습니다."
+    find "$start_dir" -path "$output_dir" -prune -o \
+        -type f \( -name '*.h' -o -name '*.cpp' \) \
+        ! -path "$output_path" -print0 | LC_ALL=C sort -z > "$input_list"
 fi
+
+file_count=0
+while IFS= read -r -d '' file; do
+    printf '\n\n===== %s =====\n\n' "$file" >> "$output_tmp"
+    cat -- "$file" >> "$output_tmp"
+    file_count=$((file_count + 1))
+done < "$input_list"
+
+# 읽기 실패 시 기존 결과를 보존하고, 모든 입력을 읽은 뒤 결과를 교체한다.
+mv -- "$output_tmp" "$output_path"
+printf '완료: %s 개의 파일이 %s에 병합되었습니다.\n' "$file_count" "$output_path"
 ```
+
+## 자동화 완료 계약과 알려진 결함
+
+셸 예시는 Bash와 GNU find/sort/realpath를 사용한다. NUL 구분 입력 목록을 정렬하고 실제 처리 횟수를 같은 셸에서 집계하므로 파일 내용의 구분자와 무관하다. 정규화한 출력 디렉터리 경계만 제외해 비슷한 이름의 형제 경로는 보존한다. 빈 입력·단일 파일·출력 디렉터리 재입력·형제 경로·재실행 결과를 검증한다. 읽기·검색 실패는 nonzero로 전달하고 기존 출력을 보존한다. 동시 실행의 최종 덮어쓰기와 실행 중 원본 변경은 별도 정책이 필요하다. Action이 생성 파일을 push하는 경우 생성 경로 제외, 쓰기 권한과 동시 실행 정책을 확인하며, 완료는 입력 목록·개수, 출력 해시, 생성 파일만 포함된 diff와 종료 상태로 판정한다.
 
 ## GitHub Actions 워크플로우
 
@@ -118,6 +84,15 @@ on:
   push:
     branches:
       - main  # 또는 master, develop 등 기본 브랜치명으로 변경한다.
+    paths-ignore:
+      - 'total/total.txt'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: generate-total-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:

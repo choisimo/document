@@ -2,6 +2,13 @@
 
 이 문서는 Pod와 Deployment를 “컨테이너 실행 단위”와 “반복적으로 원하는 개수를 유지하는 controller 계약”으로 이해하기 위한 실습 문서다. 목표는 YAML을 외우는 것이 아니라 selector, template label, rollout, probe가 어떤 상태 전이를 만드는지 설명할 수 있게 되는 것이다.
 
+## 실습 계약과 완료 증거
+
+- 매 명령 전에 context와 namespace를 확인하고, 예제 label이 다른 리소스를 선택하지 않는지 검토합니다.
+- `Running`, `Ready`, rollout 완료와 사용자 요청 성공은 서로 다른 상태입니다. Events, container 상태, probe와 Service 경로를 함께 확인합니다.
+- Deployment 업데이트는 무중단을 자동 보장하지 않습니다. replica 수, `maxUnavailable`, readiness, 종료 유예, PDB 적용 범위와 애플리케이션 호환성을 시험합니다.
+- 롤백 완료는 이전 ReplicaSet 선택만이 아니라 이미지·설정·데이터 스키마가 호환되고 요청 오류율이 회복된 상태입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Kubernetes에서 container image를 실행하는 최소 단위는 Pod지만, 운영자는 Pod를 직접 오래 관리하지 않는다. Pod는 재생성될 수 있고 이름도 바뀐다. 안정적인 배포 단위는 Pod template과 replica 수를 선언하는 Deployment다.
@@ -50,6 +57,8 @@ kubectl apply
 ## 5. 핵심 구성요소 (Building Blocks)
 
 Pod는 하나 이상의 container가 network namespace와 volume을 공유하는 단위다. 같은 Pod 안의 container는 `localhost`로 서로 접근할 수 있다.
+
+한 Pod의 수명 동안 컨테이너는 같은 노드에 함께 배치된다. Pod를 대체하면 새 Pod는 다른 노드에 배치될 수 있으므로 노드 고정을 Pod identity로 추론하지 않는다.
 
 Deployment는 Pod template과 replica 수를 선언한다. 변경이 생기면 새 ReplicaSet을 만들고 rolling update를 진행한다.
 

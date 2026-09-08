@@ -1,6 +1,13 @@
-# Proxmox VE Guide
+# Proxmox VE 8.x 학습 가이드
 
 이 문서 모음은 Proxmox VE를 단순한 관리 화면이 아니라 클러스터 파일시스템, 네트워크, 스토리지, 가상화, HA, 백업, 권한, Ceph로 구성된 운영 플랫폼으로 이해하기 위한 학습 지도다.
+
+## 적용 범위와 실행 안전
+
+- 이 문서군은 Proxmox VE 8.x 학습 자료입니다. 명령과 설정 키는 대상 노드의 `pveversion -v`, kernel, storage/SDN/Ceph 구성과 공식 문서에서 다시 확인합니다.
+- 읽기 명령, 즉시 반영 변경, quorum·network·storage를 끊을 수 있는 변경을 구분합니다. 후자는 console, backup, maintenance window와 rollback 없이는 실행하지 않습니다.
+- 예시 IP, node, VMID, storage ID와 인증서는 실제 환경 값이 아닙니다.
+- 완료 증거는 GUI 표시뿐 아니라 daemon 상태, cluster quorum, guest I/O/network, logs와 장애·복구 시험입니다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -86,7 +93,7 @@ stateDiagram-v2
 - 네트워크 변경은 관리 접속을 끊을 수 있으므로 out-of-band 접근 경로를 준비해야 한다.
 - 스토리지 삭제, ZFS pool destroy, VM 디스크 unlink 같은 작업은 되돌릴 수 없을 수 있다.
 - 스냅샷은 백업이 아니며 원본 스토리지 장애를 대신하지 못한다.
-- HA는 공유 스토리지, quorum, fencing 조건 없이 기대한 대로 동작하지 않는다.
+- HA는 대상 노드의 게스트 데이터 접근, quorum, fencing과 남은 용량 조건이 필요하다. 공유 스토리지 또는 지원되는 복제 방식의 복구 시점과 한계를 확인한다.
 - 권한과 API token은 최소 권한 원칙으로 분리해야 한다.
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)

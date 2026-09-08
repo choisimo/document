@@ -1,79 +1,24 @@
-# Documentation Index
+# Legacy documentation index
 
-Comprehensive technical documentation organized by domain.
+This directory is a historical snapshot of an earlier documentation layout. It is retained for migration traceability, not as the canonical navigation entry point. Paths in this index may have moved or may describe software versions that are no longer supported.
 
-## 📁 Directory Overview
+## Scope
 
-### `ai-ml/` - Artificial Intelligence & Machine Learning
-- NLP sentence embedding and similarity measurement
-- Multimodal recommendation system algorithms
-- AI/ML implementation guides
+| Directory | Historical subject area |
+| --- | --- |
+| `ai-ml/` | Embeddings, similarity, and recommendation-system notes |
+| `databases/` | Database installation, Redis, JPA, and QueryDSL notes |
+| `development/` | Editors, version control, containers, languages, and servers |
+| `infrastructure/` | Virtualization, networks, storage, synchronization, and monitoring |
+| `security/` | SSH, access control, VPN, authentication, and Zero Trust notes |
+| `tools/` | Terminal, automation, scheduling, and remote-access utilities |
 
-### `databases/` - Database Systems
-- Database installation and configuration
-- Redis caching strategies and setup
-- SpringBoot JPA and QueryDSL
-- Database optimization and best practices
+## How to use an archived document
 
-### `development/` - Development Tools & Practices
-- **IDEs**: VSCode, code-server configuration
-- **Version Control**: Git workflows and best practices
-- **Containers**: Docker guides and usage
-- **Languages**: Java, GCC setup and compilation
-- **Servers**: Tomcat configuration
+1. Treat commands, package names, ports, and configuration keys as a record of the document's original environment.
+2. Identify the target operating system, application version, and deployment topology before running a command.
+3. Resolve the corresponding current document from the repository's root index and migration map.
+4. Compare the archived procedure with current vendor documentation and local configuration.
+5. Run changes in a disposable environment first, then record the observed output and rollback path.
 
-### `infrastructure/` - Infrastructure & Operations
-- **Virtualization**: Proxmox cluster setup and management
-- **Networking**: Network configuration, routing, port management
-- **Storage**: Disk formatting, mounting, SSHFS
-- **Sync**: Rsync configuration and usage
-- **Hardware**: Nano Pi Neo3 and embedded systems
-- **Email**: Email server configuration
-- **Monitoring**: System monitoring and logging
-
-### `security/` - Security & Access Control
-- **SSH**: SSH configuration, key management, SSHD settings
-- **Access Control**: ACL, user permissions, remote access
-- **VPN**: WireGuard, Tailscale setup and usage
-- **Zero Trust**: Cloudflare Zero Trust configuration
-- **Authentication**: Key-based authentication, security best practices
-
-### `tools/` - Tools & Utilities
-- **Terminal**: Tmux, Vim configuration and usage
-- **Remote Access**: Guacamole server setup
-- **Automation**: Selenium, change detection tools
-- **Scheduling**: Task scheduling and management
-- **Linux Commands**: Common command reference
-- **AI Tools**: Gemini shell integration, MCP usage
-
-## Quick Reference
-
-### Most Accessed Documents
-- Infrastructure: `infrastructure/proxmox_cluster.md`
-- Networking: `infrastructure/linux_network_setting.md`
-- Security: `security/user_ACL_management.md`
-- Database: `databases/database_install.md`
-- Development: `development/code-server-setup.md`
-
-### By Use Case
-
-**Setting up a new server:**
-1. `infrastructure/linux_network_setting.md`
-2. `security/sshd_config_usage_Match.md`
-3. `security/user_ACL_management.md`
-4. `infrastructure/proxmox_cluster.md`
-
-**Database deployment:**
-1. `databases/database_install.md`
-2. `databases/redis/README.md`
-3. `databases/springboot-jpa/`
-
-**Development environment:**
-1. `development/vscode/`
-2. `development/docker/`
-3. `development/git/`
-
-**Security hardening:**
-1. `security/sshd_config_usage_Match.md`
-2. `security/user_ACL_management.md`
-3. `security/cloudflare/zero_trust.md`
+An archived procedure is not considered current merely because its commands still execute. Successful migration requires a mapped current destination, preserved source history, and a checked replacement link.

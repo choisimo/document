@@ -1,5 +1,12 @@
 # 수학적 컴퓨팅 내부 동작 학습 및 기록 노트
 
+## 수치 주장을 읽는 기준
+
+- 정리의 보장은 행렬 성질, 함수의 매끄러움·볼록성, 스텝 크기, 산술 모델 같은 전제와 함께 읽는다.
+- 점근 복잡도에는 조밀·희소 표현, 차원, 반복 횟수와 요구 오차를 명시한다. FLOP 수와 실제 실행 시간은 메모리 계층·벡터화·병렬성 때문에 같지 않다.
+- "정확한 해"는 실수 산술의 수학적 해와 유한 정밀도 계산 결과를 구분한다. 잔차, 전방·후방 오차와 조건수를 함께 보고한다.
+- 근사 계산의 완료 기준은 알고리즘 종료가 아니라 허용 오차, 신뢰구간 또는 검증 잔차를 충족하는 것이다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 수학적 컴퓨팅은 수식을 코드로 옮기는 일이 아니다. IEEE 754 부동소수점은 정밀도를 잃고, 행렬 분해는 조건수에 민감하며, FFT는 메모리 배치와 butterfly 전이를 요구하고, Monte Carlo는 분산을 관리해야 한다. 같은 수학식이라도 구현 방식에 따라 오차가 누적되거나 결과가 발산할 수 있다.
@@ -83,7 +90,7 @@ FFT의 iteration은 butterfly pass이고, gradient descent의 iteration은 param
 - Least squares는 `A^T A`를 직접 푸는 것보다 QR/SVD가 수치적으로 더 안전하다.
 - FFT 입력 길이, bit-reversal, twiddle factor 순서가 일관되어야 한다.
 - Gradient method는 learning rate가 너무 크면 발산할 수 있다.
-- Monte Carlo 결과는 표본 수와 variance에 따른 신뢰 구간을 함께 제시해야 한다.
+- Monte Carlo 결과는 표본 수와 표본 의존성·분산 가정을 확인한 신뢰 구간을 함께 제시해야 한다. 전형적인 `O(1/sqrt(N))` 표준오차는 독립 표본과 유한 분산을 전제한다.
 - Condition number가 큰 문제는 더 높은 정밀도, preconditioning, 안정적 분해를 검토해야 한다.
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
@@ -120,7 +127,7 @@ Kahan summation은 작은 보정항을 유지해 누적 덧셈의 rounding error
 - 수치 적분은 trapezoidal, Simpson, Gaussian quadrature, adaptive quadrature를 함수 특성에 맞춰 고른다.
 - 최적화는 SGD, Adam, L-BFGS, Newton method를 gradient 정보와 비용으로 비교한다.
 - Eigenvalue 문제는 dense QR, power iteration, Lanczos, Arnoldi로 행렬 구조에 맞춰 선택한다.
-- Monte Carlo는 importance sampling, control variates, quasi-Monte Carlo로 variance를 줄인다.
+- Monte Carlo는 importance sampling과 control variates가 입력 구조에서 분산을 줄이는지 확인해 확장한다. Quasi-Monte Carlo의 오차는 함수의 변동도·유효 차원·무작위화 방식에 따라 별도로 평가한다.
 - 혼합 정밀도는 FP16/BF16 연산과 FP32 accumulation, loss scaling을 함께 설계한다.
 
 ## 11. 최종 체크리스트 (Definition of Done)

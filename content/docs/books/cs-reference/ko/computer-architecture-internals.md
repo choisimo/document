@@ -1,5 +1,12 @@
 # 컴퓨터 아키텍처 내부 동작 학습 및 기록 노트
 
+## 모델과 측정값을 구분하는 법
+
+- 5단계 RISC 파이프라인, 단일 캐시, MESI 상태도는 개념을 격리한 **교육 모델**이다. 현대 코어의 실제 프런트엔드, 비순차 실행, 캐시 일관성 구현과 일대일로 대응하지 않는다.
+- ISA가 허용하는 동작, 특정 마이크로아키텍처의 구현, 한 시스템에서 측정한 결과를 분리한다. CPU 모델, 스테핑, 마이크로코드, 주파수, 메모리 구성과 측정 도구를 기록한다.
+- 캐시·TLB·ROB 크기와 지연시간은 세대별 수치다. 제품명이나 세대가 제시되더라도 근거 없이 "최신"으로 확장하지 않는다.
+- 성능 결론은 평균만으로 확정하지 않고 IPC, miss rate, stall 원인, p95/p99 지연과 반복 분산을 함께 제시한다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 프로그램 성능과 정확성은 소스 코드만으로 결정되지 않는다. 명령어 pipeline, forwarding, branch prediction, cache/TLB miss, page fault, out-of-order execution, MESI coherence, DMA, floating point rounding 같은 하드웨어 상태가 실행 결과와 지연 시간을 만든다.

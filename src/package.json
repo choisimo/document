@@ -4,10 +4,19 @@
   "description": "A comprehensive documentation repository for infrastructure, development, and operations.",
   "main": "index.js",
   "directories": {
-    "doc": "docs"
+    "doc": "../content/docs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "qa:install": "playwright install chromium",
+    "qa:screenshots": "node screenshot-pages.js",
+    "qa:retry": "node screenshot-retry.js",
+    "qa:test": "node --test qa/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
   },
   "repository": {
     "type": "git",

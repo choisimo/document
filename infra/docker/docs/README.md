@@ -2,9 +2,15 @@
 
 프로젝트 문서 인덱스입니다.
 
+## Index Scope
+
+This page is a navigation index, not an assertion that every linked guide matches the deployed environment. Verify link existence, repository revision, Docker and service versions, secret and exposure assumptions, and each guide's failure and rollback criteria before use.
+
+---
+
 ## Guides
 
-- [DOCKER_NETWORK.md](DOCKER_NETWORK.md) - Docker 네트워크 생성 및 설정 종합 가이드
+- [DOCKER_NETWORK.md](DOCKER_NETWORK.md) - Docker network의 선택 option과 환경별 설정 가이드
 
 ## Services
 

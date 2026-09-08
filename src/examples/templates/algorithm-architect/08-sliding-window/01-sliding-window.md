@@ -6,8 +6,17 @@
 |------|------|
 | **Use Case** | 부분 배열/문자열의 최댓값/최솟값 |
 | **Components** | Window (Left, Right), HashMap (빈도) |
-| **Constraint** | 연속된 구간만 가능 |
-| **시간 복잡도** | O(N) |
+| **Constraint** | contiguous range와 단조 pointer·validity update invariant 필요 |
+| **시간 복잡도** | pointer monotonicity와 O(1)/amortized update 기준 O(N) |
+
+---
+
+## 적용 범위와 검증 기준
+
+- **범위:** contiguous range를 다루고 left/right가 되돌아가지 않으며 update가 constant 또는 amortized constant일 때 보통 `O(N)`입니다.
+- **전제:** fixed/variable window, validity predicate, frequency state와 shrink 조건을 정의합니다. 음수 값은 일부 sum-based monotonic window 전제를 깨뜨립니다.
+- **실패 조건:** empty target, duplicate character count, stale maximum, pointer 미진행, Unicode 단위와 invalid window를 포함합니다.
+- **완료 증거:** 작은 array/string의 exhaustive range reference와 비교하고 window state, minimal/maximal 조건과 tie 반환을 확인합니다.
 
 ---
 

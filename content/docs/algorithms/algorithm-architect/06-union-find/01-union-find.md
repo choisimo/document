@@ -4,6 +4,15 @@
 
 ---
 
+## 입력 계약과 완료 판정
+
+- **입력**: `UnionFind(n)`의 `n`은 0 이상의 정수이고 원소 ID는 `0 <= x < n`인 정수다. 현재 코드는 사전 검증을 제공하지 않는다. Python 음수 인덱스는 마지막 원소 등을 가리킬 수 있으므로 범위 밖 ID가 항상 `IndexError`를 낸다고 가정하지 말고 호출 전에 차단한다.
+- **상태**: `parent`와 `rank`는 `find`·`union` 호출에 따라 변한다. 경로 압축 뒤의 `rank`는 실제 높이와 같지 않을 수 있다. 이미 연결된 원소의 `union`도 내부 `find`가 경로를 압축할 수 있다.
+- **출력**: `find`는 대표 ID, `union`은 새 병합이면 `True`·이미 같은 집합이면 `False`, `is_connected`는 연결 여부를 반환한다. 집합 크기나 개수는 별도로 저장하지 않는다.
+- **비용**: 생성은 `O(n)` 시간·공간이다. 경로 압축과 rank 병합을 함께 쓰는 연속 연산의 상각 비용은 `O(alpha(n))`이며 모든 개별 호출의 엄밀한 상수 시간 보장은 아니다.
+
+완료 판정은 단일 원소, 반복 병합, 여러 단계 병합, 경로 압축 전후 연결성 유지, 양방향 `is_connected`를 확인하는 것이다. ID 범위 검증은 호출 경계의 별도 조건으로 유지하고, 동적 원소 추가·집합 크기·집합 수가 필요하면 해당 상태를 구현한다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 * **이 개념이 구원해 줄 문제:** 동적으로 집합을 합치면서 두 원소의 연결 여부를 빠르게 확인해야 하는 문제를 해결한다.
@@ -27,7 +36,7 @@
 * **📥 인풋 (Input):** 원소 수, union 요청 `(x, y)`, connected 질의 `(x, y)`
 * **⚙️ 프로세스 (Processing):** `find`로 각 원소의 root를 찾고, root가 다르면 rank 기준으로 한 root를 다른 root 밑에 붙인다.
 * **📤 아웃풋 (Output):** 합치기 성공 여부, 연결 여부, 최종 parent/rank 배열
-* **💾 상태 (State):** `parent[]`, `rank[]`, 각 집합의 root, 컴포넌트 수
+* **💾 상태 (State):** `parent[]`, `rank[]`, 각 집합의 root; 컴포넌트 수는 현재 구현에서 별도로 저장하지 않는다.
 * **🚨 터지는 조건 (Exception):** 경로 압축 누락, rank 갱신 오류, 0-index/1-index 혼동, root가 아닌 노드를 직접 붙이는 경우
 
 ## 5. 핵심 구성요소 (Building Blocks)
@@ -47,7 +56,7 @@
 | `SEPARATE_SETS` | `find(x)` | parent chain 존재 | `ROOT_FOUND` | root 값 반환 |
 | `ROOT_FOUND` | path compression | 중간 parent가 root가 아님 | `COMPRESSED` | parent가 root로 단축 |
 | `COMPRESSED` | `union(x, y)` | root가 다름 | `MERGED` | 한 root의 parent가 다른 root로 변경 |
-| `COMPRESSED` | `union(x, y)` | root가 같음 | `ALREADY_CONNECTED` | parent 변화 없음 |
+| `COMPRESSED` | `union(x, y)` | root가 같음 | `ALREADY_CONNECTED` | 새 병합 없음; find의 경로 압축은 가능 |
 
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 

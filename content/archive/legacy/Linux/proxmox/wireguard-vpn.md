@@ -215,3 +215,7 @@ curl ifconfig.me
 | NAT 규칙 | `-j MASQUERADE` | - | 클라이언트 트래픽 주소 변환 |
 
 속도 저하나 외부 통신 실패가 있으면 방화벽 포트, 포워딩 정책, NAT 규칙, `WG_DEFAULT_ADDRESS` 대역 일치 여부를 먼저 확인한다.
+
+## 구성값과 연결 판정
+
+`<PRIVATE_KEY>`, `<PUBLIC_KEY>`, `<ENDPOINT>`, 주소 대역은 예시 식별자이며 실제 값을 문서에 커밋하지 않습니다. 인터페이스가 올라왔다는 사실만으로 VPN 연결을 완료로 보지 않습니다. `wg show`의 latest handshake와 전송량, `ip route`의 대상 경로, 내부 주소에 대한 통신 결과를 각각 확인해 키 교환·라우팅·서비스 접근 상태를 구분합니다.

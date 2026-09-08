@@ -2,6 +2,13 @@
 
 이 문서는 Terraform, Ansible, Kubernetes, Kafka를 하나의 파이프라인으로 연결할 때의 책임 경계와 검증 순서를 정리한다. 목표는 모든 예제 코드를 한 파일에 넣는 것이 아니라 각 단계의 입력, 출력, 실패 조건을 명확히 하는 것이다.
 
+## 실습 경계와 완료 조건
+
+- 이 예제는 Terraform, Ansible, Kubernetes와 Kafka의 연결 순서를 학습하기 위한 단일 환경 경로입니다. 프로덕션 참조 아키텍처나 완전 자동화가 아닙니다.
+- AWS 비용, IAM 최소 권한, 이미지 registry, DNS/TLS, 비밀, state backend, Kafka 보안·내구성, 애플리케이션 데이터 일관성은 별도 설계가 필요합니다.
+- 각 단계는 이전 단계의 출력값을 명시적으로 받아야 하며, 부분 실패 후 재실행·정리와 Terraform state 소유자를 정합니다.
+- 완료 증거는 인프라 상태, 노드 구성의 idempotency, Kubernetes readiness, Kafka produce/consume, 애플리케이션 결과와 전체 정리 후 잔여 비용 확인입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 DevOps 파이프라인은 여러 도구가 이어진 체인이다. Terraform state가 잘못되면 Ansible inventory가 틀리고, Ansible 설정이 불완전하면 Kubernetes node가 준비되지 않으며, Kubernetes 배포가 불안정하면 Kafka consumer lag와 서비스 장애가 뒤따른다.

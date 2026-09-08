@@ -1,5 +1,14 @@
 # Docker 설치 가이드 학습 및 기록 노트
 
+## 적용 범위와 검증 기준
+
+- **범위:** 설치 명령은 OS·배포판·release·architecture와 Docker Engine/Desktop·Compose 버전에 종속됩니다. 실행 전 Docker 공식 문서의 현재 repository와 지원 범위를 대조합니다.
+- **환경 전제:** 기존 package와 data root, virtualization, WSL, proxy, firewall, cgroup, rootful·rootless 방식과 조직 보안 정책을 확인합니다.
+- **불확실성:** 설치 script의 지원 배포판, RAM 요구량과 성능 비교는 시점·workload·hardware에 따라 달라지며 보편 권장값이 아닙니다.
+- **실패·완료:** package 충돌, signature·repository 오류, daemon 실패, 권한 과다와 기존 image·volume 손실을 점검합니다. version, daemon 정보, test container, network, volume과 reboot 후 동작까지 확인해야 완료입니다.
+
+---
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Docker 설치는 운영체제마다 경로가 다르다. Linux server에서는 Docker Engine과 Compose plugin을 package repository로 설치하는 경우가 많고, Windows/macOS 개발 환경에서는 Docker Desktop이 WSL 2 또는 lightweight VM을 관리한다. 설치 후에는 daemon 실행, 권한, Compose v2, hello-world 검증, Desktop license/권한 조건까지 확인해야 한다.
@@ -78,7 +87,7 @@ stateDiagram-v2
 - Linux에서 오래된 `docker`, `docker.io`, `docker-engine` package가 충돌하면 제거 후 설치해야 한다.
 - Docker Desktop의 상업적 사용 조건은 조직 규모와 용도에 따라 확인해야 한다.
 - Windows에서는 WSL 2 version과 virtualization 지원을 확인해야 한다.
-- macOS에서는 현재 및 이전 주요 macOS 지원 범위를 확인해야 한다.
+- macOS에서는 선택한 Docker Desktop release의 공식 지원 OS 목록과 chip architecture를 확인해야 한다.
 - Linux에서 `docker` group 권한은 host root 수준 접근이 가능하므로 신뢰된 사용자에게만 부여해야 한다.
 - Compose v2는 일반적으로 `docker-compose`가 아니라 `docker compose` 명령으로 확인한다.
 
@@ -90,10 +99,12 @@ Ubuntu 계열 공식 repository 설치 흐름의 개념 예시:
 sudo apt-get update
 sudo apt-get install ca-certificates curl
 sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+sudo curl -fsSL --connect-timeout 10 --max-time 60 https://download.docker.com/linux/ubuntu/gpg \
   -o /etc/apt/keyrings/docker.asc
 sudo chmod a+r /etc/apt/keyrings/docker.asc
 ```
+
+여기서 선택한 Ubuntu release와 architecture의 공식 apt source를 구성하고 서명 검증을 확인한다. 위 명령은 key만 설치하며 repository source를 추가하지 않는다. 이 단계가 끝나기 전에는 다음 설치 블록을 실행하지 않는다. 기존 패키지 제거가 필요하면 data root와 volume을 먼저 보존하고 호환성을 확인한다.
 
 ```bash
 sudo apt-get update

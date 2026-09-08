@@ -1,5 +1,12 @@
 # Context-Free Grammar 학습 및 기록 노트
 
+## 범위와 근거
+
+- 각 문법은 비단말 집합, 단말 알파벳, 생성 규칙과 시작 심볼로 정의합니다.
+- 촘스키 계층의 포함 관계는 언어 클래스에 관한 관계이며, 특정 문법의 표기만 보고 파서 성능을 확정하지 않습니다.
+- 모호성은 한 문자열에 서로 다른 파스 트리 또는 최좌단 유도가 존재하는지로 판정합니다.
+- 예제의 완료 기준은 유도 단계, 파스 트리, 수용 문자열과 거부 문자열을 문법 규칙으로 추적하는 것입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 CFG(Context-Free Grammar)는 programming language syntax를 정의하는 핵심 도구다. Lexer가 token stream을 만들면 parser는 CFG production을 기준으로 token sequence가 올바른 구조인지 판단한다. CFG를 제대로 이해하지 못하면 parse tree, ambiguity, precedence, associativity, LL/LR parser 제약을 설명하기 어렵다.
@@ -36,7 +43,7 @@ flowchart TD
     G --> H[LL/LR parser]
 ```
 
-CFG는 token sequence를 tree 구조로 해석하는 계약이다. 문법이 모호하면 같은 input이 여러 tree와 의미로 해석될 수 있다.
+CFG는 token sequence의 구문 구조를 정의한다. 모호하지 않은 문법은 각 수용 문자열의 parse tree를 하나로 제한하지만, 이름 해석·타입·평가 순서 같은 의미 규칙은 별도로 정의해야 한다.
 
 ## 5. 핵심 구성요소 (Building Blocks)
 
@@ -60,10 +67,10 @@ stateDiagram-v2
     Grammar --> Deriving
     Deriving --> ParseTree
     ParseTree --> Ambiguous: tree가 둘 이상
-    ParseTree --> Unambiguous: tree가 하나
+    ParseTree --> GrammarAnalysis: 한 표본에서 tree 하나 확인
     Ambiguous --> RewrittenGrammar
-    RewrittenGrammar --> Unambiguous
-    Unambiguous --> ParserReady
+    RewrittenGrammar --> GrammarAnalysis
+    GrammarAnalysis --> ParserReady: 문법과 parser family의 조건 검증
     ParserReady --> [*]
 ```
 

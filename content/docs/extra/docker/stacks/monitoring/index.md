@@ -1,6 +1,51 @@
-# Monitoring Docker Stacks 학습 및 기록 노트
+---
+title: "모니터링 Compose 스택"
+---
+
+# 모니터링 Compose 스택 {#monitoring-docker-stacks}
+
+<nav class="hub-directory" aria-label="모니터링 Compose 스택 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">컬렉션 탐색</h2>
+
+- [Compose 스택](../index.md)
+- [Docker Compose 컬렉션](../../index.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">changedetection</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/monitoring/changedetection/docker-compose.yaml)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">prometheus-grafana</h2>
+
+- [prometheus.yml](/extra/docker/stacks/monitoring/prometheus-grafana/prometheus.yml)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
 
 Monitoring 카테고리는 서비스 상태를 관찰하거나 웹 페이지 변화를 감지하는 구성을 모은다. 현재는 실행 가능한 ChangeDetection Compose와, 다른 스택에 붙여 사용할 수 있는 Prometheus 설정 파일이 있다.
+
+## 모니터링 스택 점검 기준
+
+- 수집 대상, scrape 간격, label cardinality, 보존 기간과 예상 디스크 증가량을 먼저 계산합니다.
+- 대시보드 접속 인증과 테넌트 경계를 설정하고 로그·메트릭의 비밀·개인정보 포함 여부를 확인합니다.
+- 완료 기준은 의도적으로 만든 장애 신호가 수집, 쿼리, 알림 전송과 복구 알림까지 이어지는 것입니다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -171,3 +216,5 @@ n8n 같은 애플리케이션을 scrape하려면 애플리케이션이 실제로
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 Monitoring 문서는 실행 가능한 스택과 `__________` 조각을 구분해야 한다. ChangeDetection은 `__________`가 핵심이고, Prometheus target은 같은 Docker `__________`에서 해석되어야 한다.
+
+</details>

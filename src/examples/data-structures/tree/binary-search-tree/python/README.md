@@ -1,6 +1,7 @@
 # BST - Python Implementation
 
 > **Focus:** 인터프리터 오버헤드, Reference Counting, 직관적 프로토타이핑
+> Runtime scope: reference counting and immediate destruction descriptions target CPython; other implementations may differ. Timing and memory figures require a Python version, platform, allocator state, input distribution, and measurement command.
 
 ---
 
@@ -39,6 +40,8 @@ class BinarySearchTree:
     
     def insert(self, key: int) -> None:
         """삽입 연산 - O(log n) average, O(n) worst"""
+        if self.search(key):
+            return  # duplicate policy: ignore without changing size
         self._root = self._insert_recursive(self._root, key)
         self._size += 1
     
@@ -72,7 +75,10 @@ class BinarySearchTree:
     
     def delete(self, key: int) -> None:
         """삭제 연산"""
+        if not self.search(key):
+            return
         self._root = self._delete_recursive(self._root, key)
+        self._size -= 1
     
     def _delete_recursive(self, node: Optional[Node], key: int) -> Optional[Node]:
         if node is None:
@@ -260,14 +266,14 @@ Reference Count 흐름:
 1. node = Node(5)     → refcount(Node(5)) = 1
 2. bst._root = node   → refcount(Node(5)) = 2
 3. del node           → refcount(Node(5)) = 1
-4. bst._root = None   → refcount(Node(5)) = 0 → 즉시 해제!
+4. bst._root = None   → 다른 참조와 cycle이 없다면 CPython에서 refcount 0 후 해제
 ```
 
 ### 2. 재귀 깊이 제한
 
 ```python
 import sys
-print(sys.getrecursionlimit())  # Default: 1000
+print(sys.getrecursionlimit())  # 흔한 CPython 기본값은 1000이며 runtime에서 확인
 
 # Skewed tree (n=10000)에서 insert 시:
 # RecursionError: maximum recursion depth exceeded
@@ -298,6 +304,8 @@ def insert_iterative(self, key: int) -> None:
 
 ### 3. 성능 특성
 
+다음 수치는 측정 환경이 없는 예시입니다. 대상 runtime에서 같은 workload를 반복 측정해 교체하기 전에는 비교 근거로 사용하지 않습니다.
+
 | 연산 | Python 오버헤드 | 이유 |
 |------|----------------|------|
 | 객체 생성 | ~100ns | PyObject 헤더 할당 |
@@ -326,7 +334,7 @@ class Node:
 
 # 메모리 비교 (10000 노드 기준):
 # __dict__: ~1.6 MB
-# __slots__: ~0.8 MB (50% 절약)
+# __slots__: ~0.8 MB (특정 측정 예시; 절감률은 runtime과 측정 범위에 따라 다름)
 ```
 
 ---

@@ -4,6 +4,8 @@
 
 ---
 
+> **Reading contract:** This synthesis is for engineers comparing mechanisms, not for selecting a framework from diagrams alone. Spring, JUnit, Mockito, Gradle, Bazel, Git, reactive libraries, and JVM behavior require an explicit product version, runtime, configuration, and operating environment. Treat language or protocol rules as **facts**, architecture mappings as **interpretations**, and thresholds, byte counts, ratios, and timings as **examples**. A claim is complete only when its source location, preconditions, failure behavior, retry or rollback path, and reproducible evidence are recorded. If evidence changes, return the claim to provisional status.
+
 ## 1. Design Patterns — Internal Mechanics
 
 ### Observer Pattern — Event Dispatch Internals
@@ -34,7 +36,7 @@ flowchart TD
 flowchart LR
     subgraph Strategy (Function Pointer / Interface)
         Context["Context\nstrategy: SortStrategy\nsort(data):\n  strategy.execute(data)  ← virtual dispatch"]
-        S1["QuickSortStrategy\nexecute(data): quicksort in-place\nO(n log n) avg, O(1) space"]
+        S1["QuickSortStrategy\nexecute(data): in-place partitioning\nO(n log n) expected time\nrecursion stack depends on pivot and implementation"]
         S2["MergeSortStrategy\nexecute(data): merge sort\nO(n log n), O(n) space, stable"]
         S3["TimSortStrategy\nexecute(data): timsort\n(runs + merge, Python/Java default)"]
         Context -->|"polymorphic call\nvtable lookup"| S1 & S2 & S3
@@ -193,8 +195,8 @@ flowchart LR
 flowchart TD
     subgraph Cyclomatic Complexity
         Formula["Complexity M = E - N + 2P\n(E=edges, N=nodes, P=connected components)\n= number of linearly independent paths through code\n= number of if/else/for/while/case/catch + 1"]
-        Thresholds["M=1-10: simple, low risk\nM=11-20: more complex\nM=21-50: difficult to test\nM>50: untestable, refactor immediately"]
-        Test["Minimum test cases = M\n(each independent path needs at least 1 test\nto achieve 100% branch coverage)"]
+        Thresholds["Complexity bands are team policy,\nnot universal risk boundaries\nUse change rate, defects, ownership,\nand test evidence with M"]
+        Test["M counts a basis of independent paths\nIt does not prove all paths feasible\nor prescribe an exact test count"]
     end
 
     subgraph Code Smell Metrics
@@ -321,4 +323,4 @@ flowchart TD
 - **Git objects** are content-addressed (SHA-1 of content) — identical files across commits share the same blob; pack file delta compression finds similar blobs and stores only the binary diff
 - **Hexagonal architecture** decouples business logic from frameworks by inverting dependencies through ports — the domain never imports Spring/JPA/HTTP, making it unit-testable in microseconds
 - **Reactive backpressure** is a pull model — the subscriber controls the flow rate by calling `request(n)`; the publisher must not emit more than requested (preventing unbounded buffer growth)
-- **Cyclomatic complexity** directly equals the minimum number of test cases needed for full branch coverage — a function with M=15 needs at least 15 tests to cover all paths
+- **Cyclomatic complexity** measures independent control-flow paths. It can guide basis-path testing, but it neither fixes the minimum test count nor proves branch coverage, path feasibility, or assertion quality.

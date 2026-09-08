@@ -1,5 +1,7 @@
 # Algorithms CS Reference 학습 및 기록 노트
 
+> **Reading contract:** This is a survey reference without an embedded bibliography or page map. Treat its formulas as provisional until linked to a named algorithm variant and source, especially for max-flow bounds, randomized success probabilities, approximation ratios, and suffix-array construction. Record input domain, computational model, parameter definitions, and failure probability separately from the conclusion. An entry is complete only when those identifiers and a proof or citation are present; an inconsistent figure or missing assumption returns it to an unresolved state.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 알고리즘 CS 레퍼런스는 DP, 네트워크 플로우, 문자열 알고리즘, 계산 복잡도, 확률 알고리즘, 근사 알고리즘, 계산기하를 한 번에 다룬다. 단순 공식 목록으로 보면 범위가 너무 넓지만, 내부적으로는 모두 "상태를 어떻게 표현하고 어떤 전이가 보존되는가"라는 하나의 질문으로 묶인다.
@@ -54,7 +56,7 @@ flowchart TD
 | KMP | LPS/failure array | text pointer를 되돌리지 않는다. |
 | Suffix array | sorted suffix index와 LCP | suffix 비교를 정렬된 순서로 재사용한다. |
 | Polynomial reduction | source instance -> target instance | 답의 존재 여부를 다항 시간에 보존한다. |
-| Bloom filter | bit array와 hash functions | false negative는 없고 false positive만 가능하다. |
+| Bloom filter | bit array와 hash functions | 삭제하지 않는 표준 필터는 삽입 완료된 키에 false negative를 만들지 않지만 false positive가 가능하며, 동시 처리·상태 유실·정규화 차이는 별도로 검토한다. |
 | Approximation | lower bound와 algorithm cost | `cost <= ratio * OPT`를 증명한다. |
 | Convex hull | polar sort와 stack | stack이 항상 convex boundary를 유지한다. |
 

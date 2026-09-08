@@ -2,6 +2,10 @@
 
 > **Under the Hood** — How the Dragon Book's phases transform source text into executable binary: lexer DFA state machines, parser LR automata, type-checking environments, IR lowering, dataflow analysis, and register allocation via graph coloring. Sources: *Compilers: Principles, Techniques & Tools* (Aho/Lam/Sethi/Ullman, 2nd ed. — "Dragon Book"), *Programming Language Pragmatics* (Scott), *Concepts of Programming Languages* (Sebesta).
 
+## Scope and completion criteria
+
+The pipeline is a reference architecture, not a claim that every compiler uses LR parsing, SSA, graph coloring, or the same pass order. For each phase, distinguish its **input contract**, **output invariant**, and **failure state**: a lexer emits tokens or a located lexical error; a parser emits a tree or a syntax error; semantic analysis emits typed IR or diagnostics; later passes must preserve the source program's defined behavior under the language specification.
+
 ---
 
 ## 1. Compiler Pipeline: End-to-End Phase Architecture
@@ -103,6 +107,8 @@ flowchart TD
 ```
 
 ### Conflict Resolution: Shift/Reduce, Reduce/Reduce
+
+“Shift wins” is a Yacc/Bison default for an unresolved shift/reduce conflict, not an LR correctness rule. A grammar is conflict-free only when every ACTION cell has one action after explicitly declared precedence/associativity or a grammar rewrite; relying on a generator default must be recorded as a language-design decision.
 
 ```mermaid
 flowchart TD
@@ -254,6 +260,8 @@ flowchart TD
 
 ### Coalescing: Eliminating MOV Instructions
 
+Interference is defined at program points: two live ranges interfere when both values must be live simultaneously. It is not sufficient to test whether a definition is live at the basic-block exit; implementations walk instructions backward using per-instruction live sets and account for move-specific coalescing rules.
+
 ```mermaid
 flowchart LR
     BEFORE2["Before coalescing:\nt1 = a + b\nt2 = t1     ← MOV instruction\nreturn t2"]
@@ -338,6 +346,8 @@ flowchart TD
 
 ### ELF File Structure
 
+“All relocations resolved” applies to fully static resolution. Dynamically linked ELF files retain dynamic relocations and symbol references for `ld.so`; lazy binding may resolve a PLT entry only on its first call.
+
 ```mermaid
 block-beta
     columns 1
@@ -355,6 +365,8 @@ block-beta
 ---
 
 ## 11. JIT Compilation: Dynamic Code Generation
+
+During initial compilation a JIT records speculative assumptions; it does not “deoptimize” them before generating code. Deoptimization occurs later when an assumption is invalidated, reconstructing an interpreter or less-optimized frame from metadata.
 
 ```mermaid
 sequenceDiagram
@@ -398,7 +410,8 @@ sequenceDiagram
 | Function calls | Activation record (frame), calling convention (cdecl/fastcall) |
 | Closures / lambdas | Closure record: function ptr + captured env heap-allocated |
 | Generics (C++ templates) | Monomorphization: instantiate per type at compile time |
-| Generics (Java/C#) | Type erasure: single bytecode, runtime casts |
+| Generics (Java) | Primarily type erasure in class files, with casts/bridge methods where required |
+| Generics (C#) | Reified generic metadata and runtime specialization/sharing, depending on value/reference types |
 | Virtual dispatch | vtable: array of function pointers, dynamic dispatch |
 | Exceptions | Zero-cost tables (DWARF .eh_frame), unwind on throw |
 | `async/await` | State machine transformation: locals → struct fields |

@@ -2,6 +2,8 @@
 
 이 문서는 Proxmox VE에서 OPNsense VM에 VLAN 104 네트워크를 추가할 때의 경계를 정리한다. 기본 모델은 Proxmox vNIC에 VLAN tag 104를 붙여 OPNsense에는 untagged 인터페이스로 전달하는 access interface 방식이다.
 
+Proxmox·OPNsense 버전, VLAN-aware bridge와 upstream trunk, 겹치지 않는 주소 대역을 확인하고 양쪽 콘솔과 설정 백업을 확보한다. VMID 100과 net5는 예시이며, net5가 이미 있으면 덮어쓰지 않고 빈 슬롯을 선택한다. 저장 후 bridge VLAN 표·DHCP lease·ARP·gateway·DNS·허용 및 차단 목적지를 대조한다. 실패하면 새 규칙과 인터페이스를 비활성화하고 백업으로 복원한다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 OPNsense를 Proxmox VM으로 운영하면 WAN, LAN, IoT, Guest, Lab 같은 네트워크를 VM의 가상 NIC와 VLAN으로 분리해야 한다. VLAN 경계를 잘못 잡으면 DHCP가 엉뚱한 네트워크에 나가거나, 방화벽 규칙이 적용되지 않거나, tagged/untagged 트래픽이 섞인다.
@@ -47,7 +49,7 @@ Proxmox가 vNIC tag를 처리하므로 OPNsense의 해당 인터페이스는 VLA
 
 VM Network Device의 `tag=104`는 해당 vNIC에 VLAN tag를 적용한다. Proxmox 공식 설정에는 VM NIC 옵션으로 `tag=<integer>`가 있으며, 이 값은 해당 interface packet에 VLAN tag를 적용한다.
 
-VirtIO NIC는 OPNsense/FreeBSD에서 보통 `vtnetX`로 보인다. 새 NIC를 추가하면 기존 번호 뒤에 새 장치가 붙는다.
+VirtIO NIC는 지원되는 OPNsense/FreeBSD에서 보통 `vtnetX`로 보인다. 새 장치는 번호를 추측하지 말고 MAC 주소를 Proxmox 설정과 대조한다. 처리량과 offload 호환성은 실제 버전에서 측정한다.
 
 OPNsense interface assignment는 새 `vtnetX`를 방화벽 인터페이스로 등록하는 단계다.
 
@@ -68,7 +70,7 @@ OPNsense firewall rule은 interface별 inbound 기준으로 평가된다. VLAN10
   -> client DHCP와 라우팅 검증
 ```
 
-OPNsense가 라우터라면 새 인터페이스의 upstream gateway는 설정하지 않는다. 기본 gateway는 WAN에만 있어야 한다.
+이 예시의 내부 LAN 인터페이스는 upstream gateway를 None으로 둔다. WAN·transit·다중 경로 구성에서는 해당 인터페이스의 역할과 라우팅 정책으로 gateway를 결정한다.
 
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
@@ -76,7 +78,7 @@ OPNsense가 라우터라면 새 인터페이스의 upstream gateway는 설정하
 - trunk 방식으로 OPNsense 안에서 VLAN을 만들려면 Proxmox vNIC tag 모델과 분리해서 설계한다.
 - Proxmox bridge, physical switch trunk, VM vNIC tag가 모두 같은 VLAN ID를 허용해야 한다.
 - OPNsense interface IP는 해당 VLAN의 gateway 주소여야 한다.
-- VLAN interface에는 WAN gateway를 upstream gateway로 지정하지 않는다.
+- 이 내부 LAN 예시에는 upstream gateway를 지정하지 않는다. VLAN 자체가 gateway 사용을 금지하는 조건은 아니다.
 - firewall rule을 만들기 전까지 새 OPNsense interface는 기본 차단된다고 가정한다.
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
@@ -92,7 +94,7 @@ qm config 100
 OPNsense VM `100`에 VLAN 104 access vNIC를 추가한다.
 
 ```bash
-qm set 100 --net5 virtio,bridge=vmbr0,tag=104,firewall=0
+qm set 100 --net5 virtio,bridge=vmbr0,tag=104,firewall=1
 qm config 100
 ```
 
@@ -106,7 +108,7 @@ VM
   -> Bridge: vmbr0
   -> VLAN Tag: 104
   -> Model: VirtIO
-  -> Firewall: disabled
+  -> Firewall: enabled (Proxmox 계층의 허용 규칙도 준비)
 ```
 
 OPNsense에서 새 장치를 할당한다.
@@ -153,12 +155,14 @@ Firewall
   -> Add
   -> Action: Pass
   -> Source: VLAN104 net
-  -> Destination: any
+  -> Protocol: DNS/HTTPS 등 필요한 프로토콜별 규칙
+  -> Destination: 사전에 정의한 허용 목적지 alias
+  -> Destination port: 해당 서비스 포트
   -> Save
   -> Apply Changes
 ```
 
-운영 환경에서는 `Destination: any` 대신 필요한 DNS, gateway, internet, 내부 서비스로 좁힌다.
+alias와 규칙은 실제 DNS·외부 서비스·내부 서비스 목적지로 정의한다. 허용 시험과 함께 관리망처럼 차단되어야 할 목적지도 검사한다.
 
 ## 9. 실패 사례 (What could go wrong?)
 
@@ -170,7 +174,7 @@ switch uplink가 VLAN 104를 trunk로 허용하지 않으면 Proxmox 설정이 �
 
 DHCP가 안 되면 OPNsense firewall rule, DHCP service binding, switch access port VLAN, client NIC VLAN 설정을 순서대로 확인한다.
 
-Proxmox firewall과 OPNsense firewall을 동시에 켜면 디버깅 지점이 둘로 늘어난다. 특별한 이유가 없다면 OPNsense VM의 VLAN vNIC에서는 Proxmox firewall을 끄고 OPNsense에서 정책을 관리한다.
+Proxmox와 OPNsense 방화벽을 함께 쓰는 경우 두 계층의 규칙을 대조한다. 한 계층에서만 정책을 적용하려면 해당 경계와 허용 책임을 명시한다. 관리 편의만으로 보호를 해제하지 않는다. vNIC의 firewall 플래그만으로 전체 Proxmox 방화벽이 활성화됐다고 판정하지 않는다.
 
 ## 10. 뇌 확장하기 (Evolution & Variants)
 

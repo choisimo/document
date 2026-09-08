@@ -2,6 +2,17 @@
 
 리눅스 명령어는 외워야 할 목록이 아니라 "파일, 프로세스, 네트워크, 텍스트 스트림을 어떻게 관찰하고 바꿀 것인가"를 다루는 작은 도구들의 조합이다. 좋은 명령어 사용은 빠른 실행보다 되돌릴 수 있는 실행에서 시작한다.
 
+## 범위, 안전성, 완료 판정
+
+이 문서는 GNU/Linux 명령의 빠른 참조입니다. GNU coreutils, BusyBox, BSD 계열 도구와 셸마다 옵션과 동작이 다르며 일부 명령은 별도 패키지나 관리자 권한이 필요합니다. 실제 환경의 man 페이지와 command --help를 우선합니다.
+
+- **예제 규칙**: filename, dirname, 장치, 사용자, 주소는 자리표시자입니다. 공백과 glob을 고려해 변수 확장을 따옴표로 감싸고 가능한 경우 옵션 종료 표시인 --를 사용합니다.
+- **변경 전 확인**: 삭제, 덮어쓰기, 권한, 프로세스 종료, 디스크와 파일 시스템 명령은 대상 목록과 현재 경로를 먼저 출력하고 백업 또는 스냅샷과 복구 방법을 준비합니다.
+- **실패 처리**: 종료 코드와 stderr를 보존하고 부분 복사, 부분 삭제와 마운트 상태를 확인한 뒤 재시도합니다. sudo를 붙여 오류를 우회하지 않습니다.
+- **완료 조건**: 조회 명령은 예상 범위와 최신성을, 변경 명령은 대상과 비대상 샘플, 소유권과 권한, 데이터 무결성 및 복구 가능성을 확인합니다.
+
+특히 rm -rf, dd, mkfs, fdisk, chmod와 chown의 재귀 실행은 복구 불가능한 손상을 낼 수 있습니다. 빈 변수, 예상 밖 glob, 심볼릭 링크와 마운트 경계를 확인하고 운영 데이터에서 처음 시험하지 않습니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 GUI만으로 서버를 운영하면 장애 상황에서 확인할 수 있는 정보가 제한된다. 로그를 찾고, 프로세스를 확인하고, 디스크 사용량을 줄이고, 원격 파일을 옮기는 작업은 대부분 터미널에서 더 정확하게 처리된다.
@@ -95,10 +106,10 @@ unknown
 프로세스 종료도 단계가 있다.
 
 ```text
-running
-  -> term_sent
-  -> stopped
-  -> kill_sent
+running -> TERM sent -> exited: done
+                    -> still running after grace period
+                    -> recheck PID, owner and process start identity
+                    -> KILL only if still the intended process -> exited
 ```
 
 `kill -9`는 정상 종료 기회를 주지 않으므로 마지막 단계에서만 사용한다.
@@ -151,9 +162,13 @@ find ./data -type f -name "*.txt" -print0 | xargs -0 wc -l
 프로세스를 확인하고 정상 종료를 시도한다.
 
 ```bash
-ps aux | grep myapp
-pkill -TERM myapp
-ps aux | grep myapp
+pgrep -a -x myapp
+: "${MYAPP_PID:?set the single reviewed target PID}"
+[[ "$MYAPP_PID" =~ ^[1-9][0-9]*$ ]] || exit 2
+ps -p "$MYAPP_PID" -o pid,lstart,user,args
+# 대상·소유자·시작 시각을 확인한 뒤 그 PID에만 TERM을 보낸다.
+kill -TERM -- "$MYAPP_PID"
+ps -p "$MYAPP_PID" -o pid,lstart,user,args
 ```
 
 네트워크 문제를 단계별로 본다.
@@ -163,13 +178,13 @@ ip addr
 ip route
 ping -c 3 example.com
 ss -tulpn
-curl -I https://example.com
+curl --fail --head --silent --show-error --connect-timeout 5 --max-time 15 https://example.com
 ```
 
 ## 9. 실패 사례 (What could go wrong?)
 
 - 현재 디렉터리를 확인하지 않고 상대 경로 삭제를 실행한다.
-- `rm -rf "$TARGET"`에서 `TARGET`이 비어 있어 예상보다 넓은 경로가 지워진다.
+- 빈 변수를 경로의 다른 부분이나 glob과 조합해 검토한 대상과 다른 위치를 삭제한다. 따옴표로 감싼 빈 인자 하나만으로 삭제 범위가 자동 확대되는 것은 아니다.
 - `find ... | xargs rm` 조합으로 공백이 포함된 파일명이 잘못 쪼개진다.
 - `sudo` 셸을 오래 유지해 필요 없는 명령까지 root로 실행한다.
 - `kill -9`를 먼저 보내 애플리케이션이 정리 작업을 하지 못한다.

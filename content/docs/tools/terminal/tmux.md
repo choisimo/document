@@ -2,6 +2,15 @@
 
 tmux는 하나의 터미널 안에서 여러 셸을 세션, 윈도우, 패널로 관리하는 터미널 멀티플렉서다. SSH 연결이 끊겨도 tmux 서버와 그 안의 프로세스가 살아 있으면 작업을 다시 붙잡을 수 있다.
 
+## 적용 범위와 세션 생명주기
+
+- **범위:** tmux version, server socket·사용자, client terminal, shell, session/window/pane 수, `exit-empty`·`remain-on-exit`와 plugin 설정을 기록합니다.
+- **생명주기 전제:** terminal client 종료, detach, pane shell exit, 마지막 window 종료, tmux server 종료와 host reboot는 서로 다른 사건입니다. detach는 process를 tmux server 아래 유지하지만 reboot나 server crash를 견디는 persistence는 아닙니다.
+- **사실과 추론:** `list-sessions/windows/panes`, server process, socket와 log는 근거이고, session이 사라진 원인은 해당 시점의 process·config 증거가 맞기 전까지 가설입니다.
+- **실패·완료:** client 강제 종료, 마지막 pane exit, server kill, socket 변경과 reboot를 구분해 재현합니다. 기대한 process가 detach 후 유지되고 종료 정책·복원 한계가 문서화될 때 완료입니다.
+
+---
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 원격 서버에서 긴 작업을 실행할 때 로컬 터미널이나 SSH 연결이 끊기면 작업 상태를 잃기 쉽다. 여러 로그, 편집기, 서버 프로세스를 동시에 보려면 터미널 창도 계속 늘어난다.
@@ -83,10 +92,10 @@ not_created
 
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-- 터미널을 닫기 전에는 `Ctrl+b` 다음 `d`로 detach한다.
+- `Ctrl+b` 다음 `d`는 의도를 명확히 하는 detach 방법이다. 정상적인 client 창 종료만으로 session이 보통 사라지지는 않으며 server·socket·pane process의 수명을 함께 확인한다.
 - 작업 단위마다 이름 있는 세션을 만든다.
 - 마지막 패널에서 `exit`를 실행하면 윈도우나 세션이 종료될 수 있음을 인지한다.
-- `kill-server`는 모든 tmux 세션을 종료하므로 신중하게 사용한다.
+- `kill-server`는 선택한 socket의 tmux server와 그 server가 관리하는 모든 세션에 영향을 주므로 사용자·socket·대상을 먼저 확인한다.
 - 서버 재부팅 후에도 살아야 하는 작업은 systemd service, supervisor, job queue 같은 별도 실행 관리가 필요하다.
 - tmux 플러그인은 세션 레이아웃 복원 도구이지 모든 프로세스 상태를 그대로 보존하는 백업이 아니다.
 - 원격 서버에서는 로컬 tmux와 서버 tmux를 중첩할 때 prefix 충돌을 피한다.

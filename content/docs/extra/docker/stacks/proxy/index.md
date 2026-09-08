@@ -1,6 +1,44 @@
-# Proxy Docker Stacks 학습 및 기록 노트
+---
+title: "프록시 Compose 스택"
+---
+
+# 프록시 Compose 스택 {#proxy-docker-stacks}
+
+<nav class="hub-directory" aria-label="프록시 Compose 스택 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">컬렉션 탐색</h2>
+
+- [Compose 스택](../index.md)
+- [Docker Compose 컬렉션](../../index.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">nginx</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/proxy/nginx/docker-compose.yaml)
+- [nginx.conf](/extra/docker/stacks/proxy/nginx/config/nginx.conf)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
 
 Proxy 카테고리는 리버스 프록시와 정적 파일 제공 계층을 담당한다. 현재는 Nginx 스택 하나가 있으며, Compose는 80과 443 포트를 열지만 기본 `nginx.conf`는 80번 HTTP 정적 파일 서버만 정의한다.
+
+## 프록시 스택 점검 기준
+
+- DNS, 인증서 발급·갱신, 80/443 포트 소유권과 upstream 네트워크를 시작 전에 확인합니다.
+- 신뢰할 proxy hop, 전달 헤더, 요청 크기, timeout과 WebSocket/HTTP 버전 요구를 서비스별로 명시합니다.
+- 완료 기준은 외부 TLS 검증, 의도한 라우팅, 인증 우회 차단, 갱신 시험과 upstream 장애 응답 확인입니다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -170,3 +208,5 @@ TLS 자동 발급까지 필요하면 Caddy, Traefik, Nginx Proxy Manager 같은 
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 Proxy 스택에서 중요한 것은 포트를 여는 것이 아니라 Nginx `__________`가 실제 공개 포트와 맞는지 확인하는 것이다. 443을 쓰려면 `__________`와 인증서 경로가 필요하고, upstream은 같은 Docker `__________`에서 해석되어야 한다.
+
+</details>

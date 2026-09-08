@@ -4,10 +4,19 @@
 
 | 항목 | 설명 |
 |------|------|
-| **Use Case** | 안정적인 O(N log N) 정렬 |
+| **Use Case** | equal-key tie rule을 지키면 stable한 O(N log N) sort |
 | **Components** | Divide, Merge |
-| **Constraint** | O(N) 추가 공간 필요 |
+| **Constraint** | 이 array 구현은 O(N) auxiliary buffer 사용; variant별로 다름 |
 | **시간 복잡도** | O(N log N) |
+
+---
+
+## 적용 범위와 검증 기준
+
+- **범위:** array 기반 top-down merge sort의 대표 bound는 `O(N log N)`입니다. `O(N)` auxiliary space는 이 구현 계열의 특성이며 linked-list나 specialized in-place variant에 그대로 적용되지 않습니다.
+- **전제:** stability는 equal key에서 left element를 먼저 선택하는 merge rule과 comparator consistency를 전제로 합니다.
+- **실패 조건:** split/merge boundary, temp buffer 크기, copy-back 누락, empty input과 recursion limit을 포함합니다.
+- **완료 증거:** duplicate key에 original order tag를 붙여 ordering·stability·permutation을 reference sort와 비교합니다.
 
 ---
 

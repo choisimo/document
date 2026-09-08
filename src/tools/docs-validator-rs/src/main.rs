@@ -17,12 +17,16 @@ enum CheckMode {
 #[command(about = "Strict Mermaid and document link validator for markdown docs")]
 struct Cli {
     /// Root directory to scan for source markdown files
-    #[arg(long, default_value = "docs/books/cs-references")]
+    #[arg(long, default_value = "content/docs")]
     root: PathBuf,
 
     /// Base docs directory used to resolve absolute links (e.g. /books/...)
-    #[arg(long, default_value = "docs")]
+    #[arg(long, default_value = "content/docs")]
     docs_base: PathBuf,
+
+    /// Existing fallback directory for root-absolute links absent from the source (e.g. dist/site)
+    #[arg(long)]
+    link_root: Option<PathBuf>,
 
     /// Which checks to run
     #[arg(long, value_enum, default_value = "all")]
@@ -31,6 +35,10 @@ struct Cli {
     /// Print only pass/fail summary lines, not every issue
     #[arg(long, default_value_t = false)]
     summary_only: bool,
+
+    /// Print the sorted source-file manifest as SCAN lines, including on validation failure
+    #[arg(long)]
+    list_files: bool,
 }
 
 fn main() -> Result<()> {
@@ -38,6 +46,9 @@ fn main() -> Result<()> {
     let repo_root = detect_repo_root().unwrap_or(std::env::current_dir()?);
     let source_root = resolve_input_path(&repo_root, cli.root);
     let docs_base = resolve_input_path(&repo_root, cli.docs_base);
+    let link_root = cli
+        .link_root
+        .map(|path| resolve_input_path(&repo_root, path));
 
     let (check_mermaid, check_links, check_format) = match cli.check {
         CheckMode::All => (true, true, true),
@@ -49,10 +60,17 @@ fn main() -> Result<()> {
     let report = validate(&ValidationOptions {
         source_root,
         docs_base,
+        link_root,
         check_mermaid,
         check_links,
         check_format,
     })?;
+
+    if cli.list_files {
+        for path in &report.scanned_paths {
+            println!("SCAN {}", path.display());
+        }
+    }
 
     let mermaid_issues = report
         .issues
@@ -150,7 +168,8 @@ fn detect_repo_root() -> Option<PathBuf> {
     let mut dir = std::env::current_dir().ok()?;
     loop {
         let has_git = dir.join(".git").exists();
-        let has_docs = dir.join("docs").is_dir() && dir.join("mkdocs.yml").is_file();
+        let has_docs =
+            dir.join("content/docs").is_dir() && dir.join("apps/docs-site/mkdocs.yml").is_file();
         if has_git || has_docs {
             return Some(dir);
         }

@@ -1,5 +1,7 @@
 # Algorithms 내부 동작 학습 및 기록 노트
 
+> **Reading contract:** This synthesis uses CLRS 3rd edition and Sedgewick & Wayne 4th edition. Names such as quicksort, Dijkstra, hash table, and counting sort refer to families of variants, so a bound is authoritative only after the pivot rule, graph assumptions, hash model, stability procedure, and machine model relevant to that bound are named. Mark proved bounds separately from implementation observations. A subsection is complete when it states preconditions, invariant, result, failure boundary, and source location; otherwise treat its conclusion as provisional.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 CLRS와 Sedgewick 계열 알고리즘 문서는 정리와 구현이 많아 보이지만, 실제로는 반복되는 몇 가지 내부 메커니즘을 다룬다. 점근 분석은 성장률을 추상화하고, 정렬은 비교와 메모리 이동을 제어하며, 그래프 알고리즘은 frontier와 relaxation 상태를 갱신한다. DP는 subproblem DAG를 table로 바꾸고, 문자열 알고리즘은 실패 함수로 되돌아가기를 줄인다.

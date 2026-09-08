@@ -2,6 +2,13 @@
 
 이 문서는 AI에게 소프트웨어 아키텍처 문서 초안을 요청할 때 사용할 프롬프트 구조와 검증 기준을 정리한다.
 
+## Prompt safety and evidence contract
+
+- AI output is a proposal, not evidence that a component, dependency, control, or data flow exists.
+- Supply repository paths, deployment topology, constraints, quality attributes, threat model, and known unknowns. Require the response to label fact, inference, option, and unresolved question.
+- Do not ask for every C4 level by default. Select the smallest views needed by the decision and name the audience and maintenance owner.
+- A draft is complete only after identifiers, boundaries, failure paths and operational claims are traced to source/config/runtime evidence and unsupported claims are removed.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 아키텍처 문서는 시스템의 실제 책임 경계와 런타임 흐름을 설명해야 한다. 하지만 AI에게 막연히 "아키텍처 문서 써줘"라고 요청하면 화려한 다이어그램과 일반론은 나오지만, 실제 서비스와 맞지 않는 추측이 섞이기 쉽다.
@@ -76,7 +83,7 @@ stateDiagram-v2
 - 확인되지 않은 기술, API, 데이터베이스, 메시지 큐를 사실처럼 쓰면 안 된다.
 - C4 Level 1은 사용자와 외부 시스템, Level 2는 실행 가능한 컨테이너, Level 3은 내부 컴포넌트에 집중해야 한다.
 - 핵심 workflow에는 성공 경로뿐 아니라 실패 경로가 포함되어야 한다.
-- 아키텍처 문서는 구현체와 충돌하는 책임 분리를 제안하면 안 된다.
+- 현재 구현 설명은 소스·설정 근거와 일치해야 한다. 책임 분리 변경은 목표 설계로 구분하고 기존 경계에서 이전할 방법과 위험을 설명한다.
 - 모르는 정보는 추측하지 말고 질문이나 TODO로 남겨야 한다.
 - 보안, 데이터 소유권, 운영 경계는 "나중에"로 밀면 안 된다.
 
@@ -90,7 +97,15 @@ Role: senior software architect and technical writer.
 Use only the provided facts. If information is missing, write
 [CLARIFICATION_NEEDED: specific missing question] instead of inventing details.
 
-Document this system using C4 Level 1 and Level 2:
+Document the current system separately from proposed changes.
+Select only the C4 views needed for the decision and name their audience.
+Evidence and constraints:
+- Repository/config/runtime evidence paths:
+- Deployment topology and ownership boundaries:
+- Quality attributes and threat model:
+- Known unknowns:
+
+System facts:
 - System name:
 - Primary purpose:
 - Users:

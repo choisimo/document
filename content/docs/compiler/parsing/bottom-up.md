@@ -1,5 +1,12 @@
 # Bottom-Up Parsing 학습 및 기록 노트
 
+## 범위와 완료 조건
+
+- 입력은 증강 문법, 토큰 스트림과 EOF이며 산출물은 shift/reduce/accept/error 행동을 결정하는 상태 또는 표입니다.
+- 스택 위 RHS 모양만으로 임의 환원을 선택하지 않습니다. LR 계열에서는 상태와 lookahead에 대한 ACTION/GOTO 항목이 행동을 정합니다.
+- shift/reduce 또는 reduce/reduce 충돌은 숨기지 않고 상태, 항목, lookahead와 선택한 해결 규칙을 기록합니다.
+- 수용 완료는 실제 입력 token을 모두 소비하고, EOF lookahead에서 증강 시작 항목의 accept 행동에 도달한 경우다. EOF를 일반 token처럼 shift하거나 증강 시작 규칙을 일반 reduce할 필요는 없다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Bottom-up parsing은 입력 token을 leaf에서 시작해 grammar의 start symbol로 reduce하는 방식이다. Top-down parser가 "무엇을 만들어야 하는가?"를 예측한다면, bottom-up parser는 "지금 stack 위의 token들이 어떤 production의 RHS인가?"를 찾는다. 이 관점은 LR parser, shift-reduce parser, parser table conflict를 이해하는 기반이다.
@@ -61,7 +68,7 @@ stateDiagram-v2
     Shift --> StackReady
     StackReady --> Reduce: handle 발견
     Reduce --> StackReady
-    StackReady --> Accept: start symbol + end marker
+    StackReady --> Accept: EOF lookahead에서 증강 시작 항목의 accept 행동
     StackReady --> Error: action 없음
     Accept --> [*]
     Error --> [*]
@@ -72,7 +79,7 @@ LR parser는 이 상태 전이를 수동 판단하지 않고, 현재 state와 lo
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
 - Reduce는 stack top의 suffix가 어떤 production의 RHS일 때만 수행해야 한다.
-- Accept는 start symbol과 input end marker가 올바르게 만났을 때만 가능하다.
+- Accept는 실제 입력을 모두 소비한 뒤 EOF lookahead와 증강 시작 항목에 대응하는 ACTION accept 셀에서만 가능하다.
 - Shift와 reduce 중 어떤 action을 택할지 table에서 하나로 결정되어야 한다.
 - Reduce/reduce conflict는 같은 stack/lookahead에서 적용 가능한 production이 둘 이상이라는 뜻이다.
 - Shift/reduce conflict는 더 읽을지 지금 reduce할지 문법이 충분히 구분하지 못한다는 뜻이다.
@@ -97,8 +104,7 @@ E  -> n
 | 2 | `$ E` | `+ n $` | shift `+` |
 | 3 | `$ E +` | `n $` | shift `n` |
 | 4 | `$ E + n` | `$` | reduce `E -> E + n` |
-| 5 | `$ E` | `$` | reduce `E' -> E` |
-| 6 | `$ E'` | `$` | accept |
+| 5 | `$ E` | `$` | augmented item `E' -> E .`와 EOF lookahead에서 accept |
 
 이 예제는 terminal을 먼저 쌓고, RHS handle을 찾을 때마다 nonterminal로 환원하는 bottom-up 흐름을 보여준다.
 

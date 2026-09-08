@@ -2,6 +2,8 @@
 
 디스크 포맷과 용량 확장은 가장 쉽게 데이터를 잃는 운영 작업이다. 이 문서는 새 디스크를 초기화해 파일시스템을 만들거나, Proxmox VM 안의 LVM root volume을 확장할 때 확인해야 하는 순서를 정리한다.
 
+커널·util-linux·LVM2·mdadm·파일시스템과 Proxmox 버전을 기록한다. 장치명·VMID·용량은 예시다. 실제 `lsblk`, `findmnt`, `pvs/vgs/lvs`, RAID 상태를 대조하고 검증된 오프호스트 백업과 복구 콘솔을 확보한다. wipefs의 signature 백업은 데이터 백업이 아니며, 읽기 전용 하드웨어를 강제로 쓰기 가능하게 만들지도 않는다. 초기화와 기존 볼륨 확장은 별도 작업으로 선택하고 각 단계의 실패 시 다음 변경을 중단한다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 `wipefs`, `fdisk`, `mkfs`, `lvremove`, `mdadm --zero-superblock` 같은 명령은 되돌리기 어렵다. 장치 이름을 한 글자만 잘못 봐도 운영 디스크를 초기화할 수 있다.
@@ -51,7 +53,7 @@ virtual disk size
   -> mounted capacity
 ```
 
-삭제 작업은 이 흐름의 반대 방향으로 진행한다. filesystem mount를 해제하고, LV/VG/PV, RAID, partition signature 순서로 내려간다.
+삭제 작업은 실제 의존성 트리의 위에서 아래로 진행한다. LVM-on-RAID인지 RAID-on-LVM인지에 따라 순서가 달라지므로 고정된 LV/RAID 순서를 모든 장치에 적용하지 않는다.
 
 ## 5. 핵심 구성요소 (Building Blocks)
 
@@ -119,10 +121,10 @@ ls -l /dev/disk/by-id/
 대상 디스크가 `/dev/sdb`이고 새 용도라고 확인한 뒤 signature를 백업하면서 제거한다.
 
 ```bash
-wipefs --all --backup /dev/sdb
-parted -s /dev/sdb mklabel gpt
-parted -s /dev/sdb mkpart primary ext4 0% 100%
-partprobe /dev/sdb
+wipefs --all --backup /dev/sdb &&
+  parted -s /dev/sdb mklabel gpt &&
+  parted -s /dev/sdb mkpart primary ext4 1MiB 100% &&
+  partprobe /dev/sdb
 ```
 
 파일시스템을 생성한다.
@@ -136,10 +138,11 @@ lsblk -f /dev/sdb
 
 ```bash
 mkdir -p /mnt/data
-mount /dev/sdb1 /mnt/data
-df -h /mnt/data
-touch /mnt/data/write-test
-rm /mnt/data/write-test
+mount /dev/sdb1 /mnt/data &&
+  findmnt /mnt/data &&
+  df -h /mnt/data
+# 위 mount 성공과 source를 확인한 뒤 새 임시 파일로 쓰기를 시험한다.
+disk_test_file=$(mktemp /mnt/data/write-test.XXXXXX) && rm -- "$disk_test_file"
 umount /mnt/data
 ```
 
@@ -153,9 +156,9 @@ VM 내부에서 새 크기를 확인한다.
 
 ```bash
 lsblk
-sudo growpart /dev/sda 3
-sudo pvresize /dev/sda3
-sudo lvextend -r -l +100%FREE /dev/mapper/ubuntu--vg-ubuntu--lv
+sudo growpart /dev/sda 3 &&
+  sudo pvresize /dev/sda3 &&
+  sudo lvextend -r -l +100%FREE /dev/mapper/ubuntu--vg-ubuntu--lv
 df -h /
 ```
 
@@ -165,7 +168,7 @@ df -h /
 sudo resize2fs /dev/mapper/ubuntu--vg-ubuntu--lv
 ```
 
-XFS는 mount point 기준으로 확장한다.
+`-r`을 쓰지 않았고 실제 파일시스템이 XFS인 경우에만 다음 명령을 선택한다. ext4와 XFS 예제를 연속 실행하지 않는다.
 
 ```bash
 sudo xfs_growfs /
@@ -190,6 +193,10 @@ RAID를 해체할 때는 filesystem unmount, LVM deactivate, `mdadm --stop`, mem
 LUKS가 있으면 `cryptsetup close`로 mapping을 닫은 뒤 하위 장치를 정리한다. device-mapper 잔여 장치는 `dmsetup ls --tree`로 의존성을 확인한다.
 
 운영 서버에서는 수작업보다 runbook과 maintenance window가 중요하다. 변경 전후 `lsblk`, `blkid`, `df`, `pvs/vgs/lvs` 출력을 저장하면 복구 판단이 쉬워진다.
+
+## 완료 및 실패 판정
+
+확장은 `lsblk`, `pvs/vgs/lvs`, `findmnt`, `df -hT`가 일관되고 애플리케이션 읽기·쓰기와 재부팅 후 마운트까지 확인해야 완료입니다. 중간 단계가 실패하면 다음 파괴 명령을 실행하지 말고 장치 트리와 로그를 보존해 복구 판단을 받으세요. 축소는 이 문서 범위가 아닙니다.
 
 ## 11. 최종 체크리스트 (Definition of Done)
 

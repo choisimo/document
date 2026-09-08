@@ -2,6 +2,13 @@
 
 VS Code 확장은 편집기를 개발 환경으로 바꾸는 핵심 요소다. 하지만 확장을 많이 설치할수록 자동 포맷, 린팅, 언어 서버, 원격 접속, 터미널 통합이 서로 영향을 줄 수 있다. 이 문서는 확장을 개인 취향 목록이 아니라 프로젝트 재현성과 유지보수 기준으로 관리하기 위한 기록이다.
 
+## Scope and Selection Criteria
+
+- **Scope:** Extension availability, identifiers, pricing, licenses, trust, telemetry, and compatibility depend on the VS Code and Marketplace versions. This is a curated example list, not a universal required set.
+- **Assumptions:** Select extensions for a named language, repository, remote environment, formatter and linter policy. Avoid overlapping formatters or language servers unless precedence is explicit.
+- **Evidence and uncertainty:** Popularity and a short description do not establish security, maintenance quality, or productivity benefit. Review publisher identity, permissions, release history, workspace trust, and measured startup or CPU impact.
+- **Failure and completion:** Test conflicts, untrusted-workspace behavior, remote support, formatting output, uninstall and settings rollback. A selection is complete when the repository workflow works without duplicated diagnostics or unacceptable resource use.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 새 장비나 원격 개발 환경을 열 때마다 확장을 수동으로 설치하면 편집기 동작이 달라진다. 어떤 장비에서는 저장 시 포맷이 되고, 다른 장비에서는 같은 파일이 다른 스타일로 바뀐다. 언어 서버가 중복으로 켜지거나, 프로젝트와 맞지 않는 확장이 자동 수정까지 수행하면 변경 이력도 지저분해진다.
@@ -116,7 +123,7 @@ VS Code 확장 관리는 이 문제를 세 가지로 나누어 해결한다.
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
 
-CLI에서 확장을 설치할 때는 다음 형식을 사용한다.
+개인 사용자 환경에서 CLI로 확장을 설치하는 형식은 다음과 같다. 테마는 개인 선택이며 아래 명령 목록 전체가 프로젝트 필수 확장이라는 뜻은 아니다.
 
 ```bash
 code --install-extension PKief.material-icon-theme

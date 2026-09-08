@@ -1,5 +1,8 @@
 # Architect's Algorithm Mastery - 100 Problems
 
+> Status: this is a 100-item curriculum index, not proof that both language implementations or tests exist for every row. Mark each item separately as `planned`, `implemented`, and `tested`, with links to current source and test evidence.
+> Scope: the “architect” column is an analogy or discussion prompt. Solving a small algorithm problem does not validate a production architecture or its performance.
+
 > **아키텍트의 시선으로 바라보는 알고리즘 100제**
 >
 > 단순한 코딩 테스트 풀이가 아닌, **시스템 설계자의 관점**에서 각 알고리즘이

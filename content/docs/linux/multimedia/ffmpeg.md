@@ -2,9 +2,18 @@
 
 이 문서는 Linux에서 FFmpeg로 동영상 파일을 자르거나 일정 간격으로 분할할 때 필요한 기준을 정리한다. 목표는 명령어를 복사하는 것이 아니라 `-c copy`와 재인코딩의 차이를 이해하고 원하는 정확도와 속도를 선택하는 것이다.
 
+## 적용 범위와 결과 검증
+
+- **범위:** FFmpeg·ffprobe version과 build options, input container, video/audio/subtitle codec, time base, variable frame rate와 keyframe 간격을 기록합니다. 설치 package와 지원 codec은 배포판별로 다릅니다.
+- **전제:** stream copy는 packet을 재인코딩하지 않지만 cut 위치, timestamp, metadata와 container 호환성은 달라질 수 있습니다. frame 단위 절단은 decode·encode 설정과 audio 경계를 함께 결정합니다.
+- **수치 불확실성:** `-segment_time`, 평균 bitrate와 목표 file 크기는 keyframe, VBR, muxing overhead와 stream 구성 때문에 근사값일 수 있습니다. 예제의 초·MB 값은 공식이 아니라 입력 예시입니다.
+- **실패·완료:** 재생 불가, A/V sync, 누락 stream, 부정확한 duration, timestamp 불연속과 예상 밖 재인코딩을 확인합니다. ffprobe의 stream·duration·timestamp와 실제 재생, 표본 frame 및 file size 허용 오차가 기준을 만족할 때 완료입니다.
+
+---
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
-동영상 분할은 “몇 초부터 몇 초까지 자른다”처럼 보이지만 실제로는 container, codec, keyframe, timestamp가 함께 영향을 준다. 빠르게 자르려고 `-c copy`를 쓰면 화질 손실은 없지만 keyframe 기준으로 잘릴 수 있다.
+동영상 분할은 container, codec, keyframe과 timestamp가 함께 영향을 준다. `-c copy`는 재인코딩에 따른 세대 손실을 만들지 않지만 cut 위치·timestamp·metadata·container와 재생 시작 상태는 달라질 수 있다.
 
 정확한 frame 단위가 필요하면 재인코딩이 필요하다. 이때는 속도와 품질, 파일 크기 trade-off를 받아들여야 한다.
 
@@ -53,7 +62,7 @@ input container
 
 `-to`는 종료 시각을 지정한다. `-t`와 동시에 쓰지 말고 하나만 선택한다.
 
-`-c copy`는 video, audio, subtitle stream을 재인코딩하지 않고 복사한다.
+`-c copy`는 선택된 출력 stream을 재인코딩하지 않고 복사한다. 모든 입력 stream을 자동 선택하는 옵션은 아니며 -map과 출력 container 호환성을 별도로 확인한다.
 
 재인코딩은 `libx264`, `libx265`, `aac` 같은 encoder를 사용해 새 bitstream을 만든다.
 
@@ -96,7 +105,7 @@ segment duration chosen
 - `-c copy` 결과는 정확한 frame cut이 아닐 수 있다.
 - 정확도가 중요하면 재인코딩을 선택한다.
 - `-t`와 `-to`의 의미를 혼동하지 않는다.
-- subtitle, multiple audio stream을 유지하려면 `-map 0`을 명시한다.
+- 보존할 subtitle·audio stream을 -map으로 명시하고 출력 container가 지원하는지 확인한다. -map 0은 모든 입력 stream을 선택하므로 지원하지 않는 codec·data·attachment가 있으면 실패할 수 있다.
 - 출력 파일을 `ffprobe`와 실제 재생으로 확인한다.
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
@@ -122,11 +131,11 @@ ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 input.mp4
 ffmpeg -ss 00:00:10 -i input.mp4 -t 00:00:30 -map 0 -c copy cut-copy.mp4
 ```
 
-정확한 시간 기준으로 자르고 H.264/AAC로 재인코딩한다.
+지정한 시간 부근의 frame을 선택해 H.264/AAC로 재인코딩한다. 이 예제는 첫 video와 존재하는 audio만 선택하며 subtitle·data는 제외한다. 정확한 경계는 입력 time base·VFR·audio sample 단위로 검증한다.
 
 ```bash
 ffmpeg -i input.mp4 -ss 00:00:10.500 -t 00:00:30 \
-  -map 0:v:0 -map 0:a? \
+  -map 0:v:0 -map '0:a?' \
   -c:v libx264 -crf 18 -preset medium \
   -c:a aac -b:a 192k \
   cut-encoded.mp4
@@ -139,13 +148,14 @@ mkdir -p segments
 ffmpeg -i input.mp4 -map 0 -c copy -f segment -segment_time 120 -reset_timestamps 1 segments/part_%03d.mp4
 ```
 
-Segment 길이가 keyframe 때문에 정확하지 않으면 재인코딩하면서 keyframe 간격을 맞춘다.
+일정 간격의 경계를 목표로 할 때는 재인코딩하며 keyframe을 요청할 수 있다. frame time base 반올림과 audio 경계 때문에 실제 segment duration 허용 오차를 확인한다. 아래는 video/audio만 선택하며 앞의 stream-copy 결과와 다른 디렉터리에 저장한다.
 
 ```bash
-ffmpeg -i input.mp4 -map 0 \
+mkdir -p segments-encoded
+ffmpeg -i input.mp4 -map 0:v:0 -map '0:a?' \
   -c:v libx264 -crf 20 -preset medium -force_key_frames 'expr:gte(t,n_forced*120)' \
   -c:a aac -b:a 192k \
-  -f segment -segment_time 120 -reset_timestamps 1 segments/part_%03d.mp4
+  -f segment -segment_time 120 -reset_timestamps 1 segments-encoded/part_%03d.mp4
 ```
 
 출력 파일을 확인한다.
@@ -165,7 +175,7 @@ ffprobe -v error -show_entries format=bit_rate -of default=nw=1:nk=1 input.mp4
 예상 시간은 다음 식으로 계산한다.
 
 ```text
-seconds = target_size_megabytes * 8 * 1024 * 1024 / bitrate_bits_per_second
+seconds ≈ target_size_MiB * 8 * 1024 * 1024 / bitrate_bits_per_second
 ```
 
 ## 9. 실패 사례 (What could go wrong?)
@@ -205,4 +215,4 @@ HLS나 DASH처럼 streaming delivery를 목표로 한다면 단순 segment muxer
 
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-FFmpeg 분할의 핵심 선택은 빠른 stream copy와 정확한 재인코딩 사이의 trade-off다. `-c copy`는 빠르고 무손실에 가깝지만 keyframe 제약을 받으며, 정확한 cut은 인코딩 비용을 치른다.
+FFmpeg 분할은 stream copy의 재인코딩 비용·세대 손실 없는 처리와 재인코딩의 경계 선택 제어를 비교하는 일이다. 어느 쪽도 container·timestamp·audio·keyframe 조건의 실제 결과 검증을 대신하지 않는다.

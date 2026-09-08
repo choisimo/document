@@ -2,6 +2,13 @@
 
 모던 CLI 도구는 전통적인 유닉스 명령을 모두 대체하는 것이 아니라, 자주 하는 작업을 더 빠르고 읽기 쉽게 만드는 보완 도구다. 기준 없이 설치하면 도구만 늘어나므로, 먼저 어떤 병목을 줄일지 정해야 한다.
 
+## 적용 범위와 비교 기준
+
+- **범위:** 도구 목록은 선택 후보이며 조사 순위가 아닙니다. 배포판·package source, tool version, shell·terminal·font와 remote 환경을 기록하고 실제 workflow에서 평가합니다.
+- **비교 전제:** 빠름·가벼움 평가는 동일 입력 corpus·검색 범위·출력 요구·warmup·측정 환경에서 비교합니다. 이 문서는 보편 latency·memory 상한을 제공하지 않습니다.
+- **사실과 추론:** installed version의 help·config schema와 재현된 측정은 사실이고, community 인기·생산성·도구 조합의 우위는 사용자 workflow에 대한 가설입니다.
+- **실패·완료:** config parse, key conflict, font/IME, clipboard, SSH/tmux, rendering, package update와 uninstall rollback을 시험합니다. 필요한 기능과 측정 기준을 만족하고 기존 workflow를 복구할 수 있을 때 채택 완료입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 기본 명령어만으로도 대부분의 작업은 가능하다. 하지만 큰 코드베이스 검색, Git diff 검토, JSON 처리, 디스크 사용량 파악, 반복적인 디렉터리 이동처럼 매일 반복되는 작업은 더 전문화된 도구를 쓰면 시간이 크게 줄어든다.
@@ -67,7 +74,7 @@ git diff --stat
 
 | 역할 | 도구 예시 | 대체하거나 보완하는 작업 |
 | --- | --- | --- |
-| 내용 검색 | `rg` | `grep -R`보다 빠른 코드 검색 |
+| 내용 검색 | `rg` | ignore 규칙 등을 지원하는 코드 검색; 성능은 같은 범위에서 측정 |
 | 파일 찾기 | `fd` | 단순 파일명 검색과 제외 규칙 처리 |
 | 파일 보기 | `bat` | 구문 강조와 줄 번호가 있는 `cat` |
 | 목록 표시 | `eza` | Git 상태와 아이콘이 있는 `ls` |
@@ -120,7 +127,7 @@ default_tools
 ```bash
 rg "TODO" .
 rg --files | fzf
-curl -s https://api.github.com/repos/sharkdp/fd | jq '.name, .description'
+(set -o pipefail; curl --fail --silent --show-error --connect-timeout 5 --max-time 20 https://api.github.com/repos/sharkdp/fd | jq -e '.name, .description')
 ```
 
 Git diff 가독성을 높인다.
@@ -152,10 +159,14 @@ zi
 hyperfine 'grep -R "pattern" .' 'rg "pattern" .'
 ```
 
-`fzf`로 선택한 파일을 편집기로 연다.
+위 benchmark는 grep/rg의 기본 ignore·hidden·binary·symlink 규칙이 달라 같은 파일을 검색하지 않을 수 있다. corpus와 검색 범위를 먼저 맞추거나 전체 작업 흐름 비교임을 명시하며, 결과 일치·cold/warm 상태를 확인한다.
+
+Bash와 NUL 입력을 지원하는 fzf에서 선택한 파일을 연다. 취소하면 편집기를 시작하지 않는다.
 
 ```bash
-vim "$(rg --files | fzf)"
+if IFS= read -r -d '' selected_file < <(rg --files --null | fzf --read0 --print0); then
+  vim -- "$selected_file"
+fi
 ```
 
 ## 9. 실패 사례 (What could go wrong?)

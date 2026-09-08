@@ -2,6 +2,8 @@
 
 Proxmox VE 알림은 백업 실패, ZFS/SMART 경고, 시스템 메일, HA 이벤트를 운영자에게 전달하는 경로다. 이 문서는 Proxmox의 알림 시스템에서 SMTP target과 Sendmail/Postfix target을 어떻게 선택하고 검증할지 정리한다.
 
+`pveversion -v`를 기록하고 Proxmox VE 8.1 이후 알림 시스템과 legacy sendmail 경로를 구분한다. 메뉴와 인증 정책은 버전·계정·조직에 따라 확인한다. [공식 알림 문서](https://github.com/proxmox/pve-docs/blob/master/notifications.adoc)의 target별 전송 경계를 설치 버전과 대조한다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Proxmox 장애는 조용히 누적될 수 있다. 백업 실패, 디스크 오류, storage full, HA 상태 변화가 UI에만 남으면 운영자는 늦게 발견한다.
@@ -124,7 +126,7 @@ apt update
 apt install -y postfix mailutils libsasl2-modules ca-certificates
 ```
 
-relay credential 파일을 만든다.
+root 셸에서 `umask 077`을 적용하고 `/etc/postfix/sasl_passwd`를 편집해 relay credential을 저장한다. 아래 값은 자리표시자이며 실제 토큰을 명령 기록에 직접 입력하지 않는다.
 
 ```text
 [smtp.example.com]:587 alert@example.com:provider-app-password
@@ -133,8 +135,9 @@ relay credential 파일을 만든다.
 Postfix map과 권한을 적용한다.
 
 ```bash
-postmap /etc/postfix/sasl_passwd
-chmod 600 /etc/postfix/sasl_passwd /etc/postfix/sasl_passwd.db
+chown root:root /etc/postfix/sasl_passwd
+chmod 600 /etc/postfix/sasl_passwd
+postmap /etc/postfix/sasl_passwd && chown root:root /etc/postfix/sasl_passwd.db && chmod 600 /etc/postfix/sasl_passwd.db
 ```
 
 Postfix relay 설정을 넣는다.
@@ -146,7 +149,7 @@ postconf -e 'smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd'
 postconf -e 'smtp_sasl_security_options = noanonymous'
 postconf -e 'smtp_tls_security_level = encrypt'
 postconf -e 'smtp_tls_CAfile = /etc/ssl/certs/ca-certificates.crt'
-systemctl reload postfix
+postfix check && systemctl reload postfix
 ```
 
 테스트 메일을 보낸다.
@@ -177,6 +180,10 @@ Gmail 또는 회사 SMTP가 `from-address`를 거절하면 인증은 성공해�
 백업 job은 notification mode가 legacy sendmail인지 notification system인지 확인한다. mode에 따라 `mailto` 설정과 Notification matcher 중 어느 경로가 사용되는지가 달라질 수 있다.
 
 ZFS나 SMART 같은 로컬 시스템 메일은 Proxmox notification system으로 변환되거나 sendmail target으로 전달될 수 있다. 디스크 장애 알림은 실제 테스트가 어렵기 때문에 주기적인 test notification과 로그 점검을 운영 절차로 둔다.
+
+## 완료, 실패 및 롤백 증거
+
+내장 테스트와 실제 백업 성공·실패 이벤트를 각각 발생시켜 이벤트 ID, 선택한 target의 로그, 제공자 응답과 실제 수신 시각을 연결합니다. Postfix 경로에서는 큐 ID도 연결합니다. `mail` 종료 성공은 큐 접수일 수 있으며 전달 완료가 아닙니다. 실패 시 이전 `main.cf`와 알림 구성을 복원하고 노출 가능한 앱 비밀번호나 webhook을 폐기합니다.
 
 ## 11. 최종 체크리스트 (Definition of Done)
 

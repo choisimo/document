@@ -2,11 +2,18 @@
 
 > Sources: *Kafka: The Definitive Guide (2nd Edition)* — Shapira, Palino, Sivaram, Narkhede (O'Reilly 2022); *Kafka in Action* — Dylan Scott (Manning)
 
+## Scope and verification
+
+- The diagrams model a representative Kafka 3-era data path; the deployed version and metadata mode are authoritative.
+- `default` values, internal class names, request threading, and zero-copy paths are implementation details. Confirm effective broker/topic/client configuration and runtime metrics.
+- "Durable", "committed", "visible", and "processed" identify different milestones. State the required acknowledgement, isolation level, offset policy, and downstream effect before claiming delivery success.
+- Validate recovery by forcing retry, leader change, rebalance, and process restart while checking for loss, duplicates, ordering changes, and bounded restoration time.
+
 ---
 
 ## 1. The Commit Log as Foundational Data Structure
 
-Kafka's central abstraction is not a queue — it is a **durable, ordered, append-only log**. Every partition is one log. Understanding the log's physical layout is the prerequisite to understanding everything else.
+Kafka's central abstraction is a partitioned, ordered log. Ordering is per partition, retention can delete records, and compaction can remove superseded keys. Durability depends on acknowledgement and replication assumptions rather than the word "log" alone.
 
 ```mermaid
 block-beta
@@ -20,7 +27,7 @@ Each segment triple:
 - `.index` — sparse offset → byte-position mapping (binary search entry point)
 - `.timeindex` — timestamp → offset mapping (time-based seek)
 
-The **active segment** is the only file receiving writes. Once a segment reaches `log.segment.bytes` (default 1 GB) or `log.roll.hours` (default 168 h), Kafka rolls a new active segment. Old segments are candidates for deletion or compaction based on retention policy.
+The **active segment** receives new record appends. Size and time thresholds roll it, but defaults and topic overrides vary by release and configuration. Closed segments become candidates for deletion or compaction only when the applicable policy and timing conditions are met.
 
 ```mermaid
 flowchart LR
@@ -470,7 +477,7 @@ flowchart LR
   DiskFile -->|"zero-copy sendfile:\n2 copies only\ndisk→kernel→NIC\n(no user-space copy)"| SocketZC["Socket (zero-copy)"]
 ```
 
-This eliminates two memory copies per fetch, reducing CPU usage by 60–70% for high-throughput consumers and allowing Kafka to serve consumers at near-disk-bandwidth speeds.
+This path can avoid user-space copies and reduce CPU work when the transport, encryption, operating system, and file region support it. The improvement is not a fixed 60-70%; compare CPU cycles, throughput, and copy/fallback paths on the deployed stack.
 
 ---
 

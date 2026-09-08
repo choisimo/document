@@ -1,6 +1,78 @@
-# 개발 환경 구성 학습 및 기록 노트
+---
+title: "개발 환경"
+---
+
+# 개발 환경 {#_1}
+
+<nav class="hub-directory" aria-label="개발 환경 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">Docker</h2>
+
+- [Docker 설치 가이드](docker/installation.md)
+- [Docker 권한 및 재시작 명령](docker/commands.md)
+- [Docker 네트워킹](docker/networking.md)
+- [Docker Volumes](docker/volumes.md)
+- [Vaultwarden Docker Compose 배포](docker/vaultwarden.md)
+- [LiteLLM Proxy 안전 구성](docker/litellm_copilot_guide.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">Git</h2>
+
+- [Git 브랜치 업스트림 관리](git/branch-management.md)
+- [Git Deploy Keys 설정](git/deployment.md)
+- [Git 삭제 복구 및 고아 브랜치](git/restore-deletion.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">편집기와 원격 개발</h2>
+
+- [VS Code 확장 관리](ide/vscode-plugins.md)
+- [code-server 원격 개발 환경](ide/code-server.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-4" markdown="1">
+
+<h2 id="directory-group-4">언어 환경</h2>
+
+- [Java JDK 설치 및 환경 구성](languages/java-install.md)
+- [GCC C/C++ 빌드 환경](languages/gcc.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-5" markdown="1">
+
+<h2 id="directory-group-5">함께 읽기</h2>
+
+- [Java](../java/index.md)
+- [데이터베이스](../databases/index.md)
+- [Linux 명령어 참조](../linux/commands.md)
+- [SSH Configuration](../security/ssh/configuration.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
 
 이 문서는 Docker, Git, IDE, 언어 런타임 문서를 하나의 개발 환경 구축 흐름으로 묶는 상위 색인이다. 개별 도구의 명령어를 외우는 것보다 중요한 목표는 새 장비, 원격 서버, 컨테이너 환경에서 같은 프로젝트를 다시 열어도 일관된 결과를 얻는 것이다.
+
+## 이 페이지의 적용 범위
+
+이 페이지는 개발 문서의 탐색용 색인입니다. 연결된 가이드의 runtime 버전과 설치 예시는 프로젝트 지원 정책, OS, architecture와 공식 release 정보를 확인한 뒤 선택합니다. 설치 여부뿐 아니라 version 고정, 최소 권한, 재현 가능한 build와 rollback 가능 여부를 각 가이드에서 검증합니다.
+
+---
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -145,3 +217,5 @@ java -version
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 개발 환경 문서는 명령어 모음이 아니라 `__________` 가능한 작업 환경을 만드는 지도다. 먼저 `__________`, 그 다음 `__________`, IDE, 언어 런타임 순서로 확인하고, 실패하면 어느 `__________`에서 멈췄는지 좁힌다.
+
+</details>

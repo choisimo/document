@@ -1,5 +1,9 @@
 # C/C++ 포인터 학습 및 기록 노트
 
+## 컴파일·소유권·실패 계약
+
+예제 적용 전 C 또는 C++ language version, compiler와 warning·sanitizer option, allocation owner와 해제 책임을 정한다. `malloc` 성공 확인은 사용뿐 아니라 실패 시 반환·정리 경로까지 포함해야 하며, 해제 뒤 한 local pointer를 `NULL`로 바꿔도 다른 alias의 dangling 상태는 해결되지 않는다. `restrict`는 compiler가 증명하는 보장이 아니라 호출자가 겹치지 않는 storage를 약속하는 계약이며 위반 시 undefined behavior가 될 수 있다. `cleanup` attribute는 C11 표준 RAII가 아니라 GCC/Clang extension이다. 완료는 compile warning, AddressSanitizer·UndefinedBehaviorSanitizer 결과, 정상·할당 실패·경계 입력의 자원 해제를 확인해 판정한다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 C/C++ 포인터는 값이 아니라 메모리 주소를 직접 다루기 때문에 작은 실수도 즉시 런타임 오류, 메모리 오염, 보안 취약점으로 이어진다. 특히 초중급 단계에서는 `*`, `&`, 배열, 동적 할당 문법은 알지만 "이 주소가 아직 유효한가"를 끝까지 추적하지 못해 문제가 생긴다.
@@ -67,7 +71,7 @@ stateDiagram-v2
 - 역참조 전에 포인터가 NULL이 아니고 유효한 객체를 가리키는지 확인한다.
 - `malloc`으로 얻은 메모리는 소유자가 정확히 한 번 해제한다.
 - `free` 이후 같은 포인터를 다시 사용할 가능성이 있으면 즉시 NULL로 만든다.
-- 배열 포인터는 `[0, length)` 범위 안에서만 이동한다.
+- 배열 포인터는 같은 배열의 `[0, length]` 범위에서 형성할 수 있지만, one-past인 `length` 위치는 역참조하지 않는다.
 - 지역 변수의 주소를 함수 밖으로 반환하지 않는다.
 - `restrict`를 붙인 포인터들은 같은 메모리 영역을 가리키지 않아야 한다.
 
@@ -76,8 +80,13 @@ stateDiagram-v2
 ```c
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <limits.h>
 
 int *create_array(size_t len) {
+    if (len == 0 || len > SIZE_MAX / sizeof(int) || len - 1 > INT_MAX) {
+        return NULL;
+    }
     int *arr = malloc(sizeof(int) * len);
     if (arr == NULL) {
         return NULL;

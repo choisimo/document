@@ -2,6 +2,15 @@
 
 Docker 네트워킹은 컨테이너가 서로 통신하고 외부에 노출되는 경로를 결정한다. `docker network create`는 단순히 이름 있는 네트워크를 만드는 명령이 아니라, 드라이버, 서브넷, 게이트웨이, 포트 바인딩, 격리 수준을 함께 정하는 경계 설정 도구다.
 
+## 적용 범위와 검증 기준
+
+- **범위:** Docker Engine/Desktop 버전, host OS, rootful·rootless 모드, network driver, IPAM plugin, Swarm 여부와 IPv4/IPv6 설정을 명시합니다. 옵션과 기본값은 이 조합에 종속됩니다.
+- **환경 전제:** 기존 subnet·route·DNS·firewall/VPN과 port publishing, host reachability, multi-host control plane을 확인합니다. 이름이 같은 driver라도 platform별 구현이 다를 수 있습니다.
+- **사실과 추론:** `docker network inspect`, host route/firewall와 packet trace는 근거이고, 격리·성능·통신 실패 원인은 관측 전까지 가설입니다.
+- **실패·완료:** CIDR 충돌, DNS 실패, unintended host/Internet 접근, MTU 문제, restart와 multi-host 단절을 시험합니다. 의도한 endpoint만 통신하고 금지 경로가 실제로 차단될 때 완료입니다.
+
+---
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 컨테이너 애플리케이션에서 네트워크 문제는 증상이 다양하다. 같은 Compose 안의 서비스 이름이 해석되지 않거나, 포트를 열었는데 외부에서 접근할 수 없거나, 데이터베이스가 의도치 않게 외부로 노출될 수 있다. 특히 `bridge`, `host`, `overlay`, `macvlan`은 겉으로는 모두 “네트워크 연결”처럼 보이지만 격리 모델이 다르다.
@@ -48,7 +57,7 @@ client
   -> container port
 ```
 
-Compose나 사용자 정의 브리지에서는 컨테이너 이름 또는 서비스 이름이 내부 DNS 이름처럼 동작한다. 반면 호스트 외부에서 접근하려면 `--publish` 또는 Compose의 `ports` 설정처럼 명시적인 포트 공개가 필요하다.
+Compose의 사용자 정의 브리지에서는 서비스 이름으로 컨테이너를 찾을 수 있다. 일반적인 bridge/NAT 구성의 호스트 외부 접근에는 `--publish` 또는 Compose `ports`로 노출 경로를 정한다. host·macvlan·ipvlan과 direct routing은 경로가 다르므로 같은 규칙으로 일반화하지 않는다.
 
 ## 5. 핵심 구성요소 (Building Blocks)
 
@@ -56,7 +65,7 @@ Compose나 사용자 정의 브리지에서는 컨테이너 이름 또는 서비
 | --- | --- | --- |
 | `bridge` | 단일 호스트 컨테이너 간 통신 | `docker network create -d bridge app_net` |
 | `host` | 호스트 네트워크 스택 공유 | `docker run --network host ...` |
-| `none` | 루프백만 있는 격리 네트워크 | `docker run --network none ...` |
+| `none` | 네트워크 인터페이스는 루프백만 제공; mount·capability까지 격리하는 보안 경계는 아님 | `docker run --network none ...` |
 | `overlay` | 여러 Docker 호스트 간 네트워크 | `docker network create -d overlay ...` |
 | `macvlan` | 컨테이너를 물리 네트워크에 직접 노출 | `docker network create -d macvlan ...` |
 | `ipvlan` | L2/L3 주소 제어가 필요한 네트워크 | `docker network create -d ipvlan ...` |
@@ -109,7 +118,7 @@ Docker 네트워크 설계는 다음 순서로 진행한다.
 
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-- 외부에 공개할 포트는 `--publish`로 명시한다.
+- bridge/NAT 예제의 외부 공개 포트는 `--publish`로 명시하고, 다른 driver는 실제 routing과 firewall 경계를 확인한다.
 - 데이터베이스처럼 내부 전용 서비스는 공개 포트 없이 내부 네트워크에 둔다.
 - 사용자 정의 브리지는 기본 `bridge`보다 서비스 이름 기반 통신과 격리 관리가 쉽다.
 - `host` 네트워크는 포트 격리를 제거하므로 필요한 경우에만 사용한다.

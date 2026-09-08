@@ -4,6 +4,14 @@
 
 ---
 
+## 입력 계약과 완료 판정
+
+- **입력과 식별**: `lowest_common_ancestor(root, p, q)`는 사이클이 없는 이진 트리의 노드 객체를 받는다. 목표 식별에는 `is`를 사용하므로 같은 값을 가진 다른 객체를 같은 목표로 취급하지 않는다.
+- **존재 전제**: LCA 결과를 보장하려면 `p`와 `q`가 모두 트리에 존재해야 한다. 한쪽만 있으면 그 노드, 양쪽 모두 없으면 `None`을 반환할 수 있으며 존재 여부를 별도로 검증하지 않는다. `p is q`이면 그 노드가 트리에 있을 때 자신을 반환한다.
+- **출력과 비용**: 양쪽 하위 트리에서 목표가 발견되면 현재 노드, 한쪽에서만 발견되면 그 하위 결과를 반환한다. 시간 `O(n)`, 재귀 스택 `O(h)`이며 깊은 편향 트리에는 반복형이나 부모 배열 변형을 검토한다.
+
+완료 판정은 서로 다른 하위 트리, 조상과 자손, 동일 목표 객체, 한쪽·양쪽 부재, 중복 값을 가진 서로 다른 노드를 구분하는 것이다. 값 기반 `__eq__`나 거짓으로 평가되는 노드라도 객체 식별과 `None` 검사에 따라 결과가 유지되는지 확인한다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 * **이 개념이 구원해 줄 문제:** 트리에서 두 노드의 관계, 거리, 경로, 공통 상위 범주를 빠르게 찾아야 할 때 필요하다.
@@ -44,7 +52,7 @@
 | 초기 상태 | 이벤트 (트리거) | 전이 조건 | 변경 후 상태 | "바뀐 걸 어떻게 알지?" (관찰 방법) |
 | :--- | :--- | :--- | :--- | :--- |
 | `ENTER` | 현재 노드 검사 | `root is None` | `RETURN_NONE` | 빈 서브트리 반환 |
-| `ENTER` | 현재 노드 검사 | `root == p or root == q` | `FOUND_TARGET` | 현재 노드 반환 |
+| `ENTER` | 현재 노드 검사 | `root is p or root is q` | `FOUND_TARGET` | 현재 노드 반환 |
 | `ENTER` | 재귀 탐색 | 일반 노드 | `SEARCH_CHILDREN` | left/right 호출 |
 | `SEARCH_CHILDREN` | 결과 결합 | left와 right 모두 존재 | `FOUND_LCA` | 현재 노드 반환 |
 | `SEARCH_CHILDREN` | 결과 결합 | 한쪽만 존재 | `BUBBLE_UP` | non-null 결과 반환 |
@@ -76,16 +84,16 @@ flowchart TD
 
 ```python
 def lowest_common_ancestor(root, p, q):
-    if root is None or root == p or root == q:
+    if root is None or root is p or root is q:
         return root
 
     left = lowest_common_ancestor(root.left, p, q)
     right = lowest_common_ancestor(root.right, p, q)
 
-    if left and right:
+    if left is not None and right is not None:
         return root
 
-    return left if left else right
+    return left if left is not None else right
 ```
 
 ## 9. 실패 사례 (What could go wrong?)

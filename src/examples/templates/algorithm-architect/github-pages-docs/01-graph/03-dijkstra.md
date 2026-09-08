@@ -8,6 +8,12 @@
 ## 원본 템플릿
 - Source: [01-graph/03-dijkstra.md](../../01-graph/03-dijkstra.md)
 
+## 적용 계약과 근거 경계
+
+- 노드는 `1..n`, graph 값은 `(neighbor, weight)` 목록이며 모든 도달 가능한 간선 가중치는 0 이상이어야 합니다.
+- 결과의 `inf`는 시작점에서 도달 불가라는 뜻입니다. 경로 자체가 필요하면 predecessor를 별도로 기록합니다.
+- 중복 heap entry를 허용하는 구현으로 시간 `O((V+E) log V)`, 거리·heap 공간은 최악 `O(V+E)`입니다.
+
 ## 내부 메커니즘 (Flow)
 ```mermaid
 flowchart TD
@@ -69,7 +75,9 @@ def dijkstra(start, graph, n):
         
         # 4. 확장 로직 (Expansion Layer)
         #    - 인접 노드의 거리 갱신
-        for neighbor, weight in graph[current_node]:
+        for neighbor, weight in graph.get(current_node, ()):
+            if weight < 0:
+                raise ValueError("Dijkstra requires non-negative weights")
             new_dist = current_dist + weight
             
             # 5. 갱신 조건 (Update Condition)
@@ -88,7 +96,7 @@ def dijkstra(start, graph, n):
 - **Termination**: 목표 도달, 범위 소진, 큐/스택 고갈, 사이클 검출 등으로 종료한다.
 
 ## 실전 적용 체크리스트
-- 입력 자료구조 형식(인접 리스트, 간선 리스트, 정렬 여부, 1-index/0-index)을 먼저 고정한다.
-- 시간 복잡도 한계에 맞게 자료구조를 교체한다 (`list.pop(0)` -> `deque.popleft` 등).
-- 실패/예외 경로를 명시한다 (도달 불가, 음수 사이클, 빈 결과, 사이클 존재).
-- 테스트는 최소 3개: 정상 케이스, 경계 케이스, 반례 케이스를 포함한다.
+- `start`와 모든 endpoint 범위를 검증하고 directed/undirected 간선 생성 규칙을 고정합니다.
+- 음수 간선은 예외로 종료하며 Bellman-Ford 전환 조건을 호출자에게 전달합니다.
+- 0 가중치, 평행 간선, sink, 도달 불가, stale heap entry를 시험합니다.
+- 작은 그래프는 Bellman-Ford 결과와 모든 거리 값을 대조합니다.

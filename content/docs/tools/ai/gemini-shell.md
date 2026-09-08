@@ -2,6 +2,18 @@
 
 Gemini Shell은 Google Gemini API의 `generateContent` 호출을 터미널에서 안전하게 실행하기 위한 작은 래퍼 설계 문서다.
 
+## 실행 전 계약과 예제 상태
+
+이 문서는 단일 Bash 요청 예제와 확장 가능한 CLI 설계를 설명합니다. v1beta endpoint, model ID, 생성 옵션과 응답 형식은 선택한 Gemini API/model revision의 명세로 확인하고 모델을 명시적으로 지정합니다.
+
+- **증거 상태**: 예제는 이 문서에서 실행 검증되지 않았습니다. sed 또는 grep 기반 JSON 대체 경로는 따옴표, 줄바꿈, Unicode와 오류 응답을 안전하게 처리하지 못하므로 운영 사용에서는 jq를 필수 의존성으로 둡니다.
+- **비밀과 데이터**: API 키를 URL 쿼리, 명령 인자, 디버그 로그에 넣지 않고 전용 헤더와 비밀 저장소를 사용합니다. 프롬프트와 응답의 개인정보, 소스 코드, 보존 기간과 출력 파일 권한을 검토합니다.
+- **오류 처리**: curl의 HTTP 실패와 타임아웃을 구분하고 429 및 일시적 5xx만 Retry-After와 지수 백오프, jitter, 최대 횟수로 재시도합니다. 인증 실패와 잘못된 요청은 자동 재시도하지 않습니다.
+- **응답 판정**: HTTP 상태, API 오류 객체, candidate 종료 이유, 안전 차단, 빈 응답, 토큰 사용량을 각각 처리하고 원문 응답은 민감정보를 제거한 경우에만 제한적으로 보관합니다.
+- **완료 조건**: 정상 응답, 잘못된 키, 할당량 제한, 타임아웃, 빈 candidate, 특수문자 프롬프트를 시험하고 종료 코드와 stderr, 요청 추적 ID를 증거로 남깁니다.
+
+아래 최소 예제는 요청 한 번만 수행하며 자동 재시도·streaming·raw mode는 구현하지 않습니다. 이를 운영 wrapper로 확장할 때 요청 생성, 오류 분류, 제한 재시도와 출력 계약을 함수로 나누어 검증합니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Gemini API는 `curl`로도 호출할 수 있지만, 매번 JSON을 직접 만들면 escaping, API key 관리, 오류 처리, 응답 파싱에서 실수하기 쉽다.
@@ -44,7 +56,7 @@ user enters prompt
   -> text or raw JSON is printed
 ```
 
-API key는 URL query string보다 header나 공식 SDK 설정을 우선 검토한다. 쉘 래퍼에서 query string을 쓰는 경우 shell history와 process listing 노출을 별도로 주의한다.
+API key는 URL query string에 넣지 않는다. 이 예제는 제한된 header 파일을 통해 curl에 전달하며 shell history·명령 인자·debug log에 값을 남기지 않는다.
 
 ## 5. 핵심 구성요소 (Building Blocks)
 
@@ -68,7 +80,7 @@ stateDiagram-v2
     ArgsParsed --> KeyChecked
     KeyChecked --> RequestBuilt
     RequestBuilt --> ApiCalled
-    ApiCalled --> TextExtracted: 2xx and candidate exists
+    ApiCalled --> TextExtracted: 2xx, valid nonempty text, STOP and no block
     ApiCalled --> ErrorReported: non-2xx or error body
     TextExtracted --> Printed
 ```
@@ -86,33 +98,74 @@ stateDiagram-v2
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
 
-최소 호출 예시는 다음과 같다.
+Bash, jq와 `--header @file`을 지원하는 curl을 사용한다. API key는 비밀 저장소에서 실행 환경으로 제공하고 model은 지원되는 검토한 ID로 설정한다. `GEMINI_PROMPT_FILE`은 접근이 제한된 UTF-8 입력 파일이다. 실제 key나 민감 prompt를 명령 인자로 입력하지 않는다.
 
 ```bash
-export GEMINI_API_KEY="..."
+(
+  set -eu -o pipefail
+  umask 077
+  command -v curl >/dev/null
+  command -v jq >/dev/null
+  : "${GEMINI_API_KEY:?provide key through the secret environment}"
+  : "${GEMINI_MODEL:?set a reviewed supported model id}"
+  : "${GEMINI_PROMPT_FILE:?set a protected UTF-8 input file}"
+  test -s "$GEMINI_PROMPT_FILE"
+  [[ "$GEMINI_MODEL" =~ ^[A-Za-z0-9._-]+$ ]] || exit 2
+  case "$GEMINI_API_KEY" in
+    *$'\r'*|*$'\n'*) printf 'invalid key format\n' >&2; exit 2 ;;
+  esac
 
-prompt="Write a one sentence summary of SSH key rotation."
-model="gemini-2.5-flash"
+  request_dir=$(mktemp -d)
+  trap 'rm -rf -- "$request_dir"' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  printf 'x-goog-api-key: %s\n' "$GEMINI_API_KEY" > "$request_dir/headers"
+  unset GEMINI_API_KEY
+  jq -Rs '{contents:[{parts:[{text:.}]}]}' \
+    < "$GEMINI_PROMPT_FILE" > "$request_dir/request.json"
 
-jq -n --arg text "$prompt" '{
-  contents: [
-    {
-      parts: [
-        {text: $text}
-      ]
-    }
-  ]
-}' > request.json
-
-curl -sS \
-  -H "Content-Type: application/json" \
-  -H "x-goog-api-key: ${GEMINI_API_KEY}" \
-  -X POST \
-  "https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent" \
-  -d @request.json | jq -r '.candidates[0].content.parts[]?.text'
+  if http_status=$(curl --silent --show-error \
+    --connect-timeout 10 --max-time 120 \
+    --header "@$request_dir/headers" --header 'Content-Type: application/json' \
+    --data-binary "@$request_dir/request.json" \
+    --output "$request_dir/response.json" --write-out '%{http_code}' \
+    "https://generativelanguage.googleapis.com/v1beta/models/$GEMINI_MODEL:generateContent"); then
+    :
+  else
+    curl_status=$?
+    printf 'transport failure (curl=%s)\n' "$curl_status" >&2
+    exit 20
+  fi
+  case "$http_status" in
+    2??) ;;
+    *) printf 'HTTP failure (%s); no automatic retry\n' "$http_status" >&2; exit 21 ;;
+  esac
+  if ! jq -e 'type == "object"' "$request_dir/response.json" >/dev/null 2>&1; then
+    printf 'invalid JSON response\n' >&2; exit 22
+  fi
+  if jq -e '.error != null' "$request_dir/response.json" >/dev/null; then
+    printf 'API error response\n' >&2; exit 23
+  fi
+  if jq -e '.promptFeedback.blockReason != null' "$request_dir/response.json" >/dev/null; then
+    printf 'prompt blocked\n' >&2; exit 24
+  fi
+  finish=$(jq -r '.candidates[0].finishReason // "MISSING"' "$request_dir/response.json")
+  case "$finish" in
+    STOP) ;;
+    MAX_TOKENS) printf 'incomplete output: token limit\n' >&2; exit 25 ;;
+    *) printf 'blocked, missing or unsupported candidate completion\n' >&2; exit 26 ;;
+  esac
+  if ! jq -er '[.candidates[0].content.parts[]? | select(.thought != true) | .text? | select(type == "string")] | join("") | select(test("\\S"))' \
+    "$request_dir/response.json" > "$request_dir/text"; then
+    printf 'empty or invalid text output\n' >&2; exit 27
+  fi
+  cat "$request_dir/text"
+)
 ```
 
-실제 래퍼에서는 임시 파일 대신 pipe를 쓰고, `trap`으로 임시 파일을 지우며, status code를 따로 저장한다.
+성공 시 text만 stdout에 출력하며, transport·HTTP·JSON·API·차단·미완료·빈 출력은 각각 실패로 종료한다. 원문 response와 header 임시 파일은 종료 시 제거한다. 이 예제는 API 호출을 자동 반복하지 않는다. 재시도를 추가할 때만 429의 Retry-After와 일시적 5xx/네트워크 오류, backoff·jitter·최대 횟수·총 시간을 정하고 중복 생성 비용 가능성을 기록한다.
+
+요청 추적 정보와 `usageMetadata`의 수치만 별도 기록할 수 있으며 prompt·response·key를 통째로 로그에 남기지 않는다. 응답 판정은 [Gemini generateContent 응답 명세](https://ai.google.dev/api/generate-content)의 candidate 종료 이유와 차단 상태를 선택한 모델에서 시험한다.
 
 ## 9. 실패 사례 (What could go wrong?)
 
@@ -120,7 +173,7 @@ curl -sS \
 - 모델 이름이 현재 API에서 지원되지 않아 404나 unsupported method 오류가 난다.
 - `jq` 없이 `sed`로 prompt를 넣다가 따옴표, 역슬래시, 줄바꿈이 깨진다.
 - safety 또는 content policy로 candidate가 비어 있는데 텍스트 없음만 출력한다.
-- rate limit이나 quota 오류를 재시도 없이 무시한다.
+- rate limit이나 quota 오류를 성공으로 숨기거나 상한 없이 반복해 비용과 부하가 증가한다.
 - raw JSON을 로그에 저장해 민감 prompt가 남는다.
 
 ## 10. 뇌 확장하기 (Evolution & Variants)

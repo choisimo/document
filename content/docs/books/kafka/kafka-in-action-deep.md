@@ -3,6 +3,13 @@
 > Sources: *Kafka in Action* (Dylan Scott, Manning MEAP 2020) + *Learning Apache Kafka 2nd Ed* (Nishant Garg)  
 > Focus: Internal data paths, segment file mechanics, consumer group coordination, compaction internals, EOS lifecycle, timing wheel purgatory
 
+## Version and model boundary
+
+- This document combines sources from different Kafka eras. Mark ZooKeeper flows as historical and confirm KRaft, group protocol, record format, and broker defaults against the deployed release.
+- Diagrams are representative state machines, not packet captures. A completion claim needs logs, metrics, effective configuration, and a reproducible failure scenario.
+- "Exactly once" is scoped to committed Kafka records and offsets read with the matching isolation level. External side effects remain outside that transaction.
+- Complexity claims name the unit of work. Timer insertion can be constant-time while expiration still costs work proportional to callbacks that become due.
+
 ---
 
 ## 1. Partition → Segment → Record: Physical Layout on Disk
@@ -255,10 +262,10 @@ flowchart TD
     TW -->|"bucket expires"| expire["Force-expire operation\nreturn timeout error"]
 ```
 
-**Why O(1)?**  
-- Insert: place in bucket = `O(1)` array slot lookup  
-- Expiry: advance wheel pointer one tick = `O(1)` per ms  
-- No O(n) scan of all pending timers  
+**Why near O(1) for wheel bookkeeping?**  
+- Insertion uses bucket arithmetic plus list insertion under the timing-wheel assumptions.  
+- Advancing an empty bucket is constant work, but expiring a populated bucket also costs O(k) for its k due entries and callbacks.  
+- Cascading between levels and cancellation add implementation-dependent work even though a full scan of all timers is avoided.  
 - Multi-level design handles wide timeout ranges without wasteful fine-grained buckets at long durations
 
 Source class: `kafka.utils.timer.SystemTimer` / `TimingWheel.scala`

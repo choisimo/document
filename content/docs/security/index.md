@@ -1,6 +1,78 @@
-# Security
+---
+title: "보안"
+---
+
+# 보안 {#security}
+
+<nav class="hub-directory" aria-label="보안 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">SSH</h2>
+
+- [SSH Configuration](ssh/configuration.md)
+- [SSH Key Management](ssh/key-management.md)
+- [SSH Match Rules](ssh/match-rules.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">VPN</h2>
+
+- [Tailscale VPN](vpn/tailscale.md)
+- [WireGuard VPN](vpn/wireguard.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">Zero Trust</h2>
+
+- [Cloudflare Zero Trust](zerotrust/cloudflare.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-4" markdown="1">
+
+<h2 id="directory-group-4">접근 제어</h2>
+
+- [User and ACL Management](access/user-acl.md)
+- [Remote Access Permissions](access/permissions.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-5" markdown="1">
+
+<h2 id="directory-group-5">함께 읽기</h2>
+
+- [리눅스 고정 IP 설정 기준](../infrastructure/networking/network-settings.md)
+- [Prometheus, Grafana, Loki 관측 스택](../infrastructure/monitoring/prometheus-grafana-loki.md)
+- [Docker 설치 가이드](../development/docker/installation.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
 
 이 영역은 호스트 접근, SSH, 사용자 권한, VPN, Zero Trust를 운영 관점에서 안전하게 구성하기 위한 문서 모음이다.
+
+## 이 문서의 사용 기준
+
+이 페이지는 보안 통제 후보를 찾기 위한 내비게이션이며 모든 환경에 동일하게 적용하는 기준선이 아닙니다. 자산, 위협 행위자, 관리 경로, 규제 요구사항과 가용성 목표를 먼저 정한 뒤 각 통제의 효과와 운영 비용을 평가합니다.
+
+- **환경 전제**: Linux 배포판, OpenSSH와 방화벽 구현, VPN 및 Zero Trust 제품의 버전과 요금제에 따라 명령과 기능이 달라집니다.
+- **변경 안전성**: 원격 호스트에서는 콘솔 또는 별도 관리자 세션을 유지하고, 현재 관리 포트와 허용 대역을 확인한 뒤 SSH와 방화벽을 단계적으로 적용합니다.
+- **증거 상태**: 체크리스트와 빠른 시작은 예시입니다. 설정 파일, 유효 설정 출력, 방화벽 규칙, 인증 및 거부 로그로 실제 적용 여부를 입증해야 합니다.
+- **실패 대응**: 구문 오류, 인증 실패, 네트워크 차단 시 즉시 이전 설정으로 복구할 백업과 명시적인 롤백 담당자를 준비합니다.
+- **완료 조건**: 승인된 계정의 새 세션 성공, 비승인 접근 거부, 필요한 서비스의 도달성, 로그와 경보 수신, 복구 절차 리허설을 확인합니다.
+
+패스워드 인증을 끄기 전에는 승인된 키 또는 MFA와 비상 접근 수단을 실제로 시험합니다. 관리 CIDR·실제 SSH 포트·계정은 대상 환경에서 확인하며 검토하지 않은 기본 포트/전체 대역 허용을 적용하지 않습니다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -97,8 +169,9 @@ create a non-root admin user
   -> verify key login in a second session
   -> disable password login
   -> restrict allowed users
-  -> enable firewall with SSH allow rule
-  -> review authentication logs
+  -> review firewall dry-run for approved admin CIDR and actual SSH port
+  -> enable the reviewed firewall policy
+  -> test allowed and denied access; review authentication logs
 ```
 
 VPN이나 Zero Trust를 추가할 때도 같은 방식으로 "기존 접속 유지, 새 경로 검증, 기존 공개 경로 차단" 순서를 지킨다.
@@ -132,3 +205,5 @@ VPN이나 Zero Trust를 추가할 때도 같은 방식으로 "기존 접속 유�
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 보안은 단일 도구를 켜는 일이 아니라, 네트워크 경로, 인증, 권한, 로그, 복구 경로를 함께 검증하는 운영 절차다.
+
+</details>

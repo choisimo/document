@@ -1,6 +1,66 @@
-# Extra 리소스 색인 학습 및 기록 노트
+---
+title: "도구와 보조 리소스"
+---
+
+# 도구와 보조 리소스 {#extra}
+
+<nav class="hub-directory" aria-label="도구와 보조 리소스 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group hub-directory__group--wide" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">원본 파일과 도구</h2>
+
+- [알고리즘 시뮬레이터](/extra/algorithm-simulator/index.html)
+- [알고리즘 소스 모음](/extra/algorithm-code/)
+- [자동화 스크립트](/extra/scripts/)
+- [서버 설정 파일](/extra/configs/)
+- [프로젝트 자료](/extra/project-docs/)
+- [보관 문서](/extra/legacy/)
+- [프롬프트 원본](/extra/prompts-raw/)
+- [MCP 설정](/extra/mcp/)
+- [작업 메모](/extra/memo/)
+- [시뮬레이터 소스](/extra/algorithm-code/simulator/)
+- [알고리즘 구현 코드](/extra/algorithm-code/code/)
+- [이진 탐색 트리 구현](/extra/algorithm-code/data-structures/tree/binary-search-tree/)
+- [배포 스크립트](/extra/scripts/deployment/deploy.sh)
+- [컨테이너 이미지 소스](/extra/docker/images/)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">주요 문서</h2>
+
+- [API 키 대시보드](api-key-dashboard.html)
+- [Docker Compose 컬렉션](docker/index.md)
+- [Compose 스택](docker/stacks/index.md)
+- [자동화 Compose 스택](docker/stacks/automation/index.md)
+- [데이터베이스 Compose 스택](docker/stacks/databases/index.md)
+- [개발 도구 Compose 스택](docker/stacks/devtools/index.md)
+- [미디어 Compose 스택](docker/stacks/media/index.md)
+- [기타 서비스 Compose 스택](docker/stacks/misc/index.md)
+- [모니터링 Compose 스택](docker/stacks/monitoring/index.md)
+- [프록시 Compose 스택](docker/stacks/proxy/index.md)
+- [보안 Compose 스택](docker/stacks/security/index.md)
+- [스토리지 Compose 스택](docker/stacks/storage/index.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
 
 Extra 섹션은 일반 문서 본문과 별도로 제공되는 보조 리소스의 진입점이다. 현재 `content/docs/extra` 아래에서 확인되는 리소스는 API key dashboard HTML과 Docker Compose 컬렉션 문서다.
+
+## 인덱스 범위
+
+- 이 페이지는 인터랙티브 도구, 코드·스크립트와 부가 문서의 탐색 경로입니다. 링크 노출이 실행 안전성이나 현재 동작을 보증하지 않습니다.
+- 도구는 지원 브라우저와 입력 범위를, 스크립트는 대상 OS·권한·부작용과 롤백을 대상 문서에서 확인합니다.
+- 항목 추가·이동 시 링크와 설명을 함께 갱신하고, 대표 입력으로 실제 산출물이 생성되는 상태를 완료 기준으로 삼습니다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -140,3 +200,5 @@ Docker 스택처럼 실제 실행 파일이 다른 디렉터리에 있는 경우
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 Extra 색인은 보조 리소스의 `__________` 지도다. 링크는 실제 `__________`가 있을 때만 남기고, Docker 문서는 `__________`의 Compose 파일을 기준으로 확인한다.
+
+</details>

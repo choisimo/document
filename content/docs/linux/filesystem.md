@@ -2,6 +2,15 @@
 
 이 문서는 Linux 파일시스템을 inode, directory entry, file descriptor, open file table, permission, link 관점에서 정리한다. 목표는 `ls`, `stat`, `open`, `dup`, `chmod`, `link`, `symlink`가 같은 파일 모델 위에서 어떻게 연결되는지 이해하는 것이다.
 
+## 적용 범위와 검증 기준
+
+- **범위:** 이 장은 전통적인 Unix inode 모델과 Linux VFS를 중심으로 한 개념 설명입니다. 실제 layout은 filesystem, kernel, mount option, architecture와 on-disk format 버전에 따라 다릅니다.
+- **전제:** block size, inode·extent 방식, journaling, link·permission semantics, namespace와 process ABI를 명시합니다. ext 계열 설명을 Btrfs, XFS, ZFS, network 또는 pseudo filesystem에 전칭하지 않습니다.
+- **사실과 추론:** system call 결과와 matching kernel/filesystem 문서는 근거이고, cache·disk layout·성능 설명은 trace나 filesystem 도구로 확인하기 전까지 모델입니다.
+- **실패·완료:** permission denial, stale link, concurrent rename, full filesystem, I/O error와 crash recovery를 포함해 실험하고, `stat`·directory entry·link count와 실제 내용이 예상 invariant를 만족할 때 완료입니다.
+
+---
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 파일 문제는 겉으로 보기에는 “파일이 없다”, “권한이 없다”, “용량이 없다”처럼 단순해 보인다. 하지만 실제 원인은 path 해석, mount point, inode, permission, open file handle, link count, process working directory 중 하나일 수 있다.
@@ -53,7 +62,7 @@ Superblock은 filesystem 전체 metadata를 담는다. block size, inode 수, fr
 
 Inode는 파일의 metadata다. 파일 타입, 권한, 소유자, 크기, timestamp, data block pointer를 가진다. 파일 이름은 inode 안에 저장되지 않는다.
 
-Directory entry는 이름과 inode 번호의 매핑이다. directory 자체도 하나의 파일이며 그 내용이 entry 목록이다.
+Directory도 inode를 가지며 entry는 이름과 inode를 연결한다. 디스크상의 directory entry와 index 구조는 filesystem 구현별로 별도 관리되므로 모든 directory를 동일한 단순 entry 배열로 가정하지 않는다.
 
 File descriptor는 process 내부의 작은 정수 handle이다. `0`, `1`, `2`는 표준 입력, 표준 출력, 표준 오류다.
 
@@ -97,7 +106,7 @@ dup existing descriptor
 unlink path
   -> directory entry removed
   -> link count decreases
-  -> data freed only when link count is zero and no process keeps it open
+  -> object released after last link and remaining open/mapping references are gone
 ```
 
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
@@ -130,13 +139,13 @@ ln original.txt hard.txt
 ln -s original.txt sym.txt
 ls -li original.txt hard.txt sym.txt
 stat original.txt hard.txt
-lstat sym.txt
+stat -c '%N %F %i' sym.txt
 ```
 
-`lstat` 명령이 없는 환경에서는 `stat` 옵션으로 symlink 자체를 확인한다.
+위의 GNU stat 명령은 기본적으로 symlink 자체를 본다. target을 따라가려면 `stat -L`을 사용한다. C API의 stat()은 기본적으로 target을 따라가므로 CLI와 구분한다.
 
 ```bash
-stat -c '%N %F %i' sym.txt
+stat -L -c '%N %F %i' sym.txt
 ```
 
 File descriptor를 확인한다.
@@ -157,20 +166,23 @@ sudo lsof | rg deleted
 `stat()`과 `lstat()`의 차이를 보는 최소 C 예제다.
 
 ```c
+#define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
+#include <inttypes.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 static void print_inode(const char *label, const struct stat *st) {
-    printf("%s inode=%lu mode=%o size=%ld\n",
+    printf("%s inode=%ju mode=%jo size=%jd\n",
            label,
-           (unsigned long)st->st_ino,
-           st->st_mode,
-           (long)st->st_size);
+           (uintmax_t)st->st_ino,
+           (uintmax_t)st->st_mode,
+           (intmax_t)st->st_size);
 }
 
 int main(int argc, char **argv) {
     struct stat st;
+    int failed = 0;
 
     if (argc != 2) {
         fprintf(stderr, "usage: file-stat PATH\n");
@@ -181,15 +193,17 @@ int main(int argc, char **argv) {
         print_inode("stat", &st);
     } else {
         perror("stat");
+        failed = 1;
     }
 
     if (lstat(argv[1], &st) == 0) {
         print_inode("lstat", &st);
     } else {
         perror("lstat");
+        failed = 1;
     }
 
-    return 0;
+    return failed;
 }
 ```
 
@@ -212,7 +226,7 @@ Symlink target을 상대 경로로 만들면 link를 이동했을 때 깨질 수
 
 Hard link는 같은 filesystem 안에서만 동작한다. 다른 mount point로는 `Invalid cross-device link`가 발생한다.
 
-`cp`는 기본적으로 새 inode를 만들지만 `mv`는 같은 filesystem 안에서는 directory entry만 바꿀 수 있다. 이 차이가 권한과 timestamp 결과에 영향을 준다.
+`cp`가 새 목적지 파일을 만들면 새 inode가 생기지만, 기존 목적지를 덮어쓰는 경우에는 옵션과 대상에 따라 기존 inode를 사용할 수 있다. 같은 filesystem의 rename 기반 `mv`는 기존 inode를 유지하며 directory entry를 바꿀 수 있다.
 
 `du`와 `df` 값이 다르면 sparse file, deleted open file, mount point, reserved block을 함께 의심한다.
 

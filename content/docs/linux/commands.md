@@ -2,6 +2,13 @@
 
 이 문서는 Linux 시스템을 확인하고 관리할 때 자주 쓰는 명령어를 작업 흐름 중심으로 정리한다. 목표는 명령어 옵션을 많이 외우는 것이 아니라 파일, 프로세스, 네트워크, 로그, 디스크 상태를 안전한 순서로 확인하는 것이다.
 
+## 적용 범위와 안전 기준
+
+- **범위:** shell, Linux 배포판, GNU coreutils·BusyBox·util-linux·iproute2 버전, filesystem과 권한을 명시합니다. 같은 명령 이름도 platform과 구현에 따라 option·출력이 다를 수 있습니다.
+- **전제:** 현재 경로, 대상 file·process·device, glob 확장, quoting, locale와 privilege를 확인합니다. 삭제·권한·signal·network 변경은 먼저 조회로 범위를 확인합니다.
+- **사실과 추론:** exit status, stdout/stderr와 변경된 system state가 사실이며, 성공 메시지만으로 데이터·서비스의 의도한 결과를 추론하지 않습니다.
+- **실패·완료:** 잘못된 대상, 부분 처리, permission·disk-full 오류, 끊어진 session과 되돌릴 수 없는 삭제를 실패로 둡니다. 기대 상태와 영향 범위, 재실행 안전성 또는 복구 방법을 확인해야 완료입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 장애 상황에서 명령어를 아무 순서로 실행하면 원인보다 증상을 먼저 바꾸게 된다. 예를 들어 로그를 보기 전에 service를 재시작하거나, mount 상태를 보기 전에 디스크를 format하면 복구 단서가 사라진다.
@@ -134,7 +141,7 @@ less app.log
 wc -l app.log
 ```
 
-로그에서 자주 나온 IP를 센다.
+로그의 IPv4처럼 보이는 숫자 문자열 빈도를 센다. 아래 정규식은 0–255 범위나 client IP 필드를 검증하지 않으므로 정확한 접속자 집계에는 로그 형식에 맞는 parser를 사용한다.
 
 ```bash
 rg -o '[0-9]+[.][0-9]+[.][0-9]+[.][0-9]+' access.log | sort | uniq -c | sort -rn | head
@@ -181,18 +188,18 @@ stat /etc/ssh/sshd_config
 namei -l /etc/ssh/sshd_config
 ```
 
-변경 전 백업을 만든다.
+변경 전 원본을 백업하고 설정 변경 뒤 구문 검사가 성공한 경우에만 reload한다. 아래 ssh unit 이름은 실제 설치된 ssh.service 또는 sshd.service와 맞춘다.
 
 ```bash
 sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak
-sudo sshd -t
-sudo systemctl reload ssh
+sudo sshd -t && sudo systemctl reload ssh
+
 systemctl status ssh
 ```
 
 ## 9. 실패 사례 (What could go wrong?)
 
-`rm -rf "$DIR"`에서 `DIR` 변수가 비어 있거나 `/`에 가까운 값이면 큰 사고가 난다. 실행 전 `printf '%s\n' "$DIR"`로 값을 확인한다.
+`rm -rf "$DIR"`에서 빈 문자열 하나는 보통 삭제 대상을 만들지 않지만, 의도와 다른 경로·미인용 변수·`"$DIR/"` 같은 경로 조합은 위험하다. 실행 전에 변수의 비어 있지 않음, 실제 해석된 경로와 허용 범위를 확인해야 하며 값 출력만으로 이를 보장하지는 않는다.
 
 `find . -delete`는 현재 디렉터리 기준으로 바로 삭제한다. 먼저 `find . ... -print`로 결과를 확인한다.
 

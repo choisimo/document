@@ -1,5 +1,12 @@
 # Docker 권한 및 재시작 명령 학습 및 기록 노트
 
+## 적용 범위와 안전 기준
+
+- **범위:** 아래 그룹·sudo·systemd 예시는 rootful Linux Docker Engine을 전제로 합니다. Desktop과 rootless daemon은 socket 경로·서비스 관리·권한 모델을 별도로 확인합니다.
+- **권한 전제:** `docker` socket 접근은 일반적으로 host root에 준하는 권한을 줄 수 있습니다. group 추가와 광범위한 `sudo` 허용은 편의 설정이 아니라 보안 경계 변경으로 검토합니다.
+- **실패 조건:** 잘못된 `sudoers`, 기존 container policy 덮어쓰기, daemon 미기동, session에 반영되지 않은 group과 의도하지 않은 자동 재시작을 실패로 봅니다.
+- **완료 기준:** 최소 권한을 확인하고 새 session에서 대상 명령만 실행되며 daemon·host reboot 뒤 기대한 container만 재시작되는지 검증해야 완료입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Docker 설치 직후에는 일반 사용자가 Docker daemon에 접근하지 못하거나, 컨테이너가 서버 재부팅 후 자동으로 올라오지 않는 문제가 자주 생긴다. 반대로 `docker` 그룹 권한은 사실상 root 수준의 권한이므로 무심코 부여하면 host 보안 경계가 약해진다. `sudoers` 수정도 잘못하면 관리자 권한을 잃을 수 있다.
@@ -45,7 +52,7 @@ Docker 권한 data flow는 명령 하나로 끝나지 않는다. group membershi
 | Docker group | `sudo usermod -aG docker $USER` | 일반 사용자에게 daemon socket 접근 허용 |
 | New session | logout/login 또는 `newgrp docker` | group membership 반영 |
 | 권한 검증 | `docker ps` | sudo 없이 Docker 접근 확인 |
-| Restart policy | `--restart always` | 종료/재부팅 후 자동 재시작 |
+| Restart policy | `--restart always` | 정책 조건에 따른 재시작; 수동 stop 뒤에는 daemon 재시작 또는 명시적 시작까지 중지 유지 |
 | Existing container update | `docker update --restart always name` | 이미 만든 container policy 변경 |
 | sudoers 편집 | `sudo visudo` | `/etc/sudoers` 구문 검증 편집 |
 | sudo rule | `user ALL=(ALL:ALL) ALL` | 사용자 sudo 권한 정의 |
@@ -88,7 +95,7 @@ docker ps
 Container 자동 재시작:
 
 ```bash
-docker run -d --name nginx --restart always nginx
+docker run -d --name nginx --restart always "${NGINX_IMAGE:?set reviewed nginx tag or digest}"
 docker update --restart always nginx
 ```
 

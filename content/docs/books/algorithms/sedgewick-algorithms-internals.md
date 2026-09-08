@@ -1,5 +1,7 @@
 # Sedgewick Algorithms 내부 메커니즘 학습 및 기록 노트
 
+> **Reading contract:** Scope is Sedgewick & Wayne 4th edition (2011) and its Java-oriented implementations. JVM object layout, `String` storage, cache-line size, allocation cost, and collection internals are versioned implementation facts, not Java or algorithm guarantees. Complexity claims must name the algorithm variant and input model; measured layout claims must name JDK, VM, architecture, and flags. A subsection is complete when invariant, preconditions, failure boundary, source chapter, and runtime version are present. If a newer runtime invalidates a layout, retire that example rather than carrying its conclusion forward.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Sedgewick & Wayne의 Algorithms는 Java 구현을 통해 알고리즘을 설명한다. 그래서 같은 `O(log N)`이라도 실제로는 배열 접근, 객체 참조, heap allocation, pointer chasing, cache locality, JVM stack depth 같은 실행 비용이 함께 따라온다.

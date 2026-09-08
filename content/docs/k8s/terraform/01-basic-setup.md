@@ -2,6 +2,13 @@
 
 이 문서는 Terraform을 처음 실행할 때 필요한 프로젝트 구조, provider 초기화, plan/apply/destroy 흐름, state 관리 원칙을 정리한다. 목표는 “HCL 파일을 쓰면 인프라가 생긴다”가 아니라 “Terraform이 state와 provider API를 기준으로 변경 계획을 계산한다”는 점을 이해하는 것이다.
 
+## 실습 범위와 상태 계약
+
+- 이 문서는 로컬 파일 provider로 Terraform workflow를 익히는 범위입니다. 클라우드 계정·조직의 운영 IaC 정책은 별도입니다.
+- Terraform CLI와 provider 버전을 제약 파일과 lock file로 고정하고 배포 파일의 checksum을 확인합니다.
+- state에는 리소스 식별자와 민감 값이 포함될 수 있습니다. 저장 위치, 암호화, 잠금, 접근 권한과 백업 소유자를 정합니다.
+- 적용 완료는 `apply` 종료가 아니라 state와 실제 대상 일치, 산출물 확인, 재계획 시 예상치 못한 diff 부재와 destroy/rollback 결과입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 인프라를 콘솔에서 수동으로 만들면 누가 무엇을 바꿨는지 추적하기 어렵다. 같은 환경을 다시 만들기도 어렵고, 실수로 삭제하거나 열어둔 보안 규칙을 발견하기도 어렵다.
@@ -94,7 +101,7 @@ config changed
 - `.terraform.lock.hcl`은 팀에서 같은 provider build를 쓰기 위해 보관한다.
 - state 파일을 직접 편집하지 않는다.
 - 같은 state에 대해 동시에 apply하지 않는다.
-- `terraform destroy`는 관리 중인 모든 리소스를 삭제할 수 있으므로 대상과 workspace를 확인한다.
+- `terraform destroy`는 선택한 구성·state가 추적하는 삭제 가능 리소스의 계획을 만든다. 대상 backend·workspace와 보존 정책을 확인하며, 다른 state나 수동 생성 리소스까지 정리됐다고 가정하지 않는다.
 - `-target`은 복구나 예외 상황에서만 제한적으로 사용한다.
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)

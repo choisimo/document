@@ -1,5 +1,12 @@
 # 알고리즘 CS 레퍼런스 학습 및 기록 노트
 
+## 읽는 기준
+
+- 이 문서의 복잡도는 별도 언급이 없으면 RAM 모델과 점근 표기 기준이다. 입력 표현, 자료구조, 수치 정밀도에 따라 실제 비용은 달라진다.
+- `최적`, `보장`, `근사비`는 해당 절에 적힌 전제와 증명이 성립할 때만 사용한다. 휴리스틱의 품질은 데이터셋과 종료 조건을 함께 기록해 측정한다.
+- 구현을 선택할 때는 문제 크기만 보지 말고 그래프 밀도, 메모리 한도, 온라인 입력 여부, 허용 오차를 먼저 고정한다.
+- 예시 수치는 일반 결론이 아니라 계산 과정을 설명하기 위한 사례다. 운영 판단에는 대표 입력과 최악 입력을 모두 벤치마크한다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 알고리즘 레퍼런스는 DP, 네트워크 플로우, 문자열 알고리즘, 계산 복잡도, 확률 알고리즘, 근사 알고리즘, 계산기하를 함께 다룬다. 범위가 넓지만 공통 질문은 하나다. "어떤 상태를 저장하고, 어떤 전이를 허용하며, 어떤 불변식을 보존하는가?"
@@ -54,7 +61,7 @@ flowchart TD
 | KMP LPS | prefix/suffix 일치 길이 | text를 재스캔하지 않는다. |
 | Suffix array/LCP | 정렬된 suffix index | 반복 문자열 질의를 빠르게 만든다. |
 | Polynomial reduction | instance 변환 | 답의 존재 여부를 다항 시간 안에 보존한다. |
-| Bloom filter | bit array와 hash 함수 | false negative 없이 membership을 근사한다. |
+| Bloom filter | bit array와 hash 함수 | 삭제하지 않는 표준 필터는 삽입 완료된 키에 false negative를 만들지 않으며, 동시 처리·상태 유실·정규화 차이는 별도로 검토한다. |
 | Graham scan | polar-sorted point와 stack | convex boundary를 유지한다. |
 
 ## 6. 상태 전이 (State Transition)

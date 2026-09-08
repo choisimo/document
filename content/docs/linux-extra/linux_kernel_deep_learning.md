@@ -2,6 +2,13 @@
 
 이 문서는 Linux 커널을 user space와 kernel space, system call, VFS, loadable module, character device, netfilter 관점에서 학습하기 위한 안내서다. 목표는 커널 내부 코드를 길게 암기하는 것이 아니라 사용자 명령이 어떤 커널 경로로 내려가는지 추적하는 것이다.
 
+## 버전·안전·증거 경계
+
+- 커널 내부 구조, 함수 원형, netfilter hook, VFS와 메모리 동작은 release, architecture, config와 compiler에 따라 달라집니다. 예제마다 대상 kernel source commit을 고정합니다.
+- 커널 모듈 예제는 격리 VM과 snapshot에서만 빌드·삽입하고 Secure Boot, symbol versioning, taint, unload 실패와 crash 복구 콘솔을 준비합니다.
+- 주소·시간·처리량을 예시로 제시할 때는 교육용 값과 실제 관측을 구분합니다. tracepoint, perf/BPF와 같은 hardware·workload의 분포 측정 없이 고정 성능 수치를 보장하지 않습니다.
+- 네트워크 parser를 구현하는 확장 실습에서는 header 길이, non-linear skb, fragment, checksum과 동시성을 검증해야 합니다. 이 노트는 packet 경로 관찰을 다루며 운영 필터 구현을 제공하지 않습니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Linux 장애와 성능 문제는 사용자 공간 로그만으로 설명되지 않을 때가 있다. 파일 open 지연, network packet drop, module load 실패, permission denial은 kernel subsystem과 연결된다.
@@ -35,7 +42,7 @@ Linux 장애와 성능 문제는 사용자 공간 로그만으로 설명되지 �
 
 ## 4. 시스템 번역 (Data Flow)
 
-파일 read의 단순화된 흐름은 다음과 같다.
+파일을 열고 읽는 단순화된 흐름은 다음과 같다. 경로 lookup은 open 계열에서 수행하며, 이미 열린 fd의 read는 연결된 file object를 사용한다.
 
 ```text
 user process
@@ -77,7 +84,7 @@ User space는 일반 application이 실행되는 권한 제한 영역이다. Ker
 
 Kernel space는 scheduler, memory manager, VFS, network stack, device driver가 실행되는 영역이다. 버그가 system 전체 장애로 이어질 수 있다.
 
-System call은 user process가 kernel service를 요청하는 공식 entry다. `openat`, `read`, `write`, `ioctl`, `socket` 등이 대표적이다.
+System call은 user process의 요청을 kernel service로 전달하는 주요 동기 진입 경로다. `openat`, `read`, `write`, `ioctl`, `socket` 등이 대표적이며 exception·interrupt 진입 및 syscall 내부의 interrupt/preemption 가능성과 구분한다.
 
 VFS는 다양한 filesystem을 공통 interface로 묶는다. Dentry는 이름 lookup cache, inode는 filesystem object metadata, file object는 열린 파일 상태를 나타낸다.
 
@@ -130,9 +137,11 @@ Packet 상태 전이는 다음과 같다.
 driver receive
   -> prerouting hook
   -> routing
-  -> input or forward hook
-  -> socket delivery or output
-  -> postrouting hook
+  -> input -> local socket delivery
+  or
+  -> forward -> postrouting -> egress
+locally generated packet -> output -> postrouting -> egress
+
 ```
 
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
@@ -187,7 +196,7 @@ cat /proc/meminfo | head
 vmstat 1
 ```
 
-Module load와 unload를 안전한 내장 module로 실습한다. 없는 module이면 실행하지 않는다.
+Module load/unload는 복구 snapshot이 있는 격리 VM에서 환경이 제공하는 `dummy` loadable module로 실습한다. built-in이거나 다른 사용자가 참조 중인 구성은 unload 실습 대상이 아니다.
 
 ```bash
 modinfo dummy

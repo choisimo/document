@@ -1,4 +1,64 @@
-# 데이터베이스 문서 인덱스 학습 및 기록 노트
+---
+title: "데이터베이스"
+---
+
+# 데이터베이스 {#_1}
+
+<nav class="hub-directory" aria-label="데이터베이스 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">주요 문서</h2>
+
+- [데이터베이스 및 애플리케이션 설치](installation.md)
+- [PostgreSQL 주요 명령어](postgresql-guide.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">Redis</h2>
+
+- [Redis 개요](redis/overview.md)
+- [Redis Spring Boot Integration](redis/springboot-integration.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">JPA와 쿼리</h2>
+
+- [JPA 개요 및 복합키](jpa/overview.md)
+- [JPA Entity Relationships](jpa/relationships.md)
+- [QueryDSL과 JPA 연동](jpa/querydsl.md)
+- [Spring Bean Lifecycle 관리](jpa/lifecycle.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-4" markdown="1">
+
+<h2 id="directory-group-4">함께 읽기</h2>
+
+- [Java](../java/index.md)
+- [Docker 설치 가이드](../development/docker/installation.md)
+- [Prometheus, Grafana, Loki 관측 스택](../infrastructure/monitoring/prometheus-grafana-loki.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
+
+## 문서 경계
+
+- 이 페이지는 현재 문서로 이동하기 위한 인덱스이며 제품 선택이나 운영 준비 완료를 보증하지 않습니다.
+- 설치 문서는 OS·DB 버전, 네트워크 노출, 인증서와 백업 조건을 먼저 확인하고 사용합니다.
+- ORM·캐시 예시는 데이터 모델, 트랜잭션 경계, 쿼리 계획과 실패 시 일관성을 명시한 뒤 적용합니다.
+- 링크·요약·비교표는 대상 문서의 실제 범위가 바뀔 때 함께 갱신합니다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -121,3 +181,5 @@ stateDiagram-v2
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 데이터 계층은 DB 하나가 아니라 저장소, ORM, 쿼리, 캐시, 운영 지표가 이어진 흐름으로 봐야 한다.
+
+</details>

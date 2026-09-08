@@ -2,6 +2,15 @@
 
 이 문서는 Proxmox VE가 설치된 OS 디스크를 새 SSD로 옮길 때 선택할 수 있는 두 가지 경로를 정리한다. 목표는 “디스크를 복제한다”가 아니라 VM/CT 데이터, host 설정, bootloader, storage mapping을 잃지 않고 검증하는 것이다.
 
+## 적용 범위와 마이그레이션 증거
+
+- **범위:** Proxmox VE version, standalone·cluster 상태, boot mode, partition table, EFI, storage stack(LVM/ZFS/directory/Ceph), source/target sector size·capacity와 VM/CT storage 위치를 기록합니다.
+- **안전 전제:** 외부 저장소의 VM/CT backup과 host·network·storage 구성을 만들고 별도 환경에서 restore를 시험합니다. device serial을 대조한 뒤 target의 기존 데이터가 삭제됨을 승인합니다.
+- **방법 선택:** raw clone, filesystem-aware clone, 새 설치 후 restore는 downtime, consistency, target 크기, boot repair와 cluster identity가 다릅니다. 어느 방법도 모든 환경에서 가장 안전하거나 추가 설정이 없다고 보장하지 않습니다.
+- **실패·완료:** source 오기입, live-write 불일치, boot·EFI 실패, storage 미인식, quorum·network 변경과 VM/CT 복원 실패를 포함합니다. source를 보존한 상태에서 host boot, storage, network, cluster health와 각 workload가 검증될 때 완료입니다.
+
+---
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Proxmox OS 디스크를 교체할 때는 host OS만 옮기는 문제가 아니다. `/etc/pve`의 VM/CT 설정, storage 설정, network 설정, cluster 정보, bootloader, local storage에 있는 guest disk가 함께 영향을 받는다.
@@ -59,7 +68,7 @@ guest backups and host config backup
 
 ## 5. 핵심 구성요소 (Building Blocks)
 
-VM/CT backup은 `vzdump`, Proxmox Backup Server, 또는 GUI backup job으로 만든다. Proxmox 공식 문서는 VM/CT backup이 guest configuration과 data를 포함하는 full backup이라고 설명한다.
+VM/CT backup은 vzdump, Proxmox Backup Server 또는 GUI job으로 만든다. guest configuration과 백업 대상으로 선택된 데이터가 포함되며 backup=0 disk, physical passthrough와 CT bind/device mount 등 제외된 데이터는 별도 백업한다. snapshot 방식의 애플리케이션 일관성은 guest quiesce·DB 정책과 복원 시험으로 확인한다.
 
 `/etc/pve`는 Proxmox Cluster File System이다. 일반 directory처럼 취급하기보다 현재 node/cluster 상태를 고려해 선택적으로 복원해야 한다.
 
@@ -117,7 +126,7 @@ new SSD installed
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
 
-현재 guest와 storage inventory를 저장한다.
+현재 guest와 storage inventory를 조회하고 출력은 마이그레이션 기록에 별도로 저장한다. ZFS/LVM 명령은 실제 사용하는 storage 계층에 적용한다.
 
 ```bash
 pvesh get /nodes/$(hostname)/qemu
@@ -141,7 +150,7 @@ ls -lh /var/lib/vz/dump
 find /mnt/backup -maxdepth 2 -type f
 ```
 
-Host 설정을 별도 보관한다.
+Host 설정을 임시로 묶는다. 아래 /root/pve-host-backup은 원본 OS 디스크 안이므로 독립 백업이 아니다. 생성한 자료를 외부 저장소로 내보내고 파일 존재·읽기·복구 절차를 확인한 뒤 디스크 작업을 진행한다.
 
 ```bash
 mkdir -p /root/pve-host-backup
@@ -154,7 +163,7 @@ pveversion -v > /root/pve-host-backup/pveversion.txt
 pvesm status > /root/pve-host-backup/storage-status.txt
 ```
 
-복제 방식은 Proxmox를 끄고 Clonezilla 같은 offline 도구로 source disk와 target SSD를 선택한다. 복제 완료 후 기존 OS 디스크를 제거하거나 disconnect한 뒤 새 SSD로 부팅한다.
+외부 백업과 복원 시험이 끝나면 Proxmox를 종료하고 offline 도구로 source/target serial·용량·sector size와 지원 filesystem을 대조한다. 복제 범위 밖 EFI NVRAM, NIC 이름·network와 cluster identity는 별도 검증한다. 기존 OS 디스크를 보존·분리한 뒤 새 SSD로 부팅한다.
 
 부팅 후 기본 상태를 확인한다.
 
@@ -207,7 +216,7 @@ pct status 101
 
 Clone source와 target을 반대로 선택하면 기존 OS 디스크를 빈 SSD로 덮어쓸 수 있다. 모델명, serial, 용량을 물리 라벨과 대조한다.
 
-새 SSD가 더 작으면 block-level clone이 실패하거나 끝부분 데이터가 잘린다. 이 경우 재설치와 backup restore가 더 안전하다.
+Raw whole-disk clone은 target이 복제할 전체 범위를 수용해야 한다. 더 작은 target은 지원되는 filesystem-aware 축소·복제 또는 새 설치 후 restore를 사용량·지원 조건·복원 시험으로 판단한다. 크기만으로 어느 경로가 항상 더 안전하다고 보장하지 않는다.
 
 복제 후 남은 공간을 자동으로 쓰지 못할 수 있다. LVM, ZFS, partition table 확장은 별도 단계로 검증한다.
 
@@ -219,13 +228,13 @@ Cluster node는 corosync, certificate, node identity, quorum 문제가 얽힌다
 
 ## 10. 뇌 확장하기 (Evolution & Variants)
 
-단일 node라면 “재설치 후 backup restore”가 가장 이해하기 쉽고 검증 가능하다. Clone은 빠르지만 기존 디스크 레이아웃 문제도 그대로 가져간다.
+단일 node에서도 clone과 새 설치 후 restore는 storage layout, downtime, target 크기와 복구 경험으로 선택한다. clone은 기존 레이아웃과 설정도 옮기며 새 설치는 host 설정 누락·복구 시간 위험이 있으므로 검증된 backup과 rollback이 있는 경로를 고른다.
 
 Production에 가까운 환경에서는 Proxmox Backup Server를 사용해 guest backup, retention, restore test를 정기화하는 편이 좋다.
 
 Host OS 자체는 IaC로 재구성 가능하게 만들고, guest data는 backup system으로 복구하는 구조가 장기적으로 안전하다.
 
-공식 문서는 Proxmox backup이 VM/CT configuration과 data를 포함하고, restore는 `qmrestore`와 `pct restore`로 수행한다고 설명한다.
+VM/CT restore에는 qmrestore와 pct restore를 사용하며 backup에 실제 포함된 구성·disk만 복구된다. 제외된 mount·device, host network·storage·cluster 상태는 별도로 준비하고 전체 workload를 검증한다.
 
 - Proxmox Backup and Restore: <https://pve.proxmox.com/pve-docs/chapter-vzdump.html>
 - Proxmox documentation index: <https://pve.proxmox.com/pve-docs/index.html>

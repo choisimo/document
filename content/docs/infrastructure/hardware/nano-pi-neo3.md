@@ -2,6 +2,15 @@
 
 NanoPi NEO3는 FriendlyELEC의 RK3328 기반 SBC다. 초기 부팅 문제는 대부분 OS 이미지 종류, 첫 부팅 초기화 시간, 네트워크 주소 확인, 기본 계정 정책, SSH 키 사용 방식이 섞여 발생한다.
 
+## 적용 범위와 안전 기준
+
+- 초기 사용자와 인증 방식은 설치 이미지의 릴리스 노트와 첫 부팅 콘솔에서 확인합니다. 과거 이미지의 계정·암호를 현재 자격 증명으로 가정하지 않습니다.
+- 로그인 조합을 반복 대입하지 않습니다. 첫 부팅 완료, 콘솔 출력, DHCP 주소와 SSH 서비스 상태를 순서대로 확인합니다.
+- 네트워크 변경 전 기존 연결 프로필과 콘솔 복구 수단을 확보하고, 적용 후 같은 LAN과 원격 경로를 각각 검증합니다.
+- SSH 키 오류는 공개 키, 개인 키, 형식, 권한과 로그를 분리해 진단하며 개인 키 내용을 출력하거나 전송하지 않습니다.
+
+NetworkManager 명령은 `systemctl is-active NetworkManager`, `nmcli connection show`와 Netplan renderer를 확인한 뒤 적용한다. 다른 네트워크 관리자를 쓰는 이미지에는 그대로 적용하지 않는다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 SBC는 화면 없이 SSH로 접속하는 경우가 많다. 이때 기본 계정이 맞지 않거나 DHCP 주소를 못 찾거나 첫 부팅 초기화가 끝나지 않으면 “로그인이 안 된다”로 보인다. 게다가 이미지마다 FriendlyWrt, FriendlyCore, Ubuntu, Armbian의 기본 로그인 정책이 다르다.
@@ -72,14 +81,14 @@ client private key
 | OS image | 로그인 정책과 네트워크 관리 방식 결정 | 이미지 이름과 공식 문서 |
 | microSD card | 부팅 저장장치 | 재플래시와 파일시스템 확장 |
 | DHCP lease | 초기 SSH 주소 제공 | 라우터 DHCP 목록, `arp-scan` |
-| Serial console | 네트워크 없이 접속하는 복구 경로 | 1500000 bps, 8N1 |
+| Serial console | 네트워크 없이 접속하는 복구 경로 | 보드 리비전·이미지의 baud rate, 전압, pinout 확인 |
 | NetworkManager | 고정 IP 설정 관리 | `nmcli device status` |
 | SSH key pair | 안전한 원격 로그인 | 개인 키와 공개 키 권한 |
 
 공식 문서에서 확인한 안정적인 기준은 다음과 같다.
 
-- NanoPi NEO3 시리얼 디버그 포트는 1500000 bps를 사용한다.
-- Armbian 첫 SSH 로그인은 `root`와 `1234`를 사용한 뒤 비밀번호 변경과 일반 사용자 생성을 요구한다.
+- 시리얼 디버그 포트의 속도, 전압 레벨과 핀 배열은 해당 보드 리비전과 이미지의 공식 문서로 확인한 뒤 연결한다.
+- Armbian 초기 로그인은 이미지 릴리스의 사용자 생성·암호 변경 절차를 따른다. 과거의 `root`/`1234` 조합을 현재 기본값으로 보지 않는다.
 - FriendlyELEC 계열 이미지는 이미지별 계정 정책이 다르므로 해당 이미지 문서를 우선한다.
 
 ## 6. 상태 전이 (State Transition)

@@ -1,8 +1,45 @@
-# Algorithm Architect Visual Docs 색인 학습 및 기록 노트
+---
+title: "실전 알고리즘"
+---
+
+# 실전 알고리즘 {#algorithm-architect-visual-docs}
+
+<nav class="hub-directory" aria-label="실전 알고리즘 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">주요 문서</h2>
+
+- [Algorithm Architect 전체 색인](README.md)
+- [BFS 너비 우선 탐색](01-graph/01-bfs.md)
+- [Binary Search 이진 탐색](02-sorting-searching/01-binary-search.md)
+- [1D Dynamic Programming](03-dynamic-programming/01-dp-1d.md)
+- [Greedy 탐욕 알고리즘](04-greedy/01-greedy.md)
+- [Tree Traversal 트리 순회](05-tree/01-tree-traversal.md)
+- [Union-Find Disjoint Set](06-union-find/01-union-find.md)
+- [Two Pointers 투 포인터](07-two-pointers/01-two-pointers.md)
+- [Sliding Window 슬라이딩 윈도우](08-sliding-window/01-sliding-window.md)
+- [Backtracking 백트래킹](09-backtracking/01-backtracking.md)
+- [Topological Sort 위상 정렬](10-topological-sort/01-topological-sort.md)
+- [Bit Masking 비트 마스킹](11-bit-masking/01-bit-masking.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
 
 > 💡 **이 글을 쓰는 이유:** Algorithm Architect 문서 묶음은 그래프, 정렬, DP, 그리디, 트리, 비트마스크 같은 알고리즘 템플릿을 한곳에 모은 색인이다. 단순 링크 목록처럼 보여도, 학습자가 어떤 개념으로 바로 이동할지 결정하는 라우팅 문서 역할을 한다.
 
 ---
+
+## 문서 범위와 읽기 기준
+
+이 index의 범위는 빠른 이동 목록에 명시된 알고리즘 페이지다. “모든 페이지”라는 표현은 이 닫힌 목록에만 적용하며 저장소의 모든 알고리즘 문서를 뜻하지 않는다. diagram은 상태 흐름을 요약하고 핵심 code는 특정 입력 계약의 template이므로, 실제 문제 적용 전 각 페이지의 전제·복잡도·실패 상태를 확인한다. 페이지 완료는 source link, code, diagram, 적용 계약이 서로 같은 algorithm을 설명할 때 판정한다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -106,3 +143,5 @@
 > 우리가 계속 감시해야 할 핵심 상태는 **색인 링크와 실제 파일 경로의 대응** 이며,
 > **문서를 추가하거나 이동하는** 조건이 발동할 때 상태가 바뀐다.
 > 그리고 무슨 일이 있어도 **색인의 모든 내부 링크는 실제 존재하는 문서 파일을 가리켜야 한다** 라는 불변식은 반드시 유지되어야만 한다!
+
+</details>

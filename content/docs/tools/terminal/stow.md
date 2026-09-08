@@ -2,6 +2,15 @@
 
 GNU Stow는 디렉터리 안에 모아 둔 설정 파일을 대상 위치에 심볼릭 링크로 배치하는 도구다. dotfiles 저장소를 만들 때 특히 유용하다. 핵심은 파일을 복사하지 않고 링크로 연결해 Git 저장소의 파일이 실제 설정 파일처럼 보이게 만드는 것이다.
 
+## 적용 범위와 안전 기준
+
+- **범위:** GNU Stow version, stow directory, target directory, shell expansion, filesystem와 existing symlink·file 상태를 기록합니다. 다른 symlink manager의 semantics와 혼용하지 않습니다.
+- **전제:** package tree와 target의 상대 경로를 먼저 계산하고 기존 dotfile, secret, generated file와 host-specific setting을 분리합니다. Git에 secret을 포함하지 않습니다.
+- **사실과 추론:** dry-run 결과, symlink target과 conflict message는 근거이고, “깔끔함·효율성·이식성”은 repository 구조와 host 차이에 따른 설계 판단입니다.
+- **실패·완료:** 기존 file 덮어쓰기, dangling/link loop, 잘못된 target, permission과 unstow 후 잔존 link를 시험합니다. link가 예상 source로 해석되고 application이 읽으며 unstow·rollback이 성공할 때 완료입니다.
+
+---
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 설정 파일을 홈 디렉터리에 직접 두면 어떤 파일을 Git으로 관리하는지 알기 어렵다. 새 장비를 세팅할 때마다 `.zshrc`, `.gitconfig`, `.tmux.conf`, `~/.config/nvim`을 손으로 복사하면 누락과 덮어쓰기 사고가 생긴다.
@@ -99,16 +108,21 @@ unmanaged
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
 
-가장 작은 dotfiles 저장소는 다음처럼 만든다.
+실제 홈을 옮기기 전에는 기존 일반 파일·symlink·패키지 파일을 확인하고 서로 다른 경로에 backup한다. 이미 있는 package나 backup을 cp/mv로 덮어쓰지 않는다. 가장 작은 학습 예제는 임시 target에서 실행해 실제 홈 설정을 건드리지 않는다.
 
 ```bash
-mkdir -p ~/dotfiles/git
-cp ~/.gitconfig ~/dotfiles/git/.gitconfig
-mv ~/.gitconfig ~/.gitconfig.backup
-cd ~/dotfiles
-stow -n -v git
-stow git
-ls -la ~/.gitconfig
+(
+  set -eu
+  stow_demo_root=$(mktemp -d)
+  mkdir -p "$stow_demo_root/dotfiles/git" "$stow_demo_root/target"
+  printf '[core]\n    editor = vim\n' > "$stow_demo_root/dotfiles/git/.gitconfig"
+  stow --dir "$stow_demo_root/dotfiles" --target "$stow_demo_root/target" -n -v git
+  stow --dir "$stow_demo_root/dotfiles" --target "$stow_demo_root/target" git
+  readlink "$stow_demo_root/target/.gitconfig"
+  stow --dir "$stow_demo_root/dotfiles" --target "$stow_demo_root/target" -D git
+  test ! -L "$stow_demo_root/target/.gitconfig"
+  printf 'review demo source at: %s\n' "$stow_demo_root"
+)
 ```
 
 Neovim처럼 `~/.config` 아래에 있는 설정은 저장소 안에서도 같은 상대 경로를 만든다.

@@ -1,5 +1,15 @@
 # Mathematical Computing Internals 학습 및 기록 노트
 
+## Scope, Assumptions, and Numerical Validation
+
+This document connects mathematical algorithms to representative implementations. A theorem, an asymptotic bound, and an observed runtime are different kinds of claims and are evaluated separately.
+
+- **Scope:** Results apply only to the stated arithmetic model, matrix structure, norm, convergence criterion, and algorithm variant. Dense and sparse costs are not interchangeable.
+- **Numeric assumptions:** Record data type, rounding mode, scaling, dimensions, sparsity, conditioning, initialization, tolerance, and iteration limit. Constants and iteration counts without these inputs are illustrative.
+- **Guarantees and uncertainty:** A convergence or error guarantee is valid only when its hypotheses hold. Finite precision adds rounding, overflow, cancellation, and stopping-error terms that exact arithmetic omits.
+- **Evidence:** Report residuals, backward and forward error where meaningful, condition estimates, iteration histories, and a higher-precision or independently derived reference result.
+- **Failure and completion:** Treat NaN/Inf, stagnation, divergence, violated constraints, unstable pivots, or tolerance exhaustion as explicit failures. A computation is complete only when its stopping rule and error budget are both satisfied.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Mathematical computing is not just translating formulas into code. Floating-point arithmetic loses precision, matrix factorizations amplify or control conditioning, FFT depends on butterfly state transitions, and Monte Carlo estimates require variance management. The same mathematical expression can be stable or unstable depending on representation and algorithm order.
@@ -18,7 +28,7 @@ This note rewrites the original mathematical computing reference into the common
 
 - Explain why floating-point arithmetic differs from real-number arithmetic.
 - Choose LU, QR, or SVD based on stability, cost, and rank behavior.
-- Explain how FFT reduces DFT from `O(N^2)` to `O(N log N)` through butterfly passes.
+- Explain how an FFT variant suited to the factorization of `N` reduces direct DFT work from `O(N^2)` to `O(N log N)`; butterfly and ordering details depend on the variant.
 - Track gradient, moment, sample, residual, and eigenvector state in iterative methods.
 - Use condition number and error estimates to decide when an implementation must be refactored.
 
@@ -83,7 +93,7 @@ FFT iterations are butterfly passes, gradient descent iterations are parameter u
 - Least squares via normal equations squares the condition number; QR or SVD is safer.
 - FFT index order, input length strategy, and twiddle factor signs must be consistent.
 - Gradient methods can diverge when the learning rate is too large.
-- Monte Carlo estimates need standard error or confidence intervals.
+- Monte Carlo estimates need standard error or confidence intervals justified by their sampling assumptions; the usual `O(1/sqrt(N))` standard error requires independent finite-variance sampling.
 - Ill-conditioned problems need preconditioning, higher precision, or a more stable formulation.
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)

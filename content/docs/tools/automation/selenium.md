@@ -2,6 +2,12 @@
 
 Selenium은 실제 브라우저를 조작해 웹 UI를 자동화하는 도구다. 단순 HTTP 요청으로는 확인하기 어려운 로그인, JavaScript 렌더링, 버튼 클릭, 파일 다운로드 같은 흐름을 검증할 때 사용한다.
 
+## 실행 환경과 증거 범위
+
+아래 Python 예제는 검토한 Selenium 4.6 이상과 호환 Chrome/Chromium의 headless 실행을 전제로 한다. Selenium Manager의 driver 해석 경로, browser·Python·Selenium version과 출처를 기록하고 운영 의존성은 시험한 정확한 버전으로 고정한다. 폐쇄망에서는 승인 artifact와 checksum·호환 표를 별도로 준비한다. 비권한 전용 계정으로 실행하며 일반 호스트에서 `--no-sandbox`로 오류를 우회하지 않는다.
+
+최소 예제는 페이지 로드/요소 대기와 종료 흐름을 보여준다. 아래 운영 완료 조건의 서로 다른 종료 코드·인증·429 분류까지 구현된 전체 wrapper라는 뜻은 아니다. 실제 예약 배포에는 그 실패 분류와 겹침 방지를 추가해 시험한다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 웹 화면은 HTML 응답만으로 끝나지 않는다. 로그인 후 동적으로 로딩되는 버튼, 모달, 무한 스크롤, 브라우저 저장소, 다운로드 동작은 실제 브라우저를 열어야 검증할 수 있다.
@@ -103,7 +109,7 @@ Python 가상환경을 만든 뒤 Selenium을 설치한다.
 ```bash
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install --upgrade pip selenium
+python -m pip install "selenium==${SELENIUM_VERSION:?set tested Selenium 4.6+ version}"
 ```
 
 가장 작은 headless 실행 예제는 다음과 같다.
@@ -118,7 +124,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 output_dir = Path("selenium-output")
-output_dir.mkdir(exist_ok=True)
+output_dir.mkdir(mode=0o700, exist_ok=True)
 
 options = Options()
 options.add_argument("--headless=new")
@@ -127,17 +133,26 @@ options.add_argument("--window-size=1280,900")
 driver = webdriver.Chrome(options=options)
 
 try:
+    driver.set_page_load_timeout(30)
     driver.get("https://example.com")
     heading = WebDriverWait(driver, 10).until(
         EC.presence_of_element_located((By.TAG_NAME, "h1"))
     )
     print(heading.text)
     driver.save_screenshot(str(output_dir / "example.png"))
+except Exception:
+    try:
+        driver.save_screenshot(str(output_dir / "failure.png"))
+    except Exception:
+        pass  # 보조 증거 저장 실패가 원래 오류를 덮지 않게 한다.
+    raise
 finally:
     driver.quit()
 ```
 
-cron으로 실행한다면 작업 디렉터리와 로그 파일을 명시한다.
+이 예제의 같은 이름 screenshot은 덮어쓰므로 보존이 필요하면 실행별 ID를 사용한다. 기존 output directory의 소유권·권한과 개인정보 보존을 따로 확인한다. driver 생성 중 실패와 quit 실패는 해당 version의 service/process 로그로 잔존 프로세스를 조사한다.
+
+cron으로 실행한다면 전용 계정의 절대 경로, 먼저 만든 제한된 logs directory와 로그 회전을 명시한다.
 
 ```cron
 15 8 * * * cd /home/user/automation && .venv/bin/python check_page.py >> logs/check_page.log 2>&1
@@ -163,6 +178,31 @@ cron으로 실행한다면 작업 디렉터리와 로그 파일을 명시한다.
 - 여러 브라우저가 필요하면 Selenium Grid나 CI 브라우저 환경을 검토한다.
 - 정기 실행은 cron보다 systemd timer로 옮겨 실행 로그와 재시작 정책을 명확히 할 수 있다.
 - 데이터 수집이 목적이라면 먼저 공식 API나 export 기능으로 대체 가능한지 확인한다.
+
+## 예약 실행
+
+crontab 전체를 삭제하거나 임시 파일로 덮어쓰지 않습니다. 현재 설정을 백업하고 crontab -e로 한 항목만 추가합니다.
+
+    crontab -l > "$HOME/crontab.backup"
+    crontab -e
+
+예시 항목은 매일 08:02에 전용 가상환경의 Python을 실행하고 stdout과 stderr를 로그로 보냅니다.
+
+    2 8 * * * cd /home/USER/automation && .venv/bin/python job.py >> logs/job.log 2>&1
+
+절대 경로, timezone, PATH, 중복 실행 방지와 로그 회전을 명시합니다. 작업이 이전 실행과 겹칠 수 있으면 flock 또는 스케줄러의 동시성 제어를 사용하고, 쓰기 작업에는 idempotency 기준을 둡니다.
+
+## 실패와 재시도
+
+브라우저 시작 실패, DNS 또는 TLS, page load timeout, 요소 탐색 실패, 인증 만료와 대상 사이트의 429 또는 5xx를 구분합니다. 일시 오류만 상한이 있는 backoff로 재시도하고 잘못된 selector와 인증 실패는 자동 반복하지 않습니다. 실패 screenshot과 HTML에는 개인정보가 포함될 수 있으므로 제한된 저장소와 짧은 보존 기간을 사용합니다.
+
+## 완료 조건
+
+- 고정된 환경에서 브라우저와 Selenium 버전, 드라이버 해석 경로가 기록됩니다.
+- 정상 페이지, timeout, 존재하지 않는 요소와 인증 실패가 서로 다른 종료 코드와 로그로 판정됩니다.
+- driver 프로세스가 성공과 실패 모두에서 종료되고 임시 profile이 정리됩니다.
+- 예약 작업이 정해진 timezone에 한 번 실행되며 중복 실행과 로그 증가가 통제됩니다.
+- 브라우저 업데이트 후 대표 흐름을 재시험하고 이전 artifact로 되돌릴 수 있습니다.
 
 ## 11. 최종 체크리스트 (Definition of Done)
 

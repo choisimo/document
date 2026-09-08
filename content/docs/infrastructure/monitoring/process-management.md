@@ -2,6 +2,8 @@
 
 백그라운드 프로세스 관리는 SSH 세션을 닫아도 작업이 계속 실행되게 하는 방법을 고르는 일이다. `nohup`, `disown`, `tmux`, `screen`, `systemd`는 모두 목적이 다르므로 작업의 성격에 맞게 선택해야 한다.
 
+셸 job-control·huponexit, SSH 서버, systemd-logind 정책과 프로세스의 신호 처리 방식에 따라 세션 종료 동작이 달라진다. 표준 입출력, 로그와 재시작 주체를 세션 밖에서 관리하고 실제 연결 종료 후 진행 상태를 확인한다. 컨테이너나 배치 스케줄러에서는 해당 런타임의 수명주기 기능을 먼저 검토한다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 원격 서버에서 긴 작업을 실행하다가 SSH 세션이 끊기면 프로세스가 `SIGHUP`을 받고 종료될 수 있다. 백업, 마이그레이션, 장시간 빌드, 데이터 처리처럼 중단되면 안 되는 작업은 터미널 세션과 분리하거나 재접속 가능한 세션에서 실행해야 한다.
@@ -38,7 +40,7 @@
 SSH session
   -> shell
   -> foreground process
-  -> SIGHUP when session closes
+  -> possible SIGHUP, depending on shell/session policy
 ```
 
 세션과 분리하면 흐름이 바뀐다.
@@ -81,7 +83,7 @@ systemd
 | `bg` | 중지된 작업을 백그라운드로 재개 |
 | `fg` | 백그라운드 작업을 포어그라운드로 이동 |
 | `jobs` | 현재 셸의 작업 목록 |
-| `disown -h` | 작업이 `SIGHUP`을 무시하도록 표시 |
+| `disown -h` | 현재 Bash가 해당 작업에 SIGHUP을 보내지 않도록 표시; 작업 자체의 신호 처리 변경은 아님 |
 
 ## 6. 상태 전이 (State Transition)
 
@@ -126,7 +128,7 @@ manual command
 단순 장기 작업은 로그 파일을 명시한다.
 
 ```bash
-nohup /opt/scripts/backup.sh > /var/log/backup.log 2>&1 &
+nohup /opt/scripts/backup.sh > /var/log/backup.log 2>&1 </dev/null &
 echo $!
 ```
 
@@ -211,6 +213,10 @@ journalctl -u myapp -f
 Kubernetes 환경에서는 Pod, Job, CronJob이 같은 역할을 담당한다. 이 경우 셸 job control이 아니라 오케스트레이터 상태를 기준으로 본다.
 
 장시간 마이그레이션은 `tmux`와 별도 로그 파일을 함께 쓰는 방식이 실무적으로 안전하다.
+
+## 완료 및 실패 판정
+
+`echo $!`, `disown`, `systemctl start`의 성공은 작업 완료 증거가 아닙니다. 일회성 작업은 종료 코드와 예상 산출물의 크기·체크섬을 확인하고, 서비스는 `systemctl show myapp -p Result -p ExecMainStatus`와 journal을 확인합니다. 자동 재시도는 영구 오류를 반복할 수 있으므로 시작 제한, 알림, 부분 산출물 정리 또는 멱등성을 함께 정의합니다.
 
 ## 11. 최종 체크리스트 (Definition of Done)
 

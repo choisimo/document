@@ -1,6 +1,8 @@
-# Zsh와 Oh My Zsh 테마 설정
+# Arch Linux에서 Zsh 테마 구성하기
 
-Zsh(Z shell)은 Bash보다 확장된 자동 완성, 플러그인, 테마 설정 기능을 제공한다.
+> **문서 범위:** 이 기록은 Zsh, Oh My Zsh, Powerlevel10k 구성 절차를 다룹니다. 파일명과 달리 Catppuccin 색상표나 Catppuccin 플러그인 설치 절차는 포함하지 않습니다.
+
+Zsh(Z shell)은 자동 완성, 플러그인, 테마 설정을 지원합니다. 이 문서에서는 기본 셸 변경, 테마 선택, 글꼴 의존성 확인 순서로 구성합니다.
 
 -----
 
@@ -31,7 +33,7 @@ chsh -s $(which zsh)
 
 ### 3단계: 테마 관리를 위한 "Oh My Zsh" 설치
 
-Oh My Zsh는 Zsh 설정, 테마, 플러그인을 관리하는 프레임워크다.
+Oh My Zsh는 Zsh 설정, 테마, 플러그인을 한 디렉터리 구조에서 관리하는 프레임워크입니다.
 
 아래 명령어는 Oh My Zsh 설치 스크립트를 실행한다. `curl`이 없으면 `sudo pacman -S curl`로 설치한다.
 
@@ -100,7 +102,7 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/too
 
 ### `powerlevel10k` 테마 설치
 
-`powerlevel10k`는 빠른 렌더링과 대화형 설정 마법사를 제공하는 Zsh 테마다.
+`powerlevel10k`는 구성 마법사와 Git 상태 표시를 제공하는 Zsh 테마입니다. 체감 속도와 선호도는 플러그인 수, 글꼴, 터미널 환경에 따라 달라집니다.
 
 1.  **powerlevel10k 테마 다운로드**
 

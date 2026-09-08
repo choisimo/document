@@ -2,6 +2,18 @@
 
 SSH 키 관리는 키를 생성하고 서버에 복사하는 작업만이 아니라, 개인키 보호, 공개키 배포, 권한 설정, 회수, 회전까지 포함하는 접근 통제 절차다.
 
+## Scope and operational contract
+
+This guide targets OpenSSH clients and servers. Exact algorithms, service names, configuration paths, and certificate support depend on the operating system, OpenSSH release, cryptographic policy, and FIPS requirements.
+
+- **Evidence status**: Commands are illustrative and were not executed by this document. Record the installed versions and effective sshd configuration before relying on them.
+- **Key custody**: Never transmit or paste a private key. Prefer a passphrase, a constrained agent or hardware-backed key, protected backups, and verified host keys.
+- **Change sequence**: Inventory key owners and destinations, add a new key, test it in a second session, revoke the old key, then validate logs. Do not disable password access until a tested key or MFA path and a break-glass route exist.
+- **Failure handling**: Keep an existing administrator session open. Validate sshd syntax before reload; if a new connection fails, restore the previous configuration instead of repeatedly changing permissions.
+- **Completion evidence**: Capture fingerprints, accountable owners, expiry or review dates, successful and denied login tests, effective authorization restrictions, and revocation results.
+
+Public-key authentication reduces password guessing exposure, but it is not automatically safer: stolen unencrypted keys, over-broad authorized_keys entries, unverified host keys, and unmanaged copies remain material risks. Ed25519 is a strong default where the platform policy supports it; use an approved compatible algorithm otherwise.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 비밀번호 인증보다 키 기반 인증이 안전할 수 있지만, 개인키가 암호 없이 여러 장비에 복사되어 있거나 퇴사자 키가 `authorized_keys`에 남아 있으면 오히려 장기 접근 경로가 된다.
@@ -35,10 +47,9 @@ SSH 키 관리는 "한 번 만들어 계속 쓰는 파일"이 아니라 "누가 
 키 인증 흐름은 다음과 같다.
 
 ```text
-client selects private key
-  -> server sends authentication challenge
-  -> client proves possession of private key
-  -> server checks matching public key in authorized_keys
+client selects a key and verifies the server host key
+  -> client signs a session-bound public-key authentication request
+  -> server verifies the signature and authorized key for the account
   -> sshd applies user and Match policies
   -> session is allowed or denied
 ```
@@ -125,7 +136,7 @@ Host prod
 ssh -v prod
 ```
 
-서버에서 권한 문제가 있으면 다음을 확인한다.
+서버의 실제 대상 계정으로 `id`, 홈 경로·소유자·ACL과 sshd 로그를 먼저 확인한다. 해당 계정의 기존 파일이 맞는 경우에만 아래 권한을 적용하며 재귀 chmod/chown으로 반복 우회하지 않는다.
 
 ```bash
 chmod 700 ~/.ssh

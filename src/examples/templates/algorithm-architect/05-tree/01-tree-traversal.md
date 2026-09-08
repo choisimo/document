@@ -7,7 +7,16 @@
 | **Use Case** | 트리 탐색, 표현식 계산 |
 | **Components** | Recursive or Stack |
 | **Constraint** | 노드 방문 순서가 핵심 |
-| **시간 복잡도** | O(N) |
+| **시간 복잡도** | finite tree의 각 node를 한 번 방문하면 O(N) |
+
+---
+
+## 적용 범위와 검증 기준
+
+- **범위:** node가 한 번씩 연결된 finite tree를 순회할 때 `O(N)`입니다. 일반 graph나 shared/cyclic structure에는 visited 처리가 필요합니다.
+- **공간 전제:** recursive DFS stack은 tree height `O(H)`, level-order queue는 최대 width에 비례합니다. skewed tree에서 stack overflow 가능성을 검토합니다.
+- **실패 조건:** null root, cycle/shared child, deep skew, mutation during traversal와 잘못된 visit order를 포함합니다.
+- **완료 증거:** empty·single·balanced·skewed fixture의 expected order와 node multiset을 비교하고 각 node를 정확히 한 번 처리하는지 확인합니다.
 
 ---
 

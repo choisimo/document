@@ -2,6 +2,19 @@
 
 WireGuard는 peer와 cryptographic key를 중심으로 터널 인터페이스를 구성하는 VPN이다. 단순해 보이지만 `AllowedIPs`, 라우팅, NAT, 방화벽을 잘못 설정하면 연결은 되어도 원하는 네트워크에 도달하지 못한다.
 
+## Scope and operational contract
+
+This guide presents a manual WireGuard peer configuration. Kernel support, userspace tools, firewall tooling and host routing depend on the selected versions. Optional management products such as wg-easy have separate release and authentication requirements.
+
+- **Supply chain**: Use the current project registry, pin a reviewed release and image digest, inspect release notes and migrations, and retain a rollback image plus a backup of persistent state.
+- **Secrets**: Generate keys under umask 077. Never expose private keys, QR codes, configuration exports, or admin password material in shell history, logs, tickets, or world-readable volumes.
+- **Network assumptions**: Replace eth0, subnets, DNS, endpoint, and MTU with observed values. Full tunnel versus split tunnel, IPv6 routing, DNS leak behavior, forwarding, NAT, and overlapping routes require explicit decisions.
+- **Exposure**: Keep the web administration UI on loopback or a private management network behind TLS and strong authentication. Only the WireGuard UDP port should be publicly reachable unless another path is justified.
+- **Failure and rollback**: Back up firewall and WireGuard state, apply one peer at a time, and remove partially applied NAT rules before retrying.
+- **Completion evidence**: Record recent handshakes, peer-specific AllowedIPs, route and DNS tests, intended internet egress, denied cross-peer access, restart persistence, and recovery from the saved configuration.
+
+No wg-easy Compose schema is provided here. If adding that product, use its reviewed release documentation and migration path; do not assume legacy PASSWORD_HASH or WG_* variables remain supported.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 집이나 사무실 내부 서비스에 외부에서 접근하려고 SSH, NAS, 관리 UI 포트를 인터넷에 열면 공격면이 커진다. WireGuard는 공개 포트를 하나만 열고 인증된 peer만 내부 네트워크로 들어오게 만드는 선택지다.
@@ -13,7 +26,7 @@ WireGuard는 peer와 cryptographic key를 중심으로 터널 인터페이스를
 흔한 출발점은 다음과 같다.
 
 - server/client 구조로만 이해하고 peer 개념을 놓친다.
-- `AllowedIPs = 0.0.0.0/0`가 모든 트래픽 터널링이라는 점을 모르고 쓴다.
+- `AllowedIPs = 0.0.0.0/0`가 모든 IPv4 목적지를 포함한다는 점을 모르고 쓴다. IPv6와 DNS의 경로는 별도 설정과 검증이 필요하다.
 - 터널은 handshake되는데 내부망 접근이 안 될 때 라우팅/NAT를 보지 않는다.
 - UDP 포트 포워딩과 서버 방화벽 허용을 구분하지 못한다.
 - 개인키를 compose 파일이나 문서에 그대로 남긴다.
@@ -97,10 +110,17 @@ stateDiagram-v2
 키 생성:
 
 ```bash
-umask 077
-wg genkey | tee server.key | wg pubkey > server.pub
-wg genkey | tee client.key | wg pubkey > client.pub
+# 각 peer 자신의 호스트에서 실행한다. 기존 key 파일이 있으면 중단한다.
+(
+  set -eu
+  umask 077
+  set -C
+  wg genkey > peer.key
+  wg pubkey < peer.key > peer.pub
+)
 ```
+
+서버와 클라이언트의 `peer.pub`만 서로 전달한다. 아래 설정의 private key 자리표시자는 각 장치의 제한된 설정 파일에 그 장치 자신의 키로 채우며 실제 값을 문서에 남기지 않는다.
 
 서버 `wg0.conf` 예시:
 

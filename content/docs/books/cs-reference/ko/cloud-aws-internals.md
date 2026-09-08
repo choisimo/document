@@ -1,10 +1,17 @@
 # 클라우드 및 AWS 내부 동작 학습 및 기록 노트
 
+## 적용 범위와 확인 항목
+
+- 서비스 한도, 가격, 할인율, 지원 기능은 리전과 계정, 구매 옵션, 확인 날짜에 따라 달라진다. 설계 승인 전 AWS 공식 문서와 Service Quotas에서 다시 확인한다.
+- `최대`, `무제한`, `최적` 대신 요구 처리량, 지연시간 백분위, 내구성 목표, RTO/RPO, 월 비용 상한을 수치로 적는다.
+- 아키텍처 선택에는 정상 경로뿐 아니라 재시도, 중복 이벤트, 부분 실패, 리전 장애, 할당량 초과 시 동작을 포함한다.
+- 성능·비용 예시는 비교 출발점이다. 같은 리전과 워크로드로 부하 시험하고 Cost Explorer 또는 CUR의 실제 사용량으로 결론을 갱신한다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 AWS 서비스는 버튼 하나로 생성되지만 내부에서는 하이퍼바이저, 가상 네트워크, 분산 저장소, 정책 평가 엔진, 복제 프로토콜이 함께 움직인다. EC2 인스턴스 부팅, VPC 패킷 라우팅, S3 object 저장, Lambda cold start, DynamoDB partitioning을 이해하지 못하면 장애 분석과 비용 최적화가 추측에 머문다.
 
-이 문서는 원문 한국어 AWS 내부 설명을 서비스별 data path와 운영 불변식 중심으로 재작성한다.
+이 문서는 공개된 서비스 계약과 일반적인 분산 시스템의 교육 모델을 구분해 AWS data path, control plane, 실패 모드를 학습한다. S3 metadata/shard와 DynamoDB leader/quorum 도식은 확인된 AWS 내부 구현이나 SLA로 취급하지 않는다.
 
 ## 2. 현재 나의 상태 (Baseline)
 
@@ -73,13 +80,13 @@ stateDiagram-v2
     Response --> [*]
 ```
 
-예를 들어 S3 GET은 IAM 평가 후 bucket/key metadata를 찾고, 필요한 shard를 fetch하거나 복구한 뒤 client로 stream한다. DynamoDB write는 partition leader와 replica quorum 상태가 응답 조건이 된다.
+아래 S3 metadata/shard와 DynamoDB leader/quorum 설명은 분산 저장소를 이해하기 위한 개념 모델이다. 실제 서비스에서 관찰할 수 있는 일관성·오류·응답 계약은 대상 리전과 서비스 설정의 공식 문서 및 실행 결과로 확인하며, 이 모델만으로 내부 프로토콜을 확정하지 않는다.
 
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
 - IAM explicit deny는 모든 allow보다 우선한다.
 - VPC 통신은 route table, SG/NACL, gateway/endpoint가 모두 맞아야 성공한다.
-- S3 object metadata와 shard location은 일관된 상태로 조회되어야 한다.
+- S3 읽기의 정확성은 공개된 object API와 일관성 계약으로 판단하며, metadata/shard 배치는 교육 모델의 가정과 실제 서비스 보장을 구분한다.
 - DynamoDB partition key는 트래픽이 한 partition에 몰리지 않도록 설계해야 한다.
 - Lambda 성능 측정은 cold start, init duration, handler duration을 분리해야 한다.
 - RDS Multi-AZ는 HA이고 read replica는 read scaling이라는 목적 차이를 유지해야 한다.
@@ -106,7 +113,7 @@ sequenceDiagram
     S3-->>Client: object stream
 ```
 
-이 예제는 클라우드 요청을 한 계층으로 보지 않고 권한, 네트워크, metadata, 저장소 접근으로 분해해야 함을 보여준다.
+이 sequence diagram은 권한, 네트워크, 저장소라는 논리적 확인 지점을 구분한 교육 모델이며 실제 AWS API 호출 순서의 trace가 아니다. 실제 GetObject 호출 경로와 저장 구현은 해당 서비스 계약과 추적 결과로 확인한다.
 
 ## 9. 실패 사례 (What could go wrong?)
 

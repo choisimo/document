@@ -2,9 +2,18 @@
 
 이 문서는 Proxmox VE에서 host의 물리 디스크를 QEMU/KVM VM에 block device로 연결하는 절차를 정리한다. 목표는 `/dev/sdX`가 아니라 stable `/dev/disk/by-id` 경로를 사용하고, 연결 전 데이터 손실과 migration 제약을 이해하는 것이다.
 
+## Scope, Ownership, and Verification
+
+- **Scope:** Pin the Proxmox VE, QEMU and guest versions, host storage stack, disk transport, controller type, firmware, and the exact stable device identity. This guide covers block-device attachment, not every form of PCI or controller passthrough.
+- **Ownership assumptions:** A disk assigned for guest writes must not also be mounted or written by the host or another guest. Define backup ownership, SMART monitoring, cache and discard policy, and behavior when the device disappears.
+- **Facts and inference:** `by-id` links, QEMU configuration and guest-visible identifiers are evidence; performance or compatibility rankings require the target filesystem and workload.
+- **Failure and completion:** Test wrong-device selection, reboot renumbering, I/O error, guest crash, host migration, backup exclusion and rollback. Completion requires a verified mapping from the host physical serial and stable path through the VM config to the guest-visible disk, exclusive ownership, intact data after reboot, and a detach or recovery path.
+
+---
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
-NAS VM, 복구 도구 VM, 특정 storage workload는 물리 디스크를 VM이 직접 다뤄야 할 때가 있다. 이때 Proxmox storage layer에 disk image를 만드는 방식이 아니라 host block device를 VM disk로 연결할 수 있다.
+NAS VM, 복구 도구 VM과 일부 storage workload는 Proxmox-managed virtual volume 대신 host block device를 QEMU controller에 연결할 수 있다. QEMU, host block layer와 물리 device layer는 계속 참여하며 PCI/controller passthrough와는 다르다.
 
 하지만 물리 디스크 passthrough는 편의 기능이 아니다. VM이 디스크를 직접 쓰면 host와 VM이 동시에 filesystem을 mount하지 않아야 하고, 해당 VM의 live migration도 제한된다.
 
@@ -48,13 +57,13 @@ Proxmox가 disk 내용을 이해하거나 보호해주지 않는다. Guest OS가
 
 `lsblk -o +MODEL,SERIAL,WWN`은 디스크 모델과 serial을 확인하는 데 사용한다.
 
-`/dev/disk/by-id`는 재부팅 후에도 안정적인 device symlink를 제공한다. `/dev/sda`, `/dev/sdb`는 부팅 순서에 따라 바뀔 수 있다.
+`/dev/disk/by-id` 같은 persistent identifier는 serial·WWN과 실제 경로를 대조해 고유함을 확인한 뒤 사용한다. 중복 identifier, USB bridge와 multipath에는 별도 안정적 매핑이 필요하며 `/dev/sdX`는 재부팅 후 바뀔 수 있다.
 
 `qm config <vmid>`는 VM의 현재 hardware config를 확인한다.
 
 `qm set <vmid> -scsiN <path>`는 VM에 disk를 추가한다.
 
-VirtIO SCSI는 일반적인 Linux VM에서 성능과 기능 면에서 우선 검토할 controller다.
+VirtIO와 VirtIO SCSI는 guest driver 지원, queue·discard·SCSI 기능과 workload를 기준으로 비교한다. 특정 controller의 성능 순위는 해당 환경의 측정으로 판단한다.
 
 `qm unlink <vmid> --idlist scsiN`은 VM config에서 disk 항목을 제거한다.
 
@@ -113,14 +122,14 @@ ls -l /dev/disk/by-id/
 ls -l /dev/disk/by-id/ | rg 'SERIAL_OR_MODEL'
 ```
 
-Host에서 사용 중인지 확인한다.
+Host 사용 여부를 확인한다. 아래 findmnt/lsof만으로 미사용이 증명되지는 않으며 disk의 모든 partition, swap, LVM/MD/ZFS 구성과 다른 VM·CT 할당도 확인한다. guest writer와 host/다른 guest의 소유권이 겹치면 연결하지 않는다.
 
 ```bash
 findmnt
 lsof /dev/sdX
 ```
 
-VM에 SCSI disk로 연결한다.
+VM 100을 정지하거나 검증된 hotplug 정책을 확인한 뒤 연결한다. 아래 by-id는 실제 serial을 대조한 예시로 바꾸고 scsi2 슬롯이 비어 있는지 먼저 qm config로 확인한다.
 
 ```bash
 qm set 100 -scsi2 /dev/disk/by-id/ata-ST2000DM008-2FR102_ZFL12345
@@ -134,11 +143,11 @@ lsblk -f
 dmesg | tail -n 50
 ```
 
-VM에서 unmount 후 연결을 제거한다.
+Guest가 해당 disk의 filesystem·swap·storage pool 사용을 모두 종료한 뒤 VM을 정지하거나 검증된 hot-unplug 절차로 연결을 제거한다. qm unlink의 대상과 unused 항목 처리는 설치 버전에서 확인하고 host가 다시 쓰기 전에 QEMU의 참조가 사라졌는지 검증한다.
 
 ```bash
 qm unlink 100 --idlist scsi2
-qm config 100 | rg scsi2
+qm config 100
 ```
 
 NVMe나 SSD를 연결할 때도 원칙은 같다. stable by-id path를 사용한다.

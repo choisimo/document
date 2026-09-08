@@ -1,6 +1,12 @@
 # Supabase Stack
 
-PostgreSQL with pgvector extension and PostgREST API for vector database operations.
+Focused PostgreSQL + pgvector + PostgREST stack for vector-data API experiments; it is not the complete Supabase service set.
+
+## Deployment Contract
+
+This stack is a focused PostgreSQL + pgvector + PostgREST subset, not the full managed Supabase platform. Pin images/extensions, schema migrations, JWT claims, PostgREST roles, RLS, TLS termination, storage and published ports. Test unauthorized and cross-tenant access, vector schema compatibility, backup/restore, secret rotation, upgrade and rollback before completion.
+
+---
 
 ## Quick Start
 
@@ -26,7 +32,7 @@ docker compose up -d
 
 ## Environment Variables
 
-See `.env.example` for all available configuration options.
+See `.env.example` for repository-documented settings; database, extension and PostgREST options remain version-specific.
 
 ## JWT Secret Generation
 

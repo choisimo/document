@@ -4,6 +4,10 @@
 
 ---
 
+## 실제 실행 계약과 문서상 불일치
+
+입력은 존재하고 읽을 수 있는 directory이며, 결과 PDF는 각 Markdown 옆의 같은 basename으로 생성돼 기존 파일을 덮어쓸 수 있다. 필요한 도구는 `pandoc`, `xelatex`, `NanumGothic` font이고 병렬 실행기는 GNU parallel 또는 xargs다. 현재 코드는 변환 stderr를 버리고 `set -euo pipefail` 아래에서 병렬 명령 실패를 집계하지 않으므로, flow의 “실패를 기록하고 계속”과 마지막 실패 목록 checklist를 구현했다고 볼 수 없다. 완료는 발견한 Markdown 수, 생성된 PDF 수, 실패 파일과 실제 진단, 최종 종료 상태를 대조한 경우로 판정한다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 * **이 개념이 구원해 줄 문제:** 여러 Markdown 문서를 PDF로 반복 변환할 때 매번 수동 명령을 치는 비효율을 없앤다.

@@ -2,6 +2,13 @@
 
 이 문서는 Linux storage를 조회, mount, fstab 등록, LVM 확장까지 다룰 때 필요한 명령 흐름을 정리한다. 목표는 명령어 목록이 아니라 “읽기 전용 확인 → 임시 mount → 영구 설정 → 검증” 순서를 만드는 것이다.
 
+## 변경 안전 계약
+
+- `lsblk`, `findmnt`, `blkid` 같은 관찰 명령으로 serial/WWN, mount, filesystem과 LVM 계층을 먼저 기록합니다.
+- `fdisk`, `parted`, `pvcreate`, filesystem resize는 데이터 손실 가능 작업입니다. 백업 복원 시험, 대상 장치 이중 확인과 유지보수 창 없이 실행하지 않습니다.
+- block device 크기, partition, PV/LV와 filesystem 크기는 서로 다른 계층이므로 올바른 순서와 각 도구의 지원 방향을 확인합니다.
+- 완료 증거는 재부팅 후 mount, 용량, 읽기/쓰기, `/etc/fstab`과 모니터링이 의도와 일치하고 롤백 자료가 남은 상태입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 디스크 관리는 실수 비용이 크다. partition tool, `mkfs`, `mount`, `fstab`, LVM 명령은 모두 정상 명령이어도 대상이 틀리면 데이터 손실이나 부팅 실패로 이어진다.
@@ -38,7 +45,7 @@ block device discovered
   -> temporary mount tested
   -> UUID copied into fstab
   -> mount -a verification
-  -> reboot-safe state
+  -> scheduled reboot and post-boot verification
 ```
 
 LVM 확장 흐름은 다음과 같다.
@@ -66,7 +73,7 @@ new block space
 
 LVM은 PV, VG, LV의 3계층으로 구성된다.
 
-`resize2fs`는 ext 계열 filesystem 확장에 사용한다. XFS는 mounted 상태에서 `xfs_growfs`로 확장한다.
+`resize2fs`는 ext 계열 filesystem 크기 변경 도구이며 온라인 확장 지원은 대상 kernel·filesystem 상태를 확인한다. 축소는 지원 조건과 오프라인 절차가 필요하다. XFS 확장은 mount된 대상에서 `xfs_growfs`를 사용한다.
 
 ## 6. 상태 전이 (State Transition)
 
@@ -153,7 +160,7 @@ sudo lvs
 lsblk -f
 ```
 
-새 partition을 PV로 추가하고 VG에 붙인다.
+아래 `/dev/sdb1`은 serial·계층·백업을 확인하고 기존 데이터를 폐기해도 되는 새 partition 예시다. 기존 PV를 늘리는 경우에는 이 pvcreate 절차를 실행하지 않고 하위 device/partition 확장 뒤 pvresize 절차를 따른다.
 
 ```bash
 sudo pvcreate /dev/sdb1
@@ -161,7 +168,7 @@ sudo vgextend vgdata /dev/sdb1
 sudo vgs
 ```
 
-Ext4 LV를 확장한다.
+아래 두 절은 filesystem 종류에 따라 하나만 선택하는 대안이다. 먼저 `/dev/vgdata/lvdata`가 `/mnt/data`의 backing LV인지와 VG 여유 공간을 확인한다. Ext4 대상이라면:
 
 ```bash
 sudo lvextend -L +20G /dev/vgdata/lvdata
@@ -169,7 +176,7 @@ sudo resize2fs /dev/vgdata/lvdata
 df -hT /mnt/data
 ```
 
-XFS LV를 확장한다.
+XFS 대상이라면 (앞의 Ext4 절을 실행하지 않은 경우):
 
 ```bash
 sudo lvextend -L +20G /dev/vgdata/lvdata

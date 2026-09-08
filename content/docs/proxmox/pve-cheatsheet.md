@@ -1,7 +1,16 @@
 # Proxmox VE 명령어 치트시트
 
-> **Quick Reference for Proxmox VE 8.x**  
-> 운영 환경에서 자주 사용하는 명령어 모음
+> **Command examples written for Proxmox VE 8.x; verify installed help and state before use**  
+> 운영 환경의 대표 명령 예시이며, 파괴적 명령은 backup·대상·rollback 확인 후 사용
+
+---
+
+## 적용 범위와 명령 실행 기준
+
+- **범위:** 이 치트시트는 Proxmox VE 8.x 계열 예시입니다. 설치된 PVE, Debian, kernel, QEMU/LXC, ZFS/Ceph와 command help를 먼저 확인하며 다른 release의 option·출력을 보장하지 않습니다.
+- **실행 전제:** node·VMID·CTID·storage·pool·device와 cluster quorum을 식별하고 조회, 변경, 파괴 명령을 구분합니다. backup과 rollback 없이 destroy·remove·wipe·force 계열 예제를 실행하지 않습니다.
+- **사실과 추론:** exit status와 CLI 출력은 일부 근거이며, task log, resource config, storage와 guest 상태까지 일치해야 실제 성공입니다.
+- **실패·완료:** partial task, timeout, quorum·lock·storage 오류와 다른 node에 남은 상태를 확인합니다. 기대 resource 상태, cluster consistency와 재시작 후 동작이 검증될 때 완료입니다.
 
 ---
 
@@ -21,9 +30,12 @@
 
 ---
 
+<a id="1-클러스터-관리-pvecm"></a>
+
 ## 1. 클러스터 관리 (pvecm)
 
 ### 클러스터 상태 확인
+
 ```bash
 # 클러스터 전체 상태
 pvecm status
@@ -39,6 +51,7 @@ cat /etc/pve/corosync.conf
 ```
 
 ### 클러스터 생성/관리
+
 ```bash
 # 새 클러스터 생성
 pvecm create <cluster-name>
@@ -54,6 +67,7 @@ pvecm qdevice status
 ```
 
 ### 노드 제거 (주의!)
+
 ```bash
 # 1. 타겟 노드의 모든 VM/CT 마이그레이션
 # 2. 클러스터에서 노드 삭제 (남은 노드에서 실행)
@@ -69,9 +83,12 @@ systemctl start pve-cluster
 
 ---
 
+<a id="2-vm-관리-qm"></a>
+
 ## 2. VM 관리 (qm)
 
 ### 기본 조작
+
 ```bash
 # VM 목록
 qm list
@@ -92,6 +109,7 @@ qm resume <vmid>
 ```
 
 ### VM 생성/삭제
+
 ```bash
 # 새 VM 생성 (기본)
 qm create <vmid> --name <name> --memory 2048 --cores 2
@@ -111,6 +129,7 @@ qm destroy <vmid> --purge  # 연결된 디스크도 삭제
 ```
 
 ### 설정 변경
+
 ```bash
 # 설정 보기
 qm config <vmid>
@@ -136,6 +155,7 @@ nano /etc/pve/nodes/<node>/qemu-server/<vmid>.conf
 ```
 
 ### 스냅샷
+
 ```bash
 # 스냅샷 목록
 qm listsnapshot <vmid>
@@ -152,6 +172,7 @@ qm delsnapshot <vmid> <snapname>
 ```
 
 ### 마이그레이션 & 클론
+
 ```bash
 # 온라인 마이그레이션
 qm migrate <vmid> <target-node> --online
@@ -171,6 +192,7 @@ qm template <vmid>
 ```
 
 ### QEMU Guest Agent
+
 ```bash
 # 게스트 에이전트 활성화
 qm set <vmid> --agent enabled=1
@@ -190,9 +212,12 @@ qm guest cmd <vmid> fsfreeze-thaw
 
 ---
 
+<a id="3-컨테이너-관리-pct"></a>
+
 ## 3. 컨테이너 관리 (pct)
 
 ### 기본 조작
+
 ```bash
 # CT 목록
 pct list
@@ -216,6 +241,7 @@ pct exec <vmid> -- apt update
 ```
 
 ### CT 생성/삭제
+
 ```bash
 # 템플릿 다운로드
 pveam update
@@ -234,6 +260,7 @@ pct destroy <vmid> --purge
 ```
 
 ### 설정 변경
+
 ```bash
 # 설정 보기
 pct config <vmid>
@@ -258,6 +285,7 @@ pct set <vmid> --features nesting=1
 ```
 
 ### 스냅샷 & 클론
+
 ```bash
 # 스냅샷 목록
 pct listsnapshot <vmid>
@@ -277,9 +305,12 @@ pct template <vmid>
 
 ---
 
+<a id="4-스토리지-관리-pvesm"></a>
+
 ## 4. 스토리지 관리 (pvesm)
 
 ### 스토리지 상태
+
 ```bash
 # 전체 스토리지 상태
 pvesm status
@@ -296,6 +327,7 @@ pvesm list local-lvm
 ```
 
 ### 스토리지 관리
+
 ```bash
 # 디렉토리 스토리지 추가
 pvesm add dir <storage-id> --path /mnt/data --content images,iso,vztmpl
@@ -320,6 +352,7 @@ pvesm remove <storage-id>
 ```
 
 ### 볼륨 관리
+
 ```bash
 # 볼륨 할당
 pvesm alloc <storage> <vmid> <filename> <size>
@@ -339,9 +372,12 @@ pveam download local <template-name>
 
 ---
 
+<a id="5-zfs-관리"></a>
+
 ## 5. ZFS 관리
 
 ### Pool 관리
+
 ```bash
 # Pool 상태
 zpool status
@@ -365,6 +401,7 @@ zpool destroy <pool>
 ```
 
 ### Dataset 관리
+
 ```bash
 # Dataset 목록
 zfs list
@@ -384,6 +421,7 @@ zfs destroy <pool>/<dataset>
 ```
 
 ### 스냅샷 & 전송
+
 ```bash
 # 스냅샷 생성
 zfs snapshot <pool>/<dataset>@<snapname>
@@ -406,6 +444,7 @@ zfs send <pool>/<dataset>@<snap> | ssh <remote> zfs recv <dest-pool>/<dataset>
 ```
 
 ### ARC/캐시 상태
+
 ```bash
 # ARC 상태
 arc_summary
@@ -420,9 +459,12 @@ zpool iostat -v <pool>
 
 ---
 
+<a id="6-ceph-관리-pveceph"></a>
+
 ## 6. Ceph 관리 (pveceph)
 
 ### 클러스터 상태
+
 ```bash
 # Ceph 상태 (간략)
 pveceph status
@@ -441,6 +483,7 @@ ceph osd tree
 ```
 
 ### Ceph 설치/초기화
+
 ```bash
 # Ceph 패키지 설치
 pveceph install
@@ -460,6 +503,7 @@ pveceph osd create /dev/sdc --db_dev /dev/nvme0n1p1  # 별도 DB 디바이스
 ```
 
 ### Pool 관리
+
 ```bash
 # Pool 목록
 ceph osd pool ls
@@ -478,6 +522,7 @@ ceph osd pool delete <pool-name> <pool-name> --yes-i-really-really-mean-it
 ```
 
 ### OSD 관리
+
 ```bash
 # OSD 목록
 ceph osd ls
@@ -497,6 +542,7 @@ systemctl restart ceph-osd@<osd-id>
 ```
 
 ### CephFS
+
 ```bash
 # MDS 생성
 pveceph mds create
@@ -514,9 +560,12 @@ ceph-fuse /mnt/cephfs
 
 ---
 
+<a id="7-백업복원-vzdump"></a>
+
 ## 7. 백업/복원 (vzdump)
 
 ### 백업 실행
+
 ```bash
 # 단일 VM/CT 백업
 vzdump <vmid>
@@ -546,6 +595,7 @@ vzdump <vmid> --compress zstd   # .vma.zst (권장)
 ```
 
 ### 복원
+
 ```bash
 # VM 복원
 qmrestore <backup-file> <new-vmid>
@@ -566,6 +616,7 @@ qmrestore <pbs-backup> <vmid> --live-restore 1
 ```
 
 ### 백업 작업 관리
+
 ```bash
 # 예약된 백업 목록 (GUI 또는)
 cat /etc/pve/jobs.cfg
@@ -581,6 +632,7 @@ vma verify <backup-file>
 ```
 
 ### PBS 관련
+
 ```bash
 # PBS 연결 확인
 proxmox-backup-client status --repository <user>@<pbs-server>:<datastore>
@@ -595,9 +647,12 @@ proxmox-backup-client prune --repository <repo> \
 
 ---
 
+<a id="8-네트워크--sdn"></a>
+
 ## 8. 네트워크 & SDN
 
 ### 네트워크 인터페이스
+
 ```bash
 # 인터페이스 상태
 ip addr
@@ -618,6 +673,7 @@ ifdown vmbr0 && ifup vmbr0
 ```
 
 ### VLAN 관리
+
 ```bash
 # VLAN 인터페이스 확인
 cat /proc/net/vlan/config
@@ -628,6 +684,7 @@ ip link set eno1.100 up
 ```
 
 ### Bonding
+
 ```bash
 # Bond 상태
 cat /proc/net/bonding/bond0
@@ -637,6 +694,7 @@ cat /sys/class/net/bond0/bonding/slaves
 ```
 
 ### SDN
+
 ```bash
 # SDN 설정 적용
 pvesh set /cluster/sdn
@@ -659,9 +717,12 @@ cat /etc/pve/sdn/.running-config
 
 ---
 
+<a id="9-방화벽-pve-firewall"></a>
+
 ## 9. 방화벽 (pve-firewall)
 
 ### 방화벽 상태
+
 ```bash
 # 방화벽 서비스 상태
 systemctl status pve-firewall
@@ -677,6 +738,7 @@ nft list ruleset
 ```
 
 ### 설정 파일
+
 ```bash
 # 데이터센터 방화벽
 cat /etc/pve/firewall/cluster.fw
@@ -689,6 +751,7 @@ cat /etc/pve/firewall/<vmid>.fw
 ```
 
 ### 규칙 관리
+
 ```bash
 # API로 규칙 추가 (예)
 pvesh create /cluster/firewall/rules \
@@ -706,9 +769,12 @@ pvesh get /cluster/firewall/macros
 
 ---
 
+<a id="10-사용자-관리-pveum"></a>
+
 ## 10. 사용자 관리 (pveum)
 
 ### 사용자 관리
+
 ```bash
 # 사용자 목록
 pveum user list
@@ -728,6 +794,7 @@ pveum user list --output-format json-pretty | jq '.[] | select(.userid=="<user>@
 ```
 
 ### 그룹 관리
+
 ```bash
 # 그룹 목록
 pveum group list
@@ -740,6 +807,7 @@ pveum user modify <user>@<realm> --group <groupname>
 ```
 
 ### 역할 & ACL
+
 ```bash
 # 역할 목록
 pveum role list
@@ -760,6 +828,7 @@ pveum acl delete / --user <user>@<realm> --role <role>
 ```
 
 ### Realm 관리
+
 ```bash
 # Realm 목록
 pveum realm list
@@ -774,6 +843,7 @@ pveum realm add <realm-id> --type ad --domain example.com \
 ```
 
 ### API Token
+
 ```bash
 # 토큰 생성
 pveum user token add <user>@<realm> <tokenid>
@@ -787,6 +857,7 @@ pveum user token remove <user>@<realm> <tokenid>
 ```
 
 ### 2FA
+
 ```bash
 # TFA 목록
 pveum user tfa list <user>@<realm>
@@ -797,9 +868,12 @@ pveum user tfa delete <user>@<realm> <tfa-id>
 
 ---
 
+<a id="11-ha-관리-ha-manager"></a>
+
 ## 11. HA 관리 (ha-manager)
 
 ### HA 상태
+
 ```bash
 # HA 상태 (전체)
 ha-manager status
@@ -811,6 +885,7 @@ cat /etc/pve/ha/groups.cfg
 ```
 
 ### 리소스 관리
+
 ```bash
 # HA 리소스 추가
 ha-manager add vm:<vmid>
@@ -829,6 +904,7 @@ ha-manager remove vm:<vmid>
 ```
 
 ### 마이그레이션
+
 ```bash
 # HA 리소스 마이그레이션
 ha-manager migrate vm:<vmid> <target-node>
@@ -838,6 +914,7 @@ ha-manager relocate vm:<vmid>
 ```
 
 ### HA 그룹
+
 ```bash
 # 그룹 설정 확인
 cat /etc/pve/ha/groups.cfg
@@ -848,9 +925,12 @@ pvesh create /cluster/ha/groups --group <name> --nodes node1,node2
 
 ---
 
+<a id="12-api--진단"></a>
+
 ## 12. API & 진단
 
 ### pvesh (API 클라이언트)
+
 ```bash
 # API 엔드포인트 탐색
 pvesh ls /
@@ -875,6 +955,7 @@ pvesh get /cluster/resources --output-format json-pretty
 ```
 
 ### 로그 & 진단
+
 ```bash
 # 시스템 로그
 journalctl -u pvedaemon
@@ -904,6 +985,7 @@ iotop
 ```
 
 ### 디버깅
+
 ```bash
 # pvedaemon 디버그 모드
 systemctl stop pvedaemon
@@ -919,6 +1001,7 @@ openssl x509 -in /etc/pve/nodes/<node>/pve-ssl.pem -text -noout
 ```
 
 ### 성능 모니터링
+
 ```bash
 # rrdcached 상태 (그래프 데이터)
 systemctl status rrdcached

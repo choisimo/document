@@ -1,6 +1,6 @@
 # Java 핵심 개념
 
-Java의 핵심은 클래스 기반 객체 모델, 정적 타입, JVM 실행 환경, 표준 라이브러리 계약을 함께 이해하는 것이다. 이 문서는 문법 나열보다 “값이 어디에 있고, 어떤 타입 계약으로 이동하며, 런타임이 무엇을 보장하는가”를 기준으로 정리한다.
+Java의 핵심은 클래스 기반 객체 모델, 정적 타입, JVM 실행 환경, 표준 라이브러리 계약을 함께 이해하는 것이다. 이 문서는 문법 나열보다 “값이 어디에 있고, 어떤 타입 계약으로 이동하며, 런타임이 무엇을 보장하는가”를 기준으로 정리한다. 언어 규칙은 Java Language Specification을 기준으로 하며 객체 배치와 실제 크기는 JVM 구현·버전·옵션에 따라 달라진다. 예제는 JDK 17 이상을 전제로 각 public 타입을 같은 이름의 별도 파일에 두고, 문장 조각은 필요한 import와 main 메서드 안에서 실행한다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -56,7 +56,7 @@ Class는 상태와 행위를 묶는 type definition이다. Object는 class로부
 
 Interface는 “무엇을 할 수 있는가”라는 계약이다. 구현 class는 그 계약을 만족해야 한다.
 
-Exception은 실패를 호출자에게 전달하는 계약이다. checked exception은 method signature에 드러나고, unchecked exception은 runtime 실패로 전파된다.
+Exception은 실패를 호출자에게 전달하는 계약이다. checked exception은 처리하거나 throws로 선언해야 하며, unchecked exception은 선언 의무 없이 전파될 수 있다. 둘 다 실행 중 발생하고 catch할 수 있다.
 
 Generic은 compile-time type safety를 제공한다. type erasure 때문에 runtime에는 일부 type 정보가 사라진다는 제약도 함께 이해해야 한다.
 
@@ -161,9 +161,13 @@ checked exception을 모두 `catch (Exception e)`로 삼켜 버리면 실패가 
 
 Java 8 이후 lambda와 stream은 collection 처리 방식을 바꿨지만, 내부적으로는 type과 object contract 위에서 동작한다. stream은 무조건 빠른 반복문이 아니라 선언적 pipeline이다.
 
-Record는 불변 data carrier를 간결하게 만들 수 있다. 하지만 domain invariant가 복잡하면 compact constructor와 method를 통해 계약을 명시해야 한다.
+Record는 component reference를 final로 유지하는 얕은 불변 data carrier를 간결하게 만든다. 참조한 collection이나 객체까지 불변이 되는 것은 아니므로 필요하면 방어적 복사와 compact constructor로 domain invariant를 지킨다.
 
 Sealed class/interface는 상속 가능한 subtype을 제한한다. 상태 전이가 제한된 domain model이나 pattern matching과 함께 쓰면 의도를 더 명확히 표현할 수 있다.
+
+## 학습 완료 증거
+
+`java -version`과 `javac -version`을 기록하고 각 예제를 파일별로 컴파일해 예상 출력을 확인합니다. 객체 크기나 성능은 JOL, JFR 또는 재현 가능한 벤치마크로 대상 JVM에서 별도 측정합니다.
 
 ## 11. 최종 체크리스트 (Definition of Done)
 

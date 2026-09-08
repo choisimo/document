@@ -2,6 +2,8 @@
 
 디스크 마운트는 파일시스템을 특정 디렉터리에 연결하는 작업이다. 이 문서는 새로 만든 파일시스템을 `/etc/fstab`에 안전하게 등록하고, 재부팅 후에도 같은 위치에 붙도록 검증하는 기준을 정리한다.
 
+파일시스템이 이미 존재하고 장치 식별·소유권·백업·파일시스템과 init-system 버전이 확인된 환경을 전제로 한다. `nofail`은 데이터 가용성을 보장하지 않는다. 데이터가 필수인 서비스는 mount 실패 시 빈 로컬 디렉터리에 쓰지 않도록 mount 의존성을 설정한다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 임시 `mount /dev/sdb1 /mnt/data`는 재부팅 후 사라진다. 데이터 디스크, 백업 디스크, Docker data directory, 미디어 라이브러리처럼 계속 같은 경로가 필요한 storage는 영구 마운트가 필요하다.
@@ -26,7 +28,7 @@
 - UUID 또는 stable device path를 사용한다.
 - mount point 소유권과 권한을 의도대로 설정한다.
 - `/etc/fstab` 변경 전 백업을 만든다.
-- `findmnt --verify`와 `mount -a`로 재부팅 전 검증한다.
+- `findmnt --verify`와 대상별 mount로 재부팅 전 검증한다.
 - optional disk는 `nofail` 또는 `x-systemd.automount`를 사용한다.
 
 ## 4. 시스템 번역 (Data Flow)
@@ -82,7 +84,7 @@ filesystem exists
 - `/dev/sdb1` 같은 변동 가능한 이름보다 UUID를 우선한다.
 - mount point에 이미 중요한 파일이 있으면 새 filesystem이 덮어 가리므로 먼저 확인한다.
 - 외장 디스크와 네트워크 mount는 부팅을 막지 않도록 `nofail`을 검토한다.
-- fstab 변경 후 재부팅 전에 `findmnt --verify`와 `mount -a`를 실행한다.
+- fstab 변경 후 `findmnt --verify`가 성공한 경우에만 대상 mount를 시험한다.
 - 데이터 디렉터리 권한은 애플리케이션 사용자 기준으로 설정한다.
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
@@ -107,7 +109,7 @@ findmnt /mnt/data
 sudo cp /etc/fstab /etc/fstab.bak.$(date +%Y%m%d-%H%M%S)
 ```
 
-`/etc/fstab`에 다음과 같은 한 줄을 추가한다.
+백업 후 `/etc/fstab`의 대상 항목을 편집한다. 예시 UUID를 실제 값으로 바꾸고 같은 UUID·mount point의 중복 항목을 만들지 않는다.
 
 ```text
 UUID=a1b2c3d4-5678-90ab-cdef-1234567890ab /mnt/data ext4 defaults,nofail 0 2
@@ -122,9 +124,9 @@ UUID=11111111-2222-3333-4444-555555555555 /mnt/archive xfs defaults,nofail 0 0
 검증하고 mount한다.
 
 ```bash
-sudo findmnt --verify
-sudo systemctl daemon-reload
-sudo mount -a
+sudo findmnt --verify &&
+  sudo systemctl daemon-reload &&
+  sudo mount /mnt/data
 findmnt /mnt/data
 df -h /mnt/data
 ```
@@ -132,8 +134,11 @@ df -h /mnt/data
 권한을 애플리케이션 사용자에게 맞춘다.
 
 ```bash
-sudo chown -R appuser:appuser /mnt/data
-sudo chmod 755 /mnt/data
+namei -l /mnt/data
+findmnt /mnt/data
+# 실제 source와 정책을 확인한 뒤 mount root만 변경한다.
+sudo chown appuser:appuser /mnt/data
+sudo chmod 0750 /mnt/data
 ```
 
 외장 디스크처럼 없어도 부팅이 계속되어야 하는 장치는 automount를 사용할 수 있다.
@@ -162,6 +167,10 @@ systemd mount unit을 직접 만들면 mount dependency, timeout, automount 동�
 
 Docker data-root, database data directory, media storage처럼 서비스가 의존하는 mount는 서비스 시작 순서와 mount unit dependency까지 함께 설계해야 한다.
 
+## Completion and rollback evidence
+
+Run `findmnt --verify`, mount only the target, and confirm source/type/options plus service-account read/write behavior. Network mounts also require server-loss and recovery tests. If validation fails, unmount safely, restore the backed-up `fstab`, and verify again. A bad boot entry must be corrected in rescue mode, not by formatting the device.
+
 ## 11. 최종 체크리스트 (Definition of Done)
 
 - [ ] `lsblk -f`와 `blkid`로 UUID와 filesystem type을 확인했다.
@@ -170,9 +179,9 @@ Docker data-root, database data directory, media storage처럼 서비스가 의�
 - [ ] fstab source로 UUID를 사용했다.
 - [ ] optional disk에는 `nofail` 또는 automount를 검토했다.
 - [ ] `findmnt --verify`가 통과했다.
-- [ ] `mount -a` 후 `findmnt`와 `df -h`로 확인했다.
+- [ ] 대상 mount 후 `findmnt`와 `df -h`, 서비스 계정 읽기·쓰기로 확인했다.
 - [ ] 재부팅 후에도 mount 상태가 유지된다.
 
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-영구 마운트는 `UUID -> mount point -> fstab -> mount -a -> reboot verify` 순서로 검증한다. `/etc/fstab`은 부팅 경로에 직접 영향을 주므로 백업과 `findmnt --verify` 없이 수정 완료로 보지 않는다.
+영구 마운트는 `UUID -> mount point -> fstab -> target mount -> reboot verify` 순서로 검증한다. `/etc/fstab`은 부팅 경로에 직접 영향을 주므로 백업과 `findmnt --verify` 없이 수정 완료로 보지 않는다.

@@ -1,6 +1,44 @@
-# Docker Compose 스택 컬렉션 학습 및 기록 노트
+---
+title: "Docker Compose 컬렉션"
+---
+
+# Docker Compose 컬렉션 {#docker-compose}
+
+<nav class="hub-directory" aria-label="Docker Compose 컬렉션 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">카테고리</h2>
+
+- [Compose 스택](stacks/index.md)
+- [데이터베이스 Compose 스택](stacks/databases/index.md)
+- [자동화 Compose 스택](stacks/automation/index.md)
+- [개발 도구 Compose 스택](stacks/devtools/index.md)
+- [보안 Compose 스택](stacks/security/index.md)
+- [미디어 Compose 스택](stacks/media/index.md)
+- [스토리지 Compose 스택](stacks/storage/index.md)
+- [모니터링 Compose 스택](stacks/monitoring/index.md)
+- [프록시 Compose 스택](stacks/proxy/index.md)
+- [기타 서비스 Compose 스택](stacks/misc/index.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
 
 이 문서는 저장소에 모아 둔 Docker Compose 스택을 탐색하기 위한 상위 색인이다. 실제 Compose 파일과 예시 환경 파일은 `infra/docker/stacks/...` 아래에 있고, 문서 페이지는 각 스택을 실행하기 전에 어떤 전제를 확인해야 하는지 정리한다.
+
+## 컬렉션 사용 경계
+
+- 이 페이지는 스택 탐색용 인덱스입니다. 링크 존재나 `docker compose up -d` 성공은 운영 준비 완료를 뜻하지 않습니다.
+- 실행 전 이미지 태그, `.env` 비밀, 공개 포트, 볼륨 소유권, 외부 네트워크와 라이선스를 스택별로 확인합니다.
+- 완료 증거는 컨테이너 상태뿐 아니라 서비스 health, 인증된 접속, 로그 오류 부재, 데이터 재시작과 백업·복원 결과입니다.
+- 중단 시 `down`이 named volume이나 외부 데이터까지 지우는지 확인하고 롤백 명령을 먼저 기록합니다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -179,3 +217,5 @@ docker compose down -v
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 Compose 컬렉션은 실행 명령 모음이 아니라 스택별 `__________`를 확인하는 지도다. 실행 전 `__________`와 `.env.example`을 읽고, `__________`로 최종 설정을 검증한 뒤 `__________`와 로그를 확인한다.
+
+</details>

@@ -1,6 +1,37 @@
-# Prompts
+---
+title: "프롬프트"
+---
+
+# 프롬프트 {#prompts}
+
+<nav class="hub-directory" aria-label="프롬프트 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">주요 문서</h2>
+
+- [📝 근거 중심 문서 편집 지침](docs-editor.md)
+- [Database Education Prompt](database.md)
+- [Architecture Design Prompts](architecture.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
 
 이 영역은 AI에게 문서 작성, 아키텍처 정리, 데이터베이스 학습 같은 작업을 맡길 때 사용하는 프롬프트와 검증 기준을 모은다.
+
+## Usage contract
+
+- Prompts structure a task; they do not grant tools, execute SQL, inspect repositories, or verify facts unless those capabilities are explicitly connected.
+- Replace placeholders with bounded context, audience, source paths, versions, constraints, exclusions, and the required evidence format.
+- Require outputs to label confirmed facts, inferences, recommendations, and unresolved questions.
+- A prompt result is ready to publish only after source-backed review, security/privacy checks, and task-specific validation.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -136,3 +167,5 @@ Output Format:
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 좋은 프롬프트는 AI에게 답변을 부탁하는 문장이 아니라, 입력 근거와 제약과 검증 가능한 출력 형식을 정한 작업 계약이다.
+
+</details>

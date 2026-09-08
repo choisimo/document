@@ -4,9 +4,11 @@
 
 ---
 
+> **Reading contract:** This note synthesizes Levitin 3rd edition and CTCI 4th edition; it does not claim coverage of later editions or every implementation. Treat a theorem as established only under its stated input domain and cost model, and treat stack, heap, cache, and instruction descriptions as implementation examples unless an ABI or language version is named. A section is complete when the algorithm variant, preconditions, invariant, termination argument, complexity measure, and source edition/location are identifiable. If any of those is missing, retain the claim as a heuristic or incomplete derivation rather than a universal result.
+
 ## 1. Algorithm Correctness — The Precision Imperative
 
-An algorithm must be unambiguous: every step must be executable by a mechanical device without further interpretation. The middle-school GCD procedure **fails** as an algorithm because "find prime factors" isn't defined mechanically — it implies a lookup table that itself requires an algorithm.
+An algorithm specification must make each step mechanically executable. The middle-school GCD procedure is **incomplete as written** when "find prime factors" is left undefined; it becomes an algorithm once a terminating factorization procedure and its input domain are supplied.
 
 ```mermaid
 flowchart LR
@@ -229,7 +231,7 @@ block-beta
     end
 ```
 
-**Stack allocation:** Compiler-determined. Frame size computed at compile time from local variable declarations. Push = decrement SP by frame_size. Pop = increment SP. No fragmentation.
+**Stack allocation (typical fixed-frame ABI case):** The compiler can determine a fixed frame from local declarations, adjust the stack pointer on entry, and restore it on return. Variable-length allocations, optimization, inlining, red zones, and ABI rules can change or eliminate this layout; "no fragmentation" is not a language-level guarantee.
 
 **Heap allocation:** Runtime-determined. `malloc(n)` searches free-list for block ≥ n bytes. Returns pointer; adds header (size, next-free pointer). `free(p)` marks block as available, coalesces adjacent free blocks.
 
@@ -251,7 +253,7 @@ int* g() {
 
 ## 7. CTCI: Bit Manipulation — Hardware Register Mechanics
 
-Bit operations execute in single CPU clock cycle (no memory access, pure ALU):
+The following bit operations are constant-time in the usual fixed-width word-RAM model. Actual instruction count, latency, and memory traffic depend on operand placement, compiler output, ISA, and word width:
 
 ```mermaid
 flowchart LR
@@ -361,12 +363,18 @@ flowchart TD
 ## 10. CTCI: Linked List Internals — Memory Layout
 
 ```mermaid
-block-byzantine
-    block:LL["Linked List in Memory (Heap)"]
-        N1["addr 0x100:\n  data=5\n  next=0x230"]
-        N2["addr 0x230:\n  data=12\n  next=0x045"]
-        N3["addr 0x045:\n  data=8\n  next=NULL"]
+block-beta
+  columns 1
+  block:LL:1
+    columns 1
+    LLTitle["Linked List in Memory (Heap)"]:1
+    block:LLItems:1
+      columns 3
+      N1["addr 0x100:<br/>  data=5<br/>  next=0x230"]
+      N2["addr 0x230:<br/>  data=12<br/>  next=0x045"]
+      N3["addr 0x045:<br/>  data=8<br/>  next=NULL"]
     end
+  end
 ```
 
 Nodes are **not contiguous** in memory. Each `next` pointer is a heap address. This has consequences:
@@ -448,17 +456,17 @@ Conclusion: OPT was not strictly better than GREEDY → GREEDY is optimal.
 
 ```mermaid
 sequenceDiagram
-    participant OPT as OPT solution
+    participant OptimalSolution as OPT solution
     participant G as GREEDY solution
 
-    Note over OPT,G: Steps 1..k-1 identical
-    OPT->>OPT: Step k: choose B
+    Note over OptimalSolution,G: Steps 1..k-1 identical
+    OptimalSolution->>OptimalSolution: Step k: choose B
     G->>G: Step k: choose A (locally best)
-    OPT->>OPT: Steps k+1..n: some sequence
+    OptimalSolution->>OptimalSolution: Steps k+1..n: some sequence
     G->>G: Steps k+1..n: greedy continues
-    Note over OPT: Swap B→A: new solution OPT'
-    OPT->>OPT: cost(OPT') ≤ cost(OPT) because A is locally optimal
-    Note over OPT,G: By induction, GREEDY = OPT at every step
+    Note over OptimalSolution: Swap B→A: new solution OPT'
+    OptimalSolution->>OptimalSolution: cost(OPT') ≤ cost(OPT) because A is locally optimal
+    Note over OptimalSolution,G: By induction, GREEDY = OPT at every step
 ```
 
 **When greedy FAILS:** Fractional knapsack ✓ (greedy by value/weight ratio works). 0/1 knapsack ✗ (greedy fails — must use DP). The difference: 0/1 knapsack has "all-or-nothing" choice that can block future items, destroying the greedy choice property.
@@ -483,7 +491,7 @@ With memoization — each unique subproblem solved once:
 - Stack depth still O(n) in worst case (during first descent)
 - Total work: O(n) (each of n subproblems solved exactly once)
 
-**Tail recursion optimization:** If the recursive call is the last operation before return (tail position), the compiler can reuse the current stack frame — O(1) stack space instead of O(n).
+**Tail-call optimization:** A compiler may reuse the current stack frame when the recursive call is in tail position, but C and C++ do not guarantee this transformation. Claim O(1) stack space only after checking the target compiler and generated code; otherwise retain the O(n) worst-case stack bound.
 
 ```
 // NOT tail recursive — addition happens after recursive return

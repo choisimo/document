@@ -8,6 +8,12 @@
 ## 원본 템플릿
 - Source: [02-sorting-searching/03-merge-sort.md](../../02-sorting-searching/03-merge-sort.md)
 
+## 적용 계약과 근거 경계
+
+- 상호 비교 가능한 sequence를 받아 새 list를 반환합니다. `<=`일 때 왼쪽을 먼저 선택하므로 이 구현은 동등 키의 상대 순서를 보존합니다.
+- 시간 `O(N log N)`, 병합 결과의 peak 보조 공간은 `O(N)`이며 Python slicing의 추가 할당도 발생합니다.
+- “안정적”은 comparator가 일관된 total preorder를 제공한다는 전제의 알고리즘 성질이지 실행 시간 보장이 아닙니다.
+
 ## 내부 메커니즘 (Flow)
 ```mermaid
 flowchart TD
@@ -90,7 +96,7 @@ def merge(left, right):
 - **Termination**: 목표 도달, 범위 소진, 큐/스택 고갈, 사이클 검출 등으로 종료한다.
 
 ## 실전 적용 체크리스트
-- 입력 자료구조 형식(인접 리스트, 간선 리스트, 정렬 여부, 1-index/0-index)을 먼저 고정한다.
-- 시간 복잡도 한계에 맞게 자료구조를 교체한다 (`list.pop(0)` -> `deque.popleft` 등).
-- 실패/예외 경로를 명시한다 (도달 불가, 음수 사이클, 빈 결과, 사이클 존재).
-- 테스트는 최소 3개: 정상 케이스, 경계 케이스, 반례 케이스를 포함한다.
+- 빈·단일·중복·이미 정렬·역정렬 입력을 시험합니다.
+- 결과 정렬성, 길이와 multiset 보존을 확인합니다.
+- 동일 key에 원래 순번을 붙여 stability를 검증합니다.
+- `sorted`와 결과를 대조하고 큰 입력은 시간뿐 아니라 peak memory도 측정합니다.

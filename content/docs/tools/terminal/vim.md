@@ -1,6 +1,13 @@
 # Vim
 
-Vim은 모드 기반 텍스트 편집기다. 일반 편집기처럼 계속 입력하는 방식이 아니라, 이동과 편집 명령을 조합해 텍스트를 바꾼다. 핵심은 키를 많이 외우는 것이 아니라 `operator + motion + object` 문법을 익히는 것이다.
+Vim은 모드 기반 텍스트 편집기다. 일반 편집기처럼 계속 입력하는 방식이 아니라, 이동과 편집 명령을 조합해 텍스트를 바꾼다. 핵심은 키를 많이 외우는 것이 아니라 `operator + motion` 또는 `operator + text object` 문법을 익히는 것이다.
+
+## Scope and Verification
+
+- **Scope:** Pin Vim rather than Neovim, its version and features, OS, terminal or GUI, mappings, plugins, file encoding, and current buffer state. Commands can be remapped or feature-dependent.
+- **Assumptions:** Distinguish buffers, windows, tabs, files on disk, registers, and undo history. “Close all” or substitute commands may fail, prompt, or affect a wider range when buffers are modified or patterns contain special characters.
+- **Facts and inference:** `:version`, `:verbose map`, messages, buffer list and resulting file diff are evidence; convenience or speed claims depend on the user workflow.
+- **Failure and completion:** Test unsaved buffers, read-only files, encoding, recovery files, mapping conflicts and undo. A workflow is complete when the intended range changed, the diff is correct, and recovery or undo remains available.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -144,7 +151,7 @@ Vim 문법의 핵심 조합은 다음과 같다.
 
 | 조합 | 의미 |
 | --- | --- |
-| `dw` | 단어 끝까지 삭제 |
+| `dw` | 현재 위치부터 다음 단어 시작까지 삭제; 공백·줄 경계에 따른 motion 규칙 확인 |
 | `ciw` | 현재 단어 변경 |
 | `di"` | 따옴표 안 내용 삭제 |
 | `ci(` | 괄호 안 내용 변경 |

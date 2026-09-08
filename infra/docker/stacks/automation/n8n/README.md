@@ -1,12 +1,21 @@
 # n8n Automation Stack
 
-n8n 워크플로우 자동화 플랫폼과 관련 서비스들을 포함한 종합 스택입니다.
+n8n queue-mode를 포함한 repository-specific automation stack example입니다.
+
+## Deployment Contract
+
+- **Scope:** Pin n8n, worker, PostgreSQL and Redis versions, execution/queue mode, encryption key, concurrency and the intended replica count.
+- **Assumptions:** Three workers are a capacity example, not an availability or throughput guarantee. All replicas must share compatible database, queue and encryption configuration.
+- **Evidence:** Queue depth, execution ownership, duplicate/retry behavior, health, logs and persisted workflow/credential recovery are required evidence.
+- **Failure and completion:** Test broker/database outage, worker loss, rolling upgrade, restore and rollback; rotate every example credential before exposure.
+
+---
 
 ## 구성 요소
 
 ### Core Services
 - **n8n**: 워크플로우 자동화 엔진
-- **n8n-worker**: 분산 작업 처리 워커 (3개 replica)
+- **n8n-worker**: queue worker이며 3 replicas는 example capacity 설정. concurrency와 수는 measured workload로 결정
 - **PostgreSQL**: 메인 데이터베이스
 - **Redis**: 캐시 및 큐 브로커
 

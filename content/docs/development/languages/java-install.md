@@ -2,6 +2,13 @@
 
 Java 개발 환경은 JRE만 설치되어 있다고 끝나지 않는다. 소스 코드를 컴파일하려면 `javac`가 포함된 JDK가 필요하고, Gradle, Maven, IDE, 터미널이 같은 JDK를 바라보아야 한다. 이 문서는 JDK 설치와 `JAVA_HOME` 설정을 프로젝트 재현성 관점에서 정리한다.
 
+## Scope and completion criteria
+
+- Package names and available JDK builds depend on distribution release, CPU architecture, enabled repositories, and the date of installation.
+- Choose the project's required Java release and vendor before running commands; an LTS label alone does not prove application compatibility.
+- Keep `java`, `javac`, build-tool JVM, service JVM, and `JAVA_HOME` on the intended installation rather than switching only one alternative.
+- Installation is complete when version output, a compile/run smoke test, and the consuming build or service all report the expected runtime path.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Java 프로젝트는 JDK 버전에 민감하다. 소스 호환성, 바이트코드 타깃, Gradle 플러그인, Spring Boot 버전, IDE 언어 서버가 모두 JDK 버전의 영향을 받는다. 터미널에서는 Java 21이 보이는데 IDE는 Java 17을 쓰거나, `java`는 설치되어 있는데 `javac`가 없으면 빌드 실패 원인을 찾기 어렵다.

@@ -4,6 +4,18 @@
 
 ---
 
+## Scope, Assumptions, and Evaluation Contract
+
+This document explains representative ML algorithms and kernels. Complexity expressions describe selected operations; they do not establish model quality, end-to-end latency, or compatibility with every framework and accelerator.
+
+- **Scope:** Tie behavior to the model architecture, tensor shapes, framework and kernel versions, accelerator, precision, compiler options, and memory layout.
+- **Data assumptions:** Record dataset and split, preprocessing, label definition, sampling, seed, batch order, leakage controls, and distribution shift. An optimization result without these controls is not comparable.
+- **Evidence and uncertainty:** Separate mathematical identities from implementation choices and empirical quality. Report repeated runs, confidence or variability, task metrics, calibration where relevant, throughput, latency percentiles, peak memory, and numerical error.
+- **Resource claims:** FLOPs, memory complexity, quantization savings, and speedup ranges require batch size, sequence length, head dimensions, cache state, and hardware. An asymptotic improvement may not improve a small or bandwidth-limited workload.
+- **Failure and completion:** Define divergence, NaN/Inf, OOM, unacceptable accuracy or bias regression, and latency-budget breach. Completion requires a fixed evaluation protocol, baseline comparison, acceptance thresholds, and a reproducible artifact.
+
+---
+
 ## 1. Neural Network Forward Pass — Computation Graph
 
 ```mermaid
@@ -402,6 +414,8 @@ sequenceDiagram
 
 ## 14. Performance Numbers
 
+> These values are illustrative for particular tensor shapes, kernels, precision modes, and accelerators. They are not portable speedups or capacity limits; report the complete benchmark configuration and variability.
+
 ```mermaid
 block-beta
   columns 2
@@ -437,8 +451,8 @@ block-beta
 
 - **Autograd tape** builds a DAG of `grad_fn` nodes during forward pass; `.backward()` traverses it in reverse, applying the chain rule at each node using saved tensors
 - **Adam maintains 2 moment buffers** per parameter (m, v) — memory cost is 3× weights (weights + m + v), vs SGD which is 1×; AdamW decouples L2 decay to avoid contaminating moment estimates
-- **FlashAttention** avoids materializing the O(N²) attention matrix in HBM by tiling and running online softmax — critical for long sequences (>2K tokens)
-- **KV cache** enables O(1) decode steps — memory grows linearly with sequence length; GQA reduces KV heads to save cache memory at inference
+- **FlashAttention** tiles attention and uses online softmax to avoid materializing the full O(N²) score matrix in HBM. Whether it is beneficial at sequence lengths above 2K depends on kernel version, shapes, precision, accelerator, and competing bottlenecks; benchmark the target workload.
+- **KV cache** avoids recomputing prior keys and values, but each new token generally reads and attends over the growing cached sequence, so standard incremental attention compute is not O(1) in sequence length. Cache memory grows linearly in cached tokens; GQA changes the constant by using fewer KV heads.
 - **INT8 GEMM** accumulates in INT32 to prevent overflow, then dequantizes — the scale/zero-point are computed per-channel for better accuracy than per-tensor
 - **im2col + GEMM** is how convolutions are actually implemented — converts the sliding window operation into a large matrix multiply, enabling Tensor Core acceleration
-- **Negative sampling** in Word2Vec replaces the O(vocab) softmax with O(k) sigmoid evaluations — mathematically equivalent in the limit but 10,000× faster to train
+- **Negative sampling** replaces full-vocabulary softmax work with O(k) sampled logistic terms, but optimizes a different objective rather than becoming mathematically equivalent to softmax in the limit. Training speedup depends on vocabulary, k, sampler, implementation, hardware, and quality target; 10,000× is not a portable claim.

@@ -2,6 +2,13 @@
 
 > Sources: *Apache Kafka* (Nishant Garg, Packt 2013) · *Effective Kafka* (Emil Koutanov, Leanpub 2021) · *Learning Apache Kafka 2nd Edition*
 
+## Scope and completion criteria
+
+- The sources span multiple Kafka client generations. Treat class names, defaults, partitioners, group protocols, and ZooKeeper references as versioned examples.
+- Producer completion distinguishes local enqueue, broker acknowledgement, transaction commit, and durable business effect. Consumer completion distinguishes return from `poll`, application processing, side effect, and offset commit.
+- Idempotent production deduplicates a bounded producer/session/partition sequence; transactions do not make arbitrary external effects exactly once.
+- Exercise the documented retry, timeout, fencing, rebalance, and crash points and record loss/duplicate outcomes before approving a delivery contract.
+
 ---
 
 ## 1. Producer Architecture: The Two-Thread Model
@@ -463,13 +470,7 @@ sequenceDiagram
     participant B1 as Broker 1 (partition leader)
 
     P->>B0: MetadataRequest{topics: ["orders"]}
-    B0-->>P: MetadataResponse{
-        brokers: [{id:0, host:b0}, {id:1, host:b1}],
-        topics: [{name:"orders", partitions:[
-            {id:0, leader:1, isr:[1,0]},
-            {id:1, leader:0, isr:[0,1]}
-        ]}]
-    }
+    B0-->>P: MetadataResponse{<br/>brokers: [{id:0, host:b0}, {id:1, host:b1}],<br/>topics: [{name:"orders", partitions:[<br/>{id:0, leader:1, isr:[1,0]},<br/>{id:1, leader:0, isr:[0,1]}<br/>]}]<br/>}
 
     Note over P: Cache metadata, refresh every metadata.max.age.ms
     P->>B1: ProduceRequest{topic:orders, partition:0, ...}
@@ -500,6 +501,8 @@ flowchart TD
 ```
 
 **Quota types**: Producer byte-rate, Consumer byte-rate, Request rate (CPU time as % of I/O threads). Applied per `(user, client-id)` pair. Quotas stored in ZooKeeper / KRaft metadata log, dynamically configurable without broker restart.
+
+The delay equation in the diagram is a conceptual illustration, not Kafka's complete quota algorithm. Quota windows, entity precedence, client handling, broker-side delay, and metadata storage depend on the release and effective configuration.
 
 ---
 
@@ -532,3 +535,4 @@ sequenceDiagram
     CONS->>CONS: decompress, deserialize
     CONS->>CONS: process records
     CONS->>LEADER: OffsetCommitRequest → __consumer_offsets
+```

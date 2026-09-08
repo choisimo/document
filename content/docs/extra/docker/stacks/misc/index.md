@@ -1,6 +1,65 @@
-# Misc Docker Stacks 학습 및 기록 노트
+---
+title: "기타 서비스 Compose 스택"
+---
+
+# 기타 서비스 Compose 스택 {#misc-docker-stacks}
+
+<nav class="hub-directory" aria-label="기타 서비스 Compose 스택 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">컬렉션 탐색</h2>
+
+- [Compose 스택](../index.md)
+- [Docker Compose 컬렉션](../../index.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">changedetection</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/misc/changedetection/docker-compose.yaml)
+- [README.md](/extra/docker/stacks/misc/changedetection/README.md)
+- [.env.example](/extra/docker/stacks/misc/changedetection/.env.example)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">ghost-blog</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/misc/ghost-blog/docker-compose.yaml)
+- [README.md](/extra/docker/stacks/misc/ghost-blog/README.md)
+- [.env.example](/extra/docker/stacks/misc/ghost-blog/.env.example)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-4" markdown="1">
+
+<h2 id="directory-group-4">kamai</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/misc/kamai/docker-compose.yaml)
+- [README.md](/extra/docker/stacks/misc/kamai/README.md)
+- [.env.example](/extra/docker/stacks/misc/kamai/.env.example)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
 
 Misc 카테고리는 다른 카테고리로 분류되지 않은 보조 스택을 모은다. 현재는 ChangeDetection.io, Ghost Blog, Kamai 경로의 Kimai 스택이 있으며, 일부는 media나 monitoring 카테고리와 목적이 겹친다.
+
+## 기타 스택 점검 기준
+
+- 이 범주의 스택은 공통 운영 성격을 보장하지 않으므로 각 README의 목적, 데이터 민감도와 지원 상태를 개별 확인합니다.
+- `latest` 태그, 예시 토큰과 공개 포트를 그대로 사용하지 않고 시험 네트워크에서 먼저 실행합니다.
+- 완료 기준은 해당 도구의 대표 작업, 재시작, 데이터 유지와 제거 절차를 각각 확인한 상태입니다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -180,3 +239,5 @@ Misc 카테고리는 시간이 지나면 중복과 임시 구성이 쌓이기 �
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 Misc 스택은 임시 모음일수록 `__________`와 실제 Compose를 비교해야 한다. `$PWD` 기반 볼륨은 실행 `__________`에 민감하고, 예시 `__________`는 운영 전에 반드시 교체한다.
+
+</details>

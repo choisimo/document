@@ -2,6 +2,10 @@
 
 Database performance is strongly influenced by I/O operations. The key distinction is between logical access patterns and physical access patterns, especially when SQL constructs such as `EXISTS` change execution behavior.
 
+## Scope and evidence boundary
+
+This archived overview distinguishes logical access from physical storage access. Exact counters, cache-hit formulas, optimizer rewrites, and latency ranges depend on the database engine, version, storage, and workload. Treat numbered citations as unresolved until their corresponding bibliography is available, and validate operational conclusions with the target engine's execution plan and I/O metrics rather than with query syntax alone.
+
 ## Fundamentals of Database I/O Operations
 
 ### Logical vs. Physical I/O Defined

@@ -2,6 +2,15 @@
 
 `pet`은 자주 쓰는 긴 명령어를 스니펫으로 저장하고 검색해서 재사용하는 CLI 도구다. 기억하기 어려운 옵션 조합, 서버 점검 명령, 반복적인 Git 명령을 개인 명령어 노트처럼 관리할 수 있다.
 
+## 적용 범위와 설치 검증
+
+- **범위:** 아래는 Pet의 기본 snippet workflow입니다. 특정 RPM release 설치 예제가 아니며 실제 architecture·배포판·package format과 Pet/fzf version·upstream 설치 방식을 확인합니다.
+- **신뢰 전제:** download URL, release asset, checksum/signature와 package source를 검증합니다. `git` 또는 install script의 “최신” 상태는 재현 가능한 version 고정이 아닙니다.
+- **사용 전제:** snippet은 임의 shell command를 실행할 수 있으므로 secret, destructive command, quoting, current directory와 selected entry를 실행 전에 검토합니다.
+- **실패·완료:** PATH·shell integration·fzf 연동, config 위치, snippet 검색과 취소, 잘못된 command 선택을 시험합니다. pinned version과 checksum을 기록하고 test snippet만 의도대로 실행될 때 완료입니다.
+
+---
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 긴 명령어를 셸 히스토리에서 다시 찾거나 문서에서 복사하면 실수가 생기기 쉽다. 특히 `docker`, `kubectl`, `rsync`, `find`, `ffmpeg`처럼 옵션이 긴 명령은 한 글자 차이로 결과가 크게 달라질 수 있다.

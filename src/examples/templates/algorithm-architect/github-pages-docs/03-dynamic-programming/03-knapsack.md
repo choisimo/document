@@ -8,6 +8,12 @@
 ## 원본 템플릿
 - Source: [03-dynamic-programming/03-knapsack.md](../../03-dynamic-programming/03-knapsack.md)
 
+## 적용 계약과 근거 경계
+
+- `weights`와 `values` 길이는 같고, capacity와 weight는 0 이상 정수이며 각 item은 최대 한 번 선택합니다.
+- 반환값은 최대 value이고 아무것도 선택하지 않는 값 0을 허용합니다. 선택 item 목록은 반환하지 않습니다.
+- 시간·공간 `O(n·capacity)`는 capacity 숫자값에 비례하는 pseudo-polynomial 복잡도입니다.
+
 ## 내부 메커니즘 (Flow)
 ```mermaid
 flowchart TD
@@ -44,6 +50,13 @@ sequenceDiagram
 # Constraint: 무게 제한 내 최대 가치
 
 def knapsack_01(weights, values, capacity):
+    if len(weights) != len(values):
+        raise ValueError("weights and values must have the same length")
+    if not isinstance(capacity, int) or capacity < 0:
+        raise ValueError("capacity must be a non-negative integer")
+    if any(not isinstance(weight, int) or weight < 0 for weight in weights):
+        raise ValueError("weights must be non-negative integers")
+
     # 1. 초기화 (Initialization Layer)
     n = len(weights)
     dp = [[0] * (capacity + 1) for _ in range(n + 1)]
@@ -52,7 +65,7 @@ def knapsack_01(weights, values, capacity):
     #    - i: 물건 인덱스
     #    - w: 현재 용량
     for i in range(1, n + 1):
-        for w in range(1, capacity + 1):
+        for w in range(capacity + 1):
             # 3. 선택 로직 (Choice Logic)
             #    - 물건을 넣을 수 있는가?
             if weights[i-1] <= w:
@@ -75,7 +88,7 @@ def knapsack_01(weights, values, capacity):
 - **Termination**: 목표 도달, 범위 소진, 큐/스택 고갈, 사이클 검출 등으로 종료한다.
 
 ## 실전 적용 체크리스트
-- 입력 자료구조 형식(인접 리스트, 간선 리스트, 정렬 여부, 1-index/0-index)을 먼저 고정한다.
-- 시간 복잡도 한계에 맞게 자료구조를 교체한다 (`list.pop(0)` -> `deque.popleft` 등).
-- 실패/예외 경로를 명시한다 (도달 불가, 음수 사이클, 빈 결과, 사이클 존재).
-- 테스트는 최소 3개: 정상 케이스, 경계 케이스, 반례 케이스를 포함한다.
+- capacity 0, weight 0, 빈 item, 음수 value와 길이 불일치를 시험합니다.
+- `dp[i][w]`가 앞의 `i`개 item만 사용한 최댓값이라는 불변식을 확인합니다.
+- 작은 `n`은 모든 `2^n` 부분 집합 전수 결과와 대조합니다.
+- capacity가 큰 경우 value 기반 DP, meet-in-the-middle 등 대안을 검토합니다.

@@ -2,9 +2,11 @@
 
 SSHFS는 SSH 연결을 이용해 원격 디렉터리를 로컬 파일시스템처럼 mount하는 FUSE 기반 도구다. 이 문서는 SSHFS를 수동으로 테스트하고, 필요할 때 `/etc/fstab` 또는 systemd automount로 안정적으로 연결하는 기준을 정리한다.
 
+Ubuntu 계열 예시이며 SSHFS·FUSE·OpenSSH·systemd 버전과 서버 정책을 확인한다. 네트워크 단절과 캐시 의미를 허용하는 workload만 대상으로 한다. DB·VM 디스크의 지원 여부는 별도 확인하며, NFS 비교도 동일 부하·RTT·캐시·암호화 조건에서 측정한다. mount 성공과 실제 source를 확인한 뒤에만 쓰기 시험을 수행한다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
-원격 서버의 작업 디렉터리, 백업 경로, 홈랩 장비의 공유 폴더를 로컬 경로처럼 쓰고 싶을 때가 있다. NFS나 Samba 서버를 새로 구성하지 않고 SSH 계정만으로 접근하려면 SSHFS가 간단하다.
+원격 서버의 작업 디렉터리, 백업 경로, 홈랩 장비의 공유 폴더를 로컬 경로처럼 쓰고 싶을 때가 있다. SSHFS는 원격 SFTP subsystem과 계정 권한, 로컬 FUSE 정책이 허용될 때 사용할 수 있다. SSH 셸 로그인 성공만으로 충분하지 않다.
 
 하지만 SSHFS는 네트워크와 SSH 세션에 의존한다. fstab 문법을 잘못 쓰거나, 키 권한이 맞지 않거나, `allow_other`를 잘못 켜면 부팅 지연, mount 실패, 권한 노출 문제가 생긴다.
 
@@ -97,7 +99,7 @@ sudo apt install -y sshfs
 SSH 키 접속을 먼저 확인한다.
 
 ```bash
-ssh -i /home/alice/.ssh/id_ed25519 alice@nas.example.com
+sftp -i /home/alice/.ssh/id_ed25519 alice@nas.example.com
 ```
 
 mount point를 만든다.
@@ -112,8 +114,7 @@ sudo chown alice:alice /mnt/nas
 ```bash
 sshfs -o IdentityFile=/home/alice/.ssh/id_ed25519,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3 alice@nas.example.com:/srv/share /mnt/nas
 findmnt /mnt/nas
-touch /mnt/nas/write-test
-rm /mnt/nas/write-test
+sshfs_test_file=$(mktemp /mnt/nas/write-test.XXXXXX) && rm -- "$sshfs_test_file"
 fusermount3 -u /mnt/nas
 ```
 
@@ -125,7 +126,7 @@ grep -n "user_allow_other" /etc/fuse.conf
 
 필요한 경우 `/etc/fuse.conf`에서 `user_allow_other`를 활성화한다.
 
-`/etc/fstab`에는 한 줄로 작성한다.
+백업한 `/etc/fstab`의 해당 항목을 중복 없이 한 줄로 편집한다. 아래 systemd mount는 root가 실행하므로 root의 SSH host-key 검증과 비대화형 키 사용을 별도로 시험한다. 예시는 alice가 사용할 수 있도록 allow_other를 포함하므로 UID/GID 매핑과 default_permissions로 실제 로컬 접근 범위를 확인한다.
 
 ```text
 sshfs#alice@nas.example.com:/srv/share /mnt/nas fuse.sshfs noauto,x-systemd.automount,_netdev,reconnect,IdentityFile=/home/alice/.ssh/id_ed25519,allow_other,default_permissions,ServerAliveInterval=15,ServerAliveCountMax=3 0 0
@@ -134,8 +135,9 @@ sshfs#alice@nas.example.com:/srv/share /mnt/nas fuse.sshfs noauto,x-systemd.auto
 fstab을 검증하고 automount를 테스트한다.
 
 ```bash
-sudo findmnt --verify
-sudo systemctl daemon-reload
+sudo findmnt --verify &&
+  sudo systemctl daemon-reload &&
+  sudo systemctl start mnt-nas.automount
 ls /mnt/nas
 findmnt /mnt/nas
 ```
@@ -159,6 +161,10 @@ AutoFS는 접근 시점에 mount하고 idle timeout 후 해제하는 방식이 �
 NFS는 LAN 내부에서 성능과 다중 클라이언트 운영이 더 적합한 경우가 많다. 대신 서버 export, 방화벽, UID/GID 매핑, 보안 정책을 별도로 설계해야 한다.
 
 운영 서버에서는 SSHFS를 backup source나 임시 관리 경로로 쓰고, 핵심 애플리케이션 데이터 경로에는 더 명시적인 storage backend를 사용하는 편이 안전하다.
+
+## 완료 및 롤백 기준
+
+SSH/SFTP 또는 NFS export 접근, `findmnt`의 소스·타입·옵션, 서비스 계정 읽기·쓰기, 단절 중 오류와 재연결 뒤 일관성을 확인합니다. 자동 마운트는 재부팅 후 첫 접근 제한 시간도 시험합니다. 실패하면 해당 단위를 중지하고 fstab/AutoFS 항목을 복원한 뒤 사용 프로세스를 확인하고 안전하게 unmount합니다.
 
 ## 11. 최종 체크리스트 (Definition of Done)
 

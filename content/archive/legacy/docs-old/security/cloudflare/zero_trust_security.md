@@ -1,6 +1,8 @@
 # HSTS만으로는 직접 IP 접근 차단에 불충분한 이유
 
-HSTS(HTTP Strict Transport Security)는 도메인 기반 보안 메커니즘으로, 직접 IP 주소를 통한 접근을 차단하는 데는 한계가 있습니다. 현재 설정에 몇 가지 추가 사항이 필요합니다.
+HSTS(HTTP Strict Transport Security)는 브라우저가 특정 호스트 이름에 HTTPS를 사용하도록 기억하게 하는 응답 정책입니다. 원본 IP의 네트워크 도달성이나 Cloudflare Access 우회를 차단하지 않습니다. 직접 접근 차단은 방화벽 또는 비공개 터널을 우선 경계로 삼고, Nginx 기본 서버는 도달한 요청을 거부하는 보조 계층으로 사용합니다.
+
+이 문서는 여러 장애 대화를 합친 레거시 기록입니다. Nginx 버전, 기존 `default_server`, 인증서 SAN, Cloudflare 원본 주소 범위를 확인하지 않고 예제 블록을 추가하면 리스너 충돌이나 관리 접근 차단이 발생할 수 있습니다.
 
 ## 현재 설정의 문제점
 
@@ -46,7 +48,9 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/nodove.com/privkey.pem;
     
     # HSTS 헤더 추가
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+    # includeSubDomains와 preload는 모든 하위 도메인의 HTTPS 준비와
+    # 되돌리기 절차를 확인한 경우에만 추가한다.
+    add_header Strict-Transport-Security "max-age=31536000" always;
 
     # 내부 서비스로 프록시
     location / {
@@ -70,7 +74,7 @@ server {
 
 4. **추가 보안 계층**: Cloudflare와 같은 서비스를 사용하거나 방화벽 설정을 통해 허용된 IP만 접근할 수 있도록 추가 보안 계층을 구성하는 것이 좋습니다[3][4]
 
-이러한 설정을 통해 도메인 기반 접근은 허용하면서 직접 IP 접근은 차단할 수 있습니다. HSTS는 이미 인증된 도메인 접근에 대해 추가적인 보안 계층을 제공합니다.
+설정 완료는 `nginx -t` 성공만으로 판정하지 않습니다. 허용 도메인의 정상 요청, 잘못된 Host 헤더, 원본 IP의 HTTP·HTTPS 요청, Cloudflare를 거치지 않은 경로를 서로 다른 클라이언트에서 확인하고 방화벽·Nginx·Access 로그를 연결해야 합니다.
 
 
 ---

@@ -1,5 +1,13 @@
 # Python 내부 동작 학습 및 기록 노트
 
+## 문서 범위와 검증 계약
+
+- **범위**: Python 언어 일반이 아니라 주로 CPython의 객체·바이트코드·GC 구현을 설명합니다. PyPy 등 다른 구현에는 그대로 적용되지 않으며 CPython 내부 구조도 릴리스마다 바뀝니다.
+- **전제**: C 구조체와 평가 루프는 설명용 축약이며 특정 헤더와 ABI의 복사본이 아닙니다. 캐시 범위, GC 세대, opcode, 프레임 표현, 할당자 크기와 GIL 동작은 대상 버전을 먼저 고정해야 합니다.
+- **근거 상태**: 언어 의미는 Python Language Reference, CPython 세부는 해당 태그의 소스와 문서로 확인합니다. 시간·메모리·배수 값은 예시일 뿐이며 같은 인터프리터·빌드·하드웨어·입력에서 측정하지 않으면 비교 근거가 아닙니다.
+- **실패/재시도**: 실험이 다르면 예외·출력과 `sys.version`, 구현명, 빌드 옵션을 보존하고 한 조건만 바꿔 재시도합니다. `is`, 원자성, GC 시점 같은 구현 우연에 기대어 성공한 결과를 정답으로 취급하지 않습니다.
+- **완료 증거**: 실습에는 재현 코드, 실행 명령, Python/CPython 버전, 플랫폼, 반복·워밍업 조건과 원시 출력을 남깁니다. 성능 개선은 기준선과 동일 입력의 분포를 비교하고 의미가 유지됨을 확인해야 완료입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Python 코드는 간결하지만 CPython 내부에서는 모든 값이 `PyObject`이고, 참조 카운팅과 순환 GC가 객체 수명을 관리하며, 바이트코드 평가 루프가 opcode를 실행한다. GIL, PyMalloc, descriptor protocol, generator frame, compact dict, import cache 같은 내부 구조를 이해하면 성능 병목과 메모리 누수를 더 정확히 설명할 수 있다.
@@ -16,7 +24,7 @@ Python 코드는 간결하지만 CPython 내부에서는 모든 값이 `PyObject
 
 ## 3. 도달하고 싶은 목표 (Target State)
 
-- 모든 Python 값이 heap object이고 type pointer를 통해 동작이 dispatch됨을 설명한다.
+- Python의 값은 객체라는 언어 의미와 CPython의 `PyObject` 계열 표현을 구분한다. 캐시·불멸 객체·최적화가 있으므로 소스의 값마다 새 힙 할당이 생긴다고 설명하지 않는다.
 - reference counting과 cyclic GC의 역할을 구분한다.
 - source -> AST -> code object -> frame -> eval loop 흐름을 이해한다.
 - GIL과 multiprocessing/asyncio/C extension의 관계를 구분한다.
@@ -86,8 +94,8 @@ Generator는 frame을 버리지 않고 `yield` 지점에서 중단한다. `next(
 - GIL이 보호하는 CPython 내부 상태는 동시에 여러 thread가 변경하면 안 된다.
 - Descriptor lookup 순서는 data descriptor, instance dict, non-data descriptor, class attribute 순서를 지켜야 한다.
 - Dict lookup은 hash와 key equality를 모두 확인해야 한다.
-- Import는 `sys.modules` cache를 통해 같은 module object를 재사용해야 한다.
-- CPU-bound 순수 Python thread가 여러 개여도 GIL 때문에 동시에 bytecode를 실행하지 못한다.
+- 일반적인 import는 같은 이름의 성공적으로 초기화된 module을 `sys.modules`에서 재사용한다. 초기화 실패, cache 제거, reload와 사용자 loader 경로는 별도로 다룬다.
+- GIL이 활성화된 CPython 인터프리터에서는 해당 GIL을 공유하는 thread들이 Python bytecode를 동시에 실행하지 못한다. Free-threaded 빌드와 GIL을 해제하는 네이티브 코드는 대상 버전·확장 모듈을 따로 확인한다.
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
 
@@ -115,8 +123,8 @@ user.name 조회 순서:
 ## 9. 실패 사례 (What could go wrong?)
 
 - 순환 참조가 있는 객체에 `__del__`이나 외부 리소스가 얽혀 회수 타이밍이 예상과 달라진다.
-- CPU-bound 작업을 thread로 병렬화하려고 해도 GIL 때문에 속도가 늘지 않는다.
-- `str += part`를 loop에서 반복해 매번 새 문자열을 만들고 `O(n^2)` 비용을 만든다.
+- GIL 활성화 CPython에서 순수 Python CPU-bound 작업을 같은 인터프리터의 thread로 나누고 병렬 실행을 기대한다. 네이티브 코드의 GIL 해제나 free-threaded 빌드는 별도의 조건으로 측정해야 한다.
+- 반복적인 `str += part`는 구현과 참조 상태에 따라 `O(n^2)`에 가까워질 수 있지만 일부 CPython 경로는 최적화된다. 많은 조각은 `"".join(parts)`와 실제 입력에서 비교한다.
 - 전역 변수 lookup과 attribute lookup이 hot loop 안에서 반복되어 bytecode overhead가 커진다.
 - generator/coroutine frame이 참조를 유지해 큰 객체가 예상보다 오래 살아남는다.
 - import top-level code가 무겁고 cold import latency가 커진다.

@@ -2,6 +2,20 @@
 
 Tailscale은 WireGuard 기반의 메시 VPN으로, 각 장치를 tailnet에 등록해 NAT 뒤에서도 장치 간 암호화 통신을 쉽게 구성하게 해준다.
 
+## 적용 범위와 운영 계약
+
+이 가이드는 Tailscale 클라이언트와 관리 콘솔을 사용하는 tailnet 예시입니다. 운영체제, 클라이언트 버전, 계정 플랜, ACL 또는 grants 정책 형식에 따라 명령과 제한이 달라지므로 공식 문서와 현재 관리 콘솔을 기준으로 확인합니다.
+
+- **증거 상태**: 속도, 기기 수, 업로드 제한과 기능 비교는 보장값이 아닌 정성적 참고입니다. 실제 경로가 direct인지 DERP relay인지, 왕복 지연과 처리량을 대상 기기 사이에서 측정합니다.
+- **보안 전제**: SSO와 MFA, 최소 권한 정책, 태그 소유자, 장치 승인과 만료, 퇴사자 및 분실 장치 회수 절차를 먼저 정의합니다.
+- **비밀 관리**: 인증 키는 등록용 비밀이며 문서, 셸 기록, 프로세스 목록, 로그에 남기지 않습니다. 가능한 경우 일회성, 사전 승인, 짧은 수명, ephemeral 속성을 사용하고 즉시 폐기할 수 있어야 합니다.
+- **라우팅 변경**: Exit Node와 Subnet Router는 IP forwarding, 방화벽, DNS, 승인된 라우트, 역방향 경로와 장애 시 원복 경로를 함께 검토합니다.
+- **완료 조건**: tailscale status, netcheck와 ping 결과, 승인 및 거부 정책 테스트, DNS와 대상 서비스 확인, relay 전환 시 동작, 장치 회수 테스트를 기록합니다.
+
+설치 스크립트를 파이프로 바로 실행하기보다 지원 배포판과 저장소 서명을 확인하고 검토된 패키지 경로를 사용합니다. tailscale up의 반복 실행은 기존 비기본 플래그와 충돌할 수 있으므로 현재 버전에서 증분 변경용 tailscale set 지원 여부를 먼저 확인합니다.
+
+포트포워딩 없이 외부에서 내부 서버에 접속하고 실제 연결 경로와 접근 정책을 검증하는 방법을 정리합니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 내부 서버에 외부에서 접속하려고 SSH, RDP, NAS, 관리 UI 포트를 직접 열면 공격면이 커진다. WireGuard를 직접 운영할 수도 있지만 peer 관리, NAT traversal, ACL, 기기 인증을 직접 설계해야 한다.
@@ -87,7 +101,7 @@ stateDiagram-v2
 
 - subnet router와 exit node는 목적이 다르므로 대체해서 쓰면 안 된다.
 - route advertisement는 접근 허용이 아니라 도달 경로 제공이다.
-- 새 tailnet policy는 가능하면 grants 중심으로 작성하고, 기존 ACL은 마이그레이션 계획을 둔다.
+- 새 정책의 ACL/grants 형식은 현재 지원 기능과 요구에 맞게 선택한다. 기존 정책은 동작·거부 시험과 단계적 변경 계획 없이 강제 변환하지 않는다.
 - 서버나 라우터 장치는 tags와 key expiry 정책을 명확히 해야 한다.
 - auth key는 문서, Git, 로그에 남기지 않는다.
 - Tailscale SSH는 대상 장치와 policy opt-in이 필요하며 모든 비-Tailscale 장치에 적용되는 기능이 아니다.
@@ -99,13 +113,14 @@ stateDiagram-v2
 ```bash
 sudo tailscale up
 tailscale status
-tailscale ping <device-name>
+: "${TAILSCALE_PEER:?set reviewed peer name or address}"
+tailscale ping "$TAILSCALE_PEER"
 ```
 
-subnet router 예시:
+현재 client의 `tailscale set --help`를 확인하고 router의 IP forwarding, firewall, DNS·return path와 허용 subnet을 준비한다. 아래는 subnet router의 증분 설정 예시다.
 
 ```bash
-sudo tailscale up --advertise-routes=192.168.1.0/24
+sudo tailscale set --advertise-routes=192.168.1.0/24
 ```
 
 그 다음 admin console에서 route를 승인하고, Linux 클라이언트에서는 필요하면 route 수락을 켠다.
@@ -117,7 +132,7 @@ sudo tailscale set --accept-routes
 exit node 예시:
 
 ```bash
-sudo tailscale up --advertise-exit-node
+sudo tailscale set --advertise-exit-node
 ```
 
 exit node도 admin 승인과 클라이언트 opt-in이 필요하다.
@@ -150,4 +165,4 @@ exit node도 admin 승인과 클라이언트 opt-in이 필요하다.
 
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-Tailscale은 장치 간 연결을 쉽게 만들지만, 실제 보안은 라우트 승인과 grants/ACL 정책을 최소 권한으로 설계할 때 완성된다.
+Tailscale의 연결 경로와 인가는 별도 검증 대상이다. 라우트 승인, ACL/grants, 장치 수명주기와 실제 허용·거부 시험을 함께 유지한다.

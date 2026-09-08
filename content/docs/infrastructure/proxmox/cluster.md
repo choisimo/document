@@ -2,6 +2,8 @@
 
 이 문서는 Proxmox VE에서 QDevice가 설정되어 있는데 `pvecm status`의 vote가 기대와 다르거나 QDevice가 `NA`, `NV`, `votes 0`처럼 보일 때 확인할 순서를 정리한다. 핵심 원칙은 `corosync.conf`를 직접 고치기 전에 공식 `pvecm` 명령과 네트워크 상태를 먼저 검증하는 것이다.
 
+지원 여부는 설치된 Proxmox VE·Corosync와 SBC OS 버전의 공식 문서로 확인한다. 특정 SBC나 커뮤니티 이미지가 실행 가능하다는 사실은 공급자 지원을 뜻하지 않는다. 과반 투표가 quorum 기준이며 홀수 표 자체가 보편적인 필수 조건은 아니다. 설정 전 정상 quorum과 콘솔·유지보수 창을 확보하고, 모든 노드의 expected/total votes·QDevice 연결과 양쪽 로그를 비교한다. QNetd 상실, QNetd에 접근 가능한 한 노드 상실, 관련 네트워크 분리를 분리해 시험하고 fencing과 남은 용량을 검증한다. 예상과 다르면 공식 제거 절차와 이전 SSH·방화벽 정책으로 복원한다. `/etc/pve/corosync.conf`에 임의 votes를 추가하거나 여러 노드의 Corosync를 동시에 재시작하지 않는다. TCP 접속 성공만으로 TLS·등록 성공을 판정하지 않는다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 QDevice는 2노드 Proxmox 클러스터에서 quorum을 안정화하기 위한 장치다. QDevice가 살아 있지 않거나 vote를 주지 못하면 한 노드 장애나 네트워크 분리 상황에서 클러스터가 quorum을 잃고 `/etc/pve`가 읽기 전용처럼 동작할 수 있다.
@@ -49,7 +51,7 @@ Proxmox node
 
 `pvecm status`는 quorum 상태, expected votes, total votes, QDevice row를 보여준다.
 
-`pvecm qdevice status`는 QDevice daemon 쪽 세부 상태를 확인하는 명령이다.
+`systemctl status corosync-qdevice`와 클라이언트 journal은 daemon 상태와 연결 오류를 확인하는 경로다.
 
 `corosync-qnetd`는 Raspberry Pi 같은 외부 QDevice host에서 실행된다.
 
@@ -79,7 +81,7 @@ Proxmox node
 - QDevice 문제를 해결하기 위해 처음부터 `corosync.conf`를 수동 편집하지 않는다.
 - QDevice host의 5403/TCP가 모든 Proxmox 노드에서 열려 있어야 한다.
 - QDevice host에는 `corosync-qnetd`, Proxmox 노드에는 `corosync-qdevice`를 둔다.
-- `pvecm expected 1`은 no quorum 복구용 임시 조치로만 사용한다.
+- expected votes 강제 변경은 일상 진단에 사용하지 않는다. 다른 partition의 writer 배제와 해당 버전의 복구 절차가 필요하다.
 - QDevice 설정 전후에는 `pvecm status` 출력을 저장해 비교한다.
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
@@ -113,13 +115,13 @@ dpkg -l corosync-qdevice
 systemctl status corosync-qdevice
 ```
 
-기존 QDevice 등록을 공식 명령으로 제거한다.
+연결·인증서·시간·클러스터 이름과 양쪽 로그를 먼저 대조한다. 재등록이 필요한 경우에만 정상 quorum, 콘솔과 유지보수 창을 확보하고 한 클러스터 노드에서 기존 QDevice 등록을 제거한다.
 
 ```bash
 pvecm qdevice remove
 ```
 
-필요 패키지를 설치하고 다시 등록한다.
+필요 패키지는 모든 노드에서 확인·설치하고, setup은 한 클러스터 노드에서 한 번 실행한다.
 
 ```bash
 apt update
@@ -131,7 +133,8 @@ pvecm qdevice setup 192.168.1.55
 
 ```bash
 pvecm status
-pvecm qdevice status
+systemctl status corosync-qdevice --no-pager
+journalctl -u corosync-qdevice --since "-15 min"
 corosync-quorumtool -s
 ```
 
@@ -161,7 +164,7 @@ QDevice host를 SBC로 운영한다면 전원, SD 카드 내구성, OS 업데이
 - [ ] QDevice host에서 `corosync-qnetd`가 실행 중이다.
 - [ ] 모든 Proxmox 노드에서 QDevice host 5403/TCP가 열린다.
 - [ ] 모든 Proxmox 노드에 `corosync-qdevice`가 설치되어 있다.
-- [ ] `pvecm qdevice remove`와 `setup`을 공식 명령으로 수행했다.
+- [ ] 재등록이 필요한 경우에만 정상 quorum을 확인하고 공식 remove/setup 절차를 수행했다.
 - [ ] `pvecm status`에서 QDevice 상태가 alive로 보인다.
 - [ ] 수동 `corosync.conf` 수정 없이 해결했다.
 - [ ] 변경 전후 상태 출력을 기록했다.

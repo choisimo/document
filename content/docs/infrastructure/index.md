@@ -1,6 +1,88 @@
-# 인프라 문서 학습 및 기록 노트
+---
+title: "인프라 운영"
+---
+
+# 인프라 운영 {#_1}
+
+<nav class="hub-directory" aria-label="인프라 운영 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">Proxmox</h2>
+
+- [Proxmox QDevice 투표 문제 해결](proxmox/cluster.md)
+- [Proxmox 이메일 알림 설정 기준](proxmox/email-alerts.md)
+- [SBC를 Proxmox QDevice로 쓰는 기준](proxmox/cluster-with-sbc.md)
+- [Proxmox와 OPNsense VLAN 104 연결 기준](proxmox/opnsense_vlan_setup.md)
+- [Proxmox 스냅샷, 백업, 템플릿 기준](proxmox/snapshot-backup-template.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">네트워크</h2>
+
+- [리눅스 고정 IP 설정 기준](networking/network-settings.md)
+- [rsync와 SSH 포트 사용 기준](networking/rsync.md)
+- [리눅스 서버 이메일 발송 설정](networking/email-config.md)
+- [nmcli 네트워크 설정 가이드](networking/nmcli-guide.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">모니터링</h2>
+
+- [Prometheus, Grafana, Loki 관측 스택](monitoring/prometheus-grafana-loki.md)
+- [백그라운드 프로세스 관리](monitoring/process-management.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-4" markdown="1">
+
+<h2 id="directory-group-4">스토리지</h2>
+
+- [리눅스 디스크 영구 마운트 기준](storage/mounting.md)
+- [리눅스 디스크 초기화와 파일시스템 확장 기준](storage/disk-format.md)
+- [SSHFS 원격 디렉터리 마운트 기준](storage/sshfs.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-5" markdown="1">
+
+<h2 id="directory-group-5">하드웨어</h2>
+
+- [NanoPi NEO3 초기 접속 및 네트워크 설정](hardware/nano-pi-neo3.md)
+- [SSD 및 NVMe 상태 점검](hardware/ssd-guide.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-6" markdown="1">
+
+<h2 id="directory-group-6">함께 읽기</h2>
+
+- [Docker 설치 가이드](../development/docker/installation.md)
+- [보안](../security/index.md)
+- [Nginx](../nginx/index.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
 
 이 문서는 `content/docs/infrastructure` 아래의 운영 인프라 문서를 묶는 상위 색인이다. 하드웨어, 네트워크, 모니터링, Proxmox, 스토리지 문서를 실제 운영 흐름에 맞춰 탐색할 수 있게 한다.
+
+## 인덱스와 운영 경계
+
+- 이 페이지는 문서 탐색용 개요이며 현재 환경의 구성·보안·가용성 완료를 보증하지 않습니다.
+- 명령 실행 전 대상 호스트, OS·제품 버전, 영향 범위, 권한, 백업과 콘솔·롤백 경로를 기록합니다.
+- 운영 완료는 설정 파일 저장이 아니라 상태·로그·지표·외부 접근과 장애 복구 결과로 판정합니다.
+- 링크나 포트 요약이 대상 문서와 달라지면 대상 문서를 근거로 인덱스를 함께 갱신합니다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -156,3 +238,5 @@ find content/docs/infrastructure -maxdepth 3 -type f | sort
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 인프라 문서는 명령 모음이 아니라 계층별 `__________` 지도다. 변경 전에는 현재 `__________`를 기록하고, 실패하면 어느 `__________`에서 문제가 생겼는지 좁힌다.
+
+</details>

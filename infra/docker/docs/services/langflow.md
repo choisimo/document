@@ -1,3 +1,10 @@
+# Langflow Compose Fragment
+
+## 구성 범위와 검증 기준
+
+이 문서는 Langflow Compose fragment의 원문 예시입니다. BusyBox·Langflow image, container UID/GID, volume driver와 host filesystem에 따라 실제 ownership이 달라지므로 init container의 root 권한과 target path를 먼저 확인합니다. rendered Compose, volume ownership, Langflow health와 restart 후 persistence를 확인하고, secret·database backup·rollback을 별도 준비해야 완료입니다.
+
+```yaml
 services:
   # Named volume은 기본적으로 root:root 소유/권한으로 생성됩니다.
   # langflow 이미지가 non-root로 실행되면 /var/lib/langflow 쓰기에서 Permission denied가 반복될 수 있어
@@ -73,4 +80,4 @@ volumes:
 networks:
   internal:
     driver: bridge
-
+```

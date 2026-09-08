@@ -2,6 +2,13 @@
 
 GCC는 C, C++, Objective-C, Fortran 등 여러 언어를 지원하는 GNU Compiler Collection이다. 개발 환경에서 GCC를 다룬다는 것은 단순히 `gcc --version`을 확인하는 일이 아니라, 전처리, 컴파일, 어셈블, 링크 단계가 어디서 실패하는지 구분할 수 있는 상태를 뜻한다.
 
+## Scope and Verification Contract
+
+- **Scope:** Pin the GCC release, target triple, host OS and distribution, C/C++ language standard, linker, libc, build type, and package source. Installation commands and available flags vary across those inputs.
+- **Assumptions:** Warnings, optimization, debug information, ABI, sanitizer behavior, and generated code depend on flags and source language. A successful compile does not establish program correctness or portability.
+- **Facts and inference:** Compiler diagnostics and generated artifacts are evidence; a performance or undefined-behavior explanation remains a hypothesis until tests, sanitizers, profiles, and assembly support it.
+- **Failure and completion:** Treat warnings selected by policy, link errors, sanitizer findings, test failures, ABI mismatch, and target runtime failure explicitly. Completion requires the pinned compiler, clean policy checks, passing tests, and a reproducible build command.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 C/C++ 빌드 오류는 원인이 여러 층에 걸쳐 나타난다. 헤더 파일을 못 찾는 문제, 표준 버전 불일치, 오브젝트 파일 누락, 라이브러리 링크 실패, 런타임 공유 라이브러리 경로 문제가 모두 “컴파일이 안 된다”로 보일 수 있다.

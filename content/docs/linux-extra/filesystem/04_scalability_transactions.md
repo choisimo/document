@@ -1,6 +1,13 @@
 # 파일시스템 확장성과 트랜잭션
 
-이 문서는 Linux 파일시스템을 서비스 규모, write pattern, crash consistency 관점에서 선택하고 튜닝하는 기준을 정리한다. 목표는 mount option을 외우는 것이 아니라 데이터 안전성과 성능 사이의 trade-off를 명시적으로 판단하는 것이다.
+이 문서는 Linux 파일시스템을 실제 workload, write pattern과 crash consistency 요구로 선택·튜닝하는 기준을 정리한다. 파일 크기·개수, fsync 빈도와 latency 분포를 측정해 내구성과 성능의 조건을 판단한다.
+
+## 판단 경계
+
+- "중소규모/대규모" 대신 파일 크기·개수, fsync 빈도, queue depth, 순차/랜덤 비율, crash 후 허용 손실과 복구 시간을 측정합니다.
+- 파일시스템 저널은 주로 메타데이터 일관성과 복구를 돕습니다. 애플리케이션 트랜잭션, 저장장치 write cache, 복제와 백업의 내구성을 대신하지 않습니다.
+- mount 옵션은 kernel·filesystem·storage stack별 의미를 확인하고 동일 workload의 latency 분포, throughput과 crash test로 비교합니다.
+- 변경 완료는 mount 성공이 아니라 재부팅, 전원 장애 가정, 데이터 검증과 원래 옵션으로의 복구 가능성을 확인한 상태입니다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -41,7 +48,7 @@ application write
   -> durable media
 ```
 
-`fsync` 또는 barrier는 이 흐름에서 “어디까지 durable하다고 볼 것인가”를 강제하는 지점이다. 성능과 안전성은 여기서 충돌한다.
+`fsync`는 애플리케이션이 파일의 동기화 완료를 요청하는 API이고, barrier/flush는 파일시스템부터 장치 cache까지 쓰기 순서·내구성 조건을 구성하는 내부 수단이다. 둘은 같은 계약이 아니며 장치가 요청을 올바르게 이행하는지도 확인해야 한다.
 
 ## 5. 핵심 구성요소 (Building Blocks)
 
@@ -55,7 +62,7 @@ XFS는 큰 파일, 병렬 I/O, 큰 filesystem에서 강점이 있다. 단, shrin
 
 `commit=N`은 metadata commit 주기에 영향을 준다. 값을 늘리면 write 빈도를 줄일 수 있지만 crash 시 손실 창이 커질 수 있다.
 
-Write barrier와 flush는 device cache의 순서와 내구성을 보장하는 데 중요하다. 임의로 끄면 전원 장애 시 filesystem consistency가 깨질 수 있다.
+Write ordering과 flush는 filesystem·block layer·controller·drive cache 사이의 내구성 순서를 구성한다. BBWC가 있어도 firmware·controller 교체·cache mode 문제는 남으므로 지원 문서와 실제 power-loss 검증 없이 비활성화하지 않는다.
 
 ## 6. 상태 전이 (State Transition)
 
@@ -96,7 +103,7 @@ write acknowledged by application
 
 ```bash
 findmnt -no SOURCE,FSTYPE,OPTIONS /
-findmnt -no SOURCE,FSTYPE,OPTIONS /var/lib
+findmnt -no SOURCE,FSTYPE,OPTIONS --target /var/lib
 df -hT
 ```
 
@@ -161,7 +168,7 @@ Write-heavy workload에서 inode 또는 directory 구조가 병목인데 block t
 
 ## 10. 뇌 확장하기 (Evolution & Variants)
 
-Ext4와 XFS 선택은 절대 우열보다 workload와 운영 제약의 문제다. 작은 서버, 일반 workload, 익숙한 복구 도구가 중요하면 Ext4가 무난하다. 큰 filesystem, 병렬 I/O, enterprise workload는 XFS가 적합할 수 있다.
+Ext4와 XFS는 파일 크기·개수, 병렬 I/O, fsync 빈도, DB vendor 지원, 복구 도구와 운영 제약을 기준으로 비교한다. 규모나 enterprise라는 이름만으로 선택하지 않고 같은 workload의 latency·throughput·crash 복구를 측정한다.
 
 Database는 filesystem보다 storage stack 전체가 중요하다. Application WAL, fsync policy, RAID controller cache, cloud block volume guarantee, backup snapshot consistency를 함께 봐야 한다.
 

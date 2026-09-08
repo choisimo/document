@@ -1,5 +1,12 @@
 # LiteLLM Proxy 안전 구성 학습 및 기록 노트
 
+## Scope, Authorization, and Verification
+
+- **Scope:** This example uses documented provider API credentials with a reviewed LiteLLM release, provider API/model revision, account entitlement and Compose configuration. It does not depend on an IDE extension or local session-token storage.
+- **Authorization boundary:** Use provider credentials issued for the intended API access. Keep provider secrets and proxy client keys separate; exclude IDE, Copilot and browser session-token extraction from this workflow.
+- **Assumptions and uncertainty:** A valid account does not guarantee access to every model. Check key scope, expiry, revocation, rate limits and provider routing for the chosen release.
+- **Failure and completion:** Reject absent or expired keys and unauthorized models, prevent secret logging and public proxy exposure, and verify an authorized request, denied request, key rotation and restart behavior.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 LiteLLM proxy는 여러 LLM provider를 OpenAI-compatible endpoint처럼 라우팅할 수 있는 gateway다. 하지만 provider credential, proxy master key, model alias, Docker secret, network exposure를 잘못 다루면 개인 IDE token 유출, 무단 사용, 비용 폭증, audit 누락으로 이어질 수 있다. 특히 로컬 IDE나 Copilot 세션 token을 스크래핑해 자동 주입하는 방식은 안전한 운영 패턴이 아니다.
@@ -80,6 +87,8 @@ stateDiagram-v2
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
 
+`.env`의 아래 값은 실행용이 아닌 자리표시자다. 외부 secret 저장소 또는 권한 0600인 비추적 파일에서 실제 값을 주입하고 기본값을 교체한 후에만 실행한다. provider model 이름도 계정에 허용된 실제 모델로 바꾼다.
+
 `.env`:
 
 ```dotenv
@@ -105,7 +114,7 @@ general_settings:
 ```yaml
 services:
   litellm:
-    image: docker.litellm.ai/berriai/litellm:main-latest
+    image: "${LITELLM_IMAGE:?set reviewed LiteLLM tag or digest}"
     ports:
       - "127.0.0.1:4000:4000"
     volumes:
@@ -116,13 +125,18 @@ services:
     restart: unless-stopped
 ```
 
+검증 전 secret 저장소에서 `Authorization: Bearer 실제_프록시_키` 한 줄을 담은 권한 0600의 임시 header 파일을 만든다. 파일 경로만 `LITELLM_AUTH_HEADER_FILE`로 전달하고 시험 후 삭제한다. shell history나 명령 인자에 실제 키를 넣지 않는다. 이 방법에는 `--header @file`을 지원하는 curl이 필요하다.
+
 검증:
 
 ```bash
-curl http://127.0.0.1:4000/chat/completions \
-  -H "Authorization: Bearer REDACTED" \
-  -H "Content-Type: application/json" \
-  -d '{"model":"team-chat-model","messages":[{"role":"user","content":"hello"}]}'
+: "${LITELLM_AUTH_HEADER_FILE:?set path to a protected Authorization header file}"
+test -r "$LITELLM_AUTH_HEADER_FILE" || exit 1
+curl --fail --silent --show-error --connect-timeout 5 --max-time 90 \
+  http://127.0.0.1:4000/chat/completions \
+  --header "@$LITELLM_AUTH_HEADER_FILE" \
+  --header 'Content-Type: application/json' \
+  --data '{"model":"team-chat-model","messages":[{"role":"user","content":"hello"}]}'
 ```
 
 이 예제는 provider key를 container environment로만 전달하고, proxy client에게는 별도 master key만 노출하는 최소 흐름이다.

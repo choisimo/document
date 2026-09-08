@@ -1,15 +1,10 @@
-const openNotebookEnabled = '%%OPEN_NOTEBOOK_ENABLED%%' !== '%%' + 'OPEN_NOTEBOOK_ENABLED' + '%%'
-  ? '%%OPEN_NOTEBOOK_ENABLED%%' === 'true'
-  : false;
+const publicAIConfig = window.PUBLIC_AI_CONFIG || {};
+const openNotebookEnabled = publicAIConfig.openNotebookEnabled === true;
 
 const openNotebookConfig = {
   enabled: openNotebookEnabled,
-  apiUrl: '%%OPEN_NOTEBOOK_URL%%' !== '%%' + 'OPEN_NOTEBOOK_URL' + '%%'
-    ? '%%OPEN_NOTEBOOK_URL%%'
-    : 'http://localhost:8090',
-  apiToken: '%%OPEN_NOTEBOOK_TOKEN%%' !== '%%' + 'OPEN_NOTEBOOK_TOKEN' + '%%'
-    ? '%%OPEN_NOTEBOOK_TOKEN%%'
-    : '',
+  apiUrl: publicAIConfig.openNotebookUrl || 'http://localhost:8090',
+  apiToken: publicAIConfig.openNotebookToken || '',
   maxResults: 5,
   contextMaxChars: 3000,
 };
@@ -18,19 +13,13 @@ const openNotebookPromptPrefix = '당신에게는 Open Notebook 지식 베이스
 const localDocsPromptPrefix = '당신에게는 Documentation Hub 로컬 문서 검색 결과가 제공될 수 있습니다. 이 결과가 있으면 가장 우선적으로 참고하고, 답변마다 관련 문서 경로를 함께 제시하세요.';
 
 window.AI_CONFIG = {
-  // Build time에 주입됨 - placeholder는 GitHub Actions에서 대체됨
-  apiBaseUrl: (('%%AI_API_BASE_URL%%' !== '%%' + 'AI_API_BASE_URL' + '%%'
-    ? '%%AI_API_BASE_URL%%'
-    : 'https://ai.dothechi.com/v1')).replace(/\/+$/, ''),
+  // Only explicitly public settings are generated at build time.
+  apiBaseUrl: (publicAIConfig.apiBaseUrl || 'https://ai.dothechi.com/v1').replace(/\/+$/, ''),
 
-  apiToken: '%%AI_API_TOKEN%%' !== '%%' + 'AI_API_TOKEN' + '%%'
-    ? '%%AI_API_TOKEN%%'
-    : '',
+  apiToken: publicAIConfig.apiToken || '',
 
   // 모델명이 설정되어 있으면 우선 사용, 없으면 백엔드 기본 모델 사용
-  modelName: '%%AI_MODEL_NAME%%' !== '%%' + 'AI_MODEL_NAME' + '%%'
-    ? '%%AI_MODEL_NAME%%'
-    : null,
+  modelName: publicAIConfig.modelName || null,
 
   search: {
     localDocsEnabled: true,

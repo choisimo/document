@@ -1,5 +1,14 @@
 # Git 삭제 복구 및 고아 브랜치 학습 및 기록 노트
 
+## 적용 범위와 복구 기준
+
+- **범위:** 삭제가 working tree, index, commit, remote 중 어디에 반영됐는지와 Git 버전, 현재 `HEAD`, reflog·garbage-collection 상태를 먼저 확인합니다.
+- **안전 전제:** untracked 파일과 미커밋 변경을 별도로 보존하고, restore 대상 tree와 path를 확인하기 전 파괴적 명령을 실행하지 않습니다.
+- **사실과 추론:** orphan branch는 첫 commit에 parent가 없는 새 history를 만들 수 있지만 repository의 object database와 reflog까지 물리적으로 분리하는 것은 아닙니다.
+- **실패·완료:** 예상 밖 파일 삭제, 잘못된 commit 복원과 remote history 불일치를 실패로 봅니다. file 내용·index·commit parent·remote ref가 의도한 상태인지 확인해야 완료입니다.
+
+---
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Git에서 파일 삭제를 복구할 때는 "삭제가 staged 되었는가", "아직 commit 전인가", "이미 삭제 commit이 공유되었는가"에 따라 안전한 방법이 달라진다. 무작정 `reset --hard`를 쓰면 다른 작업까지 날릴 수 있다. 또한 완전히 새 history가 필요한 orphan branch는 일반 branch와 merge semantics가 달라 별도 주의가 필요하다.
@@ -75,7 +84,7 @@ stateDiagram-v2
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
 - 복구 전에는 `git status`와 필요한 경우 `git diff`로 현재 변경을 확인한다.
-- 다른 미커밋 작업이 있으면 복구 전에 stash 또는 별도 commit으로 보호한다.
+- 미커밋 작업과 untracked 파일은 복구 전에 별도 백업 또는 필요에 맞는 `git stash push -u`/commit으로 보존하고 복원 가능성을 확인한다.
 - 공유된 branch에서는 history rewrite보다 `git revert`를 우선한다.
 - `git reset --hard`는 현재 작업 전체를 버릴 수 있으므로 일반 복구 절차의 기본값으로 사용하지 않는다.
 - Orphan branch에서 파일을 제거하기 전 현재 branch와 작업 트리를 반드시 확인한다.
@@ -95,17 +104,20 @@ git restore path/to/file.md
 
 ```bash
 git log --diff-filter=D --summary -- path/to/file.md
-git restore --source=<delete-commit>~1 -- path/to/file.md
+: "${DELETE_COMMIT:?set the reviewed deletion commit id}"
+git show --no-patch --format=raw "$DELETE_COMMIT"
+git restore --source="${DELETE_COMMIT}^1" -- path/to/file.md
 git status
 ```
 
 공유된 삭제 commit 되돌리기:
 
 ```bash
-git revert <delete-commit>
+: "${DELETE_COMMIT:?set the reviewed deletion commit id}"
+git revert "$DELETE_COMMIT"
 ```
 
-이 예제는 destructive reset 없이 삭제 위치별로 필요한 변경만 되돌리는 경로를 보여준다.
+단일 parent를 가진 삭제 commit의 예시다. merge commit은 어느 parent 상태를 복구할지 먼저 정하며 revert에는 검토한 mainline 선택이 필요하다. `git restore`는 지정한 파일만 가져오지만 `git revert`는 해당 commit의 다른 변경도 함께 되돌리므로 전체 diff를 검토한다.
 
 ## 9. 실패 사례 (What could go wrong?)
 

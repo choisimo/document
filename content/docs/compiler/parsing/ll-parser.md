@@ -1,5 +1,12 @@
 # LL Parser 학습 및 기록 노트
 
+## 입력·산출물·완료 조건
+
+- 입력은 증강 여부와 EOF가 명시된 문맥 자유 문법입니다. 필요하면 왼쪽 재귀 제거와 left factoring을 별도 변환으로 기록합니다.
+- 산출물은 각 `(비단말, lookahead)`에 최대 하나의 생성 규칙 또는 error가 들어가는 표입니다.
+- FIRST/FOLLOW 계산은 집합이 더 이상 변하지 않을 때 완료되며 ε의 전파와 EOF 포함 근거를 남깁니다.
+- 한 셀에 둘 이상의 규칙이 들어가면 해당 문법이 현재 형태로 LL(1)이 아니라는 증거입니다. 임의 규칙 선택으로 충돌을 숨기지 않습니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 LL(1) parser는 입력을 왼쪽에서 오른쪽으로 읽고, leftmost derivation을 1-token lookahead로 예측한다. 사람이 작성하는 recursive descent parser와 table-driven predictive parser의 기반이 되지만, grammar가 left recursion이나 FIRST/FOLLOW conflict를 가지면 한 lookahead만으로 production을 고를 수 없다.
@@ -28,10 +35,10 @@ LL(1) parser는 입력을 왼쪽에서 오른쪽으로 읽고, leftmost derivati
 flowchart TD
     A[Grammar] --> B[Compute FIRST]
     B --> C[Compute FOLLOW]
-    C --> D[For each production A -> alpha]
-    D --> E[Fill M[A, FIRST(alpha)]]
-    E --> F{epsilon in FIRST(alpha)?}
-    F -->|yes| G[Fill M[A, FOLLOW(A)]]
+    C --> D["For each production A -> alpha"]
+    D --> E["Fill M[A, FIRST(alpha)]"]
+    E --> F{"epsilon in FIRST(alpha)?"}
+    F -->|yes| G["Fill M[A, FOLLOW(A)]"]
     F -->|no| H[Parsing table]
     G --> H
     H --> I[Stack-driven parser]

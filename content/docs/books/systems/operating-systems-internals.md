@@ -1,6 +1,13 @@
 # Operating Systems — Internals and Design Principles
 > Source: *Operating Systems: Internals and Design Principles*, 6th Edition — William Stallings. Synthesized from OS design principles (PDF contains different book content).
 
+## Model boundary
+
+- This is a cross-OS teaching model, not a description of one current kernel. Name the OS, release, ISA, page-table mode, filesystem and device path before applying implementation details.
+- Protection, scheduling, virtual memory and I/O diagrams omit branches deliberately. Separate architectural guarantees from Linux- or x86-specific examples.
+- Latency and capacity values require a measurement environment and distribution; complexity alone is not a performance result.
+- Completion evidence is the observed state transition and return/error path under the stated platform, including interruption, cancellation and resource exhaustion.
+
 ## Overview
 
 An operating system is not a single program — it is a collection of interlocking mechanisms that together create the illusion of isolated, infinite resources from shared, finite hardware. This document maps the internal machinery: how the kernel manages processes in memory, how the scheduler selects and switches tasks, how virtual memory translates addresses through page tables, and how the I/O subsystem routes requests from userspace to hardware.
@@ -24,13 +31,13 @@ block-beta
   ring0 -->|"iret / sysret"| ring3
 ```
 
-**Hardware enforcement**: Kernel-mode instructions (e.g., `HLT`, `LGDT`, direct I/O port access) fault when executed at ring 3. A user process cannot corrupt kernel memory, because the MMU enforces page-level permissions.
+**Hardware enforcement**: on a correctly configured x86 system, privileged instructions fault outside the required privilege level and page permissions isolate kernel mappings. This is a boundary, not an absolute security proof: kernel bugs, speculative-execution issues, DMA/IOMMU configuration and privileged interfaces can violate intended isolation.
 
 ---
 
 ## 2. Process Control Block (PCB) — The OS's View of a Process
 
-Every process is fully described by its Process Control Block (also called `task_struct` in Linux). When the kernel isn't running a process, everything needed to resume it is captured here.
+An OS associates process-control data with each process; Linux's `task_struct` is one implementation component rather than a universal PCB synonym. Resumption also depends on referenced address-space, file, signal, scheduler and device state, so not all state is stored inline in one block.
 
 ```mermaid
 block-beta
@@ -220,10 +227,11 @@ flowchart TD
 ### 6.2 Slab Allocator — Object Cache
 
 ```mermaid
-block-fixes
 block-beta
   columns 1
-  block:slab["kmem_cache for task_struct (example)"]:1
+  block:slab:1
+    columns 1
+    slabTitle["kmem_cache for task_struct (example)"]:1
     full["Full slabs: all objects allocated"]
     partial["Partial slabs: mix of free/allocated objects"]
     empty["Empty slabs: all free → returned to buddy"]
@@ -375,7 +383,7 @@ sequenceDiagram
     participant Implementation
 
     UserApp->>libc: read(fd, buf, n)
-    libc->>CPU: MOV rax, __NR_read; SYSCALL instruction
+    libc->>CPU: MOV rax, __NR_read#59; SYSCALL instruction
     CPU->>CPU: switch to ring 0, load kernel stack (per-CPU)
     CPU->>KernelEntry: entry_SYSCALL_64
     KernelEntry->>KernelEntry: save all registers on kernel stack
@@ -420,9 +428,11 @@ stateDiagram-v2
     CheckRef --> ClearRef: ref=1 → clear bit, advance clock hand
     CheckRef --> Evict: ref=0 → candidate for eviction
     ClearRef --> Scan: continue scanning
-    Evict --> Dirty{"Page dirty?"}
-    Dirty -->|yes| WriteBack: writeback to disk/swap
-    Dirty -->|no| Free: immediately reclaim
+    state Dirty <<choice>>
+    note right of Dirty: Page dirty?
+    Evict --> Dirty
+    Dirty --> WriteBack: yes — writeback to disk/swap
+    Dirty --> Free: no — immediately reclaim
     WriteBack --> Free
     Free --> [*]: frame available
 ```

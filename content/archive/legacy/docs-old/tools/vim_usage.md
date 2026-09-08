@@ -1,4 +1,11 @@
-Vim에서 vertical split view로 새 파일을 열고 파일들 간 전환하는 방법은 다음과 같습니다:
+# Vim 세로 분할 창 이동
+
+## 창 생성과 이동 범위
+
+이 문서는 이미 열린 Vim instance의 window 이동 명령을 설명한다. 세로 분할로 파일을 열려면 `:vsplit <file>` 또는 `:vsp <file>`을 사용한다. `Ctrl+w` 다음 `h`·`j`·`k`·`l`은 화면상 인접 window로 이동하며 buffer나 tab 전환과는 다른 동작이다. 번호로 이동할 때는 이동할 window 번호를 count로 먼저 입력한 뒤 `Ctrl+w, w`를 사용한다.
+
+
+Vim에서 세로 분할로 파일을 열고 window 사이를 이동하는 방법은 다음과 같습니다:
 
 1. 파일 간 전환:
    - `Ctrl + w, w`: 다음 창으로 이동
@@ -11,5 +18,5 @@ Vim에서 vertical split view로 새 파일을 열고 파일들 간 전환하는
    - `Ctrl + w, k`: 위쪽 창으로 이동
 
 3. 창 번호를 이용한 전환:
-   - `Ctrl + w, `: 해당 번호의 창으로 이동
+   - `{번호}`를 먼저 입력한 뒤 `Ctrl + w, w`: 해당 번호의 창으로 이동
 

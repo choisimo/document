@@ -1,6 +1,45 @@
-# Projects
+---
+title: "프로젝트"
+---
+
+# 프로젝트 {#projects}
+
+<nav class="hub-directory" aria-label="프로젝트 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">주요 문서</h2>
+
+- [CBT Diary System](cbt-system.md)
+- [Emotion Diary](emotion-diary.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">함께 읽기</h2>
+
+- [Architecture Design Prompts](../prompts/architecture.md)
+- [Database Education Prompt](../prompts/database.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
 
 이 영역은 개인 프로젝트의 기능 흐름, 시스템 경계, 데이터 모델, 실패 상태를 정리하는 문서 모음이다.
+
+## Index contract
+
+- "Active" means the project has a maintained planning or implementation document; it does not imply production availability.
+- Each project page should distinguish proposed, implemented, validated, deployed, and deprecated features.
+- Completion evidence belongs in the project page and should name the environment, acceptance path, known failures, owner, and next decision.
+- Update this index when a project changes status or path so the card and project document do not contradict each other.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -126,3 +165,5 @@ definition of done
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 프로젝트 문서는 기능 목록이 아니라, 사용자 행동이 시스템 구성요소와 데이터 상태로 어떻게 번역되는지 기록하는 설계 기준이다.
+
+</details>

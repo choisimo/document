@@ -2,6 +2,13 @@
 
 이 문서는 `kubectl`, kubeconfig, namespace, local cluster driver를 기준으로 Kubernetes 실습 환경을 안전하게 만드는 절차를 정리한다. 목표는 명령어를 많이 외우는 것이 아니라 “내가 지금 어느 cluster와 namespace에 명령을 보내는가”를 항상 확인하는 것이다.
 
+## 로컬 클러스터 범위와 안전 조건
+
+- minikube, kind와 Docker Desktop은 서로 다른 로컬 구현입니다. 하나를 선택하고 Kubernetes·kubectl 버전 호환성과 필요한 CPU·메모리를 기록합니다.
+- 다운로드 URL을 실행 시점의 `stable`에 맡기지 말고 수업/프로젝트 버전을 고정해 checksum 또는 패키지 서명을 확인합니다.
+- `kubectl` 변경 명령 전 현재 context, cluster, namespace와 대상 label을 출력합니다. 개인 kubeconfig와 운영 context를 실습에서 분리합니다.
+- 완료 기준은 API 응답뿐 아니라 노드 `Ready`, DNS, 기본 Pod scheduling/networking, 로그 조회와 클러스터 삭제 후 잔여 자원 확인입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Kubernetes 실습은 `kubectl apply` 한 줄로 시작하기 쉽지만, cluster context와 namespace를 잘못 잡으면 의도하지 않은 환경에 리소스를 만들 수 있다. 로컬 실습이라도 kubeconfig가 여러 cluster를 가리키면 같은 명령이 전혀 다른 결과를 만든다.
@@ -102,9 +109,13 @@ command failed
 Linux에서 `kubectl` binary를 직접 설치할 때는 공식 release와 checksum을 함께 확인한다.
 
 ```bash
-curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl.sha256"
-echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+set -eu
+: "${KUBECTL_VERSION:?대상 클러스터와 호환되는 검증된 버전(vX.Y.Z)을 먼저 지정하세요}"
+curl --fail --show-error --location --connect-timeout 10 --max-time 120 \
+  -o kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+curl --fail --show-error --location --connect-timeout 10 --max-time 60 \
+  -o kubectl.sha256 "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl.sha256"
+printf "%s  kubectl\n" "$(cat kubectl.sha256)" | sha256sum --check
 chmod +x kubectl
 sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 kubectl version --client=true

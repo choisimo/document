@@ -1,8 +1,16 @@
 # 프로그래밍 언어 내부 동작 학습 및 기록 노트
 
+## 문서 범위와 검증 계약
+
+- **범위**: Go, Rust, Kotlin/Scala 및 JVM의 대표 구현을 비교하는 학습용 개요다. 언어 명세가 보장하는 의미와 특정 런타임·컴파일러 버전의 구현 전략을 구분한다.
+- **전제**: 별도 표기가 없는 다이어그램과 의사 코드는 개념을 설명하기 위한 축약이다. 스택 크기, 스케줄링 주기, JIT 임계값, GC 일시 정지 및 메모리 배치는 버전·플래그·하드웨어·부하에 따라 달라진다.
+- **근거 상태**: 언어 규칙은 해당 버전의 명세, 구현 세부는 릴리스에 맞는 소스와 공식 문서, 성능 수치는 동일 조건의 벤치마크로 확인해야 한다. 이 문서의 수치는 크기 감각을 위한 예시이지 SLA나 보장이 아니다.
+- **실패/재시도**: 실험이 재현되지 않으면 오류와 버전·옵션을 먼저 기록하고 한 변수만 바꿔 재시도한다. 스케줄러·GC 동작을 추측으로 확정하거나 성공할 때까지 조건을 바꾸는 방식은 피한다.
+- **완료 증거**: 결론에는 언어/런타임 버전, 빌드 모드, 실행 명령, 하드웨어, 입력 부하, 반복 횟수와 원시 측정값을 남긴다. 비교 실습은 같은 의미와 같은 측정 조건을 확인해야 완료로 본다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
-프로그래밍 언어의 차이는 문법보다 런타임과 타입 시스템에서 크게 드러난다. Go는 goroutine을 M:N 스케줄링하고, Rust는 소유권과 borrow checker로 GC 없이 메모리 안전성을 보장하며, Kotlin coroutine은 suspend 함수를 state machine으로 낮춘다. Scala/JVM/Haskell/OCaml도 각각 type system, JIT, lazy evaluation, pattern matching compilation에서 다른 내부 메커니즘을 갖는다.
+프로그래밍 언어의 차이는 문법보다 런타임과 타입 시스템에서 크게 드러난다. Go는 goroutine을 M:N 스케줄링하고, Rust는 safe Rust와 sound한 unsafe/FFI 경계라는 전제에서 소유권과 borrow checker로 메모리 안전성을 제공하며, Kotlin coroutine은 suspend 함수를 state machine으로 낮춘다. Scala/JVM/Haskell/OCaml도 각각 type system, JIT, lazy evaluation, pattern matching compilation에서 다른 내부 메커니즘을 갖는다.
 
 이 문서는 원문 한국어 프로그래밍 언어 내부 문서를 런타임 상태, 타입 계약, 컴파일 lowering 중심으로 재작성한다.
 
@@ -74,9 +82,9 @@ Kotlin coroutine은 suspend point마다 label이 있는 continuation으로 바�
 
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-- Go scheduler는 blocking syscall이 P 전체를 멈추지 않도록 P를 다른 M에 넘겨야 한다.
-- GC write barrier는 검은 객체가 흰 객체를 직접 참조하는 invariant 위반을 막아야 한다.
-- Rust는 동시에 여러 shared borrow 또는 하나의 exclusive mutable borrow만 허용해야 한다.
+- Go 런타임은 blocking syscall에서 P를 다른 M에 넘길 수 있지만, 외부 자원 고갈이나 런타임 제약까지 개별 goroutine의 진행을 보장하지는 않는다.
+- 동시 GC의 write barrier는 갱신 중인 참조 때문에 도달 가능한 객체를 놓치지 않아야 한다. 실제 Go의 hybrid barrier 등은 런타임별 규칙을 따르므로 단순한 black→white 금지만을 모든 GC의 불변식으로 쓰지 않는다.
+- safe Rust에서는 동일한 값에 대한 ordinary shared borrow와 exclusive mutable borrow의 유효 범위가 충돌하면 안 된다. `unsafe`, FFI, 내부 가변성과 동적 검사는 별도 경계를 확인한다.
 - `dyn Trait` 호출은 vtable contract와 object lifetime이 맞아야 한다.
 - Kotlin coroutine cancellation은 협조적이며 parent Job이 취소되면 child도 취소되어야 한다.
 - JVM speculative optimization은 가정이 깨지면 안전하게 deoptimize되어야 한다.

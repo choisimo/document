@@ -2,7 +2,7 @@
 import java.io.InputStreamReader;
 import java.util.StringTokenizer;
 
-public class Main {
+public class Solution {
     public static class Node {
         int key; Node left, right;
         Node (int key) { this.key = key; }

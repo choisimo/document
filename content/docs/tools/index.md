@@ -1,6 +1,91 @@
-# Tools
+---
+title: "작업 도구"
+---
+
+# 작업 도구 {#tools}
+
+<nav class="hub-directory" aria-label="작업 도구 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">터미널</h2>
+
+- [Modern CLI Tools](terminal/modern-cli-tools.md)
+- [Tmux](terminal/tmux.md)
+- [Vim](terminal/vim.md)
+- [Linux Commands](terminal/linux-commands.md)
+- [Pet](terminal/pet.md)
+- [GNU Stow](terminal/stow.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">주요 문서</h2>
+
+- [Split View](split-view.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">원격 접속</h2>
+
+- [Apache Guacamole](remote/guacamole.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-4" markdown="1">
+
+<h2 id="directory-group-4">자동화</h2>
+
+- [Selenium](automation/selenium.md)
+- [Change Detection](automation/change-detection.md)
+- [Schedule Manager](automation/schedule-manager.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-5" markdown="1">
+
+<h2 id="directory-group-5">AI 도구</h2>
+
+- [Gemini Shell](ai/gemini-shell.md)
+- [MCP (Model Context Protocol)](ai/mcp.md)
+- [Langflow](ai/langflow.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-6" markdown="1">
+
+<h2 id="directory-group-6">함께 읽기</h2>
+
+- [Linux 명령어 참조](../linux/commands.md)
+- [SSH Configuration](../security/ssh/configuration.md)
+- [Docker 설치 가이드](../development/docker/installation.md)
+- [code-server 원격 개발 환경](../development/ide/code-server.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
 
 이 영역은 터미널, 원격 접근, 자동화, AI 도구를 실제 작업 흐름에 맞춰 선택하고 운영하기 위한 문서 모음이다.
+
+## 문서 사용 범위
+
+이 페이지는 도구를 찾기 위한 색인과 빠른 참조입니다. 연결된 설치 명령, UI, 단축키와 제품 기능은 버전에 따라 바뀔 수 있으며, 이 색인 자체는 설치 성공이나 운영 안전성을 입증하지 않습니다.
+
+- **사전 기록**: 운영체제와 아키텍처, 셸, 브라우저, Docker 및 각 도구 버전, 플러그인과 데이터 저장 위치를 남깁니다.
+- **실행 원칙**: 다운로드 출처와 서명, 고정 버전, 최소 권한, 비밀 주입, 네트워크 노출, 데이터 백업과 제거 절차를 각 도구 문서에서 확인합니다.
+- **실패 대응**: 설치나 업그레이드를 반복하기 전에 로그와 종료 코드를 보존하고 부분 설치, migration과 예약 작업의 중복 실행 여부를 확인합니다.
+- **완료 조건**: 버전 출력, 최소 기능 시험, 재시작 후 상태, 비인가 접근 거부, 로그와 경보, 백업 복원을 도구별 증거로 남깁니다.
+
+도구의 보안성과 생산성 설명은 절대 등급이 아닙니다. SSH도 key 관리·host 검증·server 정책·forwarding 설정을 실제로 검증해야 관리 경로로 신뢰할 수 있습니다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -137,3 +222,5 @@ tool and resource integration -> MCP
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 좋은 도구 환경은 많은 프로그램을 설치한 상태가 아니라, 각 도구가 맡는 역할과 검증 방법이 분명한 작업 흐름이다.
+
+</details>

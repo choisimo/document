@@ -2,6 +2,10 @@
 
 > Synthesized from: comp(36/103-178) DevOps, Linux administration, CI/CD, shell scripting, Ansible, Terraform, monitoring, and infrastructure automation references including: Wieers *Ansible for DevOps*, Morris *Infrastructure as Code*, Turnbull *The Docker Book*, monitoring/alerting stacks, and the full Linux systems administration curriculum.
 
+## Operational scope
+
+This chapter combines Linux kernel behavior with examples from systemd, RPM/DNF, APT/dpkg, Ansible, Terraform, Jenkins, Prometheus, Elasticsearch, Packer, and OCI runtimes. Their defaults and internal paths change independently. An operational procedure is ready only when distribution/kernel and tool versions, configuration, privileges, rollback path, observable success signal, and failure handling are stated.
+
 ---
 
 ## 1. Linux Systemd Internals — Unit Activation Graph
@@ -26,7 +30,7 @@ flowchart TD
     BASIC --> POSTGRES["postgresql.service\nAfter=network.target syslog.target"]
 ```
 
-**Socket activation**: systemd creates the listening socket (`bind()`, `listen()`) BEFORE starting the service. Service inherits pre-opened file descriptor via `SD_LISTEN_FDS`. Connections queue in kernel backlog until service ready. Zero dropped connections during restarts.
+**Socket activation**: systemd can create a listening socket before starting a compatible service and pass descriptors using the socket-activation contract. The kernel backlog can bridge a bounded startup interval, but “zero dropped connections” is not guaranteed during backlog overflow, timeout, unit failure, incompatible restart behavior, or network-path changes.
 
 ### Cgroup Integration — Resource Control
 
@@ -135,7 +139,7 @@ flowchart TD
     PLAN --> APPLY["terraform apply\n1. Execute plan in dependency order\n2. Call provider API for each resource\n3. Write result to terraform.tfstate\n4. State stored: local file or S3/Consul backend"]
 ```
 
-**State locking**: S3 backend uses DynamoDB table for distributed lock. `terraform apply` acquires lock → runs → releases. Prevents concurrent applies to same infrastructure (split-brain risk).
+**State locking**: Backend and Terraform/OpenTofu version determine the locking mechanism. S3 backends have historically used a DynamoDB lock table, while newer configurations may support an S3 lock file. Confirm backend configuration and test lock contention; locking reduces concurrent writers but does not repair an incorrectly shared state key.
 
 **Resource graph**: Dependencies resolved via `depends_on` + implicit refs. `aws_db_instance.db` references `aws_vpc_subnet.private.id` → subnet must be created before DB. Terraform parallelizes independent resource operations.
 
@@ -165,7 +169,7 @@ sequenceDiagram
     Jenkins->>Dev: Notify: build #123 SUCCESS
 ```
 
-**Declarative pipeline YAML → Groovy**: Jenkins DSL parsed as Groovy scripts. `pipeline {}`, `stages {}`, `steps {}` are method calls on `WorkflowScript`. Each step executes in agent workspace directory. Environment variables scoped per stage.
+**Declarative Pipeline → Groovy/CPS**: A Jenkinsfile uses Groovy-like Declarative Pipeline syntax, not YAML. Jenkins validates the Declarative model and executes Pipeline steps through its CPS engine; controller-side versus agent-side execution and workspace availability depend on the step.
 
 ---
 
@@ -183,6 +187,8 @@ flowchart TD
 ```
 
 **Copy-on-Write (CoW)**: After fork(), both parent and child share same physical pages (marked read-only). On first write to shared page: page fault → kernel allocates new page, copies content, remaps PTE for writing process. Only pages actually modified are duplicated.
+
+The diagram's “`files_struct SHARED`” wording needs qualification: `fork()` creates a separate descriptor table whose entries refer to the same open-file descriptions, so offsets/status flags can remain shared. `clone(CLONE_FILES)` is the operation that shares the descriptor table itself.
 
 ### Signal Delivery
 
@@ -216,6 +222,8 @@ flowchart TD
 ```
 
 **Pipe internals**: `cmd1 | cmd2` → `pipe(fds)` → fork two children → child1: `dup2(fds[1], 1)` (write end → stdout) → `execve(cmd1)` → child2: `dup2(fds[0], 0)` (read end → stdin) → `execve(cmd2)`. Kernel pipe buffer: 64KB (adjustable via `fcntl(fd, F_SETPIPE_SZ, n)`).
+
+Bash may execute `echo` and other builtins in the shell process, so the preceding `execve('echo', ...)` path is only an external-command example. Pipe capacity is kernel- and configuration-dependent; query or measure it instead of treating 64 KiB as a fixed contract.
 
 ---
 
@@ -326,6 +334,8 @@ flowchart TD
 
 **XDP (eXpress Data Path)**: eBPF program attached to NIC driver's receive function, before SK_BUFF allocation. Can drop/redirect/pass packets at line rate (~140 Mpps on 100GbE). Used for DDoS mitigation, load balancing (Cloudflare, Facebook).
 
+Verifier acceptance substantially reduces unsafe memory/control flow, but it is not a proof that an eBPF program, helper, JIT, or kernel has no crash or security risk. The packet-rate figure requires NIC/driver, CPU, frame size, queue count, program, map operations, and loss criteria.
+
 ---
 
 ## 12. Container Runtime — runc and OCI Internals
@@ -349,6 +359,8 @@ flowchart TD
 ---
 
 ## DevOps Performance Numbers Reference
+
+These figures are illustrative envelopes. Replace them with measurements that identify host/VM, kernel and tool versions, artifact size, cache/network state, concurrency, sample count, and percentiles; a single elapsed-time range is not a completion criterion.
 
 | Operation | Time | Notes |
 |-----------|------|-------|

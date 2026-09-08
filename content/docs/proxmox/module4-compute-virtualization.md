@@ -2,6 +2,10 @@
 
 이 모듈은 Proxmox VE에서 VM은 QEMU/KVM 프로세스로, 컨테이너는 LXC와 Linux namespace/cgroup으로 실행된다는 점을 기준으로 컴퓨트 계층을 설명한다.
 
+## 적용 범위와 실행 경계
+
+Proxmox VE 8.x 학습 예시다. `pveversion -v`와 명령 도움말로 설치 버전의 옵션을 확인하며 VMID/CTID·PID·경로·출력은 실제 대상과 대조한다. VM은 보통 주 QEMU 프로세스와 내부 스레드로 보이지만 보조 프로세스와 구조는 장치·기능·버전에 따라 다르다. stop/destroy·디스크 확장·migration·bind mount 전에는 대상, 백업, 유지보수 창과 rollback을 확인한다. 강제 stop은 정상 종료를 보장하지 않으며 live migration도 최종 전환 중단을 측정해야 한다. 파일시스템 freeze가 애플리케이션 일관성을 보장하지는 않고 실패 경로에서도 thaw를 확인한다. bind mount는 UID 매핑·쓰기 범위·백업 포함 여부를, nesting과 성능 튜닝은 실제 필요·격리·migration 호환성과 동일 부하의 측정 결과를 확인한다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Proxmox VE에서 VM과 CT는 모두 "게스트"처럼 보이지만 격리 방식이 다르다. VM은 별도 커널을 가진 QEMU/KVM 가상 머신이고, CT는 호스트 커널을 공유하는 LXC 컨테이너다.
@@ -14,7 +18,7 @@ Proxmox VE에서 VM과 CT는 모두 "게스트"처럼 보이지만 격리 방식
 
 - VM과 CT를 가벼운 정도만 다른 같은 기술로 본다.
 - QEMU와 KVM의 역할을 구분하지 못한다.
-- VM이 호스트에서 하나의 프로세스로 보인다는 점을 모른다.
+- VM의 주 QEMU 프로세스, 내부 vCPU/I/O 스레드와 보조 프로세스를 구분하지 못한다.
 - VirtIO 드라이버가 왜 중요한지 모른다.
 - privileged CT와 unprivileged CT의 보안 차이를 가볍게 본다.
 - `qm config`, `pct config`, `/proc/<pid>` 관찰을 하지 않는다.
@@ -135,6 +139,12 @@ VM은 QEMU process를 추적하고, CT는 호스트 프로세스와 namespace/cg
 - live migration에서 shared storage, CPU compatibility, network bandwidth 조건을 확인한다.
 - LXC의 user namespace id mapping과 unprivileged container 권한 모델을 살펴본다.
 - VM과 CT의 백업/복원 결과 차이를 비교한다.
+
+## 작업 완료 증거
+
+- `pveversion -v`, 대상의 `qm config/status` 또는 `pct config/status`, 스토리지와 노드 상태를 작업 기록에 남겼다.
+- 변경 전 예상 영향과 rollback 조건을 적고, 변경 후 guest 상태·네트워크·스토리지 I/O를 실제 명령 출력으로 확인했다.
+- 강제 종료나 마이그레이션이 실패했다면 성공으로 간주하지 않고 task 로그와 guest 상태를 보존해 후속 조치로 넘겼다.
 
 ## 11. 최종 체크리스트 (Definition of Done)
 

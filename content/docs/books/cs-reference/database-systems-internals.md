@@ -2,11 +2,15 @@
 
 > Synthesized from: Elmasri & Navathe *Fundamentals of Database Systems* 6th ed, Korotkevitch *Pro SQL Server Internals* 2nd ed, MySQL database design references, and supporting comp(85/230/305-322) database references.
 
+## Engine and version boundary
+
+This chapter mixes relational theory with InnoDB and SQL Server implementation examples. Treat an engine-specific page field, threshold, lock, recovery phase, file name, or timing as valid only for the named product and documented version. Before applying an operational claim, record engine/version, storage mode, isolation level, durability settings, DDL, query plan, and observed counters.
+
 ---
 
 ## 1. Storage Engine Architecture — Pages, Extents, and Buffer Pool
 
-Every relational database manages storage through a **page-based** abstraction layer. Understanding page anatomy is the foundation for all performance analysis.
+Many disk-oriented relational engines organize persistent data and buffer-pool entries in pages, but page size, record layout, and even the presence of a conventional buffer pool vary by engine. The following anatomy is specifically an InnoDB example.
 
 ### InnoDB Page Layout (16 KB default)
 
@@ -54,7 +58,7 @@ flowchart TD
     FREE -->|"read page from\ntablespace file"| LRU_OLD
 ```
 
-**Double-write buffer**: Before flushing dirty pages to tablespace, InnoDB writes them sequentially to the doublewrite buffer (2 MB, 128 pages). This protects against partial page writes (torn pages) during crash — recovery reads from doublewrite if page checksum fails.
+**Double-write buffer**: InnoDB can write dirty pages through doublewrite storage before their final tablespace locations so crash recovery can repair torn pages. The historical `2 MB, 128 pages` layout is version-specific; file-based and multiple doublewrite configurations exist, so inspect the active variables and version rather than assuming that geometry.
 
 ---
 
@@ -110,7 +114,7 @@ flowchart LR
 
 ## 3. InnoDB MVCC — Undo Log Chain
 
-MVCC (Multi-Version Concurrency Control) enables readers to never block writers. Every row version is chained through undo logs.
+MVCC (Multi-Version Concurrency Control) lets ordinary consistent reads avoid many reader/writer conflicts. It does not guarantee that readers never block writers: locking reads, DDL/metadata locks, unique checks, and other engine operations can still block. InnoDB reconstructs older row images through undo information.
 
 ### Row Version Chain
 
@@ -163,6 +167,8 @@ flowchart TD
 **LSN (Log Sequence Number)**: monotonically increasing byte offset into redo log. Every page header stores `FIL_PAGE_LSN` = LSN of last modification. Pages with `page_LSN < checkpoint_LSN` are guaranteed durable.
 
 ### Crash Recovery — ARIES Algorithm
+
+The three-phase diagram is an ARIES-style teaching model. InnoDB recovery uses its own redo, undo, checkpoint, and transaction metadata and should not be assumed to implement every ARIES data structure or phase exactly as shown.
 
 ```mermaid
 sequenceDiagram
@@ -299,7 +305,7 @@ flowchart TD
 
 **Gap locks (InnoDB RR)**: Lock the gap before a record, preventing INSERT into range. If `WHERE id BETWEEN 10 AND 20`, gap locks on all gaps in that range prevent concurrent INSERTs. Eliminates phantoms without full serializable isolation.
 
-**Deadlock detection**: Each lock manager maintains a "waits-for graph". Background thread runs cycle detection (DFS). On cycle found, victim selection: smallest transaction (by undo log size) rolled back. Deadlock information written to `INFORMATION_SCHEMA.INNODB_TRX`.
+**Deadlock detection**: InnoDB analyzes wait dependencies when lock waits arise and chooses a victim using engine heuristics that favor transactions with less work to roll back. `INFORMATION_SCHEMA.INNODB_TRX` describes current transactions; recent deadlock details are obtained from `SHOW ENGINE INNODB STATUS`, or from the error log when all-deadlock logging is enabled.
 
 ---
 
@@ -374,7 +380,7 @@ flowchart LR
     REDO -->|"space reclaimed\nafter checkpoint\nadvances past log records"| REDO
 ```
 
-**Checkpoint age**: `innodb_log_file_size × 2 × 0.75` = maximum dirty data before forced flushing. If redo log fills (checkpoint age = log size), all writes STALL while checkpoint completes. Symptom: "InnoDB: page_cleaner: 1000ms intended loop took 5000ms" in error log.
+**Checkpoint age** is the distance between the current and checkpoint LSN. Its limit depends on the configured redo-log capacity and version; the fixed `innodb_log_file_size × 2 × 0.75` formula is not portable. Approaching capacity increases aggressive flushing and can throttle writes, but the page-cleaner warning alone does not prove redo exhaustion; correlate checkpoint age, dirty pages, I/O latency, and redo capacity.
 
 ---
 
@@ -426,6 +432,8 @@ flowchart LR
 
 ## Database Performance Numbers Reference
 
+The table below is a sizing illustration, not a reference benchmark. Values require hardware, engine build, durability/isolation settings, schema/indexes, cache state, concurrency, query plan, repetitions, and percentile. Do not infer end-to-end latency by multiplying a nominal device latency by B+Tree height when upper levels may be cached.
+
 | Operation | InnoDB | SQL Server | Notes |
 |-----------|--------|------------|-------|
 | Buffer pool hit | ~100 ns | ~100 ns | DRAM access |
@@ -460,4 +468,4 @@ flowchart TD
     COMMIT --> BGFLUSH["Background: page cleaner\nflushes dirty pages"]
 ```
 
-The complete lifecycle of every byte: SQL text → AST → cost-estimated plan → iterator pull → buffer pool page → MVCC undo chain → field bytes. On write: undo log (before-image) → dirty page (in-memory) → redo log (WAL, durable) → background flush to .ibd. The WAL guarantee is the bedrock: data is durable the moment redo log is fsynced, regardless of whether the actual data page is on disk.
+This final map describes a typical InnoDB path, not every query or database engine. With `innodb_flush_log_at_trx_commit=1`, a successful commit is durable after the required redo and binary-log protocol has completed and the storage stack honors flush semantics; weaker settings, filesystem/device behavior, replication policy, and acknowledged group commits change that boundary.

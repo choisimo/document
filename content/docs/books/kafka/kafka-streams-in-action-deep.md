@@ -3,6 +3,13 @@
 > Source: *Kafka Streams in Action* — William P. Bejeck Jr., Manning 2018  
 > Focus: Internal topology model, StreamTask execution, state store fault-tolerance, KTable cache mechanics, windowing state machines, Processor API scheduling, interactive query RPC routing
 
+## Version and runtime boundary
+
+- The source predates several current Kafka Streams changes. Confirm task assignment, state-store defaults, EOS mode, metrics, and APIs against the deployed client version.
+- A logical topology, generated processor graph, subtopology, task, partition group, and stream thread are different units; do not use them interchangeably.
+- Changelog restoration provides a recovery mechanism, not an instant availability guarantee. Measure state size, restore bandwidth, rebalance duration, standby freshness, and query behavior during migration.
+- Exactly-once processing covers Kafka inputs, outputs, changelogs, and offsets in the transaction. External calls need a separate idempotency or reconciliation contract.
+
 ---
 
 ## 1. The Topology as a Directed Acyclic Graph (DAG)
@@ -81,7 +88,7 @@ graph TD
     style N fill:#555,color:#fff
 ```
 
-### Partition → Task mapping (1:1 invariant)
+### Partition groups to tasks: topology-dependent mapping
 
 ```
 Topic partitions:  [P0]  [P1]  [P2]  [P3]
@@ -130,13 +137,13 @@ Every record in Kafka is raw bytes. The Serde (Serializer + Deserializer) wrappe
 
 ```mermaid
 flowchart LR
-    A[Kafka Topic<br/>byte arrays] -->|deserialize key| B[String key]
-    A -->|deserialize value| C[Purchase object]
-    B --> D[Processor<br/>maskCreditCard]
+    A["Kafka Topic<br/>byte arrays"] -->|"deserialize key"| B["String key"]
+    A -->|"deserialize value"| C["Purchase object"]
+    B --> D["Processor<br/>maskCreditCard"]
     C --> D
-    D -->|serialize key| E[byte[] key]
-    D -->|serialize value| F[byte[] masked Purchase]
-    E --> G[Kafka Sink Topic<br/>byte arrays]
+    D -->|"serialize key"| E["byte[] key"]
+    D -->|"serialize value"| F["byte[] masked Purchase"]
+    E --> G["Kafka Sink Topic<br/>byte arrays"]
     F --> G
 
     style A fill:#1d3557,color:#fff
@@ -169,15 +176,15 @@ The `Serde<T>` container holds both `Serializer<T>` and `Deserializer<T>`. This 
 
 ```mermaid
 graph TD
-    A[StateStore Types] --> B[In-Memory Key/Value<br/>Stores.inMemoryKeyValueStore]
-    A --> C[Persistent Key/Value<br/>Stores.persistentKeyValueStore<br/>backed by RocksDB]
-    A --> D[LRU Map<br/>Stores.lruMap]
-    A --> E[Persistent Window Store<br/>Stores.persistentWindowStore]
-    A --> F[Persistent Session Store<br/>Stores.persistentSessionStore]
+    A["StateStore Types"] --> B["In-Memory Key/Value<br/>Stores.inMemoryKeyValueStore"]
+    A --> C["Persistent Key/Value<br/>Stores.persistentKeyValueStore<br/>backed by RocksDB"]
+    A --> D["LRU Map<br/>Stores.lruMap"]
+    A --> E["Persistent Window Store<br/>Stores.persistentWindowStore"]
+    A --> F["Persistent Session Store<br/>Stores.persistentSessionStore"]
 
-    C --> G[RocksDB on local disk<br/>LSM-tree storage engine]
-    E --> H[RocksDB + window keys<br/>(key, window_start_ms, window_end_ms)]
-    F --> I[RocksDB + session keys<br/>(key, session_start, session_end)]
+    C --> G["RocksDB on local disk<br/>LSM-tree storage engine"]
+    E --> H["RocksDB + window keys<br/>(key, window_start_ms, window_end_ms)"]
+    F --> I["RocksDB + session keys<br/>(key, session_start, session_end)"]
 ```
 
 ### Changelog topic: how state survives crashes
@@ -222,7 +229,7 @@ flowchart LR
     end
 ```
 
-Each processor owns exclusive access to its state store — no sharing across threads, no network traversal. At 1M records/sec, even 1ms network latency becomes 1000 seconds of overhead.
+An active task normally updates its local state stores from one stream thread, while interactive queries and task migration introduce additional access and lifecycle rules. Locality avoids a network round trip on the normal update path, but the impact cannot be computed by multiplying aggregate record rate by latency as if all operations were serialized. Measure per-record service time, concurrency, cache behavior, and remote-query traffic.
 
 ---
 
@@ -300,14 +307,14 @@ gantt
 
 ```mermaid
 stateDiagram-v2
-    [*] --> NewSession: Record 1 arrives (t=0:00:00)
-    NewSession --> ActiveSession: start=00:00:00, end=00:00:00
-    ActiveSession --> Merged: Record 2 arrives t=00:00:15\n(within inactivity gap 20s)
-    Merged --> ActiveSession: start=00:00:00, end=00:00:15
-    ActiveSession --> NewSession2: Record 3 arrives t=00:00:50\n(OUTSIDE inactivity gap)
-    NewSession2 --> ActiveSession2: start=00:00:50, end=00:00:50
-    ActiveSession --> MergedAll: Record 4 arrives t=00:00:05\n(matches BOTH sessions → merge all)
-    MergedAll --> ActiveSession: start=00:00:00, end=00:00:50
+    [*] --> NewSession: Record 1 arrives (t=0#58;00#58;00)
+    NewSession --> ActiveSession: start=00#58;00#58;00, end=00#58;00#58;00
+    ActiveSession --> Merged: Record 2 arrives t=00#58;00#58;15<br/>(within inactivity gap 20s)
+    Merged --> ActiveSession: start=00#58;00#58;00, end=00#58;00#58;15
+    ActiveSession --> NewSession2: Record 3 arrives t=00#58;00#58;50<br/>(OUTSIDE inactivity gap)
+    NewSession2 --> ActiveSession2: start=00#58;00#58;50, end=00#58;00#58;50
+    ActiveSession --> MergedAll: Record 4 arrives t=00#58;00#58;05<br/>(matches BOTH sessions → merge all)
+    MergedAll --> ActiveSession: start=00#58;00#58;00, end=00#58;00#58;50
 ```
 
 ### RocksDB key layout for window stores
@@ -447,21 +454,21 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    A[Incoming StockTransaction record] --> B[process() method]
-    B --> C{State store has<br/>StockPerformance for symbol?}
-    C -->|No| D[Create new StockPerformance]
-    C -->|Yes| E[Fetch existing StockPerformance]
-    D --> F[Update price stats SMA-20]
+    A["Incoming StockTransaction record"] --> B["process() method"]
+    B --> C{"State store has<br/>StockPerformance for symbol?"}
+    C -->|"No"| D["Create new StockPerformance"]
+    C -->|"Yes"| E["Fetch existing StockPerformance"]
+    D --> F["Update price stats SMA-20"]
     E --> F
-    F --> G[Update volume stats SMA-20]
-    G --> H[Set lastUpdateSent timestamp]
-    H --> I[keyValueStore.put(symbol, stockPerf)]
+    F --> G["Update volume stats SMA-20"]
+    G --> H["Set lastUpdateSent timestamp"]
+    H --> I["keyValueStore.put(symbol, stockPerf)"]
     note1["process() NEVER calls context.forward()<br/>No record emitted per received record"]
 
-    J{Punctuator fires every 10s} --> K[Iterate all state store keys]
-    K --> L{priceDifferential >= 2%<br/>OR volumeDifferential >= 2%?}
-    L -->|Yes| M[context.forward(key, stockPerformance)]
-    L -->|No| N[Skip — no emission]
+    J{"Punctuator fires every 10s"} --> K["Iterate all state store keys"]
+    K --> L{"priceDifferential >= 2%<br/>OR volumeDifferential >= 2%?"}
+    L -->|"Yes"| M["context.forward(key, stockPerformance)"]
+    L -->|"No"| N["Skip — no emission"]
 
     style note1 fill:#555,color:#fff
 ```
@@ -546,12 +553,12 @@ KafkaStreams.store(
 
 ```mermaid
 flowchart TD
-    A[KafkaStreams.store query] --> B{Is key local?<br/>hash(key) % numPartitions == localPartitions?}
-    B -->|Yes| C[Direct RocksDB.get<br/>sub-millisecond]
-    B -->|No| D[StreamsMetadata.getInstanceWithKey]
-    D --> E[HTTP/gRPC to remote instance<br/>user-implemented RPC server]
-    E --> F[Remote instance: local RocksDB.get]
-    F --> G[Response back through chain]
+    A["KafkaStreams.store query"] --> B{"Is key local?<br/>hash(key) % numPartitions == localPartitions?"}
+    B -->|"Yes"| C["Direct RocksDB.get<br/>sub-millisecond"]
+    B -->|"No"| D["StreamsMetadata.getInstanceWithKey"]
+    D --> E["HTTP/gRPC to remote instance<br/>user-implemented RPC server"]
+    E --> F["Remote instance: local RocksDB.get"]
+    F --> G["Response back through chain"]
 ```
 
 ---
@@ -564,7 +571,7 @@ sequenceDiagram
     participant TC as TransactionCoordinator
     participant Kafka as Kafka Brokers
     participant OS as Output Topics
-    participant Off as __consumer_offsets
+    participant OffsetsTopic as __consumer_offsets
 
     Task->>TC: initTransactions()
     loop Per batch of records (EOS v2 per epoch)
@@ -572,9 +579,9 @@ sequenceDiagram
         Task->>Kafka: consume records
         Task->>Task: process (update state stores)
         Task->>OS: produce output records (within transaction)
-        Task->>Off: commitOffset (within transaction)
+        Task->>OffsetsTopic: commitOffset (within transaction)
         Task->>TC: commitTransaction()
-        note over TC,Off: commit is atomic across output + offset
+        note over TC,OffsetsTopic: commit is atomic across output + offset
     end
 
     rect rgb(200, 50, 50)
@@ -584,10 +591,10 @@ sequenceDiagram
     note over Kafka: Records invisible to read_committed consumers
 ```
 
-**`processing.guarantee=exactly_once_v2`** (Kafka 2.5+):
-- One producer per StreamTask (not per thread) → fewer transactions
+**`processing.guarantee=exactly_once_v2`** (availability depends on Kafka Streams version):
+- Uses a thread-scoped transactional producer in the EOS v2 design rather than the older task-scoped model
 - Epoch-based fencing replaces old per-partition transaction ID scheme
-- Overhead: ~5-10% throughput reduction vs `at_least_once`
+- Throughput and latency overhead depend on commit interval, transaction rate, brokers, storage and workload; measure them rather than assuming 5-10%
 
 ---
 

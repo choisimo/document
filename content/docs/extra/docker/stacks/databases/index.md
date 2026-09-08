@@ -1,6 +1,66 @@
-# Database Docker Stacks 학습 및 기록 노트
+---
+title: "데이터베이스 Compose 스택"
+---
+
+# 데이터베이스 Compose 스택 {#database-docker-stacks}
+
+<nav class="hub-directory" aria-label="데이터베이스 Compose 스택 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">컬렉션 탐색</h2>
+
+- [Compose 스택](../index.md)
+- [Docker Compose 컬렉션](../../index.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">mariadb</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/databases/mariadb/docker-compose.yaml)
+- [README.md](/extra/docker/stacks/databases/mariadb/README.md)
+- [.env.example](/extra/docker/stacks/databases/mariadb/.env.example)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">mongodb</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/databases/mongodb/docker-compose.yaml)
+- [README.md](/extra/docker/stacks/databases/mongodb/README.md)
+- [.env.example](/extra/docker/stacks/databases/mongodb/.env.example)
+- [init-keyfile.sh](/extra/docker/stacks/databases/mongodb/scripts/init-keyfile.sh)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-4" markdown="1">
+
+<h2 id="directory-group-4">supabase</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/databases/supabase/docker-compose.yaml)
+- [README.md](/extra/docker/stacks/databases/supabase/README.md)
+- [.env.example](/extra/docker/stacks/databases/supabase/.env.example)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
 
 Database 카테고리는 MariaDB, MongoDB, Supabase 계열 Compose 스택을 모은다. 데이터베이스 스택은 컨테이너 기동보다 데이터 보존, 인증 변수, 포트 공개, 초기화 스크립트가 더 중요하다.
+
+## 데이터 스택 점검 기준
+
+- 이미지 버전, 데이터 디렉터리, UID/GID, 문자셋·타임존과 스키마 마이그레이션 순서를 고정합니다.
+- 기본 계정·예시 암호·호스트 전체 공개 포트를 운영 환경에 사용하지 않습니다.
+- 완료 기준은 인증 연결, 재시작 후 데이터 유지, 백업 파일 생성과 별도 환경 복원, 디스크 부족 알림 확인입니다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -185,3 +245,5 @@ Replica Set, pgvector, PostgREST처럼 기능이 추가될수록 초기화 순�
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 데이터베이스 스택은 컨테이너 실행보다 `__________`, 인증 변수, 볼륨 보존이 먼저다. 실행 전 `__________`로 렌더링을 확인하고, DB 포트는 필요한 `__________`에만 공개한다.
+
+</details>

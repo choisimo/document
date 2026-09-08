@@ -1,3 +1,9 @@
+# GitHub 저장소별 Deploy Key 설정
+
+## 키 경계와 검증 기준
+
+Deploy Key의 저장소 접근 범위는 GitHub에 공개 키를 등록한 위치와 읽기·쓰기 권한 설정이 결정한다. `~/.ssh/config`의 Host 별칭은 사용할 개인 키를 선택할 뿐 서버 측 권한 범위를 만들지 않는다. 개인 키와 SSH 설정 파일의 소유자·권한을 제한하고 `IdentitiesOnly yes`로 다른 키의 우발적 제시를 막는다. 완료는 대상 별칭으로 `git ls-remote`가 성공하고, 등록하지 않은 저장소에는 같은 키로 접근할 수 없음을 확인해 판정한다.
+
 ### 특정 리포지토리에만 접근하도록 설정하는 방법
 
 각 리포지토리에 대해 별도의 SSH 키를 설정하고, `~/.ssh/config` 파일에 각각의 리포지토리에 대한 별칭과 키 파일 경로를 추가합니다. 예를 들어, `nodove_careernote_project_react` 리포지토리에만 접근하기 위한 설정을 추가해 보겠습니다.
@@ -22,12 +28,14 @@
        HostName github.com
        User git
        IdentityFile ~/.ssh/main_key
+       IdentitiesOnly yes
 
    # 새로운 리포지토리 설정
    Host github-careernote
        HostName github.com
        User git
        IdentityFile ~/.ssh/id_ed25519_nodove_careernote
+       IdentitiesOnly yes
    ```
 
    이렇게 설정하면 `github-careernote`라는 별칭을 사용하여 `git clone`, `git pull`, `git push` 명령어를 실행할 때 `~/.ssh/id_ed25519_nodove_careernote` 키가 자동으로 사용됩니다.

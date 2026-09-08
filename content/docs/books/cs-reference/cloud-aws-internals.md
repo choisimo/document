@@ -1,10 +1,14 @@
 # Cloud & AWS Internals 학습 및 기록 노트
 
+## Evidence boundary
+
+AWS publishes service contracts, quotas, and selected architecture details, but not every storage layout, host implementation, timing, or control-plane algorithm shown below. Treat diagrams that name shard counts, quorum protocols, internal databases, overlay formats, or fixed latency as **illustrative models**, not verified AWS internals. A production decision is complete only when the relevant AWS documentation, Region, service tier, configuration, and an observed metric or test result are recorded.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
-AWS 서비스를 "관리형"이라고만 이해하면 장애 원인, 비용, 보안 경계, 지연 시간을 설명하기 어렵다. EC2는 Nitro 하이퍼바이저와 전용 카드 위에서 실행되고, VPC는 가상 스위치와 라우팅 테이블로 패킷을 이동시키며, S3와 DynamoDB는 분산 저장소와 metadata/index 계층을 통해 내구성과 확장성을 만든다.
+AWS 서비스를 "관리형"이라고만 이해하면 장애 원인, 비용, 보안 경계, 지연 시간을 설명하기 어렵다. Nitro 기반 EC2 인스턴스는 해당 세대의 하이퍼바이저와 전용 카드 구성을 사용하고, VPC는 가상 스위치와 라우팅 테이블로 패킷을 이동시키며, S3와 DynamoDB는 분산 저장소와 metadata/index 계층을 통해 내구성과 확장성을 만든다.
 
-이 문서는 원문의 AWS 내부 동작 설명을 서비스별 data path, control plane, 실패 모드 중심으로 재작성한다.
+이 문서는 공개된 서비스 계약과 일반적인 분산 시스템의 교육 모델을 구분해 AWS data path, control plane, 실패 모드를 학습한다. S3 metadata/shard와 DynamoDB leader/quorum 도식은 확인된 AWS 내부 구현이나 SLA로 취급하지 않는다.
 
 ## 2. 현재 나의 상태 (Baseline)
 
@@ -49,7 +53,7 @@ AWS 서비스는 대부분 control plane과 data plane이 분리되어 있다. �
 | --- | --- | --- |
 | Nitro Hypervisor | EC2 CPU/메모리 가상화와 격리 | I/O는 Nitro 카드로 offload된다. |
 | ENI/VPC route table | instance의 네트워크 정체성과 라우팅 | subnet route와 SG/NACL이 함께 작동한다. |
-| Security Group | stateful instance-level firewall | return traffic은 connection tracking에 의존한다. |
+| Security Group | stateful firewall | 허용된 흐름의 응답 트래픽을 추적하지만 Linux conntrack 같은 내부 구현은 공개 서비스 계약이 아니다. |
 | S3 metadata index | bucket/key를 object location으로 매핑 | object data와 metadata path를 구분해야 한다. |
 | Erasure coding | shard와 parity로 내구성 확보 | 복구는 여러 shard fetch와 decode가 필요하다. |
 | Firecracker | Lambda/Fargate 계열 microVM 격리 | cold start는 image/runtime/init code 영향을 받는다. |
@@ -71,13 +75,13 @@ stateDiagram-v2
     Response --> [*]
 ```
 
-예를 들어 DynamoDB write는 요청 router가 partition leader를 찾고, leader가 replica quorum을 만족한 뒤 응답한다. S3 GET은 metadata lookup 후 object shard를 병렬 fetch한다.
+아래 S3 metadata/shard와 DynamoDB leader/quorum 설명은 분산 저장소를 이해하기 위한 개념 모델이다. 실제 서비스에서 관찰할 수 있는 일관성·오류·응답 계약은 대상 리전과 서비스 설정의 공식 문서 및 실행 결과로 확인하며, 이 모델만으로 내부 프로토콜을 확정하지 않는다.
 
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
 - IAM은 explicit deny가 있으면 어떤 allow도 이를 덮을 수 없다.
 - VPC packet flow는 route table, security group, network ACL, target resource 상태가 모두 맞아야 통과한다.
-- S3 object key lookup과 object shard fetch는 일관된 metadata를 기준으로 수행되어야 한다.
+- S3 읽기의 정확성은 공개된 object API와 일관성 계약으로 판단하며, metadata/shard 배치는 교육 모델의 가정과 실제 서비스 보장을 구분한다.
 - DynamoDB partition key 설계는 hot key를 만들지 않아야 한다.
 - Lambda handler 성능을 논할 때 cold start와 warm invoke를 분리해야 한다.
 - RDS Multi-AZ는 고가용성 목적이고, read replica는 읽기 확장 목적이라는 차이를 유지해야 한다.
@@ -104,7 +108,7 @@ sequenceDiagram
     S3-->>Client: object stream 반환
 ```
 
-이 흐름은 클라우드 요청을 볼 때 권한, 네트워크, 서비스 metadata, 실제 저장소 접근을 분리해서 추적해야 한다는 점을 보여준다.
+이 sequence diagram은 권한, 네트워크, 저장소라는 논리적 확인 지점을 구분한 교육 모델이며 실제 AWS API 호출 순서의 trace가 아니다. 실제 GetObject 호출 경로와 저장 구현은 해당 서비스 계약과 추적 결과로 확인한다.
 
 ## 9. 실패 사례 (What could go wrong?)
 

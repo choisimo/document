@@ -1,157 +1,124 @@
-# Documentation Hub 학습 및 기록 노트
+---
+title: Documentation Hub
+description: 컴퓨터 과학, 개발 환경, 데이터, 인프라와 보안 문서를 찾아보세요.
+hide:
+  - navigation
+  - toc
+---
 
-이 문서는 `content/docs` 아래 문서 전체의 최상위 진입점이다. 특정 기술 하나를 설명하기보다, 어떤 영역의 문서를 어디서 시작해야 하는지 알려 주는 색인 역할을 한다.
+<div class="hub-home" markdown="1">
 
-## 1. 왜 필요한가? (Pain Point & Motivation)
+<header class="hub-home__intro" markdown="1">
 
-문서가 늘어나면 사용자는 원하는 글을 찾기보다 디렉터리 구조를 추측하게 된다. 인프라, 개발, Linux, Kubernetes, 운영체제, 보안, 도구 문서가 한 저장소 안에 섞이면 상위 인덱스가 실제 구조와 달라지는 순간 탐색 비용이 커진다.
+# 문서 찾아보기
 
-최상위 허브의 목적은 멋진 소개가 아니라 실제 문서 구조와 읽는 순서를 유지하는 것이다.
+학습 노트부터 개발 환경과 운영 가이드까지, 필요한 문서로 바로 이동하세요.
 
-## 2. 현재 나의 상태 (Baseline)
+</header>
 
-현재 `content/docs`에는 다음 주요 영역이 있다.
+<div class="hub-home__search">
+  <button class="hub-home__search-button" type="button" data-home-search disabled aria-label="전체 문서 검색 열기">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m16 16 5 5"></path></svg>
+    <span>문서 검색</span>
+    <span class="hub-home__search-hint">키워드로 찾아보세요</span>
+    <svg class="hub-home__search-arrow" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"></path></svg>
+  </button>
+  <noscript><p>아래 주제별 링크에서 문서를 찾아보세요.</p></noscript>
+</div>
 
-- Algorithms, Compiler, Databases, Development
-- Books, Java, JavaScript, Kubernetes, Linux, Nginx, OS
-- Infrastructure, Proxmox, Security, Tools
-- Extra, Projects, Prompts, ADR, AI
+<nav class="hub-home__shortcuts" aria-label="자주 찾는 자료" markdown="1">
 
-기존 문서는 카드형 랜딩 페이지로 자주 쓰는 영역을 소개했지만, 실제 존재하는 모든 상위 섹션을 균형 있게 보여 주지는 않았다.
+<span class="hub-home__shortcuts-label">바로가기</span>
 
-## 3. 도달하고 싶은 목표 (Target State)
+- [Docker Compose 컬렉션](extra/docker/index.md)
+- [CS 레퍼런스 · 한국어 / English](books/cs-reference/index.md)
 
-목표는 다음 상태다.
+</nav>
 
-- 최상위 문서에서 주요 섹션의 시작점을 찾을 수 있다.
-- 각 섹션의 책임 범위를 한 문장으로 이해할 수 있다.
-- Docker Compose 같은 보조 리소스는 Extra 아래로 연결된다.
-- 문서 트리가 바뀌면 최상위 허브도 함께 갱신한다.
-- 특정 문제를 해결할 때 어느 영역부터 읽을지 판단할 수 있다.
+<div class="hub-home__directory" markdown="1">
 
-## 4. 시스템 번역 (Data Flow)
+<h2 class="hub-home__directory-title" id="home-topics">주제별 문서</h2>
 
-문서 탐색 흐름은 다음과 같다.
+<div class="hub-home__topics" markdown="1">
 
-```text
-content/docs/index.md
-  -> 주제별 index.md
-  -> 세부 카테고리 문서
-  -> 실제 절차, 개념, 점검표
-```
+<section class="hub-home__topic" aria-labelledby="home-cs" markdown="1">
 
-예를 들어 Docker Compose 스택을 찾는 흐름은 다음과 같다.
+<h3 id="home-cs">컴퓨터 과학</h3>
 
-```text
-Documentation Hub
-  -> Extra
-  -> Docker Compose 컬렉션
-  -> Stack category
-  -> infra/docker/stacks 실제 파일
-```
+자료구조와 알고리즘부터 시스템 내부 동작까지.
 
-인프라 운영 문제는 다음처럼 이동한다.
+- [알고리즘과 구현](algorithms/index.md)
+- [운영체제](os/index.md)
+- [컴파일러](compiler/index.md)
+- [책으로 읽는 CS](books/index.md)
 
-```text
-Documentation Hub
-  -> Infrastructure
-  -> Hardware, Networking, Monitoring, Proxmox, Storage
-  -> 개별 런북
-```
+</section>
 
-## 5. 핵심 구성요소 (Building Blocks)
+<section class="hub-home__topic" aria-labelledby="home-development" markdown="1">
 
-| 영역 | 진입 문서 | 역할 |
-| --- | --- | --- |
-| Algorithms | [algorithms/index.md](algorithms/index.md) | 알고리즘 개념과 구현 패턴 |
-| Books | [books/index.md](books/index.md) | 책 기반 CS 학습 노트 |
-| Compiler | [compiler/index.md](compiler/index.md) | 컴파일러 렉싱과 파싱 |
-| Databases | [databases/index.md](databases/index.md) | DB, JPA, Redis |
-| Development | [development/index.md](development/index.md) | Docker, Git, IDE, 언어 런타임 |
-| Extra | [extra/index.md](extra/index.md) | 보조 리소스와 Docker Compose 컬렉션 |
-| Infrastructure | [infrastructure/index.md](infrastructure/index.md) | 하드웨어, 네트워크, 모니터링, Proxmox, 스토리지 |
-| Java | [java/index.md](java/index.md) | Java 핵심 개념과 메모리 |
-| Linux | [linux/index.md](linux/index.md) | Linux 명령어, 파일시스템, 배포판 |
-| Nginx | [nginx/index.md](nginx/index.md) | Nginx 설정과 배포 |
-| OS | [os/index.md](os/index.md) | 운영체제 개념 |
-| Security | [security/index.md](security/index.md) | SSH, VPN, Zero Trust, 접근 제어 |
-| Tools | [tools/index.md](tools/index.md) | 터미널, 원격 접속, 자동화 도구 |
+<h3 id="home-development">개발 환경</h3>
 
-## 6. 상태 전이 (State Transition)
+코드를 작성하고 실행하는 환경을 구성합니다.
 
-문서 허브 관리 흐름은 다음과 같다.
+- [개발 환경 가이드](development/index.md)
+- [Docker 설치와 사용](development/docker/installation.md)
+- [Git 브랜치 관리](development/git/branch-management.md)
+- [Java 핵심 개념](java/index.md)
 
-```text
-새 문서 추가
-  -> 섹션 index 갱신
-  -> 최상위 index 필요 여부 확인
-  -> 링크 검증
-  -> 포맷 검증
-```
+</section>
 
-문서를 읽는 흐름은 다음과 같다.
+<section class="hub-home__topic" aria-labelledby="home-data" markdown="1">
 
-```text
-문제 정의
-  -> 상위 영역 선택
-  -> 섹션 index 읽기
-  -> 개별 문서 실행 또는 학습
-  -> 체크리스트로 완료 확인
-```
+<h3 id="home-data">데이터와 AI</h3>
 
-## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+데이터 저장·캐시와 검색·AI 흐름을 살펴봅니다.
 
-- 최상위 허브는 실제 존재하는 진입 문서만 링크한다.
-- 각 영역 설명은 하위 문서를 대체하지 않고 탐색 방향만 제공한다.
-- Docker Compose 실행 파일은 문서 링크만 보고 실행하지 않고 실제 `infra/docker/stacks` 파일을 확인한다.
-- 상위 인덱스의 링크가 깨지면 문서 탐색 전체가 깨진다.
-- 새 대분류를 만들면 `index.md`를 함께 둔다.
+- [데이터베이스](databases/index.md)
+- [Redis와 캐시](databases/redis/overview.md)
+- [BM25와 Attention 비교](ai/bm25-vs-attention.md)
+- [LangChain과 LangGraph 비교](ai/langchain-vs-langgraph.md)
 
-## 8. 가장 작은 예제 (Minimal Viable Example)
+</section>
 
-현재 상위 진입 문서는 다음처럼 확인한다.
+<section class="hub-home__topic" aria-labelledby="home-operations" markdown="1">
 
-```bash
-find content/docs -maxdepth 2 -name index.md -type f | sort
-```
+<h3 id="home-operations">인프라 운영</h3>
 
-최상위 디렉터리는 다음처럼 확인한다.
+서버와 네트워크를 구성하고 상태를 점검합니다.
 
-```bash
-find content/docs -maxdepth 1 -type d | sort
-```
+- [인프라 가이드](infrastructure/index.md)
+- [Proxmox 클러스터](infrastructure/proxmox/cluster.md)
+- [Prometheus · Grafana · Loki](infrastructure/monitoring/prometheus-grafana-loki.md)
+- [Nginx 설정과 배포](nginx/index.md)
 
-문서를 추가한 뒤에는 Markdown 포맷 검증을 실행한다.
+</section>
 
-```bash
-cargo run --manifest-path src/tools/docs-validator-rs/Cargo.toml -- --root . --docs-base content/docs --check format --summary-only
-```
+<section class="hub-home__topic" aria-labelledby="home-security" markdown="1">
 
-## 9. 실패 사례 (What could go wrong?)
+<h3 id="home-security">Linux와 보안</h3>
 
-첫 번째 실패는 존재하지 않는 섹션을 최상위 허브에 남기는 것이다. 링크가 깨지면 새 사용자는 문서 전체가 낡았다고 판단하게 된다.
+운영체제를 다루고 접속·권한을 관리합니다.
 
-두 번째 실패는 상위 허브에 세부 절차를 너무 많이 넣는 것이다. 각 섹션의 책임과 중복되어 유지보수 비용이 커진다.
+- [Linux 명령과 환경 설정](linux/index.md)
+- [보안 가이드](security/index.md)
+- [SSH 설정](security/ssh/configuration.md)
+- [WireGuard VPN](security/vpn/wireguard.md)
 
-세 번째 실패는 섹션 이름과 실제 디렉터리 이름을 다르게 쓰는 것이다. 예를 들어 JavaScript 문서는 `javascripts` 디렉터리에 있으므로 링크와 표기가 실제 구조와 맞아야 한다.
+</section>
 
-## 10. 뇌 확장하기 (Evolution & Variants)
+<section class="hub-home__topic" aria-labelledby="home-resources" markdown="1">
 
-문서가 더 커지면 최상위 허브는 “주제별 진입점”만 남기고, 세부 목록은 각 섹션 index로 위임하는 편이 낫다.
+<h3 id="home-resources">도구와 자료실</h3>
 
-운영 문서와 학습 문서가 섞이면 목적별 태그나 별도 색인을 둘 수 있다. 예를 들어 실행 절차는 Runbook, 개념 정리는 Learning Note로 구분한다.
+작업 도구, 프로젝트 기록과 참고 자료를 찾습니다.
 
-자동 링크 검증이 추가되면 최상위 허브의 품질을 더 안정적으로 유지할 수 있다.
+- [터미널 · 원격 접속 · 자동화 도구](tools/index.md)
+- [보조 리소스](extra/index.md)
+- [프로젝트 기록](projects/index.md)
+- [프롬프트 모음](prompts/index.md)
 
-## 11. 최종 체크리스트 (Definition of Done)
+</section>
 
-- [ ] 주요 상위 섹션이 실제 파일 구조와 일치한다.
-- [ ] 각 섹션에 `index.md`가 있는지 확인했다.
-- [ ] 존재하지 않는 링크를 제거했다.
-- [ ] 최상위 허브가 세부 절차를 중복하지 않는다.
-- [ ] 새 섹션 추가 시 최상위 또는 섹션 index 갱신 기준을 안다.
-- [ ] 포맷 검증을 통과했다.
-
-## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
-
-Documentation Hub는 문서 내용을 모두 담는 곳이 아니라 `__________`를 찾는 지도다. 상위 링크는 실제 `__________`와 일치해야 하고, 세부 절차는 각 섹션의 `__________`로 위임한다.
+</div>
+</div>
+</div>

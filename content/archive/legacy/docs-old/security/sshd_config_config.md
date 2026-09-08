@@ -1,5 +1,9 @@
 # SSH 구성 파일 상세 설명 및 옵션 치트 시트
 
+이 치트 시트에는 현재 OpenSSH에서 제거되었거나 `Match` 블록 안에서 허용되지 않을 수 있는 역사적 지시어가 포함됩니다. 대상 서버의 `sshd -V` 또는 패키지 버전을 기록하고 `man sshd_config`와 `sshd -T`의 유효 설정을 정본으로 사용합니다. 예를 들어 `Protocol`과 `ServerKeyBits`는 현대 OpenSSH 서버에 적용되지 않을 수 있습니다.
+
+설정 변경 순서는 `sshd -t` 문법 검사, `sshd -T -C user=<USER>,addr=<CLIENT_IP>,laddr=<SERVER_IP>,lport=<PORT>` 조건 평가, 기존 세션 유지, reload, 새 세션 검증입니다. 파일에 지시어가 존재한다는 사실만으로 특정 접속에 적용됐다고 판단하지 않습니다.
+
 ## 구성 파일 섹션별 의미 설명
 
 ### Subsystem sftp internal-sftp

@@ -2,6 +2,18 @@
 
 이 문서는 SSH 클라이언트와 서버 설정을 안전하게 관리하기 위한 기준을 정리한다. 핵심은 접속 편의보다 잠금 방지, 인증 강도, 최소 기능 허용, 로그 검증이다.
 
+## 적용 범위와 판정 기준
+
+이 문서는 OpenSSH client 별칭과 server 정책 예시를 구분합니다. `ssh_config`와 `sshd_config` 옵션은 서로 바꿔 쓰지 않으며 설치된 버전의 지원 범위를 확인합니다.
+
+- **사전 확인**: sshd -V 또는 패키지 정보, 포함 파일, 서비스 이름, 실제 리슨 주소와 포트, 기존 관리 경로를 기록합니다.
+- **평가 규칙**: 전역값, Include와 Match 순서를 확인합니다. `Match all`은 모든 연결에 적용되는 새 조건 블록이며 전역 전용 지시어를 다시 허용하는 경계가 아닙니다. 전역 전용 지시어는 첫 Match 앞에 둡니다.
+- **검증 명령**: 변경 전후에 sudo sshd -t로 구문을 검사하고, sudo sshd -T -C user=USER,addr=CLIENT_IP,laddr=SERVER_IP,lport=PORT로 대표 조건의 유효 값을 비교합니다.
+- **안전한 적용**: 기존 관리자 세션을 유지한 채 reload를 사용하고 두 번째 세션에서 인증, 셸 또는 SFTP, 포워딩 거부 조건을 시험합니다. 실패하면 백업 설정으로 되돌린 뒤 다시 검사합니다.
+- **완료 조건**: 의도한 사용자와 주소 조합별 유효 설정, 성공 및 거부 로그, chroot 경로의 소유권과 쓰기 가능 하위 경로를 증거로 남깁니다.
+
+ChrootDirectory 자체와 모든 상위 경로는 일반적으로 root 소유이며 대상 사용자가 쓸 수 없어야 합니다. 업로드가 필요하면 chroot 아래에 별도의 사용자 소유 디렉토리를 둡니다. X11, 에이전트, TCP 포워딩은 필요한 경우에만 최소 범위로 허용합니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 SSH는 서버 관리의 기본 입구다. 설정 한 줄로 root 로그인을 막거나, 포트 포워딩을 제한하거나, SFTP 전용 계정을 만들 수 있지만, 잘못 적용하면 관리자 자신도 접속하지 못할 수 있다.
@@ -111,7 +123,9 @@ Host prod
 ```sshconfig
 PermitRootLogin no
 PasswordAuthentication no
+KbdInteractiveAuthentication no
 PubkeyAuthentication yes
+AuthenticationMethods publickey
 PermitEmptyPasswords no
 MaxAuthTries 3
 AllowUsers deploy admin
@@ -122,10 +136,11 @@ AllowTcpForwarding no
 적용 전후 검증:
 
 ```bash
-sudo sshd -t
-sudo systemctl reload ssh || sudo systemctl reload sshd
+: "${SSH_SERVICE:?set the installed ssh or sshd service unit}"
+sudo sshd -t && sudo systemctl reload "$SSH_SERVICE"
+# 별도 client 세션에서 새 로그인을 시험하고 기존 관리자 세션은 유지한다.
 ssh prod
-sudo journalctl -u ssh -n 50
+sudo journalctl -u "$SSH_SERVICE" -n 50
 ```
 
 ## 9. 실패 사례 (What could go wrong?)

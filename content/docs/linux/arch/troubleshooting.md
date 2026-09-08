@@ -2,6 +2,13 @@
 
 이 문서는 Arch Linux에서 부팅, 네트워크, 패키지, 그래픽, 오디오, 입력 문제를 진단하는 순서를 정리한다. 목표는 임의 명령을 복사해 실행하는 것이 아니라 로그와 상태를 보고 문제 범위를 좁히는 것이다.
 
+## 적용 범위와 문제 해결 증거
+
+- **범위:** 점검 시각, Arch package versions, kernel, initramfs, boot mode·loader, filesystem, network stack, desktop session과 hardware를 기록합니다. rolling release에서는 오래된 명령을 현재 상태에 그대로 적용하지 않습니다.
+- **전제:** 증상, 마지막 정상 상태, 직전 변경, 재현 단계와 복구 shell·live media 접근 여부를 먼저 확인합니다. 수정 전 변경 대상의 backup 또는 rollback 지점을 만듭니다.
+- **사실과 추론:** journal, boot log, package database, device state와 명령 출력은 근거이고, 원인 설명은 한 번에 하나의 변수를 바꿔 재현하기 전까지 가설입니다.
+- **실패·완료:** boot 불가, network 단절, package DB 손상, 권한·보안 약화와 재부팅 후 재발을 실패로 봅니다. 원인과 수정이 log로 연결되고 reboot·update 뒤에도 정상이며 rollback 경로가 남아 있을 때 완료입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Arch는 rolling release 배포판이라 package update, kernel, driver, bootloader, desktop stack 변화가 빠르다. 문제가 생겼을 때 “어제 되던 설정”만 믿으면 원인을 놓치기 쉽다.
@@ -106,7 +113,7 @@ mirror reachable
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
 
-최근 부팅 로그와 실패 unit을 확인한다.
+로그에 접근 가능하면 최근 boot와 failed unit을 확인한다. 부팅 실패로 로그를 읽을 수 없다면 live media로 부팅해 대상 filesystem을 식별·mount한 뒤 저장된 journal·package log부터 확인한다.
 
 ```bash
 systemctl --failed
@@ -125,7 +132,7 @@ findmnt
 cat /etc/fstab
 ```
 
-GRUB UEFI를 복구해야 하면 live ISO로 부팅한 뒤 root와 ESP를 mount하고 chroot한다.
+다음 GRUB UEFI 복구는 root가 `/dev/nvme0n1p3`, ESP가 `/dev/nvme0n1p1`이고 기존 `/boot/efi` 구성임을 식별한 예시다. 암호화·Btrfs subvolume·다른 ESP 경로는 해당 구조에 맞춰 mount해야 한다. 새 format을 하지 않고 backup과 live-media 복구 경로를 확인한다.
 
 ```bash
 mount /dev/nvme0n1p3 /mnt
@@ -154,13 +161,13 @@ nmcli device wifi list
 nmcli device wifi connect SSID_NAME password WIFI_PASSWORD
 ```
 
-Pacman 문제를 확인한다.
+Pacman은 먼저 읽기 중심으로 설치 버전과 파일 상태를 확인한다. 전체 upgrade나 keyring 재초기화는 이 조회의 일부가 아니며, 기록한 오류·시간·mirror·keyring 상태에 맞는 별도 수정으로 결정한다.
 
 ```bash
-sudo pacman -Syu
+pacman -Q pacman archlinux-keyring
 sudo pacman -Qkk pacman
-sudo pacman-key --init
-sudo pacman-key --populate archlinux
+
+
 ```
 
 Mirror를 재정렬하려면 먼저 기존 파일을 백업한다.

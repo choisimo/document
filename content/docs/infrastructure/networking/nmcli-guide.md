@@ -2,6 +2,8 @@
 
 `nmcli`는 NetworkManager의 명령줄 도구다. 이 문서는 리눅스 서버에서 NetworkManager 연결 프로필을 확인하고, 고정 IP를 적용하고, 장애 시 DHCP로 되돌리는 최소 런북을 정리한다.
 
+속성 지원과 `device reapply`로 반영 가능한 변경은 설치된 NetworkManager 버전에 따라 다르다. 현재 프로필을 백업하고 주소 충돌을 검사하며, 원격 변경 전 콘솔 또는 별도 관리망과 자동 롤백 수단을 확보한다. 예시 프로필 이름·장치·주소는 실제 출력으로 바꾼다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 서버 네트워크 설정은 GUI 없이 SSH에서 처리하는 경우가 많다. 이때 연결 이름, 장치 이름, IP 주소, gateway, DNS를 잘못 구분하면 접속이 끊기거나 재부팅 후 설정이 사라진다.
@@ -164,6 +166,10 @@ Wi-Fi 연결도 `nmcli`로 만들 수 있지만 서버 문서에서는 비밀번
 MTU, VLAN, bond, bridge, MAC clone 설정은 단일 IP 변경보다 장애 범위가 크다. Proxmox나 Docker 호스트라면 해당 플랫폼의 bridge/VLAN 문서를 먼저 확인한다.
 
 NetworkManager 공식 문서는 `nmcli` 속성 이름과 alias를 모두 제공한다. 자동화 스크립트에서는 `ipv4.addr` 같은 짧은 alias보다 `ipv4.addresses`처럼 긴 이름을 쓰는 편이 읽기 쉽다.
+
+## 완료 및 실패 판정
+
+`nmcli connection show --active`, `ip address`, `ip route get <관리서버IP>`로 프로파일과 실제 송신 경로를 확인하고 DNS와 관리 서비스를 별도로 시험합니다. 재부팅 후 자동 연결까지 유지되어야 완료이며, 실패하면 기존 프로파일을 다시 올립니다. 기존 프로파일 삭제는 검증 후 수행합니다.
 
 ## 11. 최종 체크리스트 (Definition of Done)
 

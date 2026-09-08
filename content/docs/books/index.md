@@ -1,4 +1,127 @@
-# Under the Hood CS Knowledge Library 인덱스 학습 및 기록 노트
+---
+title: "CS 학습 라이브러리"
+---
+
+# CS 학습 라이브러리 {#under-the-hood-cs-knowledge-library}
+
+<nav class="hub-directory" aria-label="CS 학습 라이브러리 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group hub-directory__group--wide" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">CS 레퍼런스</h2>
+
+- [CS 참고 문서](cs-reference/index.md)
+- [Computer Architecture Internals](cs-reference/computer-architecture-internals.md)
+- [Compiler Internals: From Source to Machine Code](cs-reference/compiler-internals.md)
+- [Operating Systems Internals: Kernel Data Structures and Scheduling](cs-reference/operating-systems-internals.md)
+- [Systems Programming Internals](cs-reference/systems-programming-internals.md)
+- [Networking Internals: Under the Hood](cs-reference/networking-internals.md)
+- [C/C++ Internals: Under the Hood](cs-reference/c-cpp-internals.md)
+- [Python Internals](cs-reference/python-internals.md)
+- [Java Internals: Under the Hood](cs-reference/java-internals.md)
+- [Programming Languages Internals](cs-reference/programming-languages-internals.md)
+- [Functional Programming Internals: Lambda Calculus, Type Systems & Runtime Mechanics](cs-reference/functional-programming-internals.md)
+- [Database Systems Internals: Under the Hood](cs-reference/database-systems-internals.md)
+- [Data Structures Internals: Under the Hood](cs-reference/data-structures-internals.md)
+- [Data Mining & Big Data Internals: Under the Hood](cs-reference/data-mining-bigdata-internals.md)
+- [Security Internals: Cryptography, Authentication & Exploit Mechanics](cs-reference/security-internals.md)
+- [Cloud & AWS Internals](cs-reference/cloud-aws-internals.md)
+- [DevOps and Linux Internals: Under the Hood](cs-reference/devops-linux-internals.md)
+- [Docker & Kubernetes Internals: Under the Hood](cs-reference/docker-kubernetes-cs.md)
+- [Microservices Internals: Under the Hood](cs-reference/microservices-internals.md)
+- [Algorithms CS Reference](cs-reference/algorithms-cs-reference.md)
+- [Mathematical Computing Internals](cs-reference/math-computing-internals.md)
+- [Machine Learning & AI Internals: Under the Hood](cs-reference/ml-ai-internals.md)
+- [Android & Mobile Internals](cs-reference/mobile-android-internals.md)
+- [Web & Frontend Internals](cs-reference/web-frontend-internals.md)
+- [Software Engineering Internals: Under the Hood](cs-reference/software-engineering-internals.md)
+- [Miscellaneous CS Internals](cs-reference/miscellaneous-cs.md)
+- [Distributed Systems Internals: Consensus, Fault Tolerance & Data Consistency](cs-reference/distributed-systems-cs.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">시스템</h2>
+
+- [Linux Kernel Development — Under the Hood](systems/linux-kernel-development.md)
+- [Systems Performance — Under the Hood](systems/systems-performance.md)
+- [C++ Internals](systems/cpp-internals.md)
+- [Operating Systems — Internals and Design Principles](systems/operating-systems-internals.md)
+- [Mamba SSM Internals](systems/mamba-ssm-internals.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">알고리즘</h2>
+
+- [Algorithms 내부 동작](algorithms/algorithms-internals.md)
+- [Erickson & Zingaro: Algorithm Internals — Recursion Trees, Backtracking, DP, Graphs](algorithms/erickson-algorithms-deep.md)
+- [Algorithm Design & Analysis: Levitin + CTCI Internals](algorithms/algorithm-design-analysis.md)
+- [Advanced Algorithms 내부 메커니즘](algorithms/advanced-algorithms-internals.md)
+- [Competitive Programming Internals — Under the Hood](algorithms/competitive-programming-internals.md)
+- [Algorithmic Thinking 내부 메커니즘](algorithms/algorithmic-thinking-zingaro.md)
+- [Sedgewick Algorithms 내부 메커니즘](algorithms/sedgewick-algorithms-internals.md)
+- [CMU 15-850 Advanced Algorithms: Under the Hood](algorithms/cmu-advanced-algorithms.md)
+- [Cracking the Coding Interview (4th Ed.) — Under the Hood](algorithms/cracking-coding-interview-internals.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-4" markdown="1">
+
+<h2 id="directory-group-4">분산 시스템</h2>
+
+- [Distributed Systems: Under the Hood](distributed/distributed-systems-internals.md)
+- [Distributed Computing: Principles, Algorithms, and Systems — Under the Hood](distributed/distributed-computing-principles.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-5" markdown="1">
+
+<h2 id="directory-group-5">Kafka와 메시징</h2>
+
+- [Apache Kafka — Under the Hood: Internal Architecture & Data Flow](kafka/kafka-internals.md)
+- [Kafka: The Definitive Guide — Internal Architecture Deep Dive](kafka/kafka-internals-definitive.md)
+- [Kafka Producer & Consumer Internals — Under the Hood](kafka/kafka-producer-consumer-deep.md)
+- [Kafka Streams — Under the Hood: Topology Execution, State, and Stream Processing Internals](kafka/kafka-streams-internals.md)
+- [Kafka Streams & ksqlDB — Under the Hood](kafka/kafka-streams-ksqldb.md)
+- [Kafka in Action — Under the Hood: Storage, Consumer Internals & Data Pipelines](kafka/kafka-in-action-deep.md)
+- [Kafka Streams in Action — Under the Hood: Topology Execution, State, and Stream Processing Internals](kafka/kafka-streams-in-action-deep.md)
+- [RabbitMQ Internals: AMQP Wire Protocol, Routing Engine, and Cluster Mechanics](kafka/rabbitmq-internals.md)
+- [Designing Event-Driven Systems — Under the Hood: Event Streaming Architecture Internals](kafka/designing-event-driven-systems.md)
+- [Effective Kafka — Under the Hood: Producer Internals, Reliability, and Performance Mechanics](kafka/effective-kafka-internals.md)
+- [Learning Apache Kafka](kafka/learning-apache-kafka.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-6" markdown="1">
+
+<h2 id="directory-group-6">DevOps</h2>
+
+- [Docker & Kubernetes Internals: Under the Hood](devops/docker-kubernetes-internals.md)
+- [Jenkins CI/CD Internals: Under the Hood](devops/jenkins-cicd-internals.md)
+- [Consul Service Mesh Internals: Under the Hood](devops/consul-service-mesh-internals.md)
+- [Edge Computing Container Architectures: Docker vs. Kubernetes for Real-Time Robotics](devops/edge-computing-container-architectures.md)
+- [Kubernetes Orchestration Internals: Under the Hood](devops/kubernetes-orchestration-internals.md)
+- [Docker and Kubernetes for Java Developers: Under the Hood](devops/docker-kubernetes-java-internals.md)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
+
+## Index contract
+
+- The file count below describes the recorded `content/docs/books/` snapshot, while the category table lists representative entrypoints rather than every article.
+- A link is considered complete only when its target exists and the target document states its own version or execution boundary.
+- Product defaults and performance figures belong in the target document with evidence, not in this index.
+- When entries are added, removed, or renamed, recount the recorded total and update the affected relative links in the same change.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -8,7 +131,7 @@
 
 ## 2. 현재 나의 상태 (Baseline)
 
-- `content/docs/books` 아래에는 현재 저장소 기준 88개의 Markdown 문서가 있다.
+- 2026-09-08 병합 검토 시 `content/docs/books` 아래 Markdown 파일은 88개였다(`Path("content/docs/books").rglob("*.md")` 기준). 아래 표는 전체 88개 목록이 아니라 카테고리별 대표 진입점이며, 구조가 바뀌면 다시 집계한다.
 - 주요 하위 카테고리는 `systems`, `algorithms`, `distributed`, `kafka`, `devops`, `cs-reference`, `cs-references`다.
 - 기존 인덱스는 상세 목록이 많아 전체 탐색에는 유용하지만, 유지보수 시 숫자와 항목이 실제 파일 구조와 어긋날 수 있다.
 - 독자는 먼저 카테고리를 고르고, 이후 세부 문서로 들어가는 흐름이 필요하다.
@@ -114,3 +237,5 @@ Kafka 내부 동작을 보고 싶다
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 `books/index.md`는 모든 내용을 담는 문서가 아니라, 내부 동작 중심 문서들로 독자를 보내는 상위 라우터다.
+
+</details>

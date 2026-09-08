@@ -1,8 +1,18 @@
 # Programming Languages Internals 학습 및 기록 노트
 
+## Scope, Semantic Guarantees, and Runtime Evidence
+
+This document compares language semantics with representative compiler and runtime implementations. A language rule, an optimization performed by one compiler, and a benchmark result must not be treated as the same kind of guarantee.
+
+- **Scope:** Record language edition, compiler or runtime version, target, optimization flags, garbage collector, standard library, and relevant feature flags.
+- **Semantic boundary:** Type safety, ownership, evaluation, and concurrency rules come from the language model. Stack layout, scheduler queues, object headers, JIT tiers, and lowering strategies are implementation details that may change.
+- **Complexity and numbers:** Stack sizes, pause times, dispatch costs, allocation sizes, and asymptotic bounds require the input representation and dense or sparse assumptions. They are examples until reproduced.
+- **Evidence and uncertainty:** Use compiler IR or assembly, runtime traces, allocation and GC profiles, race or sanitizer results, and statistically sound benchmarks. Infer an optimization only when the generated artifact shows it.
+- **Failure and completion:** Cover panic or exception paths, cancellation, races, FFI ownership, deoptimization, stack growth, and resource cleanup. Completion requires preserved semantics plus measured improvement under a fixed workload.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
-프로그래밍 언어의 차이는 문법보다 런타임과 타입 시스템에서 크게 드러난다. Go는 goroutine을 M:N 스케줄링하고, Rust는 ownership과 borrow checker로 GC 없이 메모리 안전성을 보장하며, Kotlin coroutine은 `suspend` 함수를 continuation state machine으로 낮춘다. Scala, JVM, Haskell, ML 계열도 각각 variance, JIT, lazy evaluation, pattern matching compilation에서 다른 내부 메커니즘을 갖는다.
+프로그래밍 언어의 차이는 문법보다 런타임과 타입 시스템에서 크게 드러난다. Go는 goroutine을 M:N 스케줄링하고, Rust는 safe Rust와 sound한 unsafe/FFI 경계라는 전제에서 ownership과 borrow checker로 메모리 안전성을 제공하며, Kotlin coroutine은 `suspend` 함수를 continuation state machine으로 낮춘다. Scala, JVM, Haskell, ML 계열도 각각 variance, JIT, lazy evaluation, pattern matching compilation에서 다른 내부 메커니즘을 갖는다.
 
 이 문서는 원문의 programming languages internals 내용을 runtime state, type contract, compiler lowering 중심으로 재작성한다.
 
@@ -74,9 +84,9 @@ Kotlin coroutine은 suspend point마다 label이 있는 continuation으로 바�
 
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-- Go scheduler는 blocking syscall이 P 전체를 멈추지 않도록 P를 다른 M에 넘겨야 한다.
-- GC write barrier는 black object가 white object를 직접 참조하는 invariant 위반을 막아야 한다.
-- Rust는 동시에 여러 shared borrow 또는 하나의 exclusive mutable borrow만 허용해야 한다.
+- Go 런타임은 blocking syscall에서 P를 다른 M에 넘길 수 있지만, 외부 자원 고갈이나 런타임 제약까지 개별 goroutine의 진행을 보장하지는 않는다.
+- 동시 GC의 write barrier는 갱신 중인 참조 때문에 도달 가능한 객체를 놓치지 않아야 한다. 실제 Go의 hybrid barrier 등은 런타임별 규칙을 따르므로 단순한 black→white 금지만을 모든 GC의 불변식으로 쓰지 않는다.
+- safe Rust에서는 동일한 값에 대한 ordinary shared borrow와 exclusive mutable borrow의 유효 범위가 충돌하면 안 된다. `unsafe`, FFI, 내부 가변성과 동적 검사는 별도 경계를 확인한다.
 - `dyn Trait` 호출은 vtable contract와 object lifetime이 맞아야 한다.
 - Kotlin coroutine cancellation은 협조적이며 parent Job이 취소되면 child도 취소되어야 한다.
 - JVM speculative optimization은 가정이 깨지면 안전하게 deoptimize되어야 한다.

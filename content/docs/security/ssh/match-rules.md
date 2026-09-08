@@ -2,6 +2,18 @@
 
 `Match` 지시어는 `sshd_config`에서 사용자, 그룹, 주소, 로컬 포트 같은 조건에 따라 SSH 서버 정책을 다르게 적용하는 기능이다.
 
+## 적용 범위와 실행 전 조건
+
+이 문서는 OpenSSH 서버 `sshd_config`의 설계 예시입니다. 설치된 버전에서 Match 내부에 허용되는 지시어를 확인합니다. client 전용 `LocalCommand`·`PermitLocalCommand`를 server 설정에 쓰지 않으며 폐기된 `Protocol` 지시어를 복원하지 않습니다.
+
+- **순서 규칙**: 전역값, Include와 일치하는 Match 블록의 순서를 검사합니다. `Match all`은 항상 일치하는 새 조건 블록이며 전역 전용 지시어 허용을 복원하지 않습니다. 전역 기본값은 첫 Match 앞에 둡니다.
+- **chroot 전제**: ChrootDirectory와 상위 경로는 root 소유이고 사용자가 쓸 수 없어야 합니다. 쓰기 작업은 jail 내부의 별도 하위 디렉토리에 허용합니다.
+- **안전한 적용**: sudo sshd -t와 sudo sshd -T -C의 대표 사용자, 주소, 포트 조합을 통과한 뒤 기존 관리자 세션을 유지한 채 reload합니다.
+- **실패 대응**: 새 세션이 실패하면 재시작을 반복하지 말고 백업 설정으로 복구합니다. 콘솔 또는 별도 관리 경로가 없으면 원격 변경을 진행하지 않습니다.
+- **완료 조건**: 각 정책 조합의 허용과 거부 테스트, 셸/SFTP/포워딩 동작, chroot 권한, 감사 로그를 결과로 보관합니다.
+
+Root 로그인 정책과 알고리즘 정책은 제품 버전과 조직 암호 정책을 기준으로 전역에서 관리합니다. 비밀번호, X11, 에이전트 및 TCP 포워딩 허용 예시는 위험을 승인한 제한된 환경에서만 사용합니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 모든 SSH 사용자가 같은 권한을 필요로 하지는 않는다. 관리자는 shell과 포트 포워딩이 필요할 수 있지만, 백업 계정은 특정 명령만 실행하면 되고, SFTP 계정은 파일 전송만 허용되어야 한다.
@@ -77,7 +89,7 @@ stateDiagram-v2
     ConnectionReceived --> MatchEvaluated
     MatchEvaluated --> KeyAuthenticated
     KeyAuthenticated --> SftpOnly: ForceCommand internal-sftp
-    KeyAuthenticated --> ShellDenied: PermitTTY no
+    KeyAuthenticated --> ShellDenied: ForceCommand internal-sftp
     SftpOnly --> SessionEnded
 ```
 
@@ -98,20 +110,20 @@ SFTP 전용 그룹 예시:
 
 ```sshconfig
 Subsystem sftp internal-sftp
+AllowTcpForwarding no
 
 Match Group sftpusers
     ChrootDirectory /srv/sftp/%u
     ForceCommand internal-sftp
+    DisableForwarding yes
     AllowTcpForwarding no
     X11Forwarding no
     PermitTTY no
 ```
 
-관리 네트워크에서만 포워딩 허용:
+위 전역 기본값과 SFTP 블록 뒤에 추가할 관리자 예시다. 승인된 관리 CIDR로 대체하고 그룹이 겹치는 사용자도 검사한다. SFTP의 `DisableForwarding yes`는 다른 forwarding 허용보다 우선하므로 SFTP 계정에 관리자 포워딩을 기대하지 않는다.
 
 ```sshconfig
-AllowTcpForwarding no
-
 Match Group admins Address 10.0.0.0/8
     AllowTcpForwarding yes
     PermitTTY yes

@@ -1,6 +1,55 @@
-# Storage Docker Stacks 학습 및 기록 노트
+---
+title: "스토리지 Compose 스택"
+---
+
+# 스토리지 Compose 스택 {#storage-docker-stacks}
+
+<nav class="hub-directory" aria-label="스토리지 Compose 스택 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">컬렉션 탐색</h2>
+
+- [Compose 스택](../index.md)
+- [Docker Compose 컬렉션](../../index.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">droppy</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/storage/droppy/docker-compose.yaml)
+- [README.md](/extra/docker/stacks/storage/droppy/README.md)
+- [.env.example](/extra/docker/stacks/storage/droppy/.env.example)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">picoshare</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/storage/picoshare/docker-compose.yaml)
+- [README.md](/extra/docker/stacks/storage/picoshare/README.md)
+- [.env.example](/extra/docker/stacks/storage/picoshare/.env.example)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
 
 Storage 카테고리는 웹 기반 파일 저장과 간단한 파일 공유 서비스를 다룬다. 현재 Droppy와 PicoShare 스택이 있으며, 이 영역에서는 볼륨 경로, 공유 비밀번호, 업로드 파일 보존, 공개 포트가 핵심이다.
+
+## 스토리지 스택 점검 기준
+
+- 호스트 경로, 파일 UID/GID, 대소문자·잠금 의미, 네트워크 파일시스템과 디스크 여유를 먼저 고정합니다.
+- 동기화나 RAID를 백업으로 간주하지 않고 별도 매체의 버전 보존과 복원 시험을 정의합니다.
+- 완료 기준은 읽기·쓰기 권한, 재시작·업그레이드 후 무결성, 용량 경보와 실제 복원 결과입니다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -172,3 +221,5 @@ PicoShare처럼 단순 secret 기반 서비스는 계정별 권한 모델이 필
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 Storage 스택의 핵심은 파일이 어디에 `__________`되는지와 누가 접근할 수 있는지다. 실행 전 `__________`를 통과해야 하고, 공유 secret은 `__________` 값으로 남기면 안 된다.
+
+</details>

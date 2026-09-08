@@ -2,6 +2,13 @@
 
 이 문서는 AI를 SQL 터미널처럼 사용하면서 동시에 데이터베이스 개념을 설명하게 만드는 학습용 프롬프트 템플릿이다.
 
+## 실행·시뮬레이션 경계
+
+- 데이터베이스 도구 연결이 없는 AI는 SQL을 실제로 실행하지 않습니다. 예상 결과는 반드시 `시뮬레이션`으로 표시하고 제공된 seed data에서만 계산합니다.
+- DBMS와 버전, schema, constraints, transaction isolation, NULL·collation·timezone 조건을 먼저 고정합니다.
+- 학습용 기본값은 read-only입니다. DDL/DML과 파괴적 쿼리는 영향 행, transaction, rollback과 별도 sandbox 승인이 있어야 실행합니다.
+- 답변 완료 기준은 query, 가정, 결과/예상 결과, 실행 계획 해석, 오류 가능성과 재현용 schema·data를 구분해 제시한 상태입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 SQL을 배울 때 쿼리 결과만 보면 왜 그런 결과가 나왔는지 놓치기 쉽고, 개념 설명만 보면 실제 쿼리를 어떻게 쓰는지 감이 약해진다.
@@ -104,7 +111,13 @@ stateDiagram-v2
 ```markdown
 Act as both a SQL terminal simulator and a database educator.
 
-Use this sample database:
+Default to read-only simulation. Do not execute connected DDL/DML unless
+the user has authorized the specific sandbox scope.
+DBMS and exact version: [provide]
+Constraints, isolation, NULL/collation/timezone: [provide]
+Seed rows: [provide actual rows; if absent, say a result cannot be computed]
+
+Use this proposed schema:
 - Users(Id, Name, Email, CreatedAt)
 - Products(Id, Name, Price, SupplierId, Stock)
 - Orders(Id, UserId, ProductId, Quantity, OrderDate)
@@ -118,7 +131,8 @@ Relationships:
 For each provided query:
 1. Identify the SQL dialect.
 2. If no real database is connected, mark the result as simulated.
-3. Show a small result table.
+3. Compute a small result table only from the supplied seed rows. If rows
+   are missing, state the limitation and explain the query without inventing data.
 4. Explain each SQL clause.
 5. Explain involved entities and relationships.
 6. Define relevant database terms.

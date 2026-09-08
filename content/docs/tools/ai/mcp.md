@@ -2,6 +2,18 @@
 
 MCP는 AI 애플리케이션이 외부 도구, 데이터, 프롬프트를 표준화된 방식으로 발견하고 호출할 수 있게 하는 프로토콜이다.
 
+## 적용 범위와 신뢰 경계
+
+이 문서는 일반 MCP host/client/server와 도구 권한의 개념 가이드이며 n8n은 선택적 workflow 연결 예시입니다. MCP protocol revision, transport와 client/server 구현 version을 고정하고 실제 지원 기능을 확인합니다.
+
+- **증거 상태**: 개념도와 endpoint 이름은 구현 증거가 아닙니다. 초기화·capability·schema·인증·오류의 실제 응답과 설정으로 연결을 검증합니다.
+- **신뢰 경계**: MCP 연결은 모델 출력이 외부 작업으로 이어지는 경로입니다. 인증만으로 충분하지 않으며 도구 allowlist, 입력 스키마, 최소 권한 자격 증명, 대상 및 작업 범위 제한, 고위험 쓰기 작업의 사람 승인을 둡니다.
+- **공급망과 비밀**: npx -y와 고정되지 않은 컨테이너 이미지는 임의의 새 코드를 실행할 수 있습니다. 패키지 버전, lockfile, 이미지 digest를 고정하고 API 키를 workflow export, 로그와 클라이언트 설정에 남기지 않습니다.
+- **실패와 재시도**: 메일 발송과 데이터 쓰기는 idempotency key, 중복 억제, timeout, 재시도 상한과 보상 절차가 있어야 합니다. 읽기와 쓰기 도구를 분리하고 부분 성공을 감사 로그에 기록합니다.
+- **완료 조건**: 무인증 거부, 허용 및 비허용 도구 호출, 잘못된 스키마, timeout, 중복 요청, 자격 증명 회수와 감사 로그 조회를 시험합니다.
+
+원격 HTTP MCP endpoint에서 무인증은 격리된 일회성 평가로 제한한다. 로컬 stdio는 HTTP 인증과 별개로 실행 사용자·process 권한·허용 경로가 경계다. 인터넷 공개에는 TLS와 사용자/서비스 인증, 속도 제한과 관측을 함께 검증한다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 LLM 애플리케이션이 파일, 데이터베이스, API, 검색, 자동화 도구를 각각 다른 방식으로 직접 붙이면 통합 수가 빠르게 늘어난다. 클라이언트마다 도구별 커넥터를 따로 만들면 권한, 오류, 로그, 보안 검토도 분산된다.
@@ -49,7 +61,7 @@ AI host starts or connects to MCP client
 
 ```text
 model proposes tool call
-  -> client checks user consent and policy
+  -> client checks previously authorized scope and execution policy
   -> server validates arguments
   -> tool reads or writes external system
   -> server returns result or tool-level error
@@ -91,7 +103,7 @@ stateDiagram-v2
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
 - MCP server는 tool argument와 resource URI를 반드시 검증해야 한다.
-- 모델이 tool을 호출할 수 있다고 해서 사용자의 승인 없이 side effect를 실행하면 안 된다.
+- 실제 side effect는 사용자가 사전에 허용한 대상·작업 범위와 실행 정책 안에서만 수행한다. 범위를 벗어나거나 별도 승인이 필요한 작업은 승인 전에 실행하지 않는다.
 - 파일 쓰기, shell command, 외부 API mutation은 읽기 도구보다 높은 권한으로 분리한다.
 - OAuth나 token을 쓰는 서버는 audience, scope, expiry를 검증해야 한다.
 - tool 결과의 오류는 protocol error와 tool-level error를 구분해 반환한다.

@@ -1,5 +1,13 @@
 # Middle East Integration Files - Historical Analysis and Study Guide
 
+> **Scope:** This legacy study guide combines material on the Iran-Iraq War, Gulf War, Arab Spring, and Yom Kippur War. It is a bounded course synthesis, not a complete chronology or a current regional-status report.
+>
+> **Evidence state:** The underlying file list, editions, page map, and retrieval dates are not present here. Treat every uncited statement as **provisional**. Before reuse, identify the event, actor, date range, and source page; attach an as-of date to casualties, debt, troop levels, territorial control, and political status.
+>
+> **Claim discipline:** Separate a dated **fact** from an actor's **stated justification**, an analyst's **interpretation**, and an **uncertain** or disputed claim. Quotation marks do not by themselves establish that a claim is true.
+>
+> **Completion and rollback:** A section is assessment-ready only after its dates and figures trace to sources, conflicting accounts are recorded, and the answer key preserves the fact/claim/interpretation distinction. If later evidence breaks that chain, return the item to **provisional** status rather than retaining a categorical answer.
+
 ## Table of Contents
 1. [Iran-Iraq War (1980-1988)](#iran-iraq-war-1980-1988)
 2. [Gulf War (1990-1991)](#gulf-war-1990-1991)
@@ -12,7 +20,7 @@
 
 ### Historical Timeline (1916-1979)
 
-This comprehensive overview covers the major Middle Eastern events from 1916 to 1979, providing essential background for understanding the Iran-Iraq War and the First Gulf War (Iraq's invasion of Kuwait).
+This timeline selects events used by the course material as background for the Iran-Iraq War and Iraq's invasion of Kuwait. Selection does not establish a complete causal chain.
 
 #### Key Historical Events:
 - **Hussein-McMahon Correspondence** (1915-1916)
@@ -28,13 +36,13 @@ This comprehensive overview covers the major Middle Eastern events from 1916 to 
 - **Gamal Abdel Nasser becomes President of Egypt** (1956)
 - **Third Arab-Israeli War (Six-Day War)** (1967)
 - **Death of Nasser** (1970)
-- **Establishment of UAR (United Arab Republic)** (1972)
+- **United Arab Republic (Egypt-Syria union)** (1958-1961)
 - **Yom Kippur War** (1973)
 - **Iranian Islamic Revolution** (1979)
 
 ### Background of the Iran-Iraq War
 
-#### Iraq's "Preemptive Defense War"
+#### Iraq's stated "Preemptive Defense" justification
 
 The Iran-Iraq War was justified by Iraq as a "preemptive war for defense" based on several factors:
 
@@ -91,7 +99,7 @@ The Iran-Iraq War was justified by Iraq as a "preemptive war for defense" based 
 #### Political and Social Effects
 - Increased cult of personality around Saddam Hussein
 - Support grew due to his stance on Palestine
-- Economic devastation with over $600 billion in debt
+- Economic devastation and large war debts; the total requires a dated financial source and a definition of which liabilities are included
 - Unable to provide national welfare: healthcare, education, free food, energy
 
 #### Economic Consequences
@@ -103,7 +111,7 @@ The Iran-Iraq War was justified by Iraq as a "preemptive war for defense" based 
 ### Impact on Iran and Regional Politics
 
 #### Effects on Iran
-- Lost significant territory and oil resources
+- Endured major human and economic losses; any territorial outcome must be tied to the ceasefire and subsequent border settlement
 - Economic hardship created severe pressure on various factions
 
 #### Effects on Arab Politics
@@ -176,7 +184,7 @@ The Iran-Iraq War was justified by Iraq as a "preemptive war for defense" based 
 - Attempted to broaden the conflict regionally
 
 #### Military Operations
-- Approximately 2,000 troops directly entered Kuwait
+- **Unverified figure:** the source claim that approximately 2,000 troops directly entered Kuwait lacks a unit, date, and citation; do not use it until checked against an operational chronology
 - Coalition forces stationed near Basra, close to Kuwait border
 - **"Desert Storm Operation"** as the main military campaign
 
@@ -230,7 +238,7 @@ The Arab Spring, which began around 2010-2011, represented a series of pro-democ
 
 ### Case Studies
 
-#### Tunisia: Democratic Success Story
+#### Tunisia: Initial democratic transition and later reversal risks
 
 **Ben Ali's Rule (1987-2011):**
 - Used police force and developmental dictatorship policies
@@ -239,7 +247,7 @@ The Arab Spring, which began around 2010-2011, represented a series of pro-democ
 
 **Outcome:**
 - Relatively stable internal politics among Arab Spring countries
-- Only successful country in achieving democratic transition
+- Often treated as the strongest early democratic transition case; this is a period-specific assessment, not a current-status conclusion
 - Rapidly grew into a secular state
 
 #### Egypt: Failed Democratic Transition
@@ -272,11 +280,11 @@ The Arab Spring, which began around 2010-2011, represented a series of pro-democ
 | **Openness** | High | Low |
 | **Education Level** | High | Medium-High |
 | **Political Party** | Ennahda | Muslim Brotherhood |
-| **Current Status** | Democratic Consolidation | Return to Islam/Military Regime |
+| **Current Status** | Requires an as-of date; later democratic backsliding must be included | Requires an as-of date and a sourced description of the governing system |
 
 ### Regional Impact and Mixed Results
 
-#### Tunisia's Success
+#### Tunisia's early transition
 - **January**: Zine El Abidine Ben Ali resigned and fled to Saudi Arabia
 - **October**: Moderate Islamic party Ennahda won majority in elections
 - Over 200 deaths during Ben Ali's attempt to suppress protests
@@ -299,7 +307,7 @@ The Arab Spring, which began around 2010-2011, represented a series of pro-democ
 - Bashar al-Assad remains in power
 - Islamists form core part of opposition, though their strength unclear compared to other groups
 - Over 3,000 deaths in protests
-- Peaceful opposition began fighting back, sectarian violence ensued, indicating civil war onset
+- In the early period summarized by the source, parts of the opposition began armed resistance and sectarian violence increased; date this snapshot rather than treating it as a complete account of the civil war
 
 #### Yemen's Political Transition
 - Ali Abdullah Saleh agreed to give up power
@@ -422,7 +430,7 @@ The Yom Kippur War of 1973 was a pivotal conflict in Middle Eastern history, mar
 
 ## Study Guide Summary
 
-This comprehensive study guide covers major Middle Eastern conflicts and political transformations from the late 20th to early 21st centuries. Each section includes:
+This study guide samples major conflicts and political transformations from the late 20th to early 21st centuries. Its sections include:
 
 ### Key Learning Objectives
 - Understanding historical contexts and causes
@@ -431,7 +439,7 @@ This comprehensive study guide covers major Middle Eastern conflicts and politic
 - Recognizing patterns in Middle Eastern conflicts
 
 ### Assessment Preparation
-- Over 200 potential exam questions provided
+- The visible sections provide ten expected questions per topic; recount them before making a coverage claim
 - Multiple perspectives on each historical event
 - Cause-and-effect relationships highlighted
 - Contemporary relevance emphasized

@@ -1,7 +1,16 @@
 # Proxmox VE 문제 해결 가이드
 
-> **Troubleshooting Guide for Proxmox VE 8.x**  
-> 일반적인 문제 상황과 해결 방법
+> **Diagnostic examples written for Proxmox VE 8.x; confirm deployed versions and state**  
+> 대표 증상, 수집할 증거와 조건부 복구 경로
+
+---
+
+## 문제 해결 범위와 증거 기준
+
+- **범위:** Proxmox VE·kernel·QEMU/LXC·Corosync·storage·Ceph 버전, node와 quorum, 직전 변경, 영향 resource와 발생 시각을 기록합니다.
+- **안전 전제:** current config, task·service log, cluster state와 backup을 수집한 뒤 한 번에 하나의 변경만 적용합니다. 강제 unlock, quorum override, process kill, storage repair는 영향 범위와 복구 console을 확보한 경우에만 사용합니다.
+- **사실과 추론:** timestamp가 맞는 log, service/resource status, config DB와 network/storage counter는 사실 근거입니다. 증상에 대응하는 명령 목록은 원인 증명이 아닙니다.
+- **실패·완료:** split-brain, data loss, guest outage 확대, authentication lockout와 reboot 후 재발을 실패로 봅니다. root cause와 수정이 증거로 연결되고 cluster·workload·backup/restore가 정상이며 rollback이 남아 있을 때 완료입니다.
 
 ---
 
@@ -21,6 +30,8 @@
 
 ---
 
+<a id="1-클러스터-문제"></a>
+
 ## 1. 클러스터 문제
 
 ### 1.1 노드가 클러스터에 연결되지 않음
@@ -30,6 +41,7 @@
 - Web GUI에서 노드 상태가 "unknown"
 
 **진단:**
+
 ```bash
 # Corosync 상태 확인
 systemctl status corosync
@@ -46,12 +58,14 @@ ping <other-node-ip>
 **해결 방법:**
 
 1. **Corosync 서비스 재시작:**
+
 ```bash
 systemctl restart corosync
 systemctl restart pve-cluster
 ```
 
 2. **방화벽 확인:**
+
 ```bash
 # Corosync 포트 열기
 iptables -I INPUT -p udp --dport 5405 -j ACCEPT
@@ -59,6 +73,7 @@ iptables -I INPUT -p udp --dport 5404 -j ACCEPT
 ```
 
 3. **Corosync 바인딩 주소 확인:**
+
 ```bash
 # /etc/pve/corosync.conf 에서 ring0_addr 확인
 grep ring0_addr /etc/pve/corosync.conf
@@ -77,6 +92,7 @@ ip addr show
 **해결 방법:**
 
 1. **SSH 키 확인:**
+
 ```bash
 # 기존 노드에서 새 노드로 SSH 접속 테스트
 ssh root@<new-node-ip>
@@ -86,6 +102,7 @@ ssh-copy-id root@<new-node-ip>
 ```
 
 2. **시간 동기화 확인:**
+
 ```bash
 # 모든 노드에서 시간 확인
 date
@@ -98,6 +115,7 @@ timedatectl set-ntp true
 ```
 
 3. **인증서 문제:**
+
 ```bash
 # SSL 인증서 재생성
 pvecm updatecerts -f
@@ -112,6 +130,7 @@ pvecm updatecerts -f
 - `/etc/pve/nodes/<old-node>` 디렉토리 존재
 
 **해결 방법:**
+
 ```bash
 # 1. 클러스터에서 노드 삭제 확인
 pvecm delnode <old-node>
@@ -126,6 +145,8 @@ rm /root/.ssh/known_hosts
 
 ---
 
+<a id="2-quorum-및-split-brain"></a>
+
 ## 2. Quorum 및 Split-brain
 
 ### 2.1 Quorum 손실
@@ -136,6 +157,7 @@ rm /root/.ssh/known_hosts
 - VM/CT 조작 불가
 
 **진단:**
+
 ```bash
 # Quorum 상태
 corosync-quorumtool -s
@@ -145,18 +167,21 @@ pvecm status
 **해결 방법:**
 
 1. **긴급 Quorum 복구 (단일 노드 운영):**
+
 ```bash
 # 주의: 다른 노드가 살아있지 않은지 반드시 확인!
 pvecm expected 1
 ```
 
 2. **정상 복구:**
+
 ```bash
 # 다른 노드들을 다시 온라인으로
 systemctl start corosync pve-cluster
 ```
 
 3. **Quorum Device 사용 (3노드 이하 클러스터):**
+
 ```bash
 # QDevice 설정 (별도 서버에서)
 apt install corosync-qdevice corosync-qnetd
@@ -195,6 +220,8 @@ systemctl start corosync pve-cluster
 
 ---
 
+<a id="3-vmct-시작-실패"></a>
+
 ## 3. VM/CT 시작 실패
 
 ### 3.1 VM 시작 실패 (QEMU)
@@ -204,6 +231,7 @@ systemctl start corosync pve-cluster
 - VM 상태가 "stopped"로 유지
 
 **진단:**
+
 ```bash
 # QEMU 명령 확인
 qm showcmd <vmid> --pretty
@@ -219,6 +247,7 @@ qm start <vmid> --debug
 **일반적인 원인과 해결:**
 
 1. **디스크 누락:**
+
 ```bash
 # 설정 파일 확인
 cat /etc/pve/nodes/<node>/qemu-server/<vmid>.conf
@@ -231,6 +260,7 @@ qm set <vmid> --delete scsi0
 ```
 
 2. **KVM 비활성화:**
+
 ```bash
 # CPU 가상화 지원 확인
 egrep -c '(vmx|svm)' /proc/cpuinfo
@@ -240,6 +270,7 @@ egrep -c '(vmx|svm)' /proc/cpuinfo
 ```
 
 3. **메모리 부족:**
+
 ```bash
 # 사용 가능 메모리 확인
 free -h
@@ -249,6 +280,7 @@ qm set <vmid> --balloon 0
 ```
 
 4. **Lock 파일 문제:**
+
 ```bash
 # Lock 상태 확인
 cat /etc/pve/nodes/<node>/qemu-server/<vmid>.conf | grep lock
@@ -262,6 +294,7 @@ qm unlock <vmid>
 ### 3.2 CT 시작 실패 (LXC)
 
 **진단:**
+
 ```bash
 # 상세 로그
 pct start <vmid> --debug
@@ -274,6 +307,7 @@ pct config <vmid>
 **일반적인 원인과 해결:**
 
 1. **Namespace 문제 (Unprivileged CT):**
+
 ```bash
 # 권한 확인
 cat /etc/pve/nodes/<node>/lxc/<vmid>.conf | grep unprivileged
@@ -283,6 +317,7 @@ chown -R 100000:100000 /path/to/rootfs
 ```
 
 2. **네트워크 인터페이스 충돌:**
+
 ```bash
 # 중복 MAC 확인
 ip link
@@ -292,6 +327,7 @@ pct set <vmid> --net0 name=eth0,bridge=vmbr0,ip=dhcp
 ```
 
 3. **AppArmor 문제:**
+
 ```bash
 # AppArmor 로그
 dmesg | grep apparmor
@@ -305,6 +341,7 @@ systemctl reload apparmor
 ### 3.3 마이그레이션 실패
 
 **진단:**
+
 ```bash
 # 태스크 로그 확인
 cat /var/log/pve/tasks/<task-id>
@@ -313,12 +350,14 @@ cat /var/log/pve/tasks/<task-id>
 **일반적인 원인:**
 
 1. **스토리지 비공유:**
+
 ```bash
 # 로컬 디스크 포함 마이그레이션
 qm migrate <vmid> <node> --with-local-disks --targetstorage <storage>
 ```
 
 2. **CPU 불일치:**
+
 ```bash
 # CPU 타입을 호환 모드로 변경
 qm set <vmid> --cpu host  # 같은 CPU인 경우
@@ -326,6 +365,7 @@ qm set <vmid> --cpu kvm64  # 호환 모드
 ```
 
 3. **네트워크 대역폭:**
+
 ```bash
 # 마이그레이션 대역폭 제한
 qm migrate <vmid> <node> --online --migration_network <cidr> --migration_type secure
@@ -333,11 +373,14 @@ qm migrate <vmid> <node> --online --migration_network <cidr> --migration_type se
 
 ---
 
+<a id="4-스토리지-문제"></a>
+
 ## 4. 스토리지 문제
 
 ### 4.1 스토리지 접근 불가
 
 **진단:**
+
 ```bash
 # 스토리지 상태
 pvesm status
@@ -350,6 +393,7 @@ lsblk
 ```
 
 **NFS 문제:**
+
 ```bash
 # NFS 마운트 확인
 showmount -e <nfs-server>
@@ -362,6 +406,7 @@ systemctl restart nfs-common rpcbind
 ```
 
 **iSCSI 문제:**
+
 ```bash
 # iSCSI 세션 확인
 iscsiadm -m session
@@ -378,6 +423,7 @@ iscsiadm -m node --login
 ### 4.2 ZFS 문제
 
 **Pool 상태 불량:**
+
 ```bash
 # 상태 확인
 zpool status
@@ -390,6 +436,7 @@ zpool scrub <pool>
 ```
 
 **디스크 교체:**
+
 ```bash
 # 고장난 디스크 확인
 zpool status
@@ -402,6 +449,7 @@ zpool status -v <pool>
 ```
 
 **스페이스 부족:**
+
 ```bash
 # 사용량 확인
 zfs list
@@ -419,6 +467,7 @@ zfs get reservation,refreservation <pool>/<dataset>
 ### 4.3 LVM/LVM-thin 문제
 
 **Thin Pool 가득 참:**
+
 ```bash
 # 사용량 확인
 lvs -a
@@ -431,6 +480,7 @@ lvextend --poolmetadatasize +1G <vg>/<thin-pool>
 ```
 
 **볼륨 활성화 실패:**
+
 ```bash
 # 볼륨 활성화
 lvchange -ay <vg>/<lv>
@@ -442,11 +492,14 @@ vgchange -ay
 
 ---
 
+<a id="5-네트워크-문제"></a>
+
 ## 5. 네트워크 문제
 
 ### 5.1 브릿지 연결 문제
 
 **VM/CT가 네트워크에 접근 불가:**
+
 ```bash
 # 브릿지 상태
 brctl show
@@ -460,6 +513,7 @@ iptables -L FORWARD -v -n
 ```
 
 **해결:**
+
 ```bash
 # 브릿지 netfilter 비활성화 (필요시)
 echo 0 > /sys/devices/virtual/net/vmbr0/bridge/nf_call_iptables
@@ -474,6 +528,7 @@ sysctl -p
 ### 5.2 VLAN 문제
 
 **VLAN 트래픽 통과 안됨:**
+
 ```bash
 # VLAN-aware 브릿지 확인
 cat /etc/network/interfaces | grep vlan-aware
@@ -485,6 +540,7 @@ bridge vlan show
 ```
 
 **해결:**
+
 ```bash
 # VLAN-aware 브릿지로 재설정
 auto vmbr0
@@ -503,6 +559,7 @@ iface vmbr0 inet static
 ### 5.3 Bonding 문제
 
 **Bond 슬레이브 다운:**
+
 ```bash
 # Bond 상태
 cat /proc/net/bonding/bond0
@@ -514,6 +571,7 @@ ip link set <slave> up
 ```
 
 **LACP 문제:**
+
 ```bash
 # LACP 상태 확인 (스위치 연동 필요)
 cat /proc/net/bonding/bond0 | grep "Partner"
@@ -523,11 +581,14 @@ cat /proc/net/bonding/bond0 | grep "Partner"
 
 ---
 
+<a id="6-백업복원-문제"></a>
+
 ## 6. 백업/복원 문제
 
 ### 6.1 백업 실패
 
 **일반적인 오류:**
+
 ```bash
 # 로그 확인
 cat /var/log/pve/tasks/<task-id>
@@ -537,6 +598,7 @@ vzdump <vmid> --mode snapshot --compress zstd 2>&1 | tee /tmp/backup.log
 ```
 
 **스냅샷 모드 실패:**
+
 ```bash
 # QEMU Guest Agent 확인
 qm agent <vmid> ping
@@ -549,6 +611,7 @@ vzdump <vmid> --mode suspend
 ```
 
 **스토리지 공간 부족:**
+
 ```bash
 # 백업 스토리지 확인
 pvesm status
@@ -564,6 +627,7 @@ vzdump --prune-backups keep-last=3
 ### 6.2 복원 실패
 
 **일반적인 오류:**
+
 ```bash
 # 백업 파일 검증
 vma verify <backup-file.vma>
@@ -573,12 +637,14 @@ qmrestore <backup> <vmid> --storage <target-storage>
 ```
 
 **VMID 충돌:**
+
 ```bash
 # 다른 VMID로 복원
 qmrestore <backup> <new-vmid>
 ```
 
 **디스크 포맷 불일치:**
+
 ```bash
 # 스토리지가 해당 포맷 지원하는지 확인
 pvesm status
@@ -587,11 +653,14 @@ pvesm status
 
 ---
 
+<a id="7-인증권한-문제"></a>
+
 ## 7. 인증/권한 문제
 
 ### 7.1 로그인 불가
 
 **root 비밀번호 분실:**
+
 ```bash
 # 1. 단일 사용자 모드로 부팅
 # GRUB에서 linux 라인에 init=/bin/bash 추가
@@ -607,6 +676,7 @@ exec /sbin/init
 ```
 
 **PVE 사용자 비밀번호 재설정:**
+
 ```bash
 pveum passwd <user>@pve
 ```
@@ -616,6 +686,7 @@ pveum passwd <user>@pve
 ### 7.2 권한 오류
 
 **"Permission denied" 오류:**
+
 ```bash
 # 사용자 권한 확인
 pveum acl list
@@ -626,6 +697,7 @@ pveum acl modify /vms/<vmid> --user <user>@<realm> --role PVEVMAdmin
 ```
 
 **API Token 문제:**
+
 ```bash
 # 토큰 권한 확인
 pveum user token list <user>@<realm>
@@ -639,6 +711,7 @@ pveum user token add <user>@<realm> <token> --privsep 0
 ### 7.3 LDAP/AD 인증 실패
 
 **연결 테스트:**
+
 ```bash
 # LDAP 연결 테스트
 ldapsearch -x -H ldap://<server> -D "<bind-dn>" -W -b "<base-dn>" "(uid=testuser)"
@@ -648,6 +721,7 @@ openssl s_client -connect <server>:636
 ```
 
 **해결:**
+
 ```bash
 # Realm 설정 수정
 pveum realm modify <realm> --server1 <new-server>
@@ -658,11 +732,14 @@ pveum realm modify <realm> --verify 0
 
 ---
 
+<a id="8-ha-문제"></a>
+
 ## 8. HA 문제
 
 ### 8.1 HA 리소스 시작 안됨
 
 **진단:**
+
 ```bash
 # HA 상태
 ha-manager status
@@ -675,6 +752,7 @@ journalctl -u pve-ha-lrm
 ```
 
 **Fencing 문제:**
+
 ```bash
 # Watchdog 확인
 cat /dev/watchdog
@@ -691,6 +769,7 @@ modprobe softdog
 ### 8.2 HA 마이그레이션 실패
 
 **리소스가 특정 노드에 고착:**
+
 ```bash
 # 수동 마이그레이션
 ha-manager migrate vm:<vmid> <target-node>
@@ -706,11 +785,14 @@ ha-manager set vm:<vmid> --state started
 
 ---
 
+<a id="9-ceph-문제"></a>
+
 ## 9. Ceph 문제
 
 ### 9.1 Ceph Health Warning
 
 **HEALTH_WARN 확인:**
+
 ```bash
 ceph health detail
 ceph status
@@ -719,6 +801,7 @@ ceph status
 **일반적인 경고와 해결:**
 
 1. **OSD near full:**
+
 ```bash
 # 사용량 확인
 ceph osd df
@@ -731,6 +814,7 @@ rados -p <pool> ls | wc -l
 ```
 
 2. **PG undersized/degraded:**
+
 ```bash
 # PG 상태
 ceph pg stat
@@ -744,6 +828,7 @@ ceph -w
 ```
 
 3. **Clock skew:**
+
 ```bash
 # 시간 동기화
 systemctl restart chrony
@@ -755,6 +840,7 @@ chronyc sources
 ### 9.2 OSD 장애
 
 **OSD Down:**
+
 ```bash
 # OSD 상태
 ceph osd tree
@@ -770,6 +856,7 @@ ceph osd rm <osd-id>
 ```
 
 **디스크 교체:**
+
 ```bash
 # 1. OSD 제거
 pveceph osd destroy <osd-id> --cleanup
@@ -783,6 +870,7 @@ pveceph osd create /dev/<new-disk>
 ### 9.3 Ceph 성능 문제
 
 **느린 요청:**
+
 ```bash
 # 느린 요청 확인
 ceph daemon osd.<id> dump_historic_slow_ops
@@ -797,11 +885,14 @@ ceph config set osd osd_recovery_max_active 1
 
 ---
 
+<a id="10-성능-문제"></a>
+
 ## 10. 성능 문제
 
 ### 10.1 높은 CPU 사용률
 
 **진단:**
+
 ```bash
 top
 htop
@@ -812,6 +903,7 @@ ps aux | grep qemu
 ```
 
 **해결:**
+
 ```bash
 # CPU Pinning
 qm set <vmid> --cpulimit 2
@@ -825,6 +917,7 @@ qm set <vmid> --numa 1
 ### 10.2 높은 I/O 대기
 
 **진단:**
+
 ```bash
 iostat -xz 1
 iotop
@@ -834,6 +927,7 @@ virsh blkdeviotune <domain> <device>
 ```
 
 **해결:**
+
 ```bash
 # 캐시 모드 변경
 qm set <vmid> --scsi0 <storage>:<disk>,cache=writeback
@@ -850,6 +944,7 @@ qm config <vmid> | grep virtio
 ### 10.3 메모리 부족
 
 **진단:**
+
 ```bash
 free -h
 vmstat 1
@@ -860,6 +955,7 @@ journalctl -k | grep -i oom
 ```
 
 **해결:**
+
 ```bash
 # KSM 활성화
 echo 1 > /sys/kernel/mm/ksm/run
@@ -876,11 +972,14 @@ swapon /swapfile
 
 ---
 
+<a id="11-웹-gui-문제"></a>
+
 ## 11. 웹 GUI 문제
 
 ### 11.1 GUI 접근 불가
 
 **503 Service Unavailable:**
+
 ```bash
 # pveproxy 상태
 systemctl status pveproxy
@@ -891,6 +990,7 @@ systemctl restart pveproxy pvedaemon
 ```
 
 **인증서 오류:**
+
 ```bash
 # 인증서 재생성
 pvecm updatecerts -f
@@ -906,6 +1006,7 @@ pvecm updatecerts
 ### 11.2 느린 GUI
 
 **원인 진단:**
+
 ```bash
 # RRD 데이터베이스 문제
 systemctl status rrdcached
@@ -916,6 +1017,7 @@ systemctl status pvestatd
 ```
 
 **해결:**
+
 ```bash
 # RRD 캐시 재시작
 systemctl restart rrdcached
@@ -927,11 +1029,14 @@ systemctl restart rrdcached pvestatd
 
 ---
 
+<a id="12-업그레이드-문제"></a>
+
 ## 12. 업그레이드 문제
 
 ### 12.1 패키지 업그레이드 실패
 
 **apt 문제:**
+
 ```bash
 # 패키지 소스 확인
 cat /etc/apt/sources.list
@@ -944,6 +1049,7 @@ apt update
 ```
 
 **dpkg 오류:**
+
 ```bash
 # 깨진 패키지 수정
 dpkg --configure -a
@@ -958,6 +1064,7 @@ apt install --reinstall <package>
 ### 12.2 메이저 업그레이드 문제
 
 **Debian 업그레이드 후 문제:**
+
 ```bash
 # 패키지 재구성
 apt dist-upgrade
@@ -973,6 +1080,7 @@ apt install pve-kernel-6.2
 ## 긴급 복구 체크리스트
 
 ### 클러스터 긴급 복구
+
 ```bash
 # 1. 클러스터 상태 확인
 pvecm status
@@ -989,6 +1097,7 @@ pmxcfs -l  # 로컬 모드
 ```
 
 ### VM 긴급 복구
+
 ```bash
 # 1. Lock 해제
 qm unlock <vmid>

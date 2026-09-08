@@ -1,5 +1,9 @@
 # changedetection.io Duration Time과 Discord 웹훅 알림 설정
 
+## 스케줄과 웹훅의 증거 경계
+
+`Start At`·`Run duration`·알림 UI는 설치 버전과 시간대에 따라 확인한다. 서버·컨테이너·작업 시간대, 자정을 넘는 구간, 요일 경계를 실제 실행 기록과 대조한다. Discord 웹훅 URL의 token은 전송 권한 자체이므로 비밀로 저장하고 화면·로그에 노출하지 않으며 유출 시 폐기·재발급한다. 예정 시간대의 시험 변경 한 건, 비활성 시간대의 요청 부재, 실패와 재시도 상태를 확인해야 완료다.
+
 ## Duration Time의 목적
 
 changedetection.io의 `Duration Time`은 스케줄러에서 웹페이지 변경 감지를 실행할 시간 범위를 제어하는 설정이다. 요일별 시작 시간(`Start At`)과 실행 지속 시간(`Run duration`)을 함께 사용해 감지 작업이 활성화되는 시간대를 정한다.
@@ -28,11 +32,11 @@ changedetection.io의 `Duration Time`은 스케줄러에서 웹페이지 변경 
 
 ### 업무 시간 모니터링
 
-`Business hours` 바로가기를 사용하면 평일 09:00부터 8시간 동안 실행되는 일정이 설정된다. 업무 시간 동안만 중요한 웹사이트 변경을 모니터링할 때 사용한다.
+`Business hours` 같은 바로가기를 사용한 뒤에는 실제로 저장된 요일·시작·지속시간·시간대를 확인한다. 아래 업무 시간 예시와 설치 버전의 기본값이 같다고 가정하지 않는다.
 
 ### 특정 요일 모니터링
 
-일요일만 변경을 확인하려면 일요일의 `Start At` 체크박스를 선택하고 시작 시간을 `00:00`, 지속 시간을 `23시간 59분`으로 설정한다.
+일요일만 검사하려면 해당 요일의 시작과 지속시간을 설정하고 다음 날 경계를 시험한다. `00:00`부터 `23시간 59분`이라는 예시는 일요일 전체 24시간과 같지 않으므로 의도한 끝 시각·검사 간격에 맞춰 조정한다.
 
 ## Discord 웹훅 알림 설정
 
@@ -65,8 +69,8 @@ discord://webhook_id/webhook_token
 예시:
 
 ```text
-https://discord.com/api/webhooks/123456789012345678/abcdefghijklmnopqrstuvwxyz
-discord://123456789012345678/abcdefghijklmnopqrstuvwxyz
+https://discord.com/api/webhooks/WEBHOOK_ID/WEBHOOK_TOKEN
+discord://WEBHOOK_ID/WEBHOOK_TOKEN
 ```
 
 설정 절차:
@@ -81,7 +85,7 @@ discord://123456789012345678/abcdefghijklmnopqrstuvwxyz
 ChangeDetection.io는 변경 사항 감지 시 스크린샷을 함께 전송할 수 있다.
 
 1. 알림 설정 페이지에서 **Attach screenshot to notification (where possible)** 옵션을 체크한다.
-2. 웹사이트 변경 사항이 감지되면 스크린샷이 Discord 메시지에 첨부된다.
+2. 사용한 감시 방식과 알림 경로에서 실제 스크린샷이 생성·첨부되는지 시험한다. 화면에 개인정보가 포함될 수 있으므로 채널 접근과 보존 정책도 확인한다.
 3. 변경 사항이 빈번한 웹사이트에서는 스토리지 사용량을 함께 확인한다.
 
 ## 인증과 네트워크 요구사항
@@ -89,10 +93,10 @@ ChangeDetection.io는 변경 사항 감지 시 스크린샷을 함께 전송할 
 - **Discord 계정**: 웹훅 생성과 관리를 위해 필요하다.
 - **서버 관리 권한**: Discord 서버에서 웹훅 생성 권한이 필요하다.
 - **ChangeDetection.io 접근 권한**: 알림 설정을 변경할 수 있어야 한다.
-- **웹훅 URL 보안**: 웹훅 URL만으로 메시지를 보낼 수 있으므로 외부 노출을 피한다.
+- **웹훅 URL 보안**: URL의 token 자체가 자격 증명이다. 비밀 저장소에서 관리하고 노출 시 폐기·재발급한다.
 - **방화벽 설정**: 기업 네트워크에서는 `discord.com` API에 대한 아웃바운드 연결 허용이 필요할 수 있다.
 - **프록시 설정**: 프록시 환경에서는 ChangeDetection.io가 Discord API에 접근하도록 프록시 설정을 조정한다.
-- **CORS 이슈**: 일부 환경에서는 헤더 설정 조정이 필요할 수 있다.
+- **전송 실패 진단**: 서버 측 알림 전송은 DNS·TLS·프록시·HTTP 상태·rate limit을 확인한다. 브라우저 CORS 헤더를 임의로 완화하는 방식으로 해결하지 않는다.
 
 ## 결론
 

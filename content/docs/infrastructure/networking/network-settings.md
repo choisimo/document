@@ -2,6 +2,12 @@
 
 리눅스 서버의 고정 IP 설정은 “IP 주소를 넣는 작업”이 아니라 어떤 네트워크 관리자가 커널 주소, 라우팅 테이블, DNS 설정을 소유하는지 확인하는 작업이다. 이 문서는 NetworkManager와 Netplan 환경에서 고정 IP를 안전하게 적용하는 기준을 정리한다.
 
+## 완료 및 롤백 증거
+
+`ip address`, `ip route`, `resolvectl status` 또는 `nmcli device show`로 적용값을 확인하고 게이트웨이, DNS, 관리 엔드포인트를 각각 시험합니다. 재부팅 후에도 같은 프로파일과 경로가 유지되어야 완료입니다. 실패하면 콘솔에서 이전 프로파일이나 백업한 netplan 파일을 복원합니다.
+
+설치된 NetworkManager·Netplan 버전과 실제 renderer를 기록한다. 예시 주소·인터페이스·프로필은 현재 출력에 맞게 바꾸고, 변경 전 설정 백업·주소 충돌 검사·콘솔 또는 별도 관리망·자동 롤백 수단을 확보한다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 서버, 홈랩 장비, NAS, Proxmox 보조 노드, 모니터링 장비는 재부팅 후에도 같은 주소로 접근되어야 한다. DHCP 주소가 바뀌면 SSH, 백업 대상, DNS 레코드, 방화벽 규칙, 리버스 프록시 설정이 모두 깨질 수 있다.
@@ -135,8 +141,7 @@ network:
 적용 전 검사를 수행한다.
 
 ```bash
-sudo netplan generate
-sudo netplan try
+sudo netplan generate && sudo netplan try
 ```
 
 원격 서버에서 `netplan try`를 사용할 수 없거나 타이머 확인이 어렵다면 콘솔 접근을 확보한 뒤 `sudo netplan apply`를 사용한다.

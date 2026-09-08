@@ -1,18 +1,18 @@
-# Module 5: High Availability & Cluster Orchestration
+# Module 5: High Availability & Cluster Orchestration 운영 가이드
+
+> 적용 범위: 예시는 문서 하단에 명시된 Proxmox VE 8.x 기준이며, 실제 동작은 설치 버전·투표 구성·스토리지·watchdog에 따라 달라진다. 먼저 `pveversion -v`, `pvecm status`, `ha-manager status`를 기록한다.
+> 안전 경계: quorum 강제 변경, 노드 제거, watchdog 시험, split-brain 복구는 실행 중인 guest와 클러스터 데이터에 영향을 준다. 독립적인 노드 생존 확인, 데이터 소유권 결정, 백업과 승인 없이 실행하지 않는다.
+> 증거 규칙: `Quorate: Yes`는 투표 조건을 충족했다는 뜻이지 서비스·스토리지·guest의 정상 상태를 보장하지 않는다. 각 계층의 상태를 별도로 확인한다.
 
 ## 학습 목표
 
-이 모듈을 완료하면 다음을 이해할 수 있습니다:
+이 모듈은 다음 주제를 다룹니다:
 
 - Proxmox VE 클러스터의 통신 메커니즘 (Corosync)
 - Quorum 알고리즘과 split-brain 방지 원리
 - HA 스택의 구성 요소와 동작 원리
 - Fencing 메커니즘과 Watchdog 타이머
 - 장애 시나리오별 복구 절차
-
-
-
-https://noblog.nodove.com/#/blog/2025/AnimalsMind
 
 ---
 
@@ -49,8 +49,8 @@ https://noblog.nodove.com/#/blog/2025/AnimalsMind
 │                                                                              │
 │                                            노드 장애 시:                    │
 │                                            → HA가 자동 감지                 │
-│                                            → VM을 다른 노드로 마이그레이션  │
-│                                            → 최소 다운타임                  │
+│                                            → VM을 다른 노드에서 재시작      │
+│                                            → 감지·fencing·부팅 시간만큼 중단│
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -270,7 +270,7 @@ LINK ID 1 udp
 │                                                                              │
 │  Quorum = 클러스터가 정상 작동하기 위해 필요한 최소 투표 수                 │
 │                                                                              │
-│  공식: Quorum = (Total Votes / 2) + 1                                       │
+│  기본 공식: Quorum = floor(Total Votes / 2) + 1                            │
 │                                                                              │
 │  예시 (3노드 클러스터):                                                     │
 │  - Total Votes: 3                                                           │
@@ -314,7 +314,7 @@ LINK ID 1 udp
 │                                                                              │
 │  ⚠️ 2노드 클러스터 문제:                                                   │
 │  - Quorum = 2, 장애 허용 = 0                                               │
-│  - 한 노드라도 실패하면 전체 클러스터 중단                                 │
+│  - 한 노드를 잃으면 quorum을 잃어 설정 변경과 HA 동작이 제한됨              │
 │  - 해결책: QDevice 추가 (아래 참조)                                        │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -346,15 +346,15 @@ LINK ID 1 udp
 │  시나리오:                                                                  │
 │  - Node2 장애: Node1(1) + QDevice(1) = 2 >= 2 ✓                            │
 │  - Node1 장애: Node2(1) + QDevice(1) = 2 >= 2 ✓                            │
-│  - 네트워크 분리: QDevice가 더 "건강한" 쪽에 투표                          │
+│  - 네트워크 분리: QDevice의 연결성과 중재 알고리즘에 따라 한쪽에 투표       │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ```bash
 # QDevice 설정 (외부 서버에서)
-$ apt install corosync-qdevice corosync-qnetd
-$ pcs qdevice net setup
+$ apt install corosync-qnetd
+# qnetd를 클러스터 노드와 독립된 장애 도메인에서 운영하고 방화벽을 확인한다.
 
 # 클러스터에 QDevice 추가
 $ pvecm qdevice setup <qdevice-ip>
@@ -575,8 +575,8 @@ $ pvecm qdevice status
 │  │  - Split-Brain 상태                                                  │   │
 │  │                                                                       │   │
 │  │  Fencing으로 Node2를 확실히 죽인 후 VM 재시작:                       │   │
-│  │  - 데이터 무결성 보장                                                │   │
-│  │  - 안전한 서비스 복구                                                │   │
+│  │  - 동일 guest의 중복 실행 위험을 낮춤                                │   │
+│  │  - 스토리지·애플리케이션 복구 검증은 별도로 필요                     │   │
 │  │                                                                       │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                              │
@@ -644,8 +644,8 @@ $ cat /etc/default/pve-ha-manager
 # watchdog-mux 상태
 $ systemctl status watchdog-mux
 
-# Watchdog 테스트 (주의: 시스템 리부팅됨!)
-# echo V > /dev/watchdog  # 안전 종료
+# watchdog 시험은 격리된 유지보수 환경에서 공식 절차와 콘솔 접근을 준비해 수행한다.
+# 운영 노드에서 /dev/watchdog에 직접 쓰는 명령은 예제로 제공하지 않는다.
 ```
 
 ---
@@ -698,7 +698,7 @@ $ systemctl status watchdog-mux
 │  T+60s   │ VM 100, VM 103: 부팅 완료, 서비스 복구                          │
 │          │                                                                  │
 │  ─────────────────────────────────────────────────────────────────────     │
-│  총 복구 시간: ~60초 (VM 부팅 시간 포함)                                   │
+│  복구 시간: watchdog·스토리지·guest 부팅 시간을 포함해 실측해야 함          │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -738,9 +738,8 @@ $ systemctl status watchdog-mux
 │  2. 옵션 A - 장애 노드 복구 대기                                           │
 │     - Node2 또는 Node3이 복구되면 자동으로 quorum 회복                     │
 │                                                                              │
-│  3. 옵션 B - 강제 quorum 설정 (긴급)                                       │
-│     $ pvecm expected 1                                                      │
-│     ⚠️ 주의: 다른 노드가 독립적으로 동작할 위험                            │
+│  3. 옵션 B - 강제 quorum 검토 (사고 대응 책임자 승인 필요)                  │
+│     다른 파티션의 전원 차단과 데이터 소유권 확인 전에는 실행하지 않음       │
 │                                                                              │
 │  4. 옵션 C - 장애 노드 제거 (영구)                                         │
 │     $ pvecm delnode node2                                                   │
@@ -812,8 +811,9 @@ $ pvecm nodes
 $ pvecm delnode <nodename>
 
 # Expected votes 강제 설정 (긴급 상황)
-$ pvecm expected 1
-# ⚠️ 주의: 임시 조치, 정상화 후 원복 필요
+# 아래 명령은 다른 모든 파티션이 확실히 중지됐고 복구 계획이 승인된 경우에만 사용한다.
+# pvecm expected 1
+# 적용했다면 정상 구성 복구 후 expected votes와 전체 노드 상태를 다시 확인한다.
 
 # QDevice 설정
 $ pvecm qdevice setup <qdevice-ip>
@@ -925,9 +925,9 @@ Quorate: No
 # - 네트워크 복구, 노드 재시작 등
 
 # 옵션 2: 강제 quorum (긴급)
-$ pvecm expected 1
-# 이제 단일 노드로 운영 가능
-# ⚠️ 다른 노드가 독립적으로 실행될 위험!
+# 다른 파티션이 확실히 중지됐다는 독립 증거와 사고 책임자의 승인 없이는 실행하지 않는다.
+# pvecm expected 1
+# 명령 성공은 데이터가 최신이거나 guest를 안전하게 시작할 수 있다는 증거가 아니다.
 
 # 옵션 3: 장애 노드 영구 제거
 $ pvecm delnode problematic-node
@@ -940,21 +940,12 @@ Quorate: Yes
 
 ### 9.3 Split-Brain 복구
 
-```bash
-# Split-brain 발생 시 (두 파티션이 독립 운영)
-# ⚠️ 매우 위험한 상황
+Split-brain은 단순 서비스 재시작 절차로 복구하지 않습니다.
 
-# 1. 한쪽 파티션 완전 중지
-# (더 적은 노드/오래된 데이터 쪽)
-$ systemctl stop pve-cluster corosync
-
-# 2. 데이터 동기화 확인
-# /etc/pve/ 내용 비교
-
-# 3. 중지된 노드 재참가
-$ systemctl start corosync pve-cluster
-$ pvecm updatecerts --force
-```
+1. 양쪽 파티션에서 guest와 스토리지 쓰기를 중단하고, 콘솔 또는 전원 관리 채널로 격리 상태를 증명합니다.
+2. VM 디스크, 분산 스토리지, `/etc/pve` 각각의 권위 있는 사본을 정하고 충돌 여부를 기록합니다. 노드 수나 파일 시각만으로 최신 사본을 결정하지 않습니다.
+3. 벤더 복구 절차와 사고 계획에 따라 한 파티션만 복구하고, quorum·스토리지·guest 상태를 확인한 뒤 나머지 노드를 순차 합류시킵니다.
+4. 어느 사본이 권위 있는지 판단할 수 없으면 쓰기 작업을 재개하지 않고 백업 또는 스토리지 전문 복구로 전환합니다.
 
 ---
 
@@ -971,16 +962,16 @@ $ pvecm updatecerts --force
 │  ✓ 최소 3노드 (quorum을 위해)                                              │
 │  ✓ 홀수 개 노드 권장 (3, 5, 7)                                             │
 │  ✓ 동일/유사 하드웨어 스펙                                                 │
-│  ✓ 2노드 시 QDevice 필수                                                   │
+│  ✓ 2노드에서 HA를 요구하면 독립 QDevice를 우선 검토                        │
 │                                                                              │
 │  [네트워크]                                                                 │
 │  ✓ 전용 클러스터 네트워크 (Corosync)                                       │
 │  ✓ 최소 2개 링크 (이중화)                                                  │
-│  ✓ 10Gbps 이상 권장 (마이그레이션 속도)                                    │
+│  ✓ 마이그레이션 RTO와 실측 트래픽에 맞춘 대역폭                            │
 │  ✓ 스토리지/VM 트래픽과 분리                                               │
 │                                                                              │
 │  [스토리지]                                                                 │
-│  ✓ 공유 스토리지 필수 (Ceph, NFS, iSCSI)                                   │
+│  ✓ 모든 대상 노드가 guest 디스크에 접근 가능한지 확인                      │
 │  ✓ 스토리지 이중화                                                         │
 │  ✓ 적절한 캐시/성능 설정                                                   │
 │                                                                              │
@@ -1006,7 +997,7 @@ $ pvecm updatecerts --force
 │                                                                              │
 │  [절대 하지 말 것]                                                         │
 │  ✗ Quorum 없이 클러스터 운영                                               │
-│  ✗ 공유 스토리지 없이 HA 설정                                              │
+│  ✗ 대상 노드가 접근할 수 없는 스토리지의 guest를 HA에 등록                 │
 │  ✗ Watchdog 비활성화                                                       │
 │  ✗ 테스트 없이 프로덕션에 HA 적용                                          │
 │  ✗ Split-brain 상태에서 양쪽 모두 운영                                     │
@@ -1073,10 +1064,16 @@ $ pvecm updatecerts --force
 1. **클러스터 통신**: Corosync가 Kronosnet을 통해 노드 간 통신을 담당
 2. **Quorum**: Split-brain 방지를 위한 최소 투표 수 개념
 3. **HA 스택**: CRM(전역 결정) + LRM(로컬 실행) 구조
-4. **Fencing**: Watchdog을 통한 self-fencing으로 안전한 서비스 복구
+4. **Fencing**: Watchdog을 통한 self-fencing으로 중복 실행 위험을 낮춤
 5. **복구 절차**: 상황별 적절한 복구 방법 선택
 
 ### 추가 학습 자료
+
+### 완료 기준
+
+- 정상 시점과 장애 시점의 `pvecm status`, `corosync-quorumtool`, `ha-manager status` 및 관련 task 로그를 함께 보존했다.
+- 시험 시나리오별 감지 시간, fencing 완료, guest 재시작, 애플리케이션 정상 응답을 각각 측정했다.
+- 부분 실패 시 자동 복구를 반복하지 않고 중단 조건, 데이터 소유권, 수동 전환 책임자를 기록했다.
 
 - Proxmox VE 공식 문서: https://pve.proxmox.com/wiki/High_Availability
 - Corosync 문서: https://corosync.github.io/corosync/

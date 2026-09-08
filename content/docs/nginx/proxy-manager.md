@@ -2,6 +2,15 @@
 
 이 문서는 Nginx Proxy Manager를 Docker Compose로 실행하고 reverse proxy host, Let's Encrypt certificate, access list, backup을 관리하는 기준을 정리한다. 목표는 UI로 쉽게 설정하되 admin port와 저장 데이터의 위험을 놓치지 않는 것이다.
 
+## 적용 범위와 보안 검증 기준
+
+- **범위:** Nginx Proxy Manager image version/digest, database, Docker/Compose, proxy network, domain/DNS, certificate authority와 외부 노출 port를 기록합니다.
+- **보안 전제:** initial credential은 즉시 교체하고 UI 접근을 trusted network·SSO·firewall로 제한합니다. forwarded header 신뢰, admin 권한, secret 저장과 update policy를 명시합니다.
+- **사실과 추론:** container health, UI login과 certificate 표시만으로 proxy 경로 전체의 보안을 보장하지 않습니다. DNS·challenge·rate limit, upstream TLS, WebSocket와 header를 실제 요청으로 검증합니다.
+- **실패·완료:** certificate 발급·갱신 실패, database 손상, 잘못된 public host, redirect loop, upstream outage와 restore를 시험합니다. 독립 backup restore, 최소 권한, expected route·TLS와 rollback이 확인될 때 완료입니다.
+
+---
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Nginx Proxy Manager는 Nginx reverse proxy와 certificate 관리를 웹 UI로 단순화한다. 하지만 편리한 UI는 admin port, default credential, database, certificate private key라는 새로운 운영 자산을 만든다.
@@ -156,12 +165,7 @@ ssh -L 8081:127.0.0.1:81 user@proxy.example.com
 http://127.0.0.1:8081
 ```
 
-초기 계정은 공식 setup 문서 기준으로 생성된다. 첫 로그인 직후 관리자 이메일과 비밀번호를 변경한다.
-
-```text
-Email: admin@example.com
-Password: changeme
-```
+초기 관리자 생성 절차는 선택한 image 버전의 공식 setup 문서를 따른다. 과거 기본 계정이 현재도 생성된다고 가정하지 않고, 초기 인증 정보가 제공되면 즉시 교체한다.
 
 Proxy Host 생성 전 DNS를 확인한다.
 
@@ -173,7 +177,7 @@ curl -I http://app.example.com
 Backend가 NPM container에서 보이는지 확인한다.
 
 ```bash
-sudo docker exec -it nginx-proxy-manager curl -I http://192.168.1.10:3000
+sudo docker compose exec app curl -I http://192.168.1.10:3000
 ```
 
 Proxy Host UI 설정 기준은 다음과 같다.
@@ -188,18 +192,21 @@ SSL Certificate: Request a new SSL Certificate
 Force SSL: enable after certificate issue succeeds
 ```
 
-Backup을 만든다.
+이 SQLite 예시는 쓰기를 멈춘 상태에서 /data와 인증서를 같은 시점으로 백업한다. 외부 DB를 선택했다면 DB의 일관된 백업도 필요하다. archive에는 private key가 있으므로 root 전용 디렉터리에 저장하고 별도 장애 도메인으로 보호해 보관한다.
 
 ```bash
-sudo tar -czf npm-backup-$(date +%Y%m%d).tar.gz -C /opt nginx-proxy-manager/data nginx-proxy-manager/letsencrypt
+sudo install -d -m 0700 /var/backups/nginx-proxy-manager
+sudo docker compose stop &&
+  sudo tar -czf /var/backups/nginx-proxy-manager/npm-backup-$(date +%Y%m%d-%H%M%S).tar.gz -C /opt nginx-proxy-manager/data nginx-proxy-manager/letsencrypt &&
+  sudo docker compose start
 ```
 
-복원은 container를 내린 뒤 같은 경로에 풀고 다시 올린다.
+백업 단계가 실패하면 오류를 보존하고 중지된 app을 다시 시작할지 판단한다. 복원은 먼저 격리 환경에서 시험한다. 아래 운영 경로 복원 예시는 기존 상태를 별도 보존하고 정확한 archive와 image version을 확인한 유지보수 창에서만 수행한다.
 
 ```bash
-sudo docker compose down
-sudo tar -xzf npm-backup-YYYYMMDD.tar.gz -C /opt
-sudo docker compose up -d
+sudo docker compose down &&
+  sudo tar -xzf /var/backups/nginx-proxy-manager/npm-backup-YYYYMMDD-HHMMSS.tar.gz -C /opt &&
+  sudo docker compose up -d
 ```
 
 ## 9. 실패 사례 (What could go wrong?)

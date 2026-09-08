@@ -1,6 +1,76 @@
-# Media Docker Stacks 학습 및 기록 노트
+---
+title: "미디어 Compose 스택"
+---
+
+# 미디어 Compose 스택 {#media-docker-stacks}
+
+<nav class="hub-directory" aria-label="미디어 Compose 스택 문서 목록" markdown="1">
+
+<div class="hub-directory__groups" markdown="1">
+
+<section class="hub-directory__group" aria-labelledby="directory-group-1" markdown="1">
+
+<h2 id="directory-group-1">컬렉션 탐색</h2>
+
+- [Compose 스택](../index.md)
+- [Docker Compose 컬렉션](../../index.md)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-2" markdown="1">
+
+<h2 id="directory-group-2">ghost</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/media/ghost/docker-compose.yaml)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-3" markdown="1">
+
+<h2 id="directory-group-3">gluetun-qbittorrent</h2>
+
+- [docker-compose.yaml](/extra/docker/stacks/media/gluetun-qbittorrent/docker-compose.yaml)
+- [README.md](/extra/docker/stacks/media/gluetun-qbittorrent/README.md)
+- [.env.example](/extra/docker/stacks/media/gluetun-qbittorrent/.env.example)
+- [wireguard.yaml](/extra/docker/stacks/media/gluetun-qbittorrent/wireguard.yaml)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-4" markdown="1">
+
+<h2 id="directory-group-4">qbittorrent-advanced</h2>
+
+- [docker-compose.yml](/extra/docker/stacks/media/qbittorrent-advanced/docker-compose.yml)
+
+</section>
+
+<section class="hub-directory__group" aria-labelledby="directory-group-5" markdown="1">
+
+<h2 id="directory-group-5">qbittorrent-mediamanager</h2>
+
+- [docker-compose.yml](/extra/docker/stacks/media/qbittorrent-mediamanager/docker-compose.yml)
+- [docker-compose.arr.yml](/extra/docker/stacks/media/qbittorrent-mediamanager/docker-compose.arr.yml)
+- [docker-compose.mediamanager.yml](/extra/docker/stacks/media/qbittorrent-mediamanager/docker-compose.mediamanager.yml)
+- [docker-compose.rclone.yml](/extra/docker/stacks/media/qbittorrent-mediamanager/docker-compose.rclone.yml)
+- [.env.example](/extra/docker/stacks/media/qbittorrent-mediamanager/.env.example)
+- [.env.example.arr](/extra/docker/stacks/media/qbittorrent-mediamanager/.env.example.arr)
+- [.env.example.rclone](/extra/docker/stacks/media/qbittorrent-mediamanager/.env.example.rclone)
+
+</section>
+
+</div>
+</nav>
+
+<details class="hub-directory-notes" markdown="1" open>
+<summary>안내와 학습 노트</summary>
 
 Media 카테고리는 Ghost 블로그, VPN 기반 qBittorrent, Prowlarr, Sonarr, Radarr, Rclone, Cloudflared 같은 미디어 관련 Compose 구성을 모은다. 이 영역은 다운로드 트래픽, VPN 터널, 공개 웹 UI, 데이터 볼륨이 함께 얽히므로 실행 전 네트워크 경계와 비밀값 확인이 필수다.
+
+## 미디어 스택 점검 기준
+
+- 콘텐츠 이용 권한, 다운로드 경로와 라이브러리 경로의 소유권·읽기/쓰기 범위를 먼저 확인합니다.
+- GPU·트랜스코딩 장치, UID/GID, 자막·시간대와 외부 공개 프록시 설정은 호스트별 값으로 검증합니다.
+- 완료 기준은 승인된 샘플 파일의 수집, 인덱싱, 재생·트랜스코딩과 재시작 후 라이브러리 유지입니다.
 
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
@@ -195,3 +265,5 @@ Rclone과 FUSE mount는 컨테이너 권한이 커진다. `privileged`, `SYS_ADM
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
 Media 스택은 다운로드 UI보다 `__________` 경계가 먼저다. qBittorrent는 `__________` 네트워크를 통과해야 하고, Ghost는 도메인, DB, SMTP, `__________`가 모두 준비된 뒤 실행한다.
+
+</details>

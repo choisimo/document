@@ -2,6 +2,13 @@
 
 이 문서는 Arch Linux를 UEFI 환경에 수동 설치할 때 필요한 최소 절차와 검증 지점을 정리한다. Arch는 rolling release 배포판이므로 실제 설치 전에는 반드시 최신 Arch Wiki 설치 가이드를 확인한다.
 
+## 적용 범위와 중단 조건
+
+- 단일 x86-64 UEFI 장치의 학습용 예시입니다. 듀얼 부트, 암호화, RAID/LVM, Secure Boot와 특수 스토리지는 별도 설계가 필요합니다.
+- 실행 당일 Arch Installation Guide와 ISO 서명·checksum을 확인하고, 네트워크·firmware·bootloader package 변경 사항을 반영합니다.
+- partition/format 전 disk model, serial, 용량과 기존 partition을 두 번 확인합니다. 식별이 불확실하거나 복원 가능한 백업이 없으면 중단합니다.
+- 완료 기준은 설치 환경 명령 성공이 아니라 재부팅, UEFI boot entry, 일반 사용자·sudo, 네트워크, 시간, update와 복구 USB 부팅 확인입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Arch Linux 설치는 installer가 많은 결정을 대신하지 않는다. 사용자가 network, disk partition, filesystem, mount point, base package, locale, bootloader를 직접 연결해야 한다.
@@ -146,7 +153,7 @@ lsblk -f
 fdisk -l
 ```
 
-예시는 `/dev/nvme0n1`에 새로 설치하는 단순 구성을 가정한다.
+예시는 기존 데이터를 폐기해도 되는 단일 `/dev/nvme0n1` 디스크의 새 설치다. 아래 1 GiB ESP와 8 GiB swap은 고정 요구량이 아니며 ESP 여유 공간, workload·hibernation 요구로 결정한다. swap을 생략하면 partition 배치와 뒤의 mkswap/swapon 단계도 함께 바꾼다.
 
 ```text
 /dev/nvme0n1p1  1G    EFI System  FAT32  /boot/efi
@@ -154,7 +161,7 @@ fdisk -l
 /dev/nvme0n1p3  rest  Linux root   ext4   /
 ```
 
-Partition tool을 실행한다.
+Partition tool에서 새 대상 디스크에 GPT label을 선택하고 EFI System·Linux swap·Linux filesystem type 및 계획한 크기를 확인한 뒤 기록한다. 기존 GPT·partition이 있다면 초기화하기 전에 중단 조건을 다시 확인한다.
 
 ```bash
 cfdisk /dev/nvme0n1
@@ -179,7 +186,7 @@ lsblk -f
 findmnt /mnt
 ```
 
-Base system을 설치한다.
+Base system을 설치한다. 아래 genfstab의 append는 새 설치에서 한 번만 실행하며 재시도할 때는 기존 fstab을 확인해 중복 항목을 만들지 않는다.
 
 ```bash
 pacstrap -K /mnt base linux linux-firmware networkmanager sudo vim

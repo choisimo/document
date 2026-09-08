@@ -8,6 +8,12 @@
 ## 원본 템플릿
 - Source: [06-union-find/01-union-find.md](../../06-union-find/01-union-find.md)
 
+## 적용 계약과 근거 경계
+
+- 원소는 정수 `0..n-1`이며 삭제와 집합 분할은 지원하지 않습니다. 동시 호출에 안전하지 않습니다.
+- path compression과 union by rank를 함께 쓸 때 연산의 amortized 시간은 `O(α(n))`이며 개별 연산이 항상 상수 시간이라는 뜻은 아닙니다.
+- 생성 공간은 `O(n)`이고 잘못된 인덱스는 명시적 예외로 처리합니다.
+
 ## 내부 메커니즘 (Flow)
 ```mermaid
 flowchart TD
@@ -44,14 +50,21 @@ sequenceDiagram
 
 class UnionFind:
     def __init__(self, n):
+        if not isinstance(n, int) or n < 0:
+            raise ValueError("n must be a non-negative integer")
         # 1. 초기화 (Initialization Layer)
         #    - 각 노드가 자기 자신을 부모로
         self.parent = list(range(n))
         self.rank = [0] * n
+
+    def _check_index(self, x):
+        if not isinstance(x, int) or not 0 <= x < len(self.parent):
+            raise IndexError("element index out of range")
     
     # 2. Find 연산 (Find Operation)
     #    - 경로 압축(Path Compression) 적용
     def find(self, x):
+        self._check_index(x)
         if self.parent[x] != x:
             self.parent[x] = self.find(self.parent[x])  # 경로 압축
         return self.parent[x]
@@ -89,7 +102,7 @@ class UnionFind:
 - **Termination**: 목표 도달, 범위 소진, 큐/스택 고갈, 사이클 검출 등으로 종료한다.
 
 ## 실전 적용 체크리스트
-- 입력 자료구조 형식(인접 리스트, 간선 리스트, 정렬 여부, 1-index/0-index)을 먼저 고정한다.
-- 시간 복잡도 한계에 맞게 자료구조를 교체한다 (`list.pop(0)` -> `deque.popleft` 등).
-- 실패/예외 경로를 명시한다 (도달 불가, 음수 사이클, 빈 결과, 사이클 존재).
-- 테스트는 최소 3개: 정상 케이스, 경계 케이스, 반례 케이스를 포함한다.
+- `n=0`, 범위 밖·음수·비정수 인덱스, 자기 union과 중복 union을 시험합니다.
+- 모든 root가 자기 자신을 가리키고 rank 규칙이 유지되는지 확인합니다.
+- 작은 operation sequence는 명시적 set partition 모델과 대조합니다.
+- 크루스칼에서는 `union`의 Boolean 반환으로 cycle 제외가 이뤄지는지 확인합니다.

@@ -4,9 +4,11 @@
 
 ---
 
+> **Reading contract:** This overview is for engineers tracing container and Kubernetes control paths. It assumes Linux containers and must name Docker/BuildKit, OCI runtime, Linux/cgroup mode, Kubernetes, CRI, CNI, CSI, and kube-proxy implementation before its internals are treated as facts. Diagrams show common defaults, not every managed cluster or eBPF data plane. A rollout is complete only when the image digest, admitted object revision, Ready endpoints, observed traffic, SLO window, and rollback result are recorded. Pull, admission, scheduling, probe, or traffic failures require bounded retries and then rollback or escalation.
+
 ## 1. What Makes a Container: Linux Kernel Primitives
 
-A container is **not** a virtual machine. It is a group of processes isolated by Linux kernel features — no hypervisor, no separate kernel, shared host OS.
+In the Linux model used here, a container is a group of processes isolated and constrained by kernel features while sharing the host kernel. Some products also offer VM-backed or Windows isolation, so "no hypervisor" is not a universal container property.
 
 ```mermaid
 block-beta
@@ -30,7 +32,7 @@ block-beta
 
 ### Linux Namespaces — Isolation Boundaries
 
-Each container process gets its own view of system resources through namespace isolation:
+A container process can receive separate namespace views, but runtimes may share namespaces through host-network, host-PID, sidecar, or explicit namespace settings:
 
 ```mermaid
 flowchart TD
@@ -44,7 +46,7 @@ flowchart TD
   HOST --> CG["cgroups (not a namespace)\nCPU/memory/IO resource limits\nenforced by kernel scheduler"]
 ```
 
-**cgroups** enforce resource budgets. The kernel's CFS scheduler enforces CPU quota: if a container is limited to 500m CPU (half a core), the kernel accumulates run time and throttles when the quota period (typically 100ms) is exhausted.
+**cgroups** can enforce resource budgets. A 500m CPU limit represents half of one CPU's time averaged over the configured quota period, not permanent ownership of half a core. cgroup version, period, burst behavior, CPU set, and scheduler version determine throttling.
 
 ---
 
@@ -181,7 +183,7 @@ stateDiagram-v2
   Leader --> Leader: heartbeat AppendEntries every 50ms
 ```
 
-All Kubernetes API writes go to etcd as **watch events**. Controllers don't poll — they register `list/watch` streams. When etcd records a change, the API Server streams the delta to all watchers (controllers, kubelet, kube-proxy) in real time. This is the **level-triggered reconciliation** model: every controller continuously tries to make `currentState == desiredState`.
+Kubernetes API objects are persisted through the API server to its configured storage, commonly etcd. Components consume API-server `list/watch` streams and may relist after expiration or disconnect; they do not receive raw etcd events directly. Reconciliation is level-based and must tolerate duplicate, delayed, and missed watch notifications.
 
 ---
 
@@ -217,7 +219,7 @@ stateDiagram-v2
   Stable_v2 --> Stable_v1: kubectl rollout undo\nRS-v1 scaled back up
 ```
 
-**MaxSurge=1, MaxUnavailable=0** (zero-downtime):
+**MaxSurge=1, MaxUnavailable=0** (availability-oriented rollout configuration, not a zero-downtime guarantee):
 - At no point can the total Ready pods drop below desired (3)
 - One extra pod created (4 total briefly), then one old pod deleted
 - Each new pod must pass readiness probe before proceeding
@@ -345,13 +347,20 @@ stateDiagram-v2
     p1: pod-abc12
     p2: pod-def34
     p3: pod-ghi56
-    note: random names, any pod replaceable
+    note right of p1
+      random names, any pod replaceable
+    end note
   }
   state "StatefulSet (stateful)" as STS {
     s0: mysql-0 (persistent identity)
     s1: mysql-1
     s2: mysql-2
-    note: ordered creation 0→1→2\nordered deletion 2→1→0\nstable DNS: mysql-0.mysql.ns.svc.cluster.local\npersistent PVC bound to each ordinal
+    note right of s0
+      ordered creation 0→1→2
+      ordered deletion 2→1→0
+      stable DNS: mysql-0.mysql.ns.svc.cluster.local
+      persistent PVC bound to each ordinal
+    end note
   }
 ```
 
@@ -443,7 +452,7 @@ flowchart LR
   SMOKE -- "fail" --> RB["kubectl rollout undo\ndeployment/app"]
 ```
 
-**Build-once, promote** principle: the same image SHA ($GIT_SHA) flows through staging → production. No rebuilds between environments — content-addressed image hash guarantees bit-identical deployment.
+**Build-once, promote** principle: promote the same immutable image **digest**, not only a mutable tag or Git SHA. A digest identifies manifest content, while runtime configuration, secrets, platform-specific manifests, admission mutation, and node runtime can still change observed behavior.
 
 ---
 
@@ -453,11 +462,11 @@ flowchart LR
 stateDiagram-v2
   [*] --> Pending: pod created, scheduled to node
   Pending --> Init: init containers start (sequential)
-  Init --> Running: all init containers exit 0\nmain containers start
+  Init --> Running: all init containers exit 0<br/>main containers start
   Running --> Succeeded: all containers exit 0 (Job)
-  Running --> Failed: container exits non-zero\nrestartPolicy=Never
-  Running --> Running: container restarts\n(restartPolicy=Always/OnFailure)\nExponential backoff: 10s→20s→40s→...→5min
-  Running --> Terminating: SIGTERM sent\nterminationGracePeriodSeconds countdown
+  Running --> Failed: container exits non-zero<br/>restartPolicy=Never
+  Running --> Running: container restarts<br/>(restartPolicy=Always/OnFailure)<br/>Exponential backoff#58; 10s→20s→40s→...→5min
+  Running --> Terminating: SIGTERM sent<br/>terminationGracePeriodSeconds countdown
   Terminating --> [*]: SIGKILL if grace period exceeded
 ```
 
@@ -526,4 +535,4 @@ flowchart TD
   ING --> USER["User request served"]
 ```
 
-Every layer of abstraction — from `kubectl apply` to packets reaching a container — traverses this precise path: API Server admission, etcd Raft commit, controller reconciliation, scheduler placement, kubelet CRI invocation, containerd OverlayFS setup, namespace/cgroup isolation, and kube-proxy iptables routing.
+The final diagram is one common Linux, containerd, OverlayFS, and kube-proxy path. Static pods, alternate runtimes, managed control planes, eBPF proxies, host networking, and server-side dry runs take different branches; trace the actual cluster before using it as an incident path.

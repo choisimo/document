@@ -1,4 +1,8 @@
-# 모든 SSHFS 마운트를 위한 systemd 유닛 파일
+# `nano_pi`와 `rasp` SSHFS 마운트용 systemd 유닛
+
+이 문서의 필수 대상은 `/mnt/external/nano_pi`와 `/mnt/external/rasp/ssh` 두 마운트입니다. 뒤쪽의 `jcloud` 예시는 별도 호스트·키·경로가 확인될 때만 추가합니다. systemd `.mount` 파일 이름은 이스케이프된 마운트 경로와 일치해야 하므로 `systemd-escape -p --suffix=mount <경로>` 결과를 먼저 확인합니다.
+
+`allow_other`는 로컬의 다른 사용자가 마운트에 접근할 수 있게 범위를 넓힙니다. `/etc/fuse.conf`의 `user_allow_other`, 로컬 디렉터리 권한, 원격 권한을 검토하고 필요한 경우에만 사용합니다. 호스트 키는 자동 수락하지 말고 사전에 `known_hosts`에 검증된 키를 등록합니다.
 
 ## 1. nano_pi 마운트 유닛 파일
 
@@ -92,9 +96,9 @@ TimeoutIdleSec=600
 WantedBy=multi-user.target
 ```
 
-## 3. 모든 유닛 활성화
+## 3. 대상 유닛 활성화
 
-모든 유닛 파일을 작성한 후, 다음 명령으로 활성화합니다:
+두 대상 유닛 파일을 작성한 후 다음 명령으로 활성화합니다. 각 명령의 유닛 이름이 실제 마운트 경로와 일치해야 합니다.
 
 ```bash
 # systemd 재로드

@@ -1,5 +1,12 @@
 # JPA 개요 및 복합키 학습 및 기록 노트
 
+## 적용 범위와 검증 기준
+
+- JPA 명세의 계약과 Hibernate 같은 구현체의 동작을 구분하고, Jakarta/Javax 패키지와 구현 버전을 고정합니다.
+- 기본키 생성 전략과 SQL은 데이터베이스 dialect, 시퀀스·identity 지원, 배치 요구에 따라 선택합니다.
+- 복합키 클래스는 명세가 요구하는 생성자·직렬화 가능성·`equals`/`hashCode` 계약을 만족해야 합니다. Lombok은 구현 수단 중 하나일 뿐입니다.
+- 매핑 완료는 애플리케이션 기동이 아니라 스키마, insert/find/delete, 프록시 경계, 쿼리 수와 트랜잭션 롤백을 통합 테스트로 확인한 상태입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 JPA는 Java object와 relational database table 사이의 mapping contract를 제공한다. Entity, primary key, persistence context, association, query abstraction을 이해하지 못하면 object graph와 SQL 실행 결과가 어긋나고, 복합키나 식별 관계에서는 equals/hashCode, lazy loading, repository method까지 함께 깨질 수 있다.
@@ -57,18 +64,18 @@ JPA의 data flow는 Java object를 바로 table row로 던지는 것이 아니�
 ```mermaid
 stateDiagram-v2
     [*] --> NewEntity
-    NewEntity --> Managed: persist/save
+    NewEntity --> Managed: persist
     Managed --> Dirty: field changed
     Dirty --> Flushed: flush/commit
     Flushed --> Managed
-    Managed --> Detached: transaction/context end
-    Detached --> Managed: merge
+    Managed --> Detached: context close/clear/detach
+    Detached --> Managed: merge returns managed copy
     Managed --> Removed: remove
     Removed --> Deleted: flush/commit
     Deleted --> [*]
 ```
 
-Composite key entity도 이 lifecycle을 따른다. 다만 identity가 단일 `Long id`가 아니라 key object 또는 여러 `@Id` field로 구성된다.
+Composite key entity도 이 lifecycle을 따른다. 다만 identity는 key object 또는 여러 `@Id` field로 구성된다. `Dirty`와 `Flushed`는 변경 추적·SQL 동기화를 설명하는 보조 상태이며 JPA의 별도 entity lifecycle 상태가 아니다. `merge`의 반환 객체는 managed지만 전달한 detached 원본은 detached로 남는다.
 
 ## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
@@ -88,7 +95,19 @@ public class AlarmReadsId implements Serializable {
     private Long alarmId;
     private Long userId;
 
-    // equals and hashCode are required
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) return true;
+        if (!(other instanceof AlarmReadsId)) return false;
+        AlarmReadsId that = (AlarmReadsId) other;
+        return java.util.Objects.equals(alarmId, that.alarmId)
+                && java.util.Objects.equals(userId, that.userId);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(alarmId, userId);
+    }
 }
 
 @Entity
@@ -115,7 +134,7 @@ public interface AlarmReadsRepository
 }
 ```
 
-이 예제는 `alarm_id`와 `user_id`가 함께 primary key이면서 각각 association foreign key인 식별 관계를 보여준다.
+이 예제는 `alarm_id`와 `user_id`가 함께 primary key이면서 각각 association foreign key인 식별 관계를 보여준다. 실제 저장 전에는 ID 값과 연관 객체를 일치하게 설정하고, 영속화 후 key 값을 변경하지 않는다. annotation/import, `User`·`Alarm` 정의와 트랜잭션 테스트는 별도 프로젝트 구성이 필요하다.
 
 ## 9. 실패 사례 (What could go wrong?)
 
@@ -129,7 +148,7 @@ public interface AlarmReadsRepository
 ## 10. 뇌 확장하기 (Evolution & Variants)
 
 - Relationship mapping은 [JPA 관계 매핑](relationships.md)에서 1:1, 1:N, N:1, N:M 기준으로 확장한다.
-- Entity lifecycle과 persistence context 상태는 [JPA 라이프사이클](lifecycle.md) 문서와 함께 확인한다.
+- [Spring Bean 라이프사이클](lifecycle.md)은 Spring 컨테이너의 자원 초기화·종료를 다루며, JPA entity와 persistence context 생명주기와 구분해서 확인한다.
 - QueryDSL은 composite key field와 association path를 type-safe하게 다룰 수 있다.
 - ID 전략은 IDENTITY, SEQUENCE, TABLE, AUTO와 database dialect 차이를 비교한다.
 - Composite key 대신 surrogate key와 unique constraint를 쓰는 설계도 trade-off로 검토한다.

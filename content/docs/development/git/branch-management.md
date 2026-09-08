@@ -1,15 +1,24 @@
 # Git 브랜치 업스트림 관리 학습 및 기록 노트
 
+## 적용 범위와 완료 기준
+
+- **범위:** Git 버전, remote 이름, `push.default`, `branch.*.merge`, 현재 branch와 GitHub branch-protection 규칙을 확인합니다. 원격 추적은 Git 설정이며 hosting UI의 branch 이름과 구분합니다.
+- **전제:** 명령 전 `HEAD`, working tree, upstream과 target ref를 기록하고 새 원격 branch 생성 또는 이름 변경이 허용되는지 확인합니다.
+- **실패 조건:** 잘못된 remote/ref에 push, 의도하지 않은 새 branch, force update, 보호 규칙·권한 오류와 열린 PR 연결 변경을 포함합니다.
+- **완료 기준:** local branch가 의도한 remote-tracking ref를 가리키고 dry-run 또는 실제 push 결과와 hosting UI의 target이 일치할 때 완료입니다.
+
+---
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
-로컬 브랜치와 원격 브랜치 이름이 다르거나 upstream이 설정되지 않으면 `git push`가 예상과 다른 원격 브랜치를 만들 수 있다. 특히 여러 feature branch를 다루는 프로젝트에서는 "현재 브랜치가 어디로 push/pull되는가"를 명확히 하지 않으면 PR 대상이 꼬이거나 중복 브랜치가 생긴다.
+`git push`의 대상은 upstream뿐 아니라 명시적 refspec, remote push 설정과 `push.default`에 따라 정해진다. 이름이 다른 upstream에서는 기본 `simple` 정책이 push를 거부할 수 있고, `current`는 같은 이름의 원격 branch를 선택할 수 있다. 실제 대상 ref를 먼저 확인해야 한다.
 
 이 문서는 원문의 GitHub 원격 저장소와 로컬 브랜치 이름 불일치 해결법을 upstream tracking, push refspec, branch rename, Git 설정 중심으로 재작성한다.
 
 ## 2. 현재 나의 상태 (Baseline)
 
 - `git branch`, `git push`, `git pull` 기본 사용법은 알고 있다.
-- Upstream branch가 현재 브랜치의 기본 push/pull 대상이라는 점을 더 명확히 해야 한다.
+- Upstream은 기본 pull/비교 대상을 정하며, push 대상은 refspec과 `push.default` 등 설정을 함께 확인해야 한다.
 - 로컬 브랜치 이름과 원격 브랜치 이름이 다를 수 있음을 이해해야 한다.
 - `git push origin local:remote` refspec이 언제 필요한지 정리해야 한다.
 - `push.autoSetupRemote`, `push.default`, `branch.autoSetupMerge` 설정의 영향을 구분해야 한다.
@@ -60,7 +69,7 @@ stateDiagram-v2
     RemoteCreated --> Tracking
     Tracking --> RenamedLocal: git branch -m
     RenamedLocal --> TrackingFixed: set-upstream-to
-    Tracking --> ExplicitPush: local:remote
+    Tracking --> ExplicitPush: local branch to named remote branch
     ExplicitPush --> Tracking
     TrackingFixed --> [*]
 ```
@@ -71,7 +80,7 @@ stateDiagram-v2
 
 - Push 전에 `git branch -vv`로 현재 branch와 upstream을 확인할 수 있어야 한다.
 - 로컬/원격 이름이 다르면 팀에서 이해할 수 있는 이유가 있어야 한다.
-- 반복 작업에는 명시적 refspec보다 upstream 설정을 사용하는 편이 안전하다.
+- 반복 작업에서도 팀의 refspec·upstream·push 정책을 일관되게 정하고 dry-run으로 대상 ref를 확인한다.
 - 전역 Git 설정은 모든 repository에 영향을 주므로 변경 전 의도를 확인해야 한다.
 - `push.default current`는 같은 이름의 원격 브랜치를 만들 수 있으므로 이름 정책과 맞아야 한다.
 - PR branch를 rename한 뒤에는 remote branch와 PR 대상도 함께 확인해야 한다.
@@ -83,7 +92,8 @@ stateDiagram-v2
 ```bash
 git branch --set-upstream-to=origin/new-feature feature
 git branch -vv
-git push
+git push --dry-run origin feature:new-feature
+git push origin feature:new-feature
 ```
 
 원격과 이름을 맞추고 싶을 때:
@@ -99,7 +109,7 @@ git push -u origin new-feature
 git push origin feature:new-feature
 ```
 
-이 예제는 반복 push 대상은 upstream으로 고정하고, 임시 push만 refspec으로 명시하는 기준을 보여준다.
+이 예제는 pull/비교용 upstream과 push용 refspec을 각각 명시한다. refspec 없는 push를 쓰려면 팀에서 선택한 `push.default`와 remote push 설정의 결과를 별도로 검증한다.
 
 ## 9. 실패 사례 (What could go wrong?)
 

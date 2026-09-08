@@ -5,11 +5,13 @@
 
 ---
 
+> **Reading contract:** Scope is the cited CMU 15-850 Fall 2020 notes and the chapter mapping recorded at the end. Theorems here depend on graph properties, randomness model, field size, approximation parameter, and success probability that abbreviated diagrams may omit. Identify those parameters and the cited theorem before treating a result as proved; label intuitive explanations as sketches. A result is complete only when assumptions, probability or approximation guarantee, failure event, and asymptotic model are all recoverable. If not, use it as a study prompt rather than an implementation contract.
+
 ## 1. Minimum Spanning Trees: From O(m log n) to O(m α(n))
 
 ### 1.1 The Cut and Cycle Rules — Correctness Foundation
 
-All MST algorithms are instances of the **blue rule** (cut rule) and **red rule** (cycle rule). The key invariant: color an edge blue if it is the min-weight edge crossing any cut; color it red if it is the max-weight edge on any cycle.
+The MST algorithms discussed in these notes can be analyzed through **blue-rule** (cut) and **red-rule** (cycle) arguments. With tied weights, "minimum" and "maximum" edges need the theorem's safe-edge conditions; a chosen edge need not belong to every MST. Record whether the conclusion is existence in some MST or membership in all MSTs.
 
 ```mermaid
 stateDiagram-v2
@@ -145,14 +147,14 @@ flowchart TD
 ```mermaid
 sequenceDiagram
     participant G as Greedy solution (sorted by weight, descending)
-    participant OPT as Optimal solution
+    participant OptimalSolution as Optimal solution
     
-    Note over G,OPT: Suppose G ≠ OPT
-    G->>OPT: Find first element e in G not in OPT
-    OPT->>OPT: OPT + {e} has a cycle C (by matroid circuit property)
-    G->>OPT: ∃ f in C ∩ OPT with w(f) ≤ w(e)
-    Note over OPT: OPT' = OPT + {e} - {f} is also independent
-    Note over OPT: w(OPT') ≥ w(OPT) — contradicts optimality of OPT
+    Note over G,OptimalSolution: Suppose G ≠ OPT
+    G->>OptimalSolution: Find first element e in G not in OPT
+    OptimalSolution->>OptimalSolution: OPT + {e} has a cycle C (by matroid circuit property)
+    G->>OptimalSolution: ∃ f in C ∩ OPT with w(f) ≤ w(e)
+    Note over OptimalSolution: OPT' = OPT + {e} - {f} is also independent
+    Note over OptimalSolution: w(OPT') ≥ w(OPT) — contradicts optimality of OPT
 ```
 
 **Kruskal's correctness** is exactly this matroid greedy theorem applied to the graphic matroid — adding the lightest edge that doesn't form a cycle is the greedy step on the independent sets (forests) of the graphic matroid.
@@ -302,7 +304,9 @@ stateDiagram-v2
     Observe --> UpdateWeights : w_i ← w_i × (1-ε)^ℓᵢ
     UpdateWeights --> Normalize : W ← ΣW_i
     Normalize --> SelectExpert
-    Note: after T rounds, regret ≤ ε·T + ln(n)/ε
+    note right of Normalize
+        after T rounds, regret ≤ ε·T + ln(n)/ε
+    end note
 ```
 
 **Regret bound**: Choosing `ε = √(ln(n)/T)` gives regret ≤ `2√(T ln n)`. Total loss ≤ OPT + 2√(T ln n).
@@ -467,8 +471,8 @@ sequenceDiagram
 
 ```mermaid
 stateDiagram-v2
-    [*] --> FindCheapest : For each non-root vertex v:\npick cheapest incoming edge
-    FindCheapest --> CheckCycle : Union-Find: does selection form a directed cycle?
+    [*] --> FindCheapest : For each non-root vertex v#58;<br/>pick cheapest incoming edge
+    FindCheapest --> CheckCycle : Union-Find#58; does selection form a directed cycle?
     CheckCycle --> ReturnTree : NO → spanning arborescence found
     CheckCycle --> Contract : YES → contract cycle to single super-node
     Contract --> ReweightEdges : Adjust weights of edges entering super-node

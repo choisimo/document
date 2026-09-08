@@ -1,5 +1,15 @@
 # Miscellaneous CS Internals 학습 및 기록 노트
 
+## Scope and Evidence Across Topics
+
+This is a cross-domain reference. Each chapter has its own system model, units, and verification method; a number or trade-off from one chapter must not be transferred to another without new evidence.
+
+- **Scope:** GPU pipelines, game engines, IoT, infrastructure automation, SRE, testing, databases, engineering process, and schedulers are independent examples rather than one unified architecture.
+- **Assumptions:** Identify hardware and driver, engine or tool version, topology, workload, latency deadline, consistency model, and failure mode for the chapter being applied.
+- **Evidence:** Separate specification or algorithm facts from vendor implementation details, illustrative diagrams, empirical ranges, and design recommendations.
+- **Uncertainty:** Throughput, latency, utilization, coverage, error budget effects, and memory overhead depend on inputs and measurement boundaries. Report distributions and sample sizes instead of treating a single range as a guarantee.
+- **Failure and completion:** Define domain-specific failure first, such as a missed frame or control deadline, unsafe infrastructure diff, SLO burn, surviving mutant, or scheduling inversion. Completion requires a reproducible test and an observable pass condition for that failure.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 This reference combines topics that look unrelated: graphics, game engines, IoT, infrastructure as code, SRE, testing, shader compilation, database execution, CI/CD, and OS scheduling. The common thread is internal state. Each domain has buffers, queues, graphs, state files, trace contexts, or cache lines whose invariants determine correctness and performance.
@@ -110,7 +120,7 @@ IaC is not just declarative text. It is a state reconciliation system that compa
 
 ## 9. 실패 사례 (What could go wrong?)
 
-- A shader uses `discard` and disables Early-Z, increasing overdraw cost.
+- A shader uses depth writes or `discard`, which may limit or defer Early-Z depending on GPU and render state; measure whether overdraw cost actually rises.
 - ECS components move between archetypes too often and spend time copying rows.
 - MQTT QoS 1 events are applied non-idempotently and duplicate state changes.
 - Terraform state is edited manually or applied concurrently without locking.

@@ -1,8 +1,17 @@
 # Git Deploy Keys 설정 학습 및 기록 노트
 
+## 적용 범위와 보안 검증 기준
+
+- **범위:** Deploy Key의 재사용·쓰기 권한·소유 모델은 GitHub, GitLab과 hosting 버전에 따라 다릅니다. 이 문서의 예제를 공급자 공통 보장으로 해석하지 않습니다.
+- **권한 전제:** repository와 작업별로 read/write 필요성을 분리하고 key algorithm, host key 검증, secret 저장소, 실행 사용자와 CI log redaction을 정합니다.
+- **불확실성:** 고정 rotation 주기만으로 안전을 보장하지 않습니다. 노출 징후, 인력·시스템 변경, algorithm 정책과 공급자 감사 기록에 따라 즉시 폐기할 수 있어야 합니다.
+- **실패·완료:** 잘못된 저장소 접근, 과도한 쓰기 권한, host key 오류, secret 유출과 key 폐기 뒤 잔존 접근을 시험합니다. fingerprint·최소 권한·감사 log·revocation을 확인해야 완료입니다.
+
+---
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
-배포 서버나 CI가 Git 저장소를 clone/pull해야 할 때 개인 SSH key를 그대로 쓰면 계정 전체 저장소 접근권이 서버에 퍼진다. Deploy Key는 특정 repository에만 연결되는 SSH key라서 배포 자동화의 권한 범위를 줄일 수 있다. 다만 key 파일 권한, SSH host alias, read/write access, known_hosts 검증을 잘못 잡으면 인증 실패나 과도한 권한 부여가 생긴다.
+배포 서버나 CI가 Git 저장소를 clone/pull할 때 개인 SSH key를 복사하면 그 계정에 부여된 여러 저장소 권한이 함께 노출될 수 있다. 아래 구체적인 명령은 GitHub의 repository별 Deploy Key를 전제로 한다. 다른 hosting 제품의 key 재사용·소유·쓰기 권한 모델은 별도로 확인한다.
 
 이 문서는 원문의 Git Deploy Keys 설정 가이드를 repository-scoped SSH access와 최소 권한 배포 흐름 중심으로 재작성한다.
 
@@ -74,7 +83,7 @@ Private key를 배포 서버에 두기 전에 public key를 repository에 등록
 - Read-only로 충분하면 write access를 켜지 않는다.
 - Key file은 `chmod 600`, `.ssh` directory는 `chmod 700` 수준으로 제한한다.
 - CI secret에 저장한 private key는 log에 출력되지 않아야 한다.
-- `ssh-keyscan` 결과는 가능하면 공식 fingerprint와 검증해야 한다.
+- `ssh-keyscan` 출력 자체를 신뢰 근거로 삼지 않고, 등록 전에 공식 문서나 별도 신뢰 경로의 host fingerprint와 대조한다.
 - 권한이 더 이상 필요 없는 deploy key는 repository settings에서 제거한다.
 
 ## 8. 가장 작은 예제 (Minimal Viable Example)
@@ -108,7 +117,7 @@ git clone git@github-project:owner/repository.git
 
 ## 9. 실패 사례 (What could go wrong?)
 
-- 개인 SSH key를 production server에 복사해 계정 전체 repository 접근권을 노출한다.
+- 개인 SSH key를 production server에 복사해 그 계정에 부여된 저장소 권한을 과도하게 노출한다.
 - 하나의 deploy key를 여러 환경에서 공유해 사고 발생 시 영향 범위를 좁히지 못한다.
 - Write access를 불필요하게 켜서 배포 서버가 repository를 push할 수 있게 된다.
 - SSH agent가 다른 key를 먼저 제시해 인증이 실패한다.
@@ -133,4 +142,4 @@ git clone git@github-project:owner/repository.git
 
 ## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-Deploy Key는 배포 자동화에 필요한 Git 접근권을 사용자 계정 전체가 아니라 특정 repository 하나로 줄이는 장치다.
+GitHub Deploy Key는 배포 자동화에 필요한 Git 접근을 등록한 repository 범위로 제한하는 수단이며, 다른 공급자의 재사용·소유 모델은 별도로 확인한다.

@@ -1,51 +1,58 @@
-Spring Boot 프로젝트의 디렉토리 구조는 기본적으로 자유도가 높지만, 팀 규모나 프로젝트 복잡도에 따라 일관적이고 가독성 높은 구조를 갖추는 것이 장기적으로 유지보수 및 확장성에 큰 도움이 됩니다. 전통적으로 많이 사용되는 패턴은 “레이어드 아키텍처(Layered Architecture)” 형태를 취하면서, 점차 도메인 중심의 패키지 구조로 정리하는 것이 대중적이며 편리합니다.
+# Spring Boot 패키지 구조를 선택하는 기준
 
-아래는 대표적인 디렉토리 구조 예시와 그에 대한 설명입니다.
+Spring Boot는 하나의 업무 패키지 구조를 강제하지 않습니다. 구조의 목표는 파일 이름을 통일하는 것이 아니라 변경 책임, 의존 방향, 공개 API를 코드에서 드러내는 것입니다. 팀 규모만으로 레이어형 또는 도메인형을 자동 선택하지 말고 함께 변경되는 코드와 경계 위반을 기준으로 판단합니다.
 
-```
-src
- └─ main
-     ├─ java
-     │   └─ com.example.project
-     │       ├─ config
-     │       │   └─ (전역 설정, Security, WebMvcConfigurer, DB 설정 등)
-     │       ├─ domain
-     │       │   ├─ model         // 엔티티(또는 도메인 객체), VO, DTO 등
-     │       │   ├─ repository    // JPA Repository, MyBatis Mapper 등 영속성 계층
-     │       │   ├─ service       // 비즈니스 로직 처리
-     │       │   └─ exception     // 도메인 관련 예외 클래스
-     │       └─ presentation
-     │           ├─ controller    // REST Controller, Web Controller
-     │           └─ advice        // Exception Handler 등 Cross-cutting Concern
-     └─ resources
-         ├─ application.yml        // 환경설정 파일
-         └─ static / templates     // 정적 리소스(css, js) 및 템플릿 파일(Thymeleaf 등)
+## 선택지 1: 레이어 중심
+
+```text
+src/main/java/com/example/project/
+├── config/
+├── controller/
+├── service/
+├── repository/
+└── domain/
 ```
 
-### 주요 포인트
+작은 애플리케이션에서 기술 역할별 코드를 찾기 쉽습니다. 반면 하나의 기능을 바꿀 때 여러 최상위 패키지를 오가고, 다른 도메인의 내부 타입을 참조하기 쉬워질 수 있습니다.
 
-1. **config 패키지**:  
-   - WebMvcConfigurer, SecurityConfig, SwaggerConfig, DataSourceConfig 등 프로젝트 전반적으로 공통적으로 적용되는 설정들을 이곳에 모읍니다.
-   - 설정 클래스를 한 곳에 모으는 것은 환경 설정 변경에 유용하고, 관리 포인트를 명확하게 해줍니다.
+## 선택지 2: 기능 또는 도메인 중심
 
-2. **domain 패키지**:  
-   - **model(또는 entity, dto, vo)**: 비즈니스 도메인 핵심 객체를 정의하는 부분입니다. JPA Entity, DTO, VO 등을 목적에 따라 명확히 구분하는 것이 유지보수성에 좋습니다.
-   - **repository**: 데이터베이스 접근 계층. JPA의 Repository 인터페이스나 MyBatis Mapper 인터페이스가 위치합니다.
-   - **service**: 비즈니스 로직을 구현하는 계층으로, Controller와 Repository 사이를 중재하며 트랜잭션, 비즈니스 규칙 등을 처리합니다.
-   - **exception**: 도메인 혹은 서비스 로직 실행 중 발생하는 커스텀 예외를 별도로 관리하여 예외처리에 체계성을 부여합니다.
+```text
+src/main/java/com/example/project/
+├── order/
+│   ├── api/
+│   ├── application/
+│   ├── domain/
+│   └── infrastructure/
+├── user/
+│   ├── api/
+│   ├── application/
+│   ├── domain/
+│   └── infrastructure/
+└── shared/
+```
 
-3. **presentation 패키지(또는 controller)**:  
-   - **controller**: 클라이언트(웹, API)와 직접적으로 소통하는 계층으로, 요청을 받고 응답을 반환하는 역할을 담당합니다.
-   - **advice**: 전역적으로 예외를 처리하거나 Controller 전반에 걸쳐 적용되는 AOP 기반의 처리기(ControllerAdvice)나 ResponseEntityExceptionHandler 등을 통해 공통 로직을 분리합니다.
+기능 단위 변경과 소유권을 모으기 쉽지만, 각 기능이 같은 계층 규칙을 반복하거나 `shared`가 무제한 공용 영역으로 커질 수 있습니다. `shared`에는 실제로 둘 이상의 기능이 안정적으로 공유하는 계약만 둡니다.
 
-4. **resource 디렉토리**:  
-   - `application.yml`과 같은 환경 설정 파일을 모아두고, 프로파일(profile)별로 다른 yml 파일을 둘 수도 있습니다.  
-   - 정적 리소스(static), 템플릿(templates) 디렉토리는 Spring Boot가 기본적으로 제공하는 경로 구조를 그대로 사용합니다.
+## 리소스 경계
 
-### 확장 방안
+```text
+src/main/resources/
+├── application.yml
+├── application-local.yml
+├── static/
+└── templates/
+```
 
-- **도메인별 패키지 구성**: 프로젝트가 커지고 도메인이 복잡해진다면, 단순히 레이어 기준으로 나누기보다, 도메인 단위로 패키지를 나누는 방법(예: `com.example.project.user.domain`, `com.example.project.user.service`, `com.example.project.order.domain` 등)을 고려할 수 있습니다. 이는 도메인 단위로 팀원들이 작업할 때 서로 간섭을 최소화하고, 추후 마이크로서비스로 분리할 때 유리한 구조를 갖게 합니다.
-  
-- **DDD(Domain Driven Design) 적용**: 더 나아가면 도메인 주도 설계를 접목하여 애그리거트(Aggregate) 단위로 패키지를 재구성하고, 도메인 서비스, 도메인 이벤트 등을 구조적으로 배치할 수도 있습니다.
+프로파일 파일에는 환경별 비밀값을 직접 저장하지 않습니다. 설정 키의 기본값, 필수 여부, 비밀 공급 경로를 배포 설정과 함께 문서화합니다.
 
-정리하자면, 기본적으로 Controller - Service - Repository로 이어지는 전통적인 레이어드 아키텍처를 탑재한 뒤, 프로젝트 규모에 따라 도메인 중심으로 패키징을 세분화하는 전략이 가장 대중적이고 편리한 Spring Boot 프로젝트 구조라고 할 수 있습니다.
+## 판정 순서
+
+1. 독립적으로 변경·배포·테스트할 업무 기능을 식별합니다.
+2. 각 기능의 입력 API, 유스케이스, 도메인 규칙, 외부 어댑터를 구분합니다.
+3. 허용할 의존 방향을 정합니다. 예를 들어 `api → application → domain`은 허용하고 `domain → infrastructure`는 금지할 수 있습니다.
+4. 트랜잭션 경계와 데이터 소유자를 패키지 경계에 맞춥니다.
+5. 예외, DTO, 저장소 인터페이스가 어느 경계의 계약인지 이름과 위치로 드러냅니다.
+6. 아키텍처 테스트나 모듈 가시성으로 금지 의존을 확인합니다.
+
+구조 변경은 디렉터리를 만든 시점에 끝나지 않습니다. 대표 기능 하나를 이동한 뒤 순환 의존이 없고, 공개되지 않은 구현을 다른 기능이 참조하지 않으며, 빌드·테스트·런타임 스캔이 같은 동작을 유지할 때 완료로 판정합니다.

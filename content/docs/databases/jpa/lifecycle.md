@@ -1,5 +1,12 @@
 # Spring Bean Lifecycle 관리 학습 및 기록 노트
 
+## 적용 범위와 완료 조건
+
+- 이 문서는 Spring 관리 Bean의 생성·준비·종료 훅을 다룹니다. JPA 엔티티 생명주기와는 다른 범위입니다.
+- `@PostConstruct` 성공은 의존 서비스 전체의 준비 완료를 자동으로 보장하지 않습니다. 초기화 순서, timeout, 재시도, 실패 시 애플리케이션 기동 정책을 명시합니다.
+- 자원 획득과 해제를 쌍으로 설계하고 부분 초기화, 중복 종료, 강제 종료 경로를 포함합니다. 가능하면 직접 JDBC 연결보다 검증된 `DataSource`와 컨테이너 수명주기를 사용합니다.
+- 완료 증거는 훅 호출 여부뿐 아니라 readiness, 활성 자원 수, 종료 로그와 재시작 후 누수 부재입니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 Spring 애플리케이션에서 Bean lifecycle은 database connection, cache warmup, background monitor, 외부 client 같은 리소스의 초기화와 해제를 안전하게 관리하는 기준이다. 초기화 순서나 종료 hook을 잘못 다루면 애플리케이션이 손상된 상태로 시작하거나, connection leak, thread leak, graceful shutdown 실패로 이어질 수 있다.
@@ -18,7 +25,7 @@ Spring 애플리케이션에서 Bean lifecycle은 database connection, cache war
 
 - Bean 생성, dependency injection, post-construct, running, pre-destroy 흐름을 설명한다.
 - 초기화 hook에서 리소스를 열고 종료 hook에서 확실히 닫는 기준을 세운다.
-- `@DependsOn`, `@Order`, `SmartLifecycle`로 startup/shutdown order를 조정하는 상황을 구분한다.
+- `@DependsOn`과 `SmartLifecycle`로 초기화·start/stop 순서를 구분한다. `@Order`는 일반 singleton Bean의 생성 순서를 보장하지 않는다.
 - 초기화 실패를 숨기지 않고 명시적으로 fail-fast 또는 degrade 처리한다.
 - Lifecycle hook 안에서 오래 걸리는 작업과 DB connection 사용을 안전하게 다룬다.
 
@@ -36,7 +43,7 @@ flowchart TD
     H --> I[Release resources]
 ```
 
-Bean lifecycle의 data flow는 객체 생성보다 이후 단계가 더 중요하다. 의존성이 주입된 뒤 초기화가 실행되고, container 종료 시 cleanup이 실행되어야 한다.
+Bean lifecycle의 data flow는 객체 생성 이후의 준비와 소유 자원 정리를 포함한다. 의존성 주입 뒤 초기화가 실행되며 정상적인 container 종료 경로에서 cleanup을 수행한다. 강제 종료나 초기화 도중 실패에서는 destroy hook 호출을 보장할 수 없어 획득 지점의 즉시 정리와 재시작 복구도 필요하다.
 
 ## 5. 핵심 구성요소 (Building Blocks)
 
@@ -93,8 +100,9 @@ public class CacheWarmupService {
 
     @PostConstruct
     public void initialize() throws SQLException {
-        try (Connection connection = dataSource.getConnection()) {
-            connection.createStatement().execute("select 1");
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement()) {
+            statement.execute("select 1");
         }
     }
 

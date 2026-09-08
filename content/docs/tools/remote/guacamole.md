@@ -2,6 +2,18 @@
 
 Apache Guacamole은 브라우저만으로 RDP, VNC, SSH 같은 원격 접속을 중계하는 클라이언트리스 원격 데스크톱 게이트웨이다. 사용자는 웹 UI에 로그인하고, Guacamole은 내부의 원격 호스트와 세션을 연결한다.
 
+## 적용 범위와 운영 계약
+
+이 문서는 공식 Guacamole·guacd image와 MariaDB의 Compose 구성 형태를 설명합니다. 검토한 호환 release와 image digest를 고정하며, 제3자 배포 저장소나 prepare script를 추가할 경우 그 출처·변경·지원 경계를 별도로 검토합니다.
+
+- **공급망**: Guacamole와 guacd의 호환 release, database image, schema 초기화·migration script의 출처를 확인하고 image digest와 license·유지보수 상태를 기록합니다.
+- **노출 경계**: 8080은 loopback 또는 전용 Docker 네트워크에만 두고 외부 접근은 TLS가 적용된 Nginx를 통합니다. Guacamole 터널에 필요한 HTTP/1.1 및 WebSocket 헤더를 함께 설정합니다.
+- **비밀과 계정**: 데이터베이스 비밀번호는 비밀 저장소로 주입하고 기본 guacadmin 계정은 외부 노출 전에 교체 또는 비활성화합니다. 예시 비밀번호를 운영값으로 사용하지 않습니다.
+- **데이터 변경**: 기존 데이터 볼륨에서는 환경 변수만 바꿔도 DB 비밀번호가 자동 변경되지 않을 수 있습니다. 데이터베이스와 모든 소비자 설정을 일관되게 회전하고 먼저 백업합니다.
+- **완료 조건**: nginx 구문 검사, HTTPS 로그인, 기본 계정 거부, RDP 또는 SSH 세션과 클립보드 정책, WebSocket, 재시작 후 데이터 보존, 백업 복원을 확인합니다.
+
+실패 시 새 컨테이너를 반복 생성하지 말고 Compose 로그, Nginx 로그와 데이터베이스 migration 상태를 보존한 뒤 고정된 이전 이미지와 백업으로 복구합니다.
+
 ## 1. 왜 필요한가? (Pain Point & Motivation)
 
 원격 서버마다 RDP, VNC, SSH 포트를 직접 열어 두면 접근 제어와 감사가 흩어진다. 사용자는 각자 클라이언트를 설치해야 하고, 관리자는 방화벽, 계정, 접속 기록을 서버별로 관리해야 한다.
@@ -26,7 +38,7 @@ Guacamole의 목적은 원격 접속의 진입점을 하나로 모으는 것이�
 
 - 외부에는 HTTPS reverse proxy만 노출한다.
 - `guacd`, Guacamole 웹 애플리케이션, 인증 데이터베이스의 역할이 분리되어 있다.
-- 기본 관리자 계정과 기본 비밀번호를 배포 직후 변경하거나 제거한다.
+- 기본 관리자 계정과 기본 비밀번호는 제한된 관리 경로에서 최초 외부 노출 전에 교체하거나 제거한다.
 - 사용자별로 접속 가능한 원격 호스트가 제한되어 있다.
 - 데이터베이스와 설정 값이 백업된다.
 - 원격 대상 서버는 필요한 포트만 Guacamole에서 접근할 수 있다.
@@ -94,22 +106,25 @@ unauthenticated
 ```yaml
 services:
   guacd:
-    image: guacamole/guacd:latest
+    image: "${GUACD_IMAGE:?set reviewed compatible guacd tag or digest}"
     restart: unless-stopped
 
   db:
-    image: mariadb:11
+    image: "${GUACAMOLE_DB_IMAGE:?set reviewed compatible MariaDB 11 tag or digest}"
     restart: unless-stopped
     environment:
       MARIADB_DATABASE: guacamole
       MARIADB_USER: guacamole
-      MARIADB_PASSWORD: "${GUACAMOLE_DB_PASSWORD}"
-      MARIADB_ROOT_PASSWORD: "${GUACAMOLE_DB_ROOT_PASSWORD}"
+      MARIADB_PASSWORD_FILE: /run/secrets/guacamole_db_password
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/guacamole_db_root_password
     volumes:
       - guacamole_db:/var/lib/mysql
+    secrets:
+      - guacamole_db_password
+      - guacamole_db_root_password
 
   guacamole:
-    image: guacamole/guacamole:latest
+    image: "${GUACAMOLE_IMAGE:?set reviewed Guacamole tag or digest}"
     restart: unless-stopped
     depends_on:
       - guacd
@@ -118,25 +133,37 @@ services:
       GUACD_HOSTNAME: guacd
       MYSQL_HOSTNAME: db
       MYSQL_DATABASE: guacamole
-      MYSQL_USER: guacamole
-      MYSQL_PASSWORD: "${GUACAMOLE_DB_PASSWORD}"
+      MYSQL_USERNAME: guacamole
+      MYSQL_PASSWORD: "${GUACAMOLE_DB_PASSWORD:?provide the same database secret}"
     ports:
       - "127.0.0.1:8080:8080"
 
 volumes:
   guacamole_db:
+secrets:
+  guacamole_db_password:
+    environment: GUACAMOLE_DB_PASSWORD
+  guacamole_db_root_password:
+    environment: GUACAMOLE_DB_ROOT_PASSWORD
 ```
 
-Nginx 뒤에 둘 때는 내부 포트만 프록시한다.
+DB의 두 비밀은 제한된 실행 환경에서 주입하고 environment-backed secrets 지원을 `docker compose config --quiet`로 확인한다. Guacamole와 guacd의 release를 맞춘다. 이 Compose 형태만으로 schema가 초기화되지 않으므로 첫 기동 전 선택한 release의 공식 SQL을 새 DB에 적용한다. 기존 DB에는 초기화 SQL을 다시 넣지 않고 필요한 migration을 검토한다.
+
+인증과 기본 계정 교체를 제한된 경로에서 확인한 뒤 Nginx를 노출한다. 아래 인증서 파일은 미리 발급·배치한 실제 도메인 경로로 맞추며 내부 포트만 프록시한다.
 
 ```nginx
 server {
     listen 443 ssl;
     server_name remote.example.com;
+    ssl_certificate /etc/letsencrypt/live/remote.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/remote.example.com/privkey.pem;
 
     location / {
         proxy_pass http://127.0.0.1:8080/guacamole/;
+        proxy_buffering off;
         proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -145,7 +172,7 @@ server {
 }
 ```
 
-초기 데이터베이스 스키마는 Guacamole 버전에 맞는 초기화 SQL로 생성해야 한다. 스키마 초기화 없이 컨테이너만 올리면 로그인과 연결 저장이 정상 동작하지 않는다.
+초기화와 환경 변수는 [Guacamole DB 설정](https://guacamole.apache.org/doc/gug/mysql-auth.html), tunnel proxy는 [공식 Nginx 가이드](https://guacamole.apache.org/doc/gug/reverse-proxy.html)를 선택한 release에 맞춰 확인한다. `sudo nginx -t && sudo systemctl reload nginx`로 구문 성공 때에만 reload한다. HTTP tunnel·WebSocket·로그인·연결 저장과 기본 계정 거부를 각각 시험한다. forwarded IP를 감사 근거로 쓰려면 Tomcat RemoteIpValve와 신뢰할 proxy 주소를 별도로 제한해 검증한다.
 
 ## 9. 실패 사례 (What could go wrong?)
 
