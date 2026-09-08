@@ -1,6 +1,7 @@
 // Private probe values stay in an ephemeral browser; never write them to artifacts.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const { verifyCompletionEvidence } = require('./ai-live-evidence.cjs');
 
 (async () => {
   const probe = process.argv.includes('--private-probe');
@@ -50,8 +51,12 @@ const assert = require('node:assert/strict');
     }
     const page = await context.newPage();
     const transport = [];
+    const completions = [];
     page.on('response', response => {
-      if (new URL(response.url()).pathname.endsWith('/chat/completions')) transport.push({ status: response.status() });
+      if (new URL(response.url()).pathname.endsWith('/chat/completions')) {
+        transport.push({ status: response.status() });
+        completions.push(response.text().then(body => ({ status: response.status(), body }), () => ({ failed: true })));
+      }
     });
     page.on('requestfailed', request => {
       if (new URL(request.url()).pathname.endsWith('/chat/completions')) transport.push({ failed: true });
@@ -73,6 +78,16 @@ const assert = require('node:assert/strict');
       uiError: failed, answerCharacters: answer.length, koreanAnswer: /[가-힣]/.test(answer) }));
     assert.ok(!failed && answer.trim().length > 10 && /[가-힣]/.test(answer), 'AI must show a nonempty Korean answer');
     assert.ok(transport.some(item => item.status === 200), 'AI completion must return HTTP 200');
+    let timer;
+    try {
+      const results = await Promise.race([
+        Promise.all(completions),
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Completion did not close')), 15000); }),
+      ]);
+      assert.equal(results.length, 1, 'One submitted question must create one completion request');
+      assert.equal(results[0].status, 200);
+      console.log(JSON.stringify({ streamEvidence: verifyCompletionEvidence(results[0].body, answer) }));
+    } finally { clearTimeout(timer); }
   } finally { await browser.close(); }
 })().catch(error => {
   // Avoid echoing exception messages containing a configured URL, token or model.
