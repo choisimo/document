@@ -406,7 +406,6 @@ sequenceDiagram
     KERNEL-->>USER: 0 (success)
 ```
 
-
 ---
 
 ## 설계적 고민

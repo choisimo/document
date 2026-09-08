@@ -243,6 +243,7 @@ stateDiagram-v2
 ```
 
 **ObjectMonitor** (heavyweight):
+
 ```c
 class ObjectMonitor {
     void*   _owner;          // owning thread

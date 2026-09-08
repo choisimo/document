@@ -16,10 +16,10 @@
 ```mermaid
 flowchart TD
     A[감정 기록 (일기 작성)] --> B[AI 감정 분석]
-    B -->|긍정적 감정 우세| C[맞춤 활동 추천]
+    B -->|긍정적 감정 우세| C[맞춤 활동 제안]
     C --> D{활동 수행 여부?}
     D -->|Yes| E[커뮤니티 경험 공유]
-    D -->|No| F[대체 활동 추천]
+    D -->|No| F[대체 활동 제안]
     F --> G[감정 변화 추적]
     E --> G
     B -->|부정적 감정 우세| H[위기 개입 평가]
@@ -27,10 +27,10 @@ flowchart TD
     I -->|심각도 높음| J[전문가 연결 안내]
     I -->|심각도 낮음| K[인지행동분석 모듈]
     K --> L[부정적 사고 패턴 식별]
-    L --> M[사고 재구성 가이드]
+    L --> M[사고 재구성 절차]
     M --> N[대안적 사고 제시]
     N --> O[행동 활성화 전략]
-    O --> P[자가 관리 가이드]
+    O --> P[자가 관리 절차]
     P --> G
     J --> G
 ```
@@ -50,27 +50,27 @@ flowchart TD
         VIS[데이터 시각화]
         EDI[일기 에디터]
     end
-    
+
     subgraph "Backend"
         API[REST API]
         AUTH[인증/인가]
         BL[비즈니스 로직]
         CACHE[캐싱 시스템]
     end
-    
+
     subgraph "AI Module"
         NLP[텍스트 처리]
         EA[감정 분석]
         CBT[인지행동치료 엔진]
-        REC[추천 시스템]
+        REC[제안 시스템]
     end
-    
+
     subgraph "Database"
         RDB[관계형 DB]
         NOSQL[NoSQL DB]
         REDIS[Redis 캐시]
     end
-    
+
     UI --> API
     VIS --> API
     EDI --> API
@@ -98,18 +98,18 @@ flowchart TD
         REDUX[Redux]
         TAILWIND[Tailwind CSS]
     end
-    
+
     subgraph "UI Components"
         MUI[Material-UI]
         EDITOR[Rich Text Editor]
         CHARTS[Chart.js/D3.js]
     end
-    
+
     subgraph "Communications"
         AXIOS[Axios]
         WS[WebSocket]
     end
-    
+
     NEXT --> REACT
     REACT --> REDUX
     REACT --> TAILWIND
@@ -129,19 +129,19 @@ flowchart TD
         SECURITY[Spring Security]
         JPA[Spring Data JPA]
     end
-    
+
     subgraph "API Layer"
         REST[REST Controllers]
         SWAGGER[Swagger]
         JWT[JWT Auth]
     end
-    
+
     subgraph "Service Layer"
         BL[Business Logic]
         INTEG[AI Integration]
         CACHE[Cache Manager]
     end
-    
+
     SPRING --> SECURITY
     SPRING --> JPA
     SPRING --> REST
@@ -161,18 +161,18 @@ flowchart TD
         NLP[NLP Processors]
         EMO[감정 분석 엔진]
     end
-    
+
     subgraph "CBT Module"
         PAT[패턴 인식기]
         RES[사고 재구성]
         ACT[행동 활성화]
     end
-    
+
     subgraph "API Layer"
         FLASK[Flask/FastAPI]
         INFER[추론 엔진]
     end
-    
+
     GPT --> NLP
     NLP --> EMO
     EMO --> PAT
@@ -196,7 +196,7 @@ erDiagram
     JOURNALS ||--o{ EMOTION_ANALYSES : has
     EMOTION_ANALYSES ||--o{ RECOMMENDATIONS : generates
     EMOTION_ANALYSES ||--|{ COGNITIVE_PATTERNS : identifies
-    
+
     USERS {
         int user_id PK
         string username
@@ -206,7 +206,7 @@ erDiagram
         date last_login
         json preferences
     }
-    
+
     JOURNALS {
         int journal_id PK
         int user_id FK
@@ -215,7 +215,7 @@ erDiagram
         json metadata
         boolean is_deleted
     }
-    
+
     EMOTION_ANALYSES {
         int analysis_id PK
         int journal_id FK
@@ -225,7 +225,7 @@ erDiagram
         datetime created_at
         json raw_analysis
     }
-    
+
     COGNITIVE_PATTERNS {
         int pattern_id PK
         int analysis_id FK
@@ -234,7 +234,7 @@ erDiagram
         json alternatives
         int confidence_score
     }
-    
+
     RECOMMENDATIONS {
         int recommendation_id PK
         int analysis_id FK
@@ -243,7 +243,7 @@ erDiagram
         boolean is_completed
         datetime created_at
     }
-    
+
     ACTIVITIES {
         int activity_id PK
         int user_id FK
@@ -263,7 +263,7 @@ NoSQL 데이터베이스는 다음과 같은 컬렉션으로 구성됩니다:
 2. `journals` - 일기 전체 내용과 메타데이터
 3. `emotions` - 감정 분석 결과와 시계열 데이터
 4. `cbt_sessions` - 인지행동치료 세션 정보와 진행 상태
-5. `recommendations` - 사용자별 추천 활동 히스토리
+5. `recommendations` - 사용자별 제안 활동 히스토리
 
 ## 인지행동치료(CBT) 모듈 상세 설계
 
@@ -277,7 +277,7 @@ flowchart TD
         SE -->|심각도 낮음| AC[CBT 모듈 활성화]
         SE -->|심각도 높음| PR[전문가 연결]
     end
-    
+
     subgraph "인지적 왜곡 식별"
         PAT1[흑백논리 탐지]
         PAT2[과잉일반화 탐지]
@@ -285,19 +285,19 @@ flowchart TD
         PAT4[감정적 추론 탐지]
         PAT5[마음읽기 탐지]
     end
-    
+
     subgraph "사고 재구성"
         QUES[소크라테스식 질문 생성]
         ALT[대안적 해석 제시]
-        EVID[증거 검토 가이드]
+        EVID[증거 검토 절차]
     end
-    
+
     subgraph "행동 활성화"
         ACT1[단계적 과제 설계]
         ACT2[즐거운 활동 스케줄링]
         ACT3[성취감 경험 유도]
     end
-    
+
     ND --> SE
     AC --> PAT1
     AC --> PAT2
@@ -327,52 +327,52 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    subgraph "우리 시스템"
+    subgraph "본 시스템"
         OUR1[6가지 기본 감정]
         OUR2[강도 측정(1-10)]
         OUR3[인지왜곡 유형 분류]
     end
-    
+
     subgraph "EMOTIC 데이터셋"
         EMO1[26가지 감정 카테고리]
         EMO2[Valence-Arousal-Dominance]
     end
-    
+
     subgraph "EmoBank"
         EB1[VAD 표현 방식]
         EB2[다중 장르 균형]
     end
-    
+
     subgraph "ExpW 데이터셋"
         EX1[7가지 기본 표정 인식]
         EX2[91,793 얼굴 이미지]
     end
 ```
 
-비교 분석 결과, 우리 시스템은 텍스트 기반 감정 분석에 초점을 맞추고 있으며, 인지왜곡 유형까지 분류하는 차별화된 접근법을 제공합니다.
+비교 분석 결과, 본 시스템은 텍스트 기반 감정 분석에 초점을 맞추고 있으며, 인지왜곡 유형까지 분류하는 접근법을 제공한다.
 
 ### 2. 감정 분석 API 아키텍처 비교
 
-현재 시장에 있는 감정 분석 API들과 우리 시스템의 비교:
+현재 시장에 있는 감정 분석 API들과 본 시스템의 비교:
 
 ```mermaid
 flowchart TD
-    subgraph "우리 시스템"
+    subgraph "본 시스템"
         OUR_A[OpenAI GPT 기반]
         OUR_B[인지행동치료 통합]
-        OUR_C[맞춤형 활동 추천]
+        OUR_C[맞춤형 활동 제안]
     end
-    
+
     subgraph "IBM Watson NLU"
         IBM_A[5가지 감정 분류]
         IBM_B[감정 점수 제공]
     end
-    
+
     subgraph "ParallelDots"
         PD_A[6가지 감정 분류]
         PD_B[신뢰도 점수]
     end
-    
+
     subgraph "Symanto - Ekman"
         SE_A[기본 6가지 감정]
         SE_B[소셜 미디어 특화]
@@ -396,7 +396,7 @@ gantt
     section 기능 확장
     스프린트 3-4 (주요 기능) :2025-05-27, 4w
     section 분석 시스템
-    스프린트 5-6 (분석/추천) :2025-06-24, 4w
+    스프린트 5-6 (분석/제안) :2025-06-24, 4w
     section 통합/완성
     스프린트 7-8 (정교화/통합) :2025-07-22, 4w
     section 출시

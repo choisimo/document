@@ -2,7 +2,6 @@
 
 > 합성: comp(36/103-178) DevOps, Linux 관리, CI/CD, 쉘 스크립팅, Ansible, Terraform, 모니터링 및 Wieers *Ansible for DevOps*, Morris *Infrastructure as Code*, Turnbull *The Docker Book*, 모니터링/경고 스택 및 전체 Linux 시스템 관리 커리큘럼을 포함한 인프라 자동화 참조.
 
-
 ## 범위와 검증 계약
 
 이 문서는 Linux와 대표 DevOps 도구의 제어 흐름을 연결하는 내부 구조 안내서입니다. 명령의 의미와 운영 기본값은 배포판·커널·도구 버전·구성에 따라 달라질 수 있습니다.
@@ -148,7 +147,7 @@ flowchart TD
 
 **상태 잠금**: S3 백엔드는 분산 잠금을 위해 DynamoDB 테이블을 사용합니다. `terraform apply`은 잠금을 획득 → 실행 → 해제합니다. 동일한 인프라에 대한 동시 적용을 방지합니다(분할 브레인 위험).
 
-**리소스 그래프**: `depends_on` + 암시적 참조를 통해 종속성이 해결되었습니다. `aws_db_instance.db` 참조 `aws_vpc_subnet.private.id` → DB 이전에 서브넷이 생성되어야 합니다. Terraform은 독립적인 리소스 작업을 병렬화합니다.
+**리소스 그래프**: `depends_on` + 암시적 참조를 통해 종속성이 해결되었습니다. `aws_db_instance.db` 참조 `aws_vpc_subnet.private.id` → DB 이전에 서브넷이 생성된다. Terraform은 독립적인 리소스 작업을 병렬화합니다.
 
 ---
 
@@ -378,7 +377,6 @@ flowchart TD
 | 프로메테우스 긁힌 | ~1-10ms | HTTP + 텍스트 구문 분석 |
 | Elasticsearch 인덱스 쓰기 | ~1~50ms | Translog + 세그먼트 쓰기 |
 | 젠킨스 파이프라인 시작 | ~2-10초 | 에이전트 할당 + 작업 공간 설정 |
-
 
 ---
 

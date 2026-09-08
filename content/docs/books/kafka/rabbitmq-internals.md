@@ -193,7 +193,7 @@ The downstream exchange receives the message as if it were published directly to
 
 ```mermaid
 stateDiagram-v2
-    [*] --> alpha: enqueue (persistent msg: write to Mnesia/disk first)
+    [*] --> alpha: enqueue (persistent msg#58; write to Mnesia/disk first)
     alpha --> beta: queue grows beyond ram_high_watermark
     beta --> gamma: further pressure (move msg index to disk)
     gamma --> delta: most content on disk, only refs in RAM
@@ -202,7 +202,7 @@ stateDiagram-v2
     beta --> alpha: queue drains
 
     note right of alpha : "All msg bodies in RAM (ETS)"
-    note right of delta : "Only queue index in RAM\nbodies on disk (msg_store)"
+    note right of delta : "Only queue index in RAM<br/>bodies on disk (msg_store)"
 ```
 
 RabbitMQ queues implement a **four-state backing queue** (alpha→beta→gamma→delta) that progressively moves messages to disk as memory pressure increases:
@@ -411,17 +411,17 @@ Clustering requires low-latency LAN connectivity. For cross-datacenter or intern
 ```mermaid
 flowchart LR
     subgraph DC1["Data Center 1"]
-        P[Publisher] --> UE[Upstream\nExchange 'events']
-        UE --> UQ[Internal Queue]
-        UQ --> FC[Federation Consumer\n(Erlang process)]
+        P["Publisher"] --> UE["Upstream<br/>Exchange 'events'"]
+        UE --> UQ["Internal Queue"]
+        UQ --> FC["Federation Consumer<br/>(Erlang process)"]
     end
 
-    FC -->|AMQP over internet\n(WAN-tolerant, reconnects)| DE
+    FC -->|"AMQP over internet<br/>(WAN-tolerant, reconnects)"| DE
 
     subgraph DC2["Data Center 2"]
-        DE[Downstream\nExchange 'events']
-        DE --> DQ[Downstream Queue]
-        DQ --> C[Consumer]
+        DE["Downstream<br/>Exchange 'events'"]
+        DE --> DQ["Downstream Queue"]
+        DQ --> C["Consumer"]
     end
 ```
 
@@ -522,19 +522,19 @@ Each **class** groups related methods. The class ID and method ID together form 
 
 ```mermaid
 flowchart TB
-    BROKER[RabbitMQ Broker] --> VH1[Virtual Host: /production]
-    BROKER --> VH2[Virtual Host: /staging]
-    BROKER --> VH3[Virtual Host: /analytics]
+    BROKER["RabbitMQ Broker"] --> VH1["Virtual Host: /production"]
+    BROKER --> VH2["Virtual Host: /staging"]
+    BROKER --> VH3["Virtual Host: /analytics"]
 
-    VH1 --> E1[Exchanges\n(isolated namespace)]
-    VH1 --> Q1[Queues\n(isolated namespace)]
-    VH1 --> B1[Bindings]
+    VH1 --> E1["Exchanges<br/>(isolated namespace)"]
+    VH1 --> Q1["Queues<br/>(isolated namespace)"]
+    VH1 --> B1["Bindings"]
 
-    VH2 --> E2[Exchanges]
-    VH2 --> Q2[Queues]
-    VH2 --> B2[Bindings]
+    VH2 --> E2["Exchanges"]
+    VH2 --> Q2["Queues"]
+    VH2 --> B2["Bindings"]
 
-    U1[User: app-user] -->|"configure: '.*'\nwrite: 'events.*'\nread: '.*'"| VH1
+    U1["User: app-user"] -->|"configure: '.*'<br/>write: 'events.*'<br/>read: '.*'"| VH1
     U1 -->|"no access"| VH2
 ```
 

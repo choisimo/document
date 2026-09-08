@@ -126,6 +126,8 @@ override.tf.json
 build/
 dist/
 site/
+# Source automation shares this name with generated site directories.
+!src/automation/site/
 docs/_build/
 release/
 debug/

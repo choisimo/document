@@ -45,6 +45,7 @@ Pattern: constant work per level, n levels → T(n) = Θ(n).
 ### Binary Recursion: T(n) = T(n/2) + 1
 
 For n = 2^k:
+
 ```
 T(2^k) = T(2^(k-1)) + 1
         = T(2^(k-2)) + 2
@@ -65,6 +66,7 @@ graph TD
 ```
 
 Backward substitution:
+
 ```
 M(n) = 2M(n-1) + 1
      = 2[2M(n-2)+1] + 1 = 2²M(n-2) + 2 + 1
@@ -234,6 +236,7 @@ block-beta
 **Heap allocation:** Runtime-determined. `malloc(n)` searches free-list for block ≥ n bytes. Returns pointer; adds header (size, next-free pointer). `free(p)` marks block as available, coalesces adjacent free blocks.
 
 **Interview gotcha: use-after-free:**
+
 ```c
 int* f() {
     int x = 5;
@@ -274,6 +277,7 @@ flowchart LR
 **Power-of-2 check:** `(n & (n-1)) == 0`
 
 Binary: powers of 2 have exactly one 1-bit.
+
 ```
 n     = 0b01000000  (= 64)
 n-1   = 0b00111111
@@ -285,12 +289,14 @@ n & (n-1) = 0b01000000  → not zero: not power of 2
 ```
 
 **Bit count (Hamming weight) — Brian Kernighan's method:**
+
 ```
 count = 0
 while n != 0:
     n = n & (n-1)   // clears the lowest set bit each iteration
     count++
 ```
+
 Each iteration removes exactly one 1-bit → runs in O(number of set bits) iterations, not O(word size).
 
 ---
@@ -357,12 +363,18 @@ flowchart TD
 ## 10. CTCI: Linked List Internals — Memory Layout
 
 ```mermaid
-block-byzantine
-    block:LL["Linked List in Memory (Heap)"]
-        N1["addr 0x100:\n  data=5\n  next=0x230"]
-        N2["addr 0x230:\n  data=12\n  next=0x045"]
-        N3["addr 0x045:\n  data=8\n  next=NULL"]
+block-beta
+  columns 1
+  block:LL:1
+    columns 1
+    LLTitle["Linked List in Memory (Heap)"]:1
+    block:LLItems:1
+      columns 3
+      N1["addr 0x100:<br/>  data=5<br/>  next=0x230"]
+      N2["addr 0x230:<br/>  data=12<br/>  next=0x045"]
+      N3["addr 0x045:<br/>  data=8<br/>  next=NULL"]
     end
+  end
 ```
 
 Nodes are **not contiguous** in memory. Each `next` pointer is a heap address. This has consequences:
@@ -444,17 +456,17 @@ Conclusion: OPT was not strictly better than GREEDY → GREEDY is optimal.
 
 ```mermaid
 sequenceDiagram
-    participant OPT as OPT solution
+    participant OptimalSolution as OPT solution
     participant G as GREEDY solution
 
-    Note over OPT,G: Steps 1..k-1 identical
-    OPT->>OPT: Step k: choose B
+    Note over OptimalSolution,G: Steps 1..k-1 identical
+    OptimalSolution->>OptimalSolution: Step k: choose B
     G->>G: Step k: choose A (locally best)
-    OPT->>OPT: Steps k+1..n: some sequence
+    OptimalSolution->>OptimalSolution: Steps k+1..n: some sequence
     G->>G: Steps k+1..n: greedy continues
-    Note over OPT: Swap B→A: new solution OPT'
-    OPT->>OPT: cost(OPT') ≤ cost(OPT) because A is locally optimal
-    Note over OPT,G: By induction, GREEDY = OPT at every step
+    Note over OptimalSolution: Swap B→A: new solution OPT'
+    OptimalSolution->>OptimalSolution: cost(OPT') ≤ cost(OPT) because A is locally optimal
+    Note over OptimalSolution,G: By induction, GREEDY = OPT at every step
 ```
 
 **When greedy FAILS:** Fractional knapsack ✓ (greedy by value/weight ratio works). 0/1 knapsack ✗ (greedy fails — must use DP). The difference: 0/1 knapsack has "all-or-nothing" choice that can block future items, destroying the greedy choice property.

@@ -1,154 +1,101 @@
-# 리눅스 셸 설정 파일 가이드: `.profile`, `.bashrc`, `.zshrc`
+# 리눅스 셸 설정 파일 실행 순서
 
-> **범위:** 아래 실행 순서는 Bash와 Zsh의 일반 동작을 설명합니다. 디스플레이 매니저와 배포판이 로그인 파일을 추가로 불러올 수 있으므로 현재 셸은 `ps -p $$ -o args=`, 로그인 셸 여부는 `shopt -q login_shell`(Bash) 또는 `[[ -o login ]]`(Zsh)로 확인하십시오.
+> **범위:** Bash와 Zsh의 시작 파일을 비교한다. 현재 셸은 `ps -p $$ -o args=`로 확인하고, 로그인 셸 여부는 Bash의 `shopt -q login_shell` 또는 Zsh의 `[[ -o login ]]`로 구분한다. 디스플레이 매니저·배포판·사용자 설정이 다른 파일을 추가로 불러올 수 있다.
 
-리눅스 시스템은 여러 시작 파일에서 환경 변수, 별칭(alias), 함수 등을 읽습니다. 수정할 파일은 셸 종류, 로그인 여부, 대화형 여부, 값을 사용할 프로세스 범위에 따라 결정합니다.
-1. 핵심 개념: Login Shell vs. Non-Login Shell
+리눅스 시스템은 사용자의 셸 환경을 구성하기 위해 여러 설정 파일을 실행한다. 파일별 실행 여부는 셸 종류와 세션 유형에 따라 달라진다.
 
-이 두 가지 개념을 이해하는 것이 가장 중요합니다.
+- Login Shell: 로그인 모드로 시작된 셸. TTY·SSH의 대화형 로그인에서 흔하지만 원격 명령 실행 등 모든 SSH 세션이 로그인 셸인 것은 아니다.
+- Non-Login Shell: 이미 로그인된 세션에서 새 터미널이나 셸 스크립트로 시작되는 셸
+- Interactive Shell: 사용자가 명령을 직접 입력하는 상호작용 셸
+- Non-Interactive Shell: 스크립트 실행처럼 사용자 입력 없이 동작하는 셸
 
-    Login Shell: 사용자가 시스템에 로그인할 때 (예: TTY 콘솔에서 사용자 이름과 비밀번호를 입력하거나, SSH를 통해 원격 접속할 때) 생성되는 쉘입니다. 이 쉘은 사용자의 초기 환경을 설정하는 역할을 합니다.
+## Bash와 sh 계열의 로그인 설정 파일
 
-    Non-Login Shell: 로그인 과정 없이 이미 로그인된 세션에서 새로운 쉘을 시작할 때 생성됩니다. (예: 터미널 에뮬레이터(gnome-terminal, konsole 등)를 실행하거나, 쉘 스크립트를 실행할 때)
+### `/etc/profile`
 
-2. 주요 설정 파일 상세 설명
-셸 공통 설정 파일 (Bash, Zsh 등)
-/etc/profile
+- 적용 범위: 시스템 전역, 모든 사용자
+- 실행 시점: Bash·sh 계열이 로그인 모드로 시작할 때 읽음
+- 주요 용도: 시스템 전체 `PATH`, 기본 `umask`, 공통 환경 변수 설정
 
-    역할: 시스템 전역(모든 사용자)에 적용되는 환경 설정 파일입니다.
+### `~/.profile`
 
-    실행 시점: Login Shell이 시작될 때 가장 먼저 실행됩니다.
+- 적용 범위: 사용자 개인
+- 실행 시점: Bash·sh 계열의 사용자 로그인 파일로 선택된 경우 `/etc/profile` 이후 읽음
+- 주요 용도: 사용자별 환경 변수, 개인 `bin` 디렉토리, `JAVA_HOME` 등 세션 전체에 유지되는 값
+- Bash에서는 `~/.bash_profile` 또는 `~/.bash_login`이 존재하면 `~/.profile`이 실행되지 않을 수 있다.
+- `~/.profile`은 이를 읽는 셸·세션에서만 공통 환경 파일 역할을 한다. Zsh는 기본 시작 절차에서 `~/.profile`을 자동으로 읽지 않는다.
 
-    주요 용도: 모든 사용자에게 공통으로 필요한 시스템 전체의 PATH 환경 변수 설정, 기본 umask 값 설정 등 시스템 관리자가 설정하는 내용이 담깁니다.
+## Bash 설정 파일
 
-~/.profile
+### `~/.bash_profile`
 
-    역할: 사용자 개인에게 적용되는 환경 설정 파일입니다.
+- 적용 범위: Bash 사용자 개인
+- 실행 시점: Bash Login Shell 시작 시 실행
+- 탐색 순서: `~/.bash_profile`, `~/.bash_login`, `~/.profile` 중 존재하고 읽을 수 있는 첫 파일 하나
+- 주요 용도: 로그인 시 한 번만 필요한 환경 변수와 초기화 스크립트
 
-    실행 시점: Login Shell이 시작될 때 /etc/profile 다음에 실행됩니다.
+많은 배포판은 로그인 시 `~/.bashrc` 설정도 함께 읽도록 `~/.bash_profile`에 다음 구성을 둔다.
 
-    주요 용도: 사용자 개인의 환경 변수(예: JAVA_HOME, PATH에 개인 bin 디렉토리 추가)를 설정하는 데 주로 사용됩니다. 한 번 로그인하면 세션 내내 유지되어야 하는 변수들을 이곳에 설정하는 것이 좋습니다.
+```bash
+# ~/.bash_profile
 
-    참고: Bash의 경우, ~/.bash_profile이나 ~/.bash_login 파일이 존재하면 ~/.profile은 실행되지 않을 수 있습니다. 그래서 여러 쉘과의 호환성을 위해 ~/.profile을 사용하는 것이 일반적입니다.
+if [ -f ~/.bashrc ]; then
+    . ~/.bashrc
+fi
+```
 
-Bash 전용 설정 파일
-~/.bash_profile
+### `~/.bashrc`
 
-    역할: Bash 쉘을 위한 사용자 개인의 Login Shell 설정 파일입니다.
+- 적용 범위: Bash 사용자 개인
+- 실행 시점: Non-Login Interactive Shell 시작 시마다 실행
+- 주요 용도: alias, 셸 함수, 프롬프트(`PS1`), 자동 완성, 터미널 상호작용 설정
 
-    실행 시점: Bash Login Shell이 시작될 때 ~/.profile 대신 실행됩니다. (~/.bash_profile이 없으면 ~/.bash_login을, 그것도 없으면 ~/.profile을 순서대로 찾아서 실행합니다.)
+```bash
+alias ll='ls -alF'
+```
 
-    주요 용도: ~/.profile과 동일하게 Bash 환경에서 로그인 시 한 번만 실행되어야 하는 환경 변수나 스크립트를 설정합니다. 많은 배포판에서는 ~/.bash_profile 안에 ~/.bashrc를 실행하는 코드를 넣어, 로그인 시 .bashrc의 설정도 함께 불러오도록 구성합니다.
+## Zsh 설정 파일
 
-    # ~/.bash_profile
+### `~/.zshrc`
 
-    if [ -f ~/.bashrc ]; then
-        . ~/.bashrc
-    fi
+- 적용 범위: Zsh 사용자 개인
+- 실행 시점: Interactive Shell 시작 시마다 실행
+- 주요 용도: alias, 함수, 프롬프트, 플러그인, oh-my-zsh 설정
 
-~/.bashrc
+Zsh는 시작 시 `.zshenv`, 로그인 모드에서 `.zprofile`, 대화형일 때 `.zshrc`, 마지막으로 로그인 모드에서 `.zlogin`을 읽는 체계를 갖는다. 사용자 파일 위치는 `ZDOTDIR` 설정에 따라 달라질 수 있고 시스템 파일의 경로도 빌드·배포판에 의존한다. [Zsh 시작 파일 문서](https://raw.githubusercontent.com/zsh-users/zsh/master/Doc/Zsh/files.yo)를 기준으로 확인한다.
 
-    역할: 가장 일반적으로 사용되는 사용자 개인의 Bash 설정 파일입니다.
+## 그래픽 세션 설정 파일
 
-    실행 시점: Non-Login Interactive Shell이 시작될 때마다 실행됩니다. (즉, 터미널을 새로 열 때마다 실행됩니다.)
+### `~/.xprofile`
 
-    주요 용도:
+- 적용 범위: X Window System 기반 GUI 세션의 사용자 개인 설정
+- 실행 시점: 해당 X11 디스플레이 매니저·세션이 `.xprofile`을 불러오도록 구성된 경우
+- 주요 용도: GUI 애플리케이션 환경 변수, 입력기 설정, 그래픽 로그인 시 자동 실행 프로그램
 
-        별칭(Alias) 정의: alias ll='ls -alF'
+GUI 프로그램은 로그인 셸을 거치지 않을 수 있다. 세션 전체에 필요한 변수는 실제 디스플레이 매니저와 세션의 환경 로딩 경로에 둔다. `.xprofile`을 읽지 않는 세션이나 Wayland 환경에서는 이 파일만 수정해 적용됐다고 판단하지 않는다.
 
-        쉘 함수 정의
+## 실행 순서 요약
 
-        프롬프트(PS1) 모양 설정
+| 상황 | 시스템 전역 파일 | 사용자 개인 파일 |
+| :--- | :--- | :--- |
+| Bash 로그인 셸 | `/etc/profile` | 읽을 수 있는 `~/.bash_profile`, `~/.bash_login`, `~/.profile` 중 첫 파일 |
+| GUI 환경 로그인 | 디스플레이 매니저 설정에 따라 다름 | `~/.xprofile`, 배포판에 따라 `~/.profile` 또는 `~/.bash_profile` |
+| Bash 비로그인 대화형 셸 | 배포판에 따라 `/etc/bash.bashrc` 등 | `~/.bashrc` |
+| Zsh 대화형 셸 | 설치된 Zsh의 시스템 시작 파일 | `.zshenv`, 로그인 여부에 따른 `.zprofile`·`.zlogin`, `.zshrc` |
 
-        자동 완성 기능 설정
+## 파일 선택 기준
 
-        터미널을 열 때마다 적용되어야 하는 설정을 이곳에 둡니다.
+| 설정 목적 | 파일 |
+| :--- | :--- |
+| 여러 셸·GUI가 공유해야 할 환경 변수 | 실제 세션 환경 로딩 경로를 확인해 설정; 단일 파일의 보편적 적용을 가정하지 않음 |
+| Bash 터미널 alias | `~/.bashrc` |
+| Zsh 터미널 alias | `~/.zshrc` |
+| Bash 프롬프트 설정 | `~/.bashrc` |
+| Zsh 프롬프트 설정 | `~/.zshrc` |
+| GUI 프로그램이 인식해야 하는 환경 변수 | 해당 세션이 읽는 환경 설정; X11 일부 구성에서는 `~/.xprofile` |
+| 콘솔 또는 SSH 로그인 시 한 번 실행되는 스크립트 | `~/.bash_profile` 또는 `~/.profile` |
+| GUI 로그인 시 한 번 실행되는 스크립트 | 해당 디스플레이 매니저·데스크톱의 세션 시작 설정 |
 
-Zsh 전용 설정 파일
-~/.zshrc
+## 적용 판정
 
-    역할: Zsh(Z Shell)을 위한 사용자 개인의 설정 파일입니다.
-
-    실행 시점: Interactive Shell이 시작될 때마다 실행됩니다. (Bash의 ~/.bashrc와 거의 동일한 역할)
-
-    주요 용도: Bashrc와 마찬가지로 Zsh 환경의 별칭, 함수, 프롬프트, 플러그인(oh-my-zsh 등) 설정 등 상호작용 쉘에 필요한 모든 설정을 이곳에 합니다.
-
-    참고: Zsh는 ~/.zshenv, ~/.zprofile, ~/.zshrc, ~/.zlogin 등 더 세분화된 설정 파일 체계를 가지고 있지만, 대부분의 사용자 설정은 ~/.zshrc에서 이루어집니다.
-
-그래픽 세션 설정 파일
-~/.xprofile
-
-    역할: X Window System (GUI 환경) 세션이 시작될 때 실행되는 사용자 개인 설정 파일입니다.
-
-    실행 시점: 디스플레이 매니저(GDM, LightDM 등)를 통해 그래픽 환경에 로그인할 때 실행됩니다. 이는 TTY 콘솔 로그인과 다르므로 .profile이나 .bash_profile이 실행되지 않는 경우가 있습니다.
-
-    주요 용도:
-
-        GUI 애플리케이션에 필요한 환경 변수 설정 (예: GTK_THEME, 입력기 설정).
-
-        그래픽 로그인 시 자동으로 실행하고 싶은 프로그램 설정 (예: gnome-tweaks).
-
-    왜 필요한가?: GUI 환경에서 터미널을 열지 않고 바로 실행되는 프로그램들(예: VS Code, Chrome)은 Login Shell을 거치지 않으므로 ~/.profile에 설정된 환경 변수를 상속받지 못할 수 있습니다. ~/.xprofile은 이러한 문제를 해결하고 GUI 세션 전체에 환경 변수를 적용하기 위해 사용됩니다.
-
-3. 실행 순서 요약
-
-상황
-	
-
-시스템 전역 파일
-	
-
-사용자 개인 파일
-
-SSH 접속 / TTY 콘솔 로그인 (Login Shell)
-	
-
-1. /etc/profile
-	
-
-2. ~/.bash_profile 또는 ~/.bash_login 또는 ~/.profile (하나만 실행)
-
-GUI 환경 로그인 (X11 Session)
-	
-
-(DM 설정에 따라 다름)
-	
-
-1. ~/.xprofile 
- 2. ~/.profile 이나 ~/.bash_profile이 실행될 수도 있음 (배포판/DM마다 다름)
-
-터미널 실행 (Non-Login Interactive Shell)
-	
-
-1. /etc/bash.bashrc (Bash)
-	
-
-2. ~/.bashrc (Bash) 
- 2. ~/.zshrc (Zsh)
-4. 언제 어떤 파일을 사용해야 할까?
-
-    PATH와 같은 중요한 환경 변수를 추가하고 싶을 때:
-
-        모든 쉘과 GUI 애플리케이션에서 사용하려면 ~/.profile 또는 ~/.xprofile에 설정하는 것이 가장 안정적입니다.
-
-    터미널에서 자주 쓰는 명령어의 단축키(alias)를 만들고 싶을 때:
-
-        Bash 사용자라면 ~/.bashrc
-
-        Zsh 사용자라면 ~/.zshrc
-
-    터미널 프롬프트 모양을 바꾸고 싶을 때:
-
-        Bash 사용자라면 ~/.bashrc
-
-        Zsh 사용자라면 ~/.zshrc
-
-    GUI 프로그램(예: VS Code)이 특정 환경 변수를 인식하게 하고 싶을 때:
-
-        ~/.xprofile에 설정하세요.
-
-    로그인할 때마다 특정 스크립트를 한 번만 실행하고 싶을 때:
-
-        콘솔/SSH 로그인이라면 ~/.bash_profile 또는 ~/.profile
-
-        GUI 로그인이라면 ~/.xprofile
+변경 전 파일을 백업하고 로컬 터미널·SSH 로그인·스크립트·GUI 앱 중 실제 대상에서 변수와 프롬프트를 확인한다. 셸 이름이나 파일 존재만으로 적용을 판정하지 않는다. Bash의 기본 파일 선택은 [GNU Bash 시작 파일 문서](https://www.gnu.org/s/bash/manual/html_node/Bash-Startup-Files.html)를 참고한다.

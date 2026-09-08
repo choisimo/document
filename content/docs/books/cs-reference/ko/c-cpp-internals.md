@@ -187,7 +187,7 @@ flowchart LR
 
 `make_shared<T>(args...)`은 T와 제어 블록 모두에 **하나의 연속 블록**을 할당합니다. → 2 대신 1 할당, 더 나은 캐시 지역성. 절충: T는 마지막 `weak_ptr`이 해제될 때까지 해제되지 않습니다(use_count=0이지만 Weak_count>0은 제어 블록을 활성 상태로 유지합니다).
 
-**원자 참조 계산 비용**: `use_count`은 `std::atomic<int>`을(를) 사용합니다. x86에서 증가/감소 = `LOCK XADD`(원자적 읽기-수정-쓰기). 복사/파괴당 ~5-10ns. 긴밀한 루프를 피하세요. 복사보다 `const shared_ptr&` 전달을 선호하세요.
+**원자 참조 계산 비용**: `use_count`은 `std::atomic<int>`을(를) 사용합니다. x86에서 증가/감소 = `LOCK XADD`(원자적 읽기-수정-쓰기). 복사/파괴당 ~5-10ns. 긴밀한 루프에서는 비용이 커질 수 있다. 복사보다 `const shared_ptr&` 전달이 일반적으로 더 적합하다.
 
 ---
 
@@ -224,6 +224,7 @@ flowchart TD
 ```
 
 **완벽한 전달**:
+
 ```cpp
 template<typename T>
 void wrapper(T&& arg) {            // T&& = forwarding reference
@@ -283,6 +284,7 @@ constexpr auto FIB_TABLE = make_fib_table<50>();
 ```
 
 **템플릿 메타프로그래밍**은 컴파일러의 유형 시스템을 인터프리터로 활용합니다.
+
 ```cpp
 template<int N> struct Factorial { 
     static constexpr int value = N * Factorial<N-1>::value; 
@@ -727,7 +729,7 @@ classDiagram
     Widget --> WidgetImpl: Pimpl 이디엄\n컴파일 방화벽\nABI 안정성
     Widget --> UniquePtr~WidgetImpl~: RAII 소유권\n자동 해제 보장
     LockGuard --> LockGuard: RAII 가드\n스코프 종료 시 자동 unlock
-
+```
 
 ## 연습 문제
 
@@ -809,6 +811,7 @@ classDiagram
 ### 3. 문제 해결 및 리팩토링
 
 **문제 7.** 다음 코드에서 메모리 안전 문제를 찾아라. 레거시 C++ 코드베이스에서 발견된 함수다:
+
 ```cpp
 std::string* processData(const char* input) {
     std::string* result = new std::string(input);
@@ -819,6 +822,7 @@ std::string* processData(const char* input) {
     return result;
 }
 ```
+
 이 코드의 문제점을 모두 식별하고, 현대 C++ 관용구(idiom)로 완전히 재작성하라.
 
 <details>
@@ -832,6 +836,7 @@ std::string* processData(const char* input) {
 </details>
 
 **문제 8.** 신입 개발자가 다음과 같이 작성한 템플릿 코드가 특정 타입에서 링크 오류를 발생시킨다:
+
 ```cpp
 // math.h
 template<typename T>
@@ -841,6 +846,7 @@ T square(T x);
 template<typename T>
 T square(T x) { return x * x; }
 ```
+
 `square<double>` 호출 시 링크 오류가 발생하는 이유를 C++ 템플릿 인스턴스화 모델 관점에서 설명하고, 세 가지 해결 방법을 제시하라.
 
 <details>

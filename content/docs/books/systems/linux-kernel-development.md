@@ -49,10 +49,12 @@ flowchart TB
 ```
 
 On **x86** (register-poor), `current` is computed by masking the stack pointer:
+
 ```
 current_thread_info() = (stack_pointer & ~(8192-1))
 current = current_thread_info()->task
 ```
+
 Assembly: `movl $-8192, %eax ; andl %esp, %eax`
 
 On **PowerPC** (register-rich), `current` is simply register `r2`.
@@ -74,7 +76,7 @@ stateDiagram-v2
   EXIT_ZOMBIE --> [*] : parent calls wait() / wait4()
 ```
 
-The `TASK_UNINTERRUPTIBLE` state is why you see processes in state `D` in `ps` that cannot be `SIGKILL`ed — they hold a semaphore waiting for a kernel event (typically I/O), and waking them prematurely would corrupt kernel state.
+The `TASK_UNINTERRUPTIBLE` state explains why `ps` can show processes in state `D` that cannot be `SIGKILL`ed — they hold a semaphore waiting for a kernel event (typically I/O), and waking them prematurely would corrupt kernel state.
 
 ### fork() / clone() Internal Data Flow
 
@@ -125,6 +127,7 @@ flowchart LR
 ### vruntime Calculation
 
 Every task gets a **time slice** proportional to its weight. `vruntime` accumulates at rate:
+
 ```
 vruntime_delta = actual_runtime × (NICE_0_LOAD / task_weight)
 ```
@@ -349,14 +352,14 @@ The buddy system tracks free pages in 11 free lists, for orders 0–10 (1, 2, 4,
 
 ```mermaid
 flowchart LR
-  subgraph "free_area[order]"
+  subgraph FreeArea["free_area#91;order#93;"]
     O0["order 0: list of 4KB free pages"]
     O1["order 1: list of 8KB free pairs"]
     O2["order 2: 16KB quads"]
     O9["order 9: 2MB blocks"]
     O10["order 10: 4MB blocks"]
   end
-  REQ["alloc_pages(GFP_KERNEL, 0)\nwants 1 page (order 0)"]
+  REQ["alloc_pages(GFP_KERNEL, 0)<br/>wants 1 page (order 0)"]
   REQ --> O0
   O0 -->|"empty → split from order 1"| O1
   O1 -->|"split: give 1 page, buddy goes to order 0 free list"| O0

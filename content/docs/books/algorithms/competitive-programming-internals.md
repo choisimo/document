@@ -1,4 +1,5 @@
 # Competitive Programming Internals — Under the Hood
+
 ## Antti Laaksonen's Competitive Programmer's Handbook · Internal Mechanics
 
 > **Not a tutorial.** This document maps selected techniques from the cited handbook to memory structures, complexity transitions, DP table order, and bit operations.
@@ -144,13 +145,13 @@ flowchart LR
 ```mermaid
 stateDiagram-v2
     [*] --> SETUP: lo=0, hi=n-1
-    SETUP --> LOOP: Invariant: answer in [lo..hi]
+    SETUP --> LOOP: Invariant#58; answer in [lo..hi]
     LOOP --> CHECK: mid = (lo+hi)/2
     CHECK --> LEFT: a[mid] > target → hi=mid-1
     CHECK --> RIGHT: a[mid] < target → lo=mid+1
     CHECK --> FOUND: a[mid] == target
-    LEFT --> LOOP: Invariant maintained: answer in [lo..mid-1]
-    RIGHT --> LOOP: Invariant maintained: answer in [mid+1..hi]
+    LEFT --> LOOP: Invariant maintained#58; answer in [lo..mid-1]
+    RIGHT --> LOOP: Invariant maintained#58; answer in [mid+1..hi]
     FOUND --> [*]: Return mid
     LOOP --> NOTFOUND: lo > hi
     NOTFOUND --> [*]: Return -1
@@ -288,7 +289,7 @@ stateDiagram-v2
     note right of TRANSITION
         dp[x] = min coins to make sum x
         Reachability: if dp[x-c] ≠ ∞
-        then we can reach x via coin c
+        then x is reachable via coin c
     end note
 ```
 
@@ -378,7 +379,7 @@ flowchart TD
 sequenceDiagram
     participant ITEMS as Items (weight, value)
     participant DP as dp[0..W] array
-    participant OPT as Optimal Value
+    participant OptimalSolution as Optimal Value
 
     Note over DP: 0/1 Knapsack: each item usable ONCE
     Note over DP: Fill RIGHT-TO-LEFT to avoid reuse
@@ -387,7 +388,7 @@ sequenceDiagram
         loop j from W down to w
             DP->>DP: dp[j] = max(dp[j], dp[j-w] + v)
             Note over DP: Reading dp[j-w] from "previous item's row"
-            Note over DP: because we fill right-to-left
+            Note over DP: because fill order is right-to-left
         end
     end
     
@@ -397,11 +398,11 @@ sequenceDiagram
         loop j from w up to W
             DP->>DP: dp[j] = max(dp[j], dp[j-w] + v)
             Note over DP: Reading dp[j-w] from "current item's row"
-            Note over DP: because we fill left-to-right
+            Note over DP: because fill order is left-to-right
         end
     end
     
-    DP-->>OPT: dp[W] = maximum value
+    DP-->>OptimalSolution: dp[W] = maximum value
 ```
 
 **Critical difference**: direction of inner loop determines if items can be reused:

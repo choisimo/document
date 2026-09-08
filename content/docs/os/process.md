@@ -1,226 +1,182 @@
-<img src="https://r2cdn.perplexity.ai/pplx-full-logo-primary-dark%402x.png" class="logo" width="120"/>
+# Process Management
 
-# Understanding fork() System Call and Memory Management in Unix/Linux
-
-When a Unix/Linux process creates a new process using the fork() system call, a complex but elegant memory management mechanism takes place. This explanation will demonstrate how parent and child processes interact with memory during and after a fork() operation.
+프로세스 관리는 실행 중인 프로그램을 운영체제가 어떤 단위로 만들고, 멈추고, 다시 실행하고, 종료시키는지 설명하는 운영체제의 출발점이다.
 
 ## Scope, assumptions, and completion criteria
 
 - **Scope:** This guide describes POSIX `fork()` with a Linux-style copy-on-write implementation. It does not describe Windows process creation, every Unix implementation, or all process attributes.
-- **Assumptions:** The diagrams show private anonymous pages in a single-threaded process. Shared mappings, open file descriptions, pending signals, locks, threads, and device state follow separate rules.
+- **Assumptions:** The fork example uses single-threaded private process state. Shared mappings, open file descriptions, pending signals, locks, threads, and device state follow separate rules.
 - **Evidence and environment:** Confirm behavior against the target OS/kernel, libc, `fork(2)`, and trace output. Equal pointer values are virtual addresses and do not prove equal physical pages.
 - **Failure/retry:** On `fork() == -1`, preserve `errno` and do not enter parent/child logic. Retry only selected transient resource failures with a bound; uncontrolled retry can worsen PID or memory pressure.
 - **Completion evidence:** The parent must account for or intentionally detach the child, collect its status where applicable, and record both exit paths. In a multithreaded child, call only async-signal-safe operations until `exec()` unless an explicitly supported mechanism is used.
 
-## The fork() System Call Explained
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-The `fork()` system call creates a child with a new process identity and a logically copied execution context. Many attributes are inherited or shared according to POSIX rather than being an exact duplicate. After a successful call, parent and child continue from the next instruction with different return values:
+프로그램 파일은 디스크에 있는 정적인 데이터다. 사용자가 실행하는 순간 운영체제는 주소 공간, 열린 파일, 레지스터 상태, 권한, 스케줄링 정보를 가진 프로세스를 만든다.
 
-- In the parent process: fork() returns the PID of the newly created child
-- In the child process: fork() returns 0
-- On failure: the caller receives -1, `errno` explains the failure, and no child is created
+프로세스를 이해하지 못하면 CPU 스케줄링, 시그널, IPC, `fork`, `exec`, 컨테이너 격리를 모두 따로 외우게 된다. 핵심은 "실행 중인 작업의 상태를 커널이 기록하고 전이시킨다"는 점이다.
 
-A key characteristic of fork() is that the child process does not start execution from the beginning of the program. Instead, both processes continue execution from the point immediately after the fork() call.
+## 2. 현재 나의 상태 (Baseline)
 
-## Memory Mechanism During fork()
+흔한 출발점은 다음과 같다.
 
-The memory handling during fork() is what makes this system call particularly interesting. Let's visualize this process:
+- 프로세스와 프로그램을 같은 말처럼 사용한다.
+- `fork()`가 프로그램을 처음부터 다시 실행한다고 착각한다.
+- 부모와 자식 프로세스의 가상 주소가 같아 보이는 이유를 설명하지 못한다.
+- `exec()`가 새 프로세스를 만든다고 오해한다.
+- wait, zombie, orphan 프로세스의 차이를 상태 전이로 설명하지 못한다.
 
-### Before fork()
+## 3. 도달하고 싶은 목표 (Target State)
 
-```
-Parent Process Memory Space
-+---------------------------+
-|      Program Code         |
-+---------------------------+
-|      Global Variables     |
-+---------------------------+
-|         Heap              |
-|                           |
-+---------------------------+
-|           |               |
-|   Stack   | (grows down)  |
-|           v               |
-+---------------------------+
-|    PC → at fork() call    |
-+---------------------------+
-```
+목표는 프로세스를 커널이 관리하는 실행 컨텍스트로 설명하는 것이다.
 
+- PCB(Process Control Block)에 들어가는 정보를 말할 수 있다.
+- `new`, `ready`, `running`, `waiting`, `terminated` 상태 전이를 설명한다.
+- `fork()` 이후 부모와 자식이 같은 지점부터 실행되는 이유를 이해한다.
+- copy-on-write가 실제 메모리 복사를 늦추는 최적화임을 설명한다.
+- `fork`와 `exec`의 역할을 분리해서 설명한다.
+- 부모가 `wait`하지 않을 때 zombie가 생기는 이유를 안다.
 
-### The fork() Call
+## 4. 시스템 번역 (Data Flow)
 
-When fork() is called, the operating system creates a new process entry in its process table and duplicates the parent's memory space:
+프로그램 실행은 다음 흐름으로 번역된다.
 
-```
-                fork()
-                   │
-                   ▼
-+------------------+-------------------+
-|                  |                   |
-| Parent Process   |   Child Process   |
-|                  |                   |
-+------------------+-------------------+
+```text
+executable file
+  -> loader
+  -> process address space
+  -> PCB 등록
+  -> ready queue
+  -> scheduler dispatch
+  -> CPU에서 실행
+  -> I/O, signal, exit, wait에 따라 상태 전이
 ```
 
+`fork()`가 들어가면 흐름은 한 번 갈라진다.
 
-### After fork() - Logical View
-
-After fork() completes, both processes have their own memory spaces with identical content:
-
-```
-Parent Process Memory Space      Child Process Memory Space
-+---------------------------+    +---------------------------+
-|      Program Code         |    |      Program Code         |
-+---------------------------+    +---------------------------+
-|      Global Variables     |    |      Global Variables     |
-+---------------------------+    +---------------------------+
-|         Heap              |    |         Heap              |
-|                           |    |                           |
-+---------------------------+    +---------------------------+
-|           |               |    |           |               |
-|   Stack   | (grows down)  |    |   Stack   | (grows down)  |
-|           v               |    |           v               |
-+---------------------------+    +---------------------------+
-| PC → after fork() call    |    | PC → after fork() call    |
-| fork() returns child PID  |    | fork() returns 0          |
-+---------------------------+    +---------------------------+
+```text
+parent running
+  -> fork system call
+  -> child PCB 생성
+  -> 별도 가상 주소 공간; private writable pages may use COW
+  -> parent는 child pid를 받음
+  -> child는 0을 받음
+  -> 둘 다 fork 다음 명령부터 실행
 ```
 
+## 5. 핵심 구성요소 (Building Blocks)
 
-### Actual Memory Implementation (Copy-on-Write)
+- Program: 실행 가능한 파일과 정적 코드.
+- Process: 프로그램 실행 인스턴스. 주소 공간, 레지스터, 열린 파일, 권한, 상태를 가진다.
+- PCB: 커널이 프로세스를 추적하기 위해 보관하는 구조. PID, 상태, PC, 레지스터, 스케줄링 정보, 파일 정보 등을 담는다.
+- Address Space: code, data, heap, stack, memory mapping으로 구성되는 가상 메모리 공간.
+- System Call: 프로세스가 커널 기능을 요청하는 경계.
+- `fork`: 새로운 PID의 자식을 만들고 POSIX 규칙에 따라 속성을 상속하거나 공유한다. 실패하면 -1과 errno를 반환하며 자식은 생성되지 않는다.
+- `exec`: 현재 프로세스의 주소 공간을 새 프로그램 이미지로 교체한다.
+- `wait`: 부모가 자식의 종료 상태를 수거한다.
 
-Linux and many Unix-like systems normally avoid eagerly copying all private writable pages. They establish copy-on-write mappings, while page tables and other kernel metadata still incur work and shared mappings remain shared:
+## 6. 상태 전이 (State Transition)
 
-```
-                    Physical Memory Pages
-                    +------------------+
-                    |    Page 1        |
-                    +------------------+
-                    |    Page 2        |
-                    +------------------+
-                    |    Page 3        |
-                    +------------------+
-                    |    Page 4        |
-                    +------------------+
-                           ▲   ▲
-                           │   │
-                           │   │
-                           │   │
-                       ┌───┘   └───┐
-                       │           │
-                       │           │
-    Parent Process     │           │     Child Process
-    Page Table         │           │     Page Table
-+------------------+   │           │   +------------------+
-| Virtual → Physical|  │           │   | Virtual → Physical|
-+------------------+   │           │   +------------------+
-| Page 1 → Page 1   |──┘           └──| Page 1 → Page 1   |
-+------------------+                  +------------------+
-| Page 2 → Page 2   |─────────────────| Page 2 → Page 2   |
-+------------------+                  +------------------+
-| Page 3 → Page 3   |─────────────────| Page 3 → Page 3   |
-+------------------+                  +------------------+
-| Page 4 → Page 4   |─────────────────| Page 4 → Page 4   |
-+------------------+                  +------------------+
+프로세스의 기본 상태 전이는 다음과 같다.
+
+```mermaid
+stateDiagram-v2
+    [*] --> New
+    New --> Ready: admitted
+    Ready --> Running: scheduler dispatch
+    Running --> Ready: timer interrupt
+    Running --> Waiting: I/O or lock wait
+    Waiting --> Ready: event completes
+    Running --> Terminated: exit
+    Terminated --> [*]
 ```
 
-When either process modifies a memory page, only then is a copy made:
+프로세스 생성과 종료에는 부모-자식 관계도 함께 생긴다.
 
-```
-                    Physical Memory Pages
-                    +------------------+
-                    |    Page 1        |
-                    +------------------+
-                    |    Page 2        |        +------------------+
-                    +------------------+        |    Page 2'       | (Copy created)
-                    |    Page 3        |        +------------------+
-                    +------------------+
-                    |    Page 4        |
-                    +------------------+
-                           ▲   ▲             ▲
-                           │   │             │
-                           │   │             │
-                           │   │             │
-                       ┌───┘   └───┐         │
-                       │           │         │
-                       │           │         │
-    Parent Process     │           │     Child Process
-    Page Table         │           │     Page Table
-+------------------+   │           │   +------------------+
-| Virtual → Physical|  │           │   | Virtual → Physical|
-+------------------+   │           │   +------------------+
-| Page 1 → Page 1   |──┘           └──| Page 1 → Page 1   |
-+------------------+                  +------------------+
-| Page 2 → Page 2   |─────────────────| Page 2 → Page 2'  |──┘
-+------------------+                  +------------------+
-| Page 3 → Page 3   |─────────────────| Page 3 → Page 3   |
-+------------------+                  +------------------+
-| Page 4 → Page 4   |─────────────────| Page 4 → Page 4   |
-+------------------+                  +------------------+
+```text
+parent forks child
+child exits
+child may remain zombie until status is reaped under normal SIGCHLD handling
+parent calls wait
+kernel releases child's remaining process table entry
 ```
 
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
 
-## Practical Example
+- 각 프로세스는 자기 가상 주소 공간만 직접 접근해야 한다.
+- 커널은 runnable 프로세스를 ready queue에서 잃어버리면 안 된다.
+- context switch는 이전 프로세스의 레지스터 상태를 복원 가능하게 저장해야 한다.
+- fork 이후 private mapping의 쓰기는 서로 분리되어야 한다. MAP_SHARED나 shared open file description의 상태는 해당 공유 계약을 따른다.
+- 기본적인 자식 상태 수거 모델에서는 종료 상태를 wait/waitpid로 회수한다. SIGCHLD 설정·reparenting 등 자동 수거 정책을 쓰면 그 동작을 별도로 명시한다.
 
-To illustrate this further, consider this simple code example:
+## 8. 가장 작은 예제 (Minimal Viable Example)
 
 ```c
 #include <stdio.h>
+#include <errno.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
-int main() {
-    int x = 5;  // Variable in memory
-    
-    printf("Before fork: x = %d (address: %p)\n", x, (void *)&x);
-    
+int main(void) {
+    int value = 5;
     pid_t pid = fork();
-    
     if (pid < 0) {
-        // Fork failed
-        fprintf(stderr, "Fork failed\n");
+        perror("fork");
         return 1;
-    } else if (pid == 0) {
-        // Child process
-        printf("Child: x = %d (address: %p)\n", x, (void *)&x);
-        x = 10;  // Child modifies x
-        printf("Child after change: x = %d (address: %p)\n", x, (void *)&x);
-    } else {
-        // Parent process
-        printf("Parent: x = %d (address: %p)\n", x, (void *)&x);
-        x = 20;  // Parent modifies x
-        printf("Parent after change: x = %d (address: %p)\n", x, (void *)&x);
     }
-    
+
+    if (pid == 0) {
+        value = 10;
+        printf("child value=%d\n", value);
+        return 0;
+    }
+
+    value = 20;
+    int status;
+    pid_t waited;
+    do {
+        waited = waitpid(pid, &status, 0);
+    } while (waited < 0 && errno == EINTR);
+    if (waited < 0) {
+        perror("waitpid");
+        return 1;
+    }
+    if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+        fprintf(stderr, "child did not exit successfully\n");
+        return 1;
+    }
+    printf("parent value=%d\n", value);
     return 0;
 }
 ```
 
-In this example, parent and child initially see `x == 5`, and the pointer values normally look the same because each process has a separate virtual address space. Private pages may still reference the same physical page until one process writes; after a COW fault, the writer receives a private copy. Output order is nondeterministic, and the sample does not call `waitpid()`, so it is a memory illustration rather than complete child-lifecycle management.
+성공한 fork 뒤 두 프로세스는 이어서 실행되며 private 변수 값은 child=10, parent=20으로 분리된다. 부모는 waitpid로 자식을 수거한 뒤 출력하므로 이 예제의 child 출력이 먼저 완료된다. 이것만으로 실제 물리 page 공유·복사 시점은 증명되지 않으며 Linux의 COW는 private page와 page-table metadata·write fault 비용을 별도 관측해야 한다.
 
-## Key Insights About fork() and Memory
+## 9. 실패 사례 (What could go wrong?)
 
-1. A successful `fork()` creates a distinct child while inheriting and sharing attributes according to POSIX
-2. Parent and child continue from the point after `fork()`, but scheduling order is unspecified
-3. Linux commonly uses COW for private writable pages; page-table copying and later write faults still cost time and memory
-4. Isolation applies to private address-space state, while explicitly shared mappings and open file descriptions can remain shared
+- 부모가 `wait()`하지 않으면 종료된 자식이 zombie로 남을 수 있다.
+- fork 뒤 부모와 자식의 descriptor table은 별도지만 대응 descriptor가 같은 open file description을 공유할 수 있어 file offset·status flag·출력 순서에 영향을 준다.
+- exec 계열이 성공하면 기존 프로그램 이미지를 대체하고 반환하지 않는다. 실패하면 기존 이미지에서 오류를 반환하므로 자식 실패 종료 경로가 필요하다.
+- multi-threaded process에서 `fork()`를 호출하면 자식에는 호출한 스레드만 남기 때문에 lock 상태가 꼬일 수 있다.
+- 프로세스 수 제한, 메모리 부족, 권한 제한 때문에 `fork()`는 실패할 수 있다.
 
-This strategy can make `fork()+exec` efficient, but cost grows with address-space metadata, active threads, memory pressure and pages dirtied before `exec()`. Measure the target workload rather than assuming negligible overhead.
+## 10. 뇌 확장하기 (Evolution & Variants)
 
----
+- `fork` + `exec`가 shell의 명령 실행 모델을 어떻게 만드는지 추적한다.
+- `posix_spawn`이 어떤 환경에서 `fork` + `exec`보다 유리한지 비교한다.
+- copy-on-write와 page fault의 관계를 메모리 관리 문서와 연결한다.
+- pipe, socket, shared memory 같은 IPC가 프로세스 격리를 어떻게 우회해 통신을 제공하는지 비교한다.
+- 컨테이너가 PID namespace로 프로세스의 관찰 범위를 바꾸는 방식을 가상화 문서와 연결한다.
 
-## References
+## 11. 최종 체크리스트 (Definition of Done)
 
-### Books
+- [ ] 프로그램과 프로세스의 차이를 설명할 수 있다.
+- [ ] PCB에 필요한 최소 정보를 말할 수 있다.
+- [ ] 프로세스 상태 전이를 예제로 설명할 수 있다.
+- [ ] `fork()`의 부모/자식 반환값 차이를 설명할 수 있다.
+- [ ] copy-on-write가 언제 실제 복사를 만드는지 설명할 수 있다.
+- [ ] zombie 프로세스가 생기는 조건을 설명할 수 있다.
 
-- **Windows via C/C++** - Jeffrey Richter, Christophe Nasarre (Microsoft Press, 2011)
-- **Modern Operating Systems** - Herbert Bos, Andrew S. Tanenbaum
-- **The Elements of Computing Systems** - Noam Nisan, Shimon Schocken (MIT Press, 2021)
-- **The Linux Programming Interface** - Michael Kerrisk (No Starch Press, 2018)
-- **RISC-V Reader** - An open architecture standard
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
 
-### Online Resources
-
-- [Stack Overflow: fork() system call and memory space](https://stackoverflow.com/questions/27486873/fork-system-call-and-memory-space-of-the-process)
-- [Unix Stack Exchange: How does forking affect memory layout](https://unix.stackexchange.com/questions/31407/how-does-forking-affect-a-processs-memory-layout)
-- [Unix Stack Exchange: Copy-on-write with multiple forks](https://unix.stackexchange.com/questions/58145/how-does-copy-on-write-in-fork-handle-multiple-fork)
-- [Copy-on-Write in fork() - UPenn](https://www.cis.upenn.edu/~jms/cw-fork.pdf)
+프로세스는 `실행 중인 프로그램`이 아니라, 커널이 상태와 자원을 기록하며 스케줄링하는 `실행 컨텍스트`다.

@@ -1,51 +1,174 @@
-# Proxmox QDevice `votes 0` 진단 가이드
+# Proxmox QDevice 투표 문제 해결
 
-QDevice가 `votes 0` 또는 연결 해제로 보일 때 토폴로지, 인증서, 네트워크, 서비스 상태를 순서대로 확인하는 런북입니다.
+이 문서는 Proxmox VE에서 QDevice가 설정되어 있는데 `pvecm status`의 vote가 기대와 다르거나 QDevice가 `NA`, `NV`, `votes 0`처럼 보일 때 확인할 순서를 정리한다. 핵심 원칙은 `corosync.conf`를 직접 고치기 전에 공식 `pvecm` 명령과 네트워크 상태를 먼저 검증하는 것이다.
 
-!!! danger "적용 범위"
-    지원되는 Proxmox VE·Corosync 버전의 정상 다중 노드 클러스터를 전제로 합니다. QDevice는 일반적으로 짝수 노드 중재에 사용하며 단일 노드에 표를 추가해 HA를 만드는 장치가 아닙니다. `/etc/pve/corosync.conf`에 임의로 `votes`를 추가하거나 여러 노드의 Corosync를 동시에 재시작하지 마세요.
+지원 여부는 설치된 Proxmox VE·Corosync와 SBC OS 버전의 공식 문서로 확인한다. 특정 SBC나 커뮤니티 이미지가 실행 가능하다는 사실은 공급자 지원을 뜻하지 않는다. 과반 투표가 quorum 기준이며 홀수 표 자체가 보편적인 필수 조건은 아니다. 설정 전 정상 quorum과 콘솔·유지보수 창을 확보하고, 모든 노드의 expected/total votes·QDevice 연결과 양쪽 로그를 비교한다. QNetd 상실, QNetd에 접근 가능한 한 노드 상실, 관련 네트워크 분리를 분리해 시험하고 fencing과 남은 용량을 검증한다. 예상과 다르면 공식 제거 절차와 이전 SSH·방화벽 정책으로 복원한다. `/etc/pve/corosync.conf`에 임의 votes를 추가하거나 여러 노드의 Corosync를 동시에 재시작하지 않는다. TCP 접속 성공만으로 TLS·등록 성공을 판정하지 않는다.
 
-## 1. 상태와 토폴로지 수집
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-각 Proxmox 노드에서 같은 시각의 출력을 보관합니다.
+QDevice는 2노드 Proxmox 클러스터에서 quorum을 안정화하기 위한 장치다. QDevice가 살아 있지 않거나 vote를 주지 못하면 한 노드 장애나 네트워크 분리 상황에서 클러스터가 quorum을 잃고 `/etc/pve`가 읽기 전용처럼 동작할 수 있다.
+
+문제는 `pvecm status` 출력만 보고 바로 설정 파일을 수정하면 더 큰 장애를 만들 수 있다는 점이다. QDevice 문제는 노드 수, qnetd 서비스, 5403/TCP 도달성, 인증서/SSH 설정, 기존 등록 상태를 순서대로 좁혀야 한다.
+
+## 2. 현재 나의 상태 (Baseline)
+
+기존 문서는 다음 상황을 가정했다.
+
+- Proxmox 클러스터에 QDevice가 구성되어 있다.
+- QDevice host는 Raspberry Pi `192.168.1.55`이다.
+- QDevice vote가 0으로 보인다.
+- Raspberry Pi와 Proxmox 노드 간 기본 네트워크 연결은 된다고 가정한다.
+
+하지만 단일 Proxmox 노드 클러스터인지, 2노드 클러스터인지가 명확하지 않다. QDevice는 2노드 같은 짝수 노드 클러스터에 의미가 있으며, 단일 노드에 붙인다고 HA가 생기지는 않는다.
+
+## 3. 도달하고 싶은 목표 (Target State)
+
+목표는 QDevice가 클러스터에 정상 등록되고, vote 판단에 참여하는 상태다.
+
+- 2노드 Proxmox 클러스터가 먼저 정상이다.
+- QDevice host에서 `corosync-qnetd`가 실행 중이다.
+- Proxmox 모든 노드에서 `corosync-qdevice`가 설치되어 있다.
+- 모든 Proxmox 노드가 QDevice host의 5403/TCP에 접근할 수 있다.
+- `pvecm status`에 `Flags: Quorate Qdevice`가 나타나고 QDevice row가 alive 상태로 보인다.
+
+## 4. 시스템 번역 (Data Flow)
+
+QDevice vote 문제는 다음 경로 중 어디가 끊겼는지 찾는 작업이다.
+
+```text
+Proxmox node
+  -> corosync-qdevice package
+  -> cluster certificate and SSH setup
+  -> QDevice host 5403/TCP
+  -> corosync-qnetd service
+  -> votequorum decision
+  -> pvecm status output
+```
+
+`ping`이 된다는 사실은 IP 도달성만 의미한다. QDevice 정상 여부는 5403/TCP, qnetd 서비스, 등록 상태, vote flag로 판단해야 한다.
+
+## 5. 핵심 구성요소 (Building Blocks)
+
+`pvecm status`는 quorum 상태, expected votes, total votes, QDevice row를 보여준다.
+
+`systemctl status corosync-qdevice`와 클라이언트 journal은 daemon 상태와 연결 오류를 확인하는 경로다.
+
+`corosync-qnetd`는 Raspberry Pi 같은 외부 QDevice host에서 실행된다.
+
+`corosync-qdevice`는 Proxmox VE 각 노드에서 실행된다.
+
+`pvecm qdevice setup <QDEVICE-IP>`와 `pvecm qdevice remove`는 QDevice 등록과 제거를 위한 공식 경로다. Proxmox 문서는 QDevice 설정을 한 Proxmox 노드에서 `pvecm qdevice setup <QDEVICE-IP>`로 수행하라고 설명한다.
+
+## 6. 상태 전이 (State Transition)
+
+문제 해결은 다음 순서로 진행한다.
+
+```text
+클러스터 노드 수 확인
+  -> QDevice host 서비스 확인
+  -> 5403/TCP 도달성 확인
+  -> Proxmox 패키지와 daemon 확인
+  -> qdevice 상태 확인
+  -> 공식 remove/setup 재등록
+  -> pvecm status 검증
+```
+
+이 순서로 해결되지 않을 때만 `/etc/pve/corosync.conf`를 읽어서 현재 설정을 확인한다. 직접 수정은 백업과 콘솔 접근이 있을 때만 수행한다.
+
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- 단일 Proxmox 노드에 QDevice를 붙여도 HA가 되지 않는다.
+- QDevice 문제를 해결하기 위해 처음부터 `corosync.conf`를 수동 편집하지 않는다.
+- QDevice host의 5403/TCP가 모든 Proxmox 노드에서 열려 있어야 한다.
+- QDevice host에는 `corosync-qnetd`, Proxmox 노드에는 `corosync-qdevice`를 둔다.
+- expected votes 강제 변경은 일상 진단에 사용하지 않는다. 다른 partition의 writer 배제와 해당 버전의 복구 절차가 필요하다.
+- QDevice 설정 전후에는 `pvecm status` 출력을 저장해 비교한다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+먼저 Proxmox 노드 수와 quorum 상태를 확인한다.
 
 ```bash
-pveversion -v
 pvecm status
 pvecm nodes
-systemctl status corosync-qdevice --no-pager
-journalctl -u corosync-qdevice --since "-15 min"
+corosync-quorumtool -s
 ```
 
-QNetd 호스트에서는 다음을 확인합니다.
+QDevice host에서 qnetd 상태를 확인한다.
 
 ```bash
-systemctl status corosync-qnetd --no-pager
-journalctl -u corosync-qnetd --since "-15 min"
-ss -lntp | grep 5403
+sudo systemctl status corosync-qnetd
+sudo ss -lntp | grep 5403
 ```
 
-`votes 0`만 보지 말고 `Expected votes`, `Total votes`, `Quorate`, QDevice 플래그와 노드 수를 함께 해석합니다. 단일 노드나 지원되지 않는 토폴로지는 재설정보다 설계 수정이 먼저입니다.
+Proxmox 각 노드에서 QDevice host 접근성을 확인한다.
 
-## 2. 연결과 인증 확인
+```bash
+nc -vz 192.168.1.55 5403
+ssh root@192.168.1.55
+```
 
-- QNetd의 안정된 주소와 실제 TCP listener에 각 노드가 연결되는지 확인합니다.
-- 시간, 이름 해석, 방화벽, 인증서 만료와 클러스터 이름 불일치를 양쪽 journal에서 대조합니다.
-- Corosync 노드 간 UDP와 QNetd TCP 흐름을 같은 포트 문제로 취급하지 않습니다.
-- 포트 연결 성공만으로 TLS와 QDevice 등록 성공을 판정하지 않습니다.
+Proxmox 각 노드에서 패키지와 서비스 상태를 확인한다.
 
-## 3. 지원되는 재등록
+```bash
+dpkg -l corosync-qdevice
+systemctl status corosync-qdevice
+```
 
-클러스터가 quorate이고 유지보수 창과 콘솔 접근이 확보된 경우에만 한 클러스터 노드에서 실행합니다.
+연결·인증서·시간·클러스터 이름과 양쪽 로그를 먼저 대조한다. 재등록이 필요한 경우에만 정상 quorum, 콘솔과 유지보수 창을 확보하고 한 클러스터 노드에서 기존 QDevice 등록을 제거한다.
 
 ```bash
 pvecm qdevice remove
-apt install corosync-qdevice
-pvecm qdevice setup <QNETD_IP>
 ```
 
-`-f`는 기존 상태를 덮어쓸 필요와 영향을 확인한 경우에만 해당 버전 문서에 따라 사용합니다. 패키지 재설치나 전체 서비스 재시작을 첫 조치로 사용하지 않습니다.
+필요 패키지는 모든 노드에서 확인·설치하고, setup은 한 클러스터 노드에서 한 번 실행한다.
 
-## 4. 완료, 실패 및 롤백 증거
+```bash
+apt update
+apt install -y corosync-qdevice
+pvecm qdevice setup 192.168.1.55
+```
 
-모든 노드의 expected votes, QDevice 연결, quorum이 일관되고 양쪽 로그에 인증·재연결 오류가 없어야 합니다. 유지보수 창에서 QNetd만 중단한 경우와 한 노드만 중단한 경우를 분리해 시험하고 예상한 쪽만 quorate인지 기록합니다. 결과가 다르면 `pvecm qdevice remove`로 외부 vote를 제거하고 기존 네트워크·인증 정책을 복원합니다.
+상태를 다시 확인한다.
+
+```bash
+pvecm status
+systemctl status corosync-qdevice --no-pager
+journalctl -u corosync-qdevice --since "-15 min"
+corosync-quorumtool -s
+```
+
+## 9. 실패 사례 (What could go wrong?)
+
+단일 노드 클러스터에 QDevice만 붙인 상태라면 설계 자체가 잘못된 것이다. 먼저 두 번째 Proxmox 노드를 구성하거나 QDevice를 제거한다.
+
+QDevice가 `NA`로 보이면 qnetd 서버가 살아 있지 않거나 5403/TCP가 막힌 것이다. Proxmox 공식 문서도 `NA` 상태에서는 qnetd 기본 포트 5403/TCP 도달성을 확인하라고 한다.
+
+QDevice가 `NV`로 보이면 alive이더라도 해당 노드에 vote를 주지 않는 상태일 수 있다. split-brain 상황에서는 QDevice가 한쪽 partition에만 vote를 줄 수 있다.
+
+`Host key verification failed`가 나오면 Proxmox 노드의 SSH known hosts나 인증서 상태가 꼬였을 수 있다. 공식 문서는 이 단계에서 `pvecm updatecerts`가 도움이 될 수 있다고 안내한다.
+
+`corosync.conf`를 직접 수정한 뒤 corosync를 재시작하면 클러스터 전체 quorum이 흔들릴 수 있다. 수동 수정은 마지막 선택지이며, `/etc/pve/corosync.conf` 백업과 콘솔 접근이 있어야 한다.
+
+## 10. 뇌 확장하기 (Evolution & Variants)
+
+2노드 클러스터에 QDevice를 붙이면 quorum 문제는 줄어들지만, HA 스토리지 문제는 별개다. VM failover를 기대한다면 shared storage, ZFS replication, backup/restore, watchdog/fencing까지 함께 검증해야 한다.
+
+QDevice host를 SBC로 운영한다면 전원, SD 카드 내구성, OS 업데이트, NTP 시간 동기화, 방화벽 정책을 별도 운영 대상으로 둔다.
+
+노드를 추가하거나 제거할 계획이 있으면 먼저 `pvecm qdevice remove`로 QDevice를 제거하고 멤버십 작업을 끝낸 뒤 다시 설정한다. Proxmox 문서도 QDevice가 있는 클러스터의 노드 추가/삭제 전 제거를 요구한다.
+
+## 11. 최종 체크리스트 (Definition of Done)
+
+- [ ] 클러스터가 단일 노드인지 2노드 이상인지 확인했다.
+- [ ] QDevice host에서 `corosync-qnetd`가 실행 중이다.
+- [ ] 모든 Proxmox 노드에서 QDevice host 5403/TCP가 열린다.
+- [ ] 모든 Proxmox 노드에 `corosync-qdevice`가 설치되어 있다.
+- [ ] 재등록이 필요한 경우에만 정상 quorum을 확인하고 공식 remove/setup 절차를 수행했다.
+- [ ] `pvecm status`에서 QDevice 상태가 alive로 보인다.
+- [ ] 수동 `corosync.conf` 수정 없이 해결했다.
+- [ ] 변경 전후 상태 출력을 기록했다.
+
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
+
+QDevice vote 문제는 `corosync.conf`부터 고치는 문제가 아니라 `노드 수 -> qnetd 서비스 -> 5403/TCP -> qdevice daemon -> pvecm 재등록` 순서로 좁히는 문제다. 단일 노드에 QDevice를 붙여도 HA가 생기지 않는다.

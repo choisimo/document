@@ -1,257 +1,204 @@
----
-description: Proxmox VE의 스냅샷, 백업, 템플릿 기능 비교 및 활용 가이드
----
+# Proxmox 스냅샷, 백업, 템플릿 기준
 
-# Proxmox 스냅샷 vs 백업 vs 템플릿
+Proxmox VE의 snapshot, backup, template은 모두 VM/CT 상태를 다루지만 목적이 다르다. 이 문서는 세 기능을 “롤백”, “복구”, “표준 배포”라는 운영 경계로 나누어 정리한다.
 
-세 기능의 목적과 복구 경계를 비교합니다. 지원 기능과 정합성은 Proxmox VE 버전, VM·컨테이너 종류, 스토리지 백엔드, guest agent, 백업 모드에 따라 달라집니다.
+Proxmox VE 버전, VM/CT 종류, 스토리지 백엔드, guest agent와 백업 모드에 따라 지원 기능·생성 시간·일관성이 다르다. 모든 snapshot이 같은 delta 방식은 아니며 파일시스템 freeze만으로 DB의 애플리케이션 일관성이 보장되지는 않는다. 복원 시험에는 backup 데이터 외에 키·카탈로그·권한도 필요하다.
 
-## 한눈에 보는 비교
+## 1. 왜 필요한가? (Pain Point & Motivation)
 
-| 구분 | 스냅샷 (Snapshot) | 백업 (Backup) | 템플릿 (Template) |
-|------|-------------------|---------------|-------------------|
-| **핵심 비유** | 게임 '세이브 포인트' | 외장하드에 복사 | 공장의 '금형(틀)' |
-| **주 목적** | 단기 상태 저장 및 롤백 | 장기 보관 및 재해 복구 | VM 배포 및 복제 |
-| **저장 위치** | 원본 디스크와 동일 | **외부 스토리지 권장** | Proxmox 스토리지 내 |
-| **의존성** | 대개 원본 스토리지 장애 도메인에 의존 | 별도 장애 도메인·키·카탈로그가 있어야 원본과 독립 | Linked Clone은 템플릿·백엔드에 의존 |
-| **속도** | 백엔드와 VM 상태에 따라 다름 | 데이터량·압축·스토리지에 따라 다름 | Clone 방식과 백엔드에 따라 다름 |
-| **데이터 포함** | RAM 상태 포함 가능 | 설정 + 디스크 전체 | OS 및 패키지 상태 |
+Proxmox 운영에서 가장 흔한 실수는 snapshot을 backup처럼 믿거나, template을 변경 가능한 VM처럼 다루거나, backup을 만들고 restore를 검증하지 않는 것이다.
 
----
+snapshot은 빠른 되돌리기에는 좋지만 원본 storage 장애에는 무력하다. backup은 재해 복구의 기준이지만 시간과 저장 공간이 든다. template은 반복 배포를 빠르게 하지만 오래 방치하면 보안 업데이트와 기본 설정이 낡는다.
 
-## :material-camera: 스냅샷 (Snapshot)
+## 2. 현재 나의 상태 (Baseline)
 
-**"실행 취소(Undo) 버튼"** - 특정 시점의 VM 상태를 찍어두는 기능
+기존 문서는 snapshot, backup, template의 차이를 비교하고 GUI/CLI 예제를 제공한다. 다만 운영 관점에서 다음 항목이 부족했다.
 
-### 핵심 용도
+- snapshot이 원본 storage에 의존한다는 위험이 더 강하게 고정되어야 한다.
+- Proxmox backup mode의 consistency/downtime trade-off가 빠져 있다.
+- CT mount point와 bind mount가 backup에 포함되는지 확인해야 한다.
+- template에는 machine-id, SSH host key, cloud-init 상태, secret 제거가 필요하다.
+- backup은 생성보다 restore test가 완료 기준이라는 점이 약하다.
 
-- 위험한 작업(OS 업데이트, 설정 변경) **직전**에 생성
-- 문제 발생 시 즉시 **롤백(Rollback)**
+## 3. 도달하고 싶은 목표 (Target State)
 
-### 작동 방식
+목표는 작업 목적에 맞는 기능을 선택하고, 복구 가능성을 검증하는 것이다.
 
+- 위험한 변경 전에는 snapshot을 짧게 유지한다.
+- 재해 복구에는 외부 storage 또는 Proxmox Backup Server에 backup을 둔다.
+- 반복 배포에는 cloud-init 가능한 template을 사용한다.
+- linked clone과 full clone의 의존성을 구분한다.
+- backup은 restore test까지 완료해야 성공으로 본다.
+
+## 4. 시스템 번역 (Data Flow)
+
+세 기능은 다음처럼 다른 데이터 흐름을 가진다.
+
+```text
+Snapshot
+  -> backend-specific snapshot state
+  -> short rollback point
+
+Backup
+  -> vzdump or backup job
+  -> backup storage or Proxmox Backup Server
+  -> restore target
+
+Template
+  -> prepared VM image
+  -> convert to template
+  -> clone
+  -> cloud-init personalization
 ```
-원본 디스크 [Base] ──┬── 스냅샷 1 (변경분만 저장)
-                     └── 스냅샷 2 (변경분만 저장)
+
+snapshot은 대개 원본과 같은 스토리지 장애 도메인에 남는다. backup은 별도 장애 도메인과 복구에 필요한 키·카탈로그까지 확보해야 원본 손상에 독립적인 복구 산출물이 된다. template은 복구 산출물이 아니라 새 VM을 찍어내는 기준 이미지다.
+
+## 5. 핵심 구성요소 (Building Blocks)
+
+Snapshot은 VM/CT의 특정 시점을 같은 storage 안에 기록한다. 빠르지만 원본 volume과 storage에 의존한다.
+
+Backup은 `vzdump` 또는 Datacenter backup job으로 생성한다. Proxmox 공식 문서는 backup이 VM/CT 설정과 데이터를 포함하는 full backup이라고 설명한다. Proxmox Backup Server를 쓰면 deduplicated chunks와 metadata로 저장된다.
+
+Backup mode는 consistency와 downtime의 trade-off다. VM `stop` mode는 가장 높은 일관성을 주지만 중단이 있고, `snapshot` mode는 다운타임이 작지만 guest agent/fsfreeze 상태에 따라 일관성 위험이 남는다.
+
+Template은 부팅 가능한 운영 VM이 아니라 clone의 원본이다. linked clone은 template에 의존하고, full clone은 독립적이다.
+
+Cloud-init은 template에서 복제된 VM의 사용자, SSH key, 네트워크 설정을 주입하는 personalization 경로다.
+
+## 6. 상태 전이 (State Transition)
+
+위험한 변경 작업은 다음 상태로 진행한다.
+
+```text
+backup 존재 확인
+  -> snapshot 생성
+  -> 변경 작업
+  -> 검증
+  -> snapshot 삭제 또는 rollback
 ```
 
-- 구현은 ZFS, LVM-thin, Ceph, qcow2 등 백엔드마다 다르며 모든 스냅샷이 같은 delta 방식을 쓰지 않습니다.
-- 생성 시간과 일시 정지 영향은 디스크 수, RAM 포함 여부와 I/O 부하에 따라 측정합니다.
+재해 복구 준비는 다음 상태로 진행한다.
 
-### GUI에서 스냅샷 생성
+```text
+backup job 생성
+  -> backup 완료
+  -> retention 적용
+  -> 별도 VMID로 restore test
+  -> boot/application 검증
+  -> 운영 절차 기록
+```
 
-1. VM 선택 → **[Snapshots]** 탭
-2. **[Take Snapshot]** 클릭
-3. 이름 입력 (예: `before-kernel-update`)
-4. `Include RAM` 체크 (실행 중인 상태까지 저장하려면)
+template 운영은 다음 상태로 진행한다.
 
-Snapshot 모드는 실행 중인 게스트의 파일 시스템이나 데이터베이스를 자동으로 애플리케이션 일관 상태로 만든다고 보장하지 않습니다. guest agent와 애플리케이션별 freeze/hook 또는 자체 백업을 확인하세요.
+```text
+base VM 준비
+  -> package update
+  -> secret and identity cleanup
+  -> cloud-init 설정
+  -> template 변환
+  -> clone
+  -> per-VM 설정 주입
+```
 
-### CLI 명령어
+## 7. 불변식 (Invariant: 절대 깨지면 안 되는 규칙)
+
+- Snapshot은 backup이 아니다.
+- Snapshot은 변경 작업이 끝나면 삭제하거나 명확한 보존 기간을 둔다.
+- Backup storage는 원본 VM storage와 같은 단일 장애점에 두지 않는다.
+- Backup은 restore test 없이는 완료로 보지 않는다.
+- CT의 추가 mount point, bind mount, device mount는 backup 포함 여부를 따로 확인한다.
+- Template에는 개인 SSH key, token, host-specific machine-id를 남기지 않는다.
+- Linked clone을 쓰면 template을 삭제하거나 손상시키지 않는다.
+
+## 8. 가장 작은 예제 (Minimal Viable Example)
+
+위험한 업데이트 전 snapshot을 만든다.
 
 ```bash
-# 스냅샷 생성
-qm snapshot <VMID> <스냅샷이름> --description "설명"
-
-# 스냅샷 목록 확인
-qm listsnapshot <VMID>
-
-# 스냅샷으로 롤백
-qm rollback <VMID> <스냅샷이름>
-
-# 스냅샷 삭제
-qm delsnapshot <VMID> <스냅샷이름>
+qm snapshot 100 before-upgrade --description "before package upgrade"
+qm listsnapshot 100
 ```
 
-!!! warning "주의사항"
-    - **백업이 아닙니다!** 원본 디스크가 깨지면 스냅샷도 함께 소실
-    - 오래 유지하거나 많이 만들면 디스크 성능 저하
-    - 작업 완료 후에는 **삭제하는 것이 원칙**
-
----
-
-## :material-backup-restore: 백업 (Backup)
-
-**"보험(Safety Net)"** - VM 전체를 압축하여 별도 파일로 저장
-
-### 핵심 용도
-
-- 하드웨어 고장, 데이터 삭제, 랜섬웨어 감염 등 **재해 복구**
-- 장기 보관 및 아카이빙
-
-### 작동 방식
-
-```
-VM 전체 → 압축 → vzdump-qemu-100-2026_01_26.vma.zst
-                 (NAS, PBS 등 외부 스토리지에 저장)
-```
-
-### GUI에서 백업 생성
-
-1. VM 선택 → **[Backup]** 탭
-2. **[Backup now]** 클릭
-3. 설정:
-   - **Storage**: 백업 저장 위치 (NAS, PBS 권장)
-   - **Mode**: Stop/Suspend/Snapshot
-   - **Compression**: ZSTD (권장)
-
-### CLI 명령어
+문제가 생기면 rollback한다.
 
 ```bash
-# 즉시 백업
-vzdump <VMID> --storage <저장소> --compress zstd --mode stop
-
-# 백업 파일에서 복원
-qmrestore <백업파일경로> <새VMID> --storage <스토리지>
+qm rollback 100 before-upgrade
 ```
 
-### 자동 백업 스케줄 설정
-
-**Datacenter → Backup → Add**
-
-```yaml
-Storage: nfs-backup
-Schedule: 02:00 (매일 새벽 2시)
-Selection mode: Include/Exclude
-Mode: Snapshot
-Compression: ZSTD
-Retention: keep-last=7, keep-weekly=4
-```
-
-!!! tip "백업 전략 (3-2-1 규칙)"
-    - **3개**의 데이터 사본
-    - **2개**의 다른 저장 매체
-    - **1개**는 오프사이트(외부 위치)
-
----
-
-## :material-shape-plus: 템플릿 (Template)
-
-**"붕어빵 틀(Blueprint)"** - VM 복제를 위한 기본 이미지
-
-### 핵심 용도
-
-- 동일한 환경의 VM을 **빠르게 대량 생산**
-- 표준화된 설정의 VM 배포
-
-### 작동 방식
-
-```
-Ubuntu VM (설정 완료) 
-    ↓ Convert to Template
-Template (불변, 부팅 불가)
-    ↓ Clone
-├── web-server-01
-├── web-server-02
-└── web-server-03
-```
-
-### 템플릿 생성 방법
-
-#### 방법 1: 기존 VM을 템플릿으로 변환
-
-1. VM을 완전히 설정하고 종료
-2. VM 우클릭 → **[Convert to Template]**
-3. 템플릿은 더 이상 부팅/수정 불가
-
-#### 방법 2: Cloud Image로 템플릿 생성 (권장)
+작업이 끝나고 안정화되면 snapshot을 제거한다.
 
 ```bash
-# 1. 우분투 클라우드 이미지 다운로드
-wget https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
+qm delsnapshot 100 before-upgrade
+```
 
-# 2. 빈 VM 생성
-qm create 9000 --name "ubuntu-template" --memory 2048 --net0 virtio,bridge=vmbr0
+외부 파일 기반 backup storage인 `backup-dir`가 등록되고 충분한 공간이 있는지 확인한 뒤 backup을 만든다. PBS를 선택하면 파일 archive 경로 대신 PBS volume ID와 해당 복원 절차를 사용한다.
 
-# 3. 이미지를 VM 디스크로 임포트
-qm importdisk 9000 jammy-server-cloudimg-amd64.img local-lvm
+```bash
+vzdump 100 --storage backup-dir --compress zstd --mode snapshot
+```
 
-# 4. 디스크 연결
+작업 로그에서 실제 archive 경로를 확인한다. 아래 경로는 예시이므로 해당 경로로 바꾸고, 비어 있는 새 VMID와 격리된 네트워크로 복원한다. 원본과 같은 IP·서비스가 동시에 활성화되지 않도록 NIC 설정을 검토한 뒤 별도로 부팅한다.
+
+```bash
+qmrestore /var/lib/vz/dump/vzdump-qemu-100-2026_05_27-020000.vma.zst 9100 --storage local-lvm
+```
+
+cloud image 기반 template의 최소 흐름은 다음과 같다. 이미지를 공식 checksum·서명으로 검증하고 버전과 digest를 기록한다. VMID·스토리지·importdisk 결과의 실제 volume ID를 확인한 뒤 다음 단계를 진행한다.
+
+```bash
+wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+qm create 9000 --name ubuntu-noble-template --memory 2048 --net0 virtio,bridge=vmbr0
+qm importdisk 9000 noble-server-cloudimg-amd64.img local-lvm
 qm set 9000 --scsihw virtio-scsi-pci --scsi0 local-lvm:vm-9000-disk-0
-
-# 5. 부팅 순서 설정
-qm set 9000 --boot c --bootdisk scsi0
-
-# 6. Cloud-Init 드라이브 추가
+qm set 9000 --boot order=scsi0
 qm set 9000 --ide2 local-lvm:cloudinit
-
-# 7. 템플릿으로 변환
+qm set 9000 --serial0 socket --vga serial0
 qm template 9000
 ```
 
-### 템플릿에서 VM 복제 (Clone)
-
-1. 템플릿 우클릭 → **[Clone]**
-2. 설정:
-   - **VM ID / Name**: 새 VM 정보
-   - **Mode**: 
-     - **Linked Clone**: 빠름, 공간 절약, 템플릿 의존
-     - **Full Clone**: 느림, 완전 독립
-
-| Clone 방식 | 생성 속도 | 디스크 사용량 | 템플릿 의존성 |
-|-----------|----------|--------------|--------------|
-| Linked Clone | 수 초 | 매우 적음 | **있음** |
-| Full Clone | 수 분 | 전체 크기 | 없음 |
-
-### Cloud-Init 설정
-
-복제 후 **[Cloud-Init]** 탭에서:
-
-- **User**: 기본 사용자 계정
-- **Password / SSH Key**: 접속 인증 정보
-- **IP Config**: DHCP 또는 Static IP
-
-!!! info "Regenerate Image"
-    설정 변경 후 반드시 **[Regenerate Image]** 클릭!
-
----
-
-## 템플릿 내보내기/가져오기
-
-### 내보내기 (Export)
-
-Proxmox에는 직접적인 Export 메뉴가 없습니다. **백업 기능**을 사용합니다.
+template에서 full clone을 만든다.
 
 ```bash
-# 1. 템플릿 백업 생성
-vzdump 9000 --storage local --compress zstd
-
-# 2. 백업 파일 다운로드
-# GUI: Storage → Backups → Download
-# 또는 SCP로 직접 복사
-scp /var/lib/vz/dump/vzdump-*.vma.zst user@remote:/backup/
+qm clone 9000 101 --name web-01 --full true --storage local-lvm
+qm set 101 --ciuser admin --sshkeys ~/.ssh/id_ed25519.pub --ipconfig0 ip=dhcp
+qm start 101
 ```
 
-### 가져오기 (Import)
+## 9. 실패 사례 (What could go wrong?)
 
-```bash
-# 1. 백업 파일 업로드
-# GUI: Storage → Backups → Upload
+snapshot을 장기간 방치하면 delta가 커지고 성능과 관리 복잡도가 나빠진다. 원본 storage 장애가 나면 snapshot도 함께 잃는다.
 
-# 2. 복원
-qmrestore /var/lib/vz/dump/vzdump-qemu-9000-*.vma.zst 9001
+backup job은 성공했지만 CT bind mount가 빠져 있으면 복구 후 데이터가 비어 있을 수 있다. Proxmox 공식 문서는 CT의 device와 bind mount 내용은 Proxmox storage library 밖에서 관리되므로 backup되지 않는다고 설명한다.
 
-# 3. 다시 템플릿으로 변환
-qm template 9001
-```
+VM snapshot mode backup은 guest 내부 애플리케이션 일관성을 항상 보장하지 않는다. 데이터베이스는 guest agent, fsfreeze, application-level dump를 함께 고려한다.
 
----
+linked clone을 많이 만든 뒤 template을 삭제하면 clone 의존성이 깨질 수 있다. 장기 운영 VM은 full clone이 더 단순하다.
 
-## 언제 무엇을 써야 할까?
+template에 `/etc/machine-id`, SSH host key, cloud-init 상태, shell history, token이 남아 있으면 clone들이 같은 identity나 secret을 공유할 수 있다.
 
-| 상황 | 선택 |
-|-----|------|
-| "방화벽 설정을 건드리기 전 혹시 몰라서..." | :material-camera: **스냅샷** |
-| "서버 디스크가 언제 고장 날지 모르니..." | :material-backup-restore: **백업** |
-| "똑같은 리눅스 서버 5대를 빨리 만들어야..." | :material-shape-plus: **템플릿** |
+## 10. 뇌 확장하기 (Evolution & Variants)
 
----
+Proxmox Backup Server를 쓰면 deduplication, prune, verify, namespace, encryption 같은 운영 기능을 활용할 수 있다. 단, PBS 자체도 backup과 monitoring 대상이다.
+
+ZFS, Ceph, LVM-thin 같은 storage backend는 snapshot과 clone 동작 특성이 다르다. 운영 표준은 storage backend 기준으로 다시 검토해야 한다.
+
+대규모 배포에서는 template 관리가 image pipeline이 된다. base image update, security patch, vulnerability scan, cloud-init test, template versioning을 자동화 대상으로 둔다.
 
 ## 완료, 실패 및 복구 증거
 
 스냅샷은 테스트 VM 롤백, 백업은 격리된 VM ID로의 실제 복원, 템플릿은 clone 후 machine-id·SSH host key·cloud-init·네트워크 중복 확인까지 통과해야 완료입니다. 목록과 작업 성공 표시는 복구 증거가 아닙니다. 실패한 부분 clone/restore는 원본 VM ID를 덮어쓰지 말고 정리한 뒤 재시도합니다.
 
-## 참고 자료
+## 11. 최종 체크리스트 (Definition of Done)
 
-- [Proxmox VE 공식 문서 - Backup and Restore](https://pve.proxmox.com/wiki/Backup_and_Restore)
-- [Proxmox VE 공식 문서 - Templates](https://pve.proxmox.com/wiki/VM_Templates_and_Clones)
+- [ ] 변경 작업 전 최신 backup 존재를 확인했다.
+- [ ] snapshot 목적과 삭제 시점을 기록했다.
+- [ ] backup job이 외부 또는 별도 backup storage를 사용한다.
+- [ ] retention 정책을 설정했다.
+- [ ] restore test를 별도 VMID로 수행했다.
+- [ ] CT mount point와 bind mount 포함 여부를 확인했다.
+- [ ] template에서 secret과 host identity를 제거했다.
+- [ ] linked clone과 full clone 중 의도한 방식을 선택했다.
+
+## 12. 뇌에 새기는 복습 문장 (TL;DR Blank)
+
+Snapshot은 짧은 rollback 지점, backup은 재해 복구 산출물, template은 새 VM을 만드는 기준 이미지다. 셋 중 장애 복구를 증명하는 것은 restore test를 통과한 backup뿐이다.

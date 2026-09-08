@@ -167,10 +167,10 @@ Strategy: In-order Successor (오른쪽 서브트리의 최소값)
 
 | Language | Focus | File |
 |----------|-------|------|
-| Python | 직관적 이해, Reference Counting | `01_python/bst.py` |
-| JavaScript | V8 엔진 최적화, Hidden Class | `02_javascript/bst.js` |
-| Java | JVM 메모리 모델, GC 생애 주기 | `03_java/BinarySearchTree.java` |
-| Rust | Ownership, Zero-cost Abstraction | `04_rust/src/lib.rs` |
+| Python | 직관적 이해, Reference Counting | [python/bst.py](python/bst.py) |
+| JavaScript | V8 엔진 최적화, Hidden Class | [javascript/bst.js](javascript/bst.js) |
+| Java | JVM 메모리 모델, GC 생애 주기 | [java/BinarySearchTree.java](java/BinarySearchTree.java) |
+| Rust | Ownership, Zero-cost Abstraction | [rust/src/lib.rs](rust/src/lib.rs) |
 
 ---
 

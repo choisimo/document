@@ -130,11 +130,13 @@ flowchart LR
 - `β` = 0.7 (multiplicative decrease factor, less aggressive than Reno's 0.5)
 
 **BBR (Bottleneck Bandwidth and RTT)** — probes bandwidth directly:
+
 ```
 BtlBw = max delivery rate over RTprop window
 pacing_rate = BtlBw × pacing_gain
 cwnd = BtlBw × RTprop × cwnd_gain
 ```
+
 BBR versions use model-based states such as STARTUP, DRAIN, PROBE_BW, and PROBE_RTT rather than treating loss as the primary bandwidth signal. Implementations still participate in loss recovery and can adjust sending constraints, so “never reacting to loss” is too strong and must be checked against the deployed version.
 
 ---
@@ -215,6 +217,7 @@ sequenceDiagram
 ```
 
 `struct neighbour` in kernel:
+
 ```c
 struct neighbour {
     __u8            primary_key[4];  // IP address
@@ -258,6 +261,7 @@ sequenceDiagram
 ```
 
 DNS message wire format (RFC 1035):
+
 ```
 Header (12 bytes): ID(16) | QR|Opcode|AA|TC|RD|RA|Z|RCODE | QDCOUNT | ANCOUNT | NSCOUNT | ARCOUNT
 Question: QNAME (labels) | QTYPE (2) | QCLASS (2)
@@ -284,13 +288,16 @@ flowchart TD
 ```
 
 **Connection tracking (conntrack)** — each TCP/UDP flow stored in hash table:
+
 ```
 nf_conntrack_tuple: {src_ip, src_port, dst_ip, dst_port, proto, netns}
 State: NEW → ESTABLISHED → RELATED → INVALID
 ```
+
 NAT rewrites packets by modifying sk_buff IP/TCP headers + recalculating checksums incrementally (RFC 1624 one's complement incremental update).
 
 **nftables** replaces iptables using a register-based VM:
+
 ```
 rule → list of expressions → each expression operates on registers r0..r15
 verdict: accept / drop / jump / goto / return / continue

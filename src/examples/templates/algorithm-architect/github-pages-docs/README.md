@@ -10,7 +10,7 @@ This index describes the currently linked visual explanations, not an automatic 
 
 ## 렌더링 원칙
 - 현재 visual page는 Mermaid block을 포함하도록 설계되며 validator와 target renderer에서 확인합니다.
-- 각 페이지는 Flow + Sequence 시각화와 핵심 코드, 레이어 해설을 제공합니다.
+- 각 페이지는 Flow + Sequence 시각화와 핵심 코드, 레이어 해설로 구성된다.
 - 원본 파일 링크를 포함해 원문과 해설을 왕복할 수 있습니다.
 
 ## 문서 색인

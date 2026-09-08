@@ -140,6 +140,7 @@ sequenceDiagram
 ### HKDF Key Derivation
 
 TLS 1.3 uses HKDF (HMAC-based Extract-and-Expand KDF):
+
 ```
 HKDF-Extract(salt, IKM) = HMAC-SHA256(salt, IKM) → PRK (pseudorandom key)
 HKDF-Expand(PRK, info, L) = T(1) || T(2) || ... where T(i) = HMAC-SHA256(PRK, T(i-1)||info||i)

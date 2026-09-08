@@ -74,9 +74,11 @@ sequenceDiagram
 ### 2.1 Java HashMap Internal Buckets
 
 ```mermaid
-block-byzantine
+block-beta
   columns 1
-  block:HM["HashMap<K,V> internals"]:1
+  block:HM:1
+    columns 1
+    HMTitle["HashMap#60;K,V#62; internals"]:1
     A["Entry[] table (array of bucket heads)"]
     B["Entry{hash, key, value, next} — linked list nodes"]
     C["loadFactor = 0.75 (default)"]
@@ -85,6 +87,7 @@ block-byzantine
 ```
 
 **Put operation mechanics:**
+
 ```
 hash = key.hashCode() ^ (hash >>> 16)   // spread high bits
 index = hash & (table.length - 1)        // modulo via bitmask (power-of-2 tables)
@@ -183,15 +186,19 @@ O(N) time, O(1) space — versus storing all nodes in an array which is O(N) spa
 ### 4.1 Stack via Linked List vs Array
 
 ```mermaid
-block-byzantine
+block-beta
   columns 2
-  block:LL["Linked-List Stack"]:1
+  block:LL:1
+    columns 1
+    LLTitle["Linked-List Stack"]:1
     A["Each push: heap-allocate Node (32B)"]
     B["Unlimited size, no resize"]
     C["Cache-UNFRIENDLY: nodes scattered"]
     D["GC pressure: O(N) Node objects"]
   end
-  block:Arr["Array Stack (ArrayDeque)"]:1
+  block:Arr:1
+    columns 1
+    ArrTitle["Array Stack (ArrayDeque)"]:1
     E["Pre-allocated array, doubly-indexed"]
     F["Resize doubles array: O(N) amortized"]
     G["Cache-FRIENDLY: contiguous memory"]
@@ -293,6 +300,7 @@ flowchart TD
 ### 6.1 Fibonacci — Exponential vs Linear Memory
 
 **Naive recursion** (call tree):
+
 ```mermaid
 flowchart TD
     F5["fib(5)"] --> F4["fib(4)"]
@@ -308,6 +316,7 @@ flowchart TD
 Time: O(2^N), Space: O(N) call stack — but 2^N redundant computations.
 
 **Top-down memoization** (HashMap cache):
+
 ```mermaid
 sequenceDiagram
     participant Call as fib(5)
@@ -321,6 +330,7 @@ sequenceDiagram
 ```
 
 **Bottom-up tabulation** (array):
+
 ```
 dp[0] = 0, dp[1] = 1
 for i = 2..N: dp[i] = dp[i-1] + dp[i-2]
@@ -344,9 +354,11 @@ flowchart TD
 ### 6.3 String DP: Edit Distance — 2D Table Layout
 
 ```mermaid
-block-byzantine
+block-beta
   columns 1
-  block:ED["Edit Distance dp[i][j] = edit dist(s1[0..i], s2[0..j])"]:1
+  block:ED:1
+    columns 1
+    EDTitle["Edit Distance dp[i][j] = edit dist(s1[0..i], s2[0..j])"]:1
     R0["dp[0][j] = j (insert j chars)"]
     R1["dp[i][0] = i (delete i chars)"]
     R2["dp[i][j] = dp[i-1][j-1]  if s1[i]==s2[j]"]
@@ -431,6 +443,7 @@ sequenceDiagram
 ### 8.2 Binary Search — Integer Overflow Bug
 
 Classic binary search has a famous integer overflow bug:
+
 ```java
 // BUG: mid = (lo + hi) / 2 — overflows if lo+hi > Integer.MAX_VALUE
 // FIX: mid = lo + (hi - lo) / 2
@@ -465,7 +478,7 @@ sequenceDiagram
     Note over A: Copy remaining B elements to front of A
 ```
 
-Writing **from back to front** means we never overwrite unread elements — O(1) extra space.
+Writing **from back to front** avoids overwriting unread elements — O(1) extra space.
 
 ---
 
@@ -576,31 +589,31 @@ flowchart TD
 ### 11.2 Space-Time Tradeoff Map
 
 ```mermaid
-block-byzantine
+block-beta
   columns 3
-  block:h1["Problem"]:1
-  block:h2["Time-optimal"]:1
-  block:h3["Space-optimal"]:1
+  h1["Problem"]:1
+  h2["Time-optimal"]:1
+  h3["Space-optimal"]:1
 
-  block:r1["Unique characters"]:1
-  block:r2["O(N) hash set"]:1
-  block:r3["O(1) bit vector\n(if ASCII)"]
+  r1["Unique characters"]:1
+  r2["O(N) hash set"]:1
+  r3["O(1) bit vector<br/>(if ASCII)"]
 
-  block:r4["Two-sum"]:1
-  block:r5["O(N) hash map"]:1
-  block:r6["O(N log N) sort\n+ O(1) two-pointer"]
+  r4["Two-sum"]:1
+  r5["O(N) hash map"]:1
+  r6["O(N log N) sort<br/>+ O(1) two-pointer"]
 
-  block:r7["Palindrome check"]:1
-  block:r8["O(N) with center expand"]:1
-  block:r9["O(1) space, O(N) time\n(no extra array)"]
+  r7["Palindrome check"]:1
+  r8["O(N) with center expand"]:1
+  r9["O(1) space, O(N) time<br/>(no extra array)"]
 
-  block:r10["Anagram detection"]:1
-  block:r11["O(N) frequency array"]:1
-  block:r12["O(N log N) sort both\nO(1) extra space"]
+  r10["Anagram detection"]:1
+  r11["O(N) frequency array"]:1
+  r12["O(N log N) sort both<br/>O(1) extra space"]
 
-  block:r13["LRU cache"]:1
-  block:r14["O(1) HashMap + DoublyLinkedList"]:1
-  block:r15["O(1) space not possible\n(must store N items)"]
+  r13["LRU cache"]:1
+  r14["O(1) HashMap + DoublyLinkedList"]:1
+  r15["O(1) space not possible<br/>(must store N items)"]
 ```
 
 ---
