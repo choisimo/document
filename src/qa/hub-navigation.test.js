@@ -99,6 +99,23 @@ test('reference application reads the actual published corpus and preserves brow
     assert.equal(await page.locator('.result-row').count(), 0);
   });
 
+  await t.test('a queued dialog close does not steal focus from the next search', async st => {
+    const { page } = await setup(st);
+    await page.goto(base);
+    await page.locator('.quick-search').click();
+    await page.locator('#command-dialog[open]').waitFor();
+    const activeId = await page.evaluate(() => new Promise(resolve => {
+      const dialog = document.querySelector('#command-dialog');
+      dialog.addEventListener('close', () => resolve(document.activeElement.id), { once: true });
+      dialog.close();
+      document.querySelector('#home-search').focus();
+    }));
+    assert.equal(activeId, 'home-search');
+    await page.keyboard.type('Docker');
+    await page.keyboard.press('Enter');
+    await page.locator('.result-row').first().waitFor();
+  });
+
   await t.test('catalog, actual reader content, source links, bookmarks and workspace share a document', async st => {
     const { page } = await setup(st);
     await page.goto(base + '#/library');

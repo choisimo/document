@@ -1052,7 +1052,15 @@ if (!rename && sessions.length >= 8) { toast('한 탭에서 최대 8개 세션�
   $('#mobile-scrim').addEventListener('click', () => { closeNav(); $('.mobile-menu-btn')?.focus(); });
   for (const dialog of [$('#modal'), $('#command-dialog')]) {
     dialog.addEventListener('click', event => { if (event.target !== dialog) return; const r = dialog.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dialog.close(); });
-    dialog.addEventListener('close', () => { if (dialog.id === 'modal' && $('#assistant-form')) { assistantSequence++;window.aiClient?.abort?.(); } if (!$('dialog[open]')) document.body.classList.remove('dialog-open'); if (!$('dialog[open]') && restoreTarget?.isConnected && !restoreTarget.closest('dialog') && !restoreTarget.closest('[inert]')) restoreTarget.focus({ preventScroll: true }); });
+    dialog.addEventListener('close', () => {
+      if (dialog.id === 'modal' && $('#assistant-form')) { assistantSequence++; window.aiClient?.abort?.(); }
+      if ($('dialog[open]')) return;
+      document.body.classList.remove('dialog-open');
+      // The close event is queued. Keep focus if the user has already moved on.
+      const active = document.activeElement;
+      const needsRestore = !active || active === document.body || dialog.contains(active);
+      if (needsRestore && restoreTarget?.isConnected && !restoreTarget.closest('dialog') && !restoreTarget.closest('[inert]')) restoreTarget.focus({ preventScroll: true });
+    });
   }
   const onLocationChange=()=>{if(location.href!==lastRoutedURL)route();};
   window.addEventListener('hashchange',onLocationChange);
