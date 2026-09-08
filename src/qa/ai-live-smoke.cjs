@@ -14,6 +14,26 @@ const assert = require('node:assert/strict');
     assert.ok(process.env.AI_API_TOKEN, 'AI_API_TOKEN is required');
     privateConfig = { apiBaseUrl: base.replace(/\/+$/, ''), apiToken: process.env.AI_API_TOKEN,
       modelName: process.env.AI_MODEL_NAME || null };
+    const diagnosis = { apiHost: url.hostname, apiPath: url.pathname };
+    try {
+      const preflight = await fetch(privateConfig.apiBaseUrl + '/chat/completions', {
+        method: 'OPTIONS', redirect: 'error', signal: AbortSignal.timeout(15000),
+        headers: { Origin: 'https://docs.nodove.com', 'Access-Control-Request-Method': 'POST',
+          'Access-Control-Request-Headers': 'authorization,content-type' },
+      });
+      diagnosis.preflightStatus = preflight.status;
+      diagnosis.allowsDocumentationOrigin = ['*', 'https://docs.nodove.com'].includes(preflight.headers.get('access-control-allow-origin'));
+      const models = await fetch(privateConfig.apiBaseUrl + '/models', {
+        redirect: 'error', signal: AbortSignal.timeout(15000),
+        headers: { Authorization: 'Bearer ' + privateConfig.apiToken },
+      });
+      diagnosis.modelsStatus = models.status;
+      if (models.ok) {
+        const data = await models.json();
+        diagnosis.modelAvailable = data.data?.some(model => model.id === privateConfig.modelName) || false;
+      }
+    } catch (error) { diagnosis.networkError = error.cause?.code || error.name; }
+    console.log(JSON.stringify(diagnosis));
   }
   const browser = await chromium.launch({ headless: true });
   try {
