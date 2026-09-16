@@ -1,0 +1,422 @@
+export const concepts = [
+  {
+    "id": "01",
+    "slug": "evidence-search",
+    "title": "근거를 찾는 검색",
+    "en": "Evidence Search",
+    "family": "탐색",
+    "icon": "search",
+    "kicker": "질문에서 시작해, 출처까지 도착하기",
+    "description": "검색 결과와 근거 구절을 한 화면에서 검토합니다.",
+    "flow": "질문 → 검색 → 문서 선택 → 근거 확인",
+    "axes": [
+      "검색 중심",
+      "검색 결과 이동",
+      "질문·필터",
+      "결과 목록 + 근거 패널",
+      "검색창·스니펫·출처",
+      "중간"
+    ],
+    "module": "family-1.js",
+    "route": "concepts/01-evidence-search.html"
+  },
+  {
+    "id": "02",
+    "slug": "citation-reader",
+    "title": "문맥을 잃지 않는 읽기",
+    "en": "Citation Reader",
+    "family": "탐색",
+    "icon": "book",
+    "kicker": "읽던 자리에서 질문을 풀다",
+    "description": "문서를 읽으며 선택한 구절의 설명과 원문을 확인합니다.",
+    "flow": "문서 읽기 → 구절 선택 → 설명 → 출처",
+    "axes": [
+      "문서 중심",
+      "본문 목차",
+      "구절 선택",
+      "읽기 본문 + 여백 주석",
+      "문단·주석·인용",
+      "낮음"
+    ],
+    "module": "family-1.js",
+    "route": "concepts/02-citation-reader.html"
+  },
+  {
+    "id": "03",
+    "slug": "document-compare",
+    "title": "두 문서, 하나의 판단",
+    "en": "Document Compare",
+    "family": "탐색",
+    "icon": "layers",
+    "kicker": "비교의 기준을 나란히 놓다",
+    "description": "문서 두 개를 선택하고 차이와 공통점을 정리합니다.",
+    "flow": "문서 선택 → 비교 기준 → 나란히 검토",
+    "axes": [
+      "대조 중심",
+      "문서 선택기",
+      "비교 항목 전환",
+      "대칭 2단",
+      "문서 패널·기준 표",
+      "높음"
+    ],
+    "module": "family-1.js",
+    "route": "concepts/03-document-compare.html"
+  },
+  {
+    "id": "04",
+    "slug": "knowledge-graph",
+    "title": "연결로 이해하는 지식",
+    "en": "Knowledge Graph",
+    "family": "탐색",
+    "icon": "graph",
+    "kicker": "흩어진 개념에 길을 만들다",
+    "description": "개념의 연결을 따라가며 관련 문서를 찾아봅니다.",
+    "flow": "노드 선택 → 관계 탐색 → 원문",
+    "axes": [
+      "관계 중심",
+      "그래프 노드",
+      "관계 강조",
+      "공간 캔버스 + 인스펙터",
+      "노드·간선·범례",
+      "낮음"
+    ],
+    "module": "family-1.js",
+    "route": "concepts/04-knowledge-graph.html"
+  },
+  {
+    "id": "05",
+    "slug": "topic-atlas",
+    "title": "주제별 지식 아틀라스",
+    "en": "Topic Atlas",
+    "family": "탐색",
+    "icon": "grid",
+    "kicker": "새로운 주제로 들어가는 지도",
+    "description": "분야별 큐레이션과 읽기 순서로 지식의 범위를 탐색합니다.",
+    "flow": "분야 선택 → 컬렉션 → 읽기 목록",
+    "axes": [
+      "분야 중심",
+      "카테고리 탭",
+      "컬렉션 담기",
+      "편집형 매거진",
+      "분야 헤더·목록·특집",
+      "중간"
+    ],
+    "module": "family-1.js",
+    "route": "concepts/05-topic-atlas.html"
+  },
+  {
+    "id": "06",
+    "slug": "learning-path",
+    "title": "나에게 맞는 학습 경로",
+    "en": "Learning Path",
+    "family": "학습",
+    "icon": "graph",
+    "kicker": "목표를 오늘의 한 단계로",
+    "description": "목표를 고르고 문서 기반 학습 단계를 완료합니다.",
+    "flow": "목표 선택 → 단계 → 완료 체크",
+    "axes": [
+      "목표 중심",
+      "수직 단계",
+      "진도 체크",
+      "경로 + 현재 단계",
+      "스텝·진도·문서",
+      "중간"
+    ],
+    "module": "family-2.js",
+    "route": "concepts/06-learning-path.html"
+  },
+  {
+    "id": "07",
+    "slug": "concept-tutor",
+    "title": "생각을 확인하는 튜터",
+    "en": "Concept Tutor",
+    "family": "학습",
+    "icon": "message",
+    "kicker": "설명보다 먼저, 한 번 생각하기",
+    "description": "개념 질문에 답하고 근거와 함께 피드백을 확인합니다.",
+    "flow": "질문 → 답변 선택 → 해설 → 다음",
+    "axes": [
+      "질문 중심",
+      "문항 순서",
+      "선택형 퀴즈",
+      "중앙 집중 대화",
+      "질문·보기·피드백",
+      "낮음"
+    ],
+    "module": "family-2.js",
+    "route": "concepts/07-concept-tutor.html"
+  },
+  {
+    "id": "08",
+    "slug": "recall-studio",
+    "title": "기억을 되살리는 복습",
+    "en": "Recall Studio",
+    "family": "학습",
+    "icon": "layers",
+    "kicker": "읽은 지식을 내 것으로",
+    "description": "카드를 뒤집고 기억 정도에 따라 복습 큐를 조정합니다.",
+    "flow": "카드 → 정답 확인 → 기억 평가",
+    "axes": [
+      "기억 중심",
+      "카드 덱",
+      "뒤집기·평가",
+      "단일 카드 + 큐",
+      "앞뒷면·복습 통계",
+      "낮음"
+    ],
+    "module": "family-2.js",
+    "route": "concepts/08-recall-studio.html"
+  },
+  {
+    "id": "09",
+    "slug": "code-walkthrough",
+    "title": "한 줄씩 따라가는 코드",
+    "en": "Code Walkthrough",
+    "family": "학습",
+    "icon": "terminal",
+    "kicker": "실행의 흐름을 눈으로 읽다",
+    "description": "안전한 예시 코드를 단계별로 따라가며 상태 변화를 봅니다.",
+    "flow": "예시 선택 → 단계 진행 → 변수 관찰",
+    "axes": [
+      "실행 중심",
+      "단계 컨트롤",
+      "실행 재생",
+      "코드 + 변수 추적",
+      "코드 줄·상태 표·로그",
+      "높음"
+    ],
+    "module": "family-2.js",
+    "route": "concepts/09-code-walkthrough.html"
+  },
+  {
+    "id": "10",
+    "slug": "study-notebook",
+    "title": "문서와 연결된 학습 노트",
+    "en": "Study Notebook",
+    "family": "학습",
+    "icon": "edit",
+    "kicker": "읽고, 정리하고, 다시 찾기",
+    "description": "읽기 자료 옆에서 메모를 작성하고 내보냅니다.",
+    "flow": "문서 선택 → 노트 작성 → 저장 → 내보내기",
+    "axes": [
+      "기록 중심",
+      "노트 목록",
+      "편집·저장",
+      "문서 + 에디터 + 목록",
+      "노트·출처·편집기",
+      "높음"
+    ],
+    "module": "family-2.js",
+    "route": "concepts/10-study-notebook.html"
+  },
+  {
+    "id": "11",
+    "slug": "agent-workflow",
+    "title": "눈에 보이는 에이전트 흐름",
+    "en": "Agent Workflow",
+    "family": "에이전트",
+    "icon": "bolt",
+    "kicker": "작업이 지나가는 모든 단계를",
+    "description": "단계별 계획과 중단·재개 흐름을 로컬에서 살펴봅니다.",
+    "flow": "계획 확인 → 시작 → 중단 → 재개",
+    "axes": [
+      "파이프라인 중심",
+      "단계 노드",
+      "상태 전이",
+      "수평 파이프라인 + 결과",
+      "단계·실행 버튼·결과",
+      "중간"
+    ],
+    "module": "family-3.js",
+    "route": "concepts/11-agent-workflow.html"
+  },
+  {
+    "id": "12",
+    "slug": "parallel-research",
+    "title": "관점이 다른 병렬 리서치",
+    "en": "Parallel Research",
+    "family": "에이전트",
+    "icon": "grid",
+    "kicker": "세 가지 관점, 하나의 근거 묶음",
+    "description": "역할별 조사 결과를 비교하고 최종 요약을 구성합니다.",
+    "flow": "주제 선택 → 역할 실행 → 결과 비교 → 종합",
+    "axes": [
+      "역할 중심",
+      "역할 칼럼",
+      "병렬 결과 종합",
+      "3개 작업 칼럼",
+      "역할·결과·종합 노트",
+      "높음"
+    ],
+    "module": "family-3.js",
+    "route": "concepts/12-parallel-research.html"
+  },
+  {
+    "id": "13",
+    "slug": "run-timeline",
+    "title": "다시 살펴보는 실행 기록",
+    "en": "Run Timeline",
+    "family": "에이전트",
+    "icon": "clock",
+    "kicker": "결과에 이른 과정을 되짚다",
+    "description": "도구 호출·근거·오류의 예시 기록을 시간순으로 탐색합니다.",
+    "flow": "이벤트 필터 → 단계 선택 → 상세 확인",
+    "axes": [
+      "이벤트 중심",
+      "타임라인",
+      "로그 필터·재생",
+      "수직 기록 + 상세",
+      "시각·이벤트·상세",
+      "높음"
+    ],
+    "module": "family-3.js",
+    "route": "concepts/13-run-timeline.html"
+  },
+  {
+    "id": "14",
+    "slug": "permission-desk",
+    "title": "도구 실행 전 검토",
+    "en": "Permission Desk",
+    "family": "에이전트",
+    "icon": "shield",
+    "kicker": "에이전트의 권한을 명확하게",
+    "description": "읽기·쓰기 도구의 권한과 실행 전 검토 경험을 비교합니다.",
+    "flow": "권한 확인 → 요청 검토 → 승인 또는 거절",
+    "axes": [
+      "권한 중심",
+      "권한 행",
+      "허용·거절",
+      "권한 표 + 검토 카드",
+      "도구·범위·승인 기록",
+      "중간"
+    ],
+    "module": "family-3.js",
+    "route": "concepts/14-permission-desk.html"
+  },
+  {
+    "id": "15",
+    "slug": "prompt-studio",
+    "title": "재사용할 수 있는 프롬프트",
+    "en": "Prompt Studio",
+    "family": "에이전트",
+    "icon": "code",
+    "kicker": "좋은 질문을 반복 가능한 도구로",
+    "description": "템플릿 변수와 결과 형식을 조합해 프롬프트를 만듭니다.",
+    "flow": "템플릿 선택 → 변수 입력 → 미리보기 → 저장",
+    "axes": [
+      "템플릿 중심",
+      "템플릿 탭",
+      "변수 조합",
+      "편집기 + 렌더링 결과",
+      "변수 폼·프롬프트·복사",
+      "높음"
+    ],
+    "module": "family-3.js",
+    "route": "concepts/15-prompt-studio.html"
+  },
+  {
+    "id": "16",
+    "slug": "freshness-review",
+    "title": "오래된 지식을 점검하는 책상",
+    "en": "Freshness Review",
+    "family": "관리",
+    "icon": "clock",
+    "kicker": "지금도 유효한 문서인가요",
+    "description": "검토 우선순위를 정하고 상태별로 문서를 분류합니다.",
+    "flow": "상태 필터 → 문서 확인 → 검토 완료",
+    "axes": [
+      "유효성 중심",
+      "상태 필터",
+      "검토 분류",
+      "밀도 높은 표 + 요약",
+      "상태·검토 시점·일괄 처리",
+      "높음"
+    ],
+    "module": "family-4.js",
+    "route": "concepts/16-freshness-review.html"
+  },
+  {
+    "id": "17",
+    "slug": "gap-planner",
+    "title": "빈 곳을 채우는 문서 계획",
+    "en": "Gap Planner",
+    "family": "관리",
+    "icon": "plus",
+    "kicker": "빠진 설명이 다음 작업이 되다",
+    "description": "문서 공백을 작업으로 만들고 진행 단계를 옮깁니다.",
+    "flow": "공백 등록 → 계획 → 작성 → 검토",
+    "axes": [
+      "공백 중심",
+      "칸반 단계",
+      "등록·상태 이동",
+      "가로 보드",
+      "작업·단계·우선순위",
+      "중간"
+    ],
+    "module": "family-4.js",
+    "route": "concepts/17-gap-planner.html"
+  },
+  {
+    "id": "18",
+    "slug": "revision-review",
+    "title": "변경을 읽는 문서 리뷰",
+    "en": "Revision Review",
+    "family": "관리",
+    "icon": "edit",
+    "kicker": "바뀐 문장에 집중하다",
+    "description": "변경 전후 문장을 비교하고 제안을 수락하거나 보류합니다.",
+    "flow": "변경 선택 → 차이 확인 → 수락 또는 보류",
+    "axes": [
+      "변경 중심",
+      "파일 변경 목록",
+      "제안 판단",
+      "변경 전후 diff",
+      "행 차이·판단·리뷰 메모",
+      "높음"
+    ],
+    "module": "family-4.js",
+    "route": "concepts/18-revision-review.html"
+  },
+  {
+    "id": "19",
+    "slug": "source-collection",
+    "title": "출처가 정리된 자료함",
+    "en": "Source Collection",
+    "family": "관리",
+    "icon": "book",
+    "kicker": "다음 답변에 쓸 근거 모으기",
+    "description": "공개 자료 링크를 정리하고 검색 가능한 컬렉션을 만듭니다.",
+    "flow": "공개 링크 등록 → 분류 → 검색 → 내보내기",
+    "axes": [
+      "출처 중심",
+      "컬렉션 필터",
+      "링크 수집",
+      "수집 폼 + 색인",
+      "URL·주제·출처 목록",
+      "중간"
+    ],
+    "module": "family-4.js",
+    "route": "concepts/19-source-collection.html"
+  },
+  {
+    "id": "20",
+    "slug": "local-workspace",
+    "title": "다음에 이어갈 작업 공간",
+    "en": "Local Workspace",
+    "family": "관리",
+    "icon": "grid",
+    "kicker": "중단한 곳에서 다시 시작하다",
+    "description": "문서·할 일·작업 메모를 묶어 작업 공간을 저장합니다.",
+    "flow": "공간 선택 → 자료 담기 → 할 일 → 저장",
+    "axes": [
+      "세션 중심",
+      "작업 공간 전환",
+      "구성·진도 저장",
+      "작업대 + 사이드 목록",
+      "세션·체크리스트·자료",
+      "중간"
+    ],
+    "module": "family-4.js",
+    "route": "concepts/20-local-workspace.html"
+  }
+];

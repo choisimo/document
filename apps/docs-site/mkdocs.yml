@@ -175,6 +175,7 @@ nav:
       - infrastructure/networking/nmcli-guide.md
       - infrastructure/networking/rsync.md
       - infrastructure/networking/email-config.md
+      - Windows 원격 점검: infrastructure/networking/windows-remote.md
     - Storage:
       - infrastructure/storage/disk-format.md
       - infrastructure/storage/mounting.md
@@ -182,23 +183,36 @@ nav:
     - Monitoring:
       - infrastructure/monitoring/prometheus-grafana-loki.md
       - infrastructure/monitoring/process-management.md
+      - systemd 서비스: infrastructure/monitoring/systemd-services.md
+      - 시간 진단: infrastructure/monitoring/time-diagnostics.md
     - Hardware:
       - infrastructure/hardware/nano-pi-neo3.md
       - infrastructure/hardware/ssd-guide.md
+      - GPIO 연결 검토: infrastructure/hardware/gpio.md
+    - 자동화 실행 경계: infrastructure/automation/ansible-and-research.md
   - Linux:
     - linux/index.md
     - Commands: linux/commands.md
     - Filesystem: linux/filesystem.md
+    - 셸 시작과 환경: linux/shell-startup.md
     - Arch Linux:
       - linux/arch/installation.md
       - linux/arch/kde-theme.md
       - linux/arch/troubleshooting.md
+      - 한글 입력과 데스크톱: linux/arch/desktop-input.md
     - Proxmox:
       - linux/proxmox/drive-mount.md
       - linux/proxmox/migration.md
       - linux/proxmox/wireguard-vpn.md
     - Multimedia:
       - linux/multimedia/ffmpeg.md
+    - 심화 Linux:
+      - 커널 학습: linux-extra/linux_kernel_deep_learning.md
+      - GUI와 CLI 전환: linux-extra/gui-to-cli-switch.md
+      - 파일시스템 개요: linux-extra/filesystem/01_overview.md
+      - 파일시스템 문제 해결: linux-extra/filesystem/02_troubleshooting.md
+      - 파일시스템 관리: linux-extra/filesystem/03_commands_and_management.md
+      - 확장성과 트랜잭션: linux-extra/filesystem/04_scalability_transactions.md
   - Kubernetes·DevOps:
     - k8s/README.md
     - Kubernetes:
@@ -233,6 +247,7 @@ nav:
     - Configuration: nginx/configuration.md
     - Proxy Manager: nginx/proxy-manager.md
     - K8s Deployment: nginx/docker-k8s-deployment.md
+    - 오류 페이지: nginx/error-pages.md
 - 개발:
   - 개발 환경:
     - development/index.md
@@ -243,20 +258,33 @@ nav:
       - development/docker/volumes.md
       - development/docker/vaultwarden.md
       - development/docker/litellm_copilot_guide.md
+      - 스택 검토와 복구: development/docker/stack-operations.md
     - Git:
       - development/git/branch-management.md
       - development/git/deployment.md
       - development/git/restore-deletion.md
+      - 이력 통합 정책: development/git/integration-strategies.md
     - IDE:
       - development/ide/vscode-plugins.md
       - development/ide/code-server.md
+      - 프로젝트 전환: development/ide/project-workspaces.md
     - Languages:
       - development/languages/java-install.md
       - development/languages/gcc.md
+    - 애플리케이션 설계:
+      - Spring 경계와 시간: development/spring-architecture.md
+      - API 계약: development/api-contracts.md
+      - SSE와 WebSocket: development/realtime.md
+      - React 상태와 빌드: development/frontend/react-state-and-build.md
   - 데이터베이스:
     - databases/index.md
     - Installation: databases/installation.md
     - PostgreSQL: databases/postgresql-guide.md
+    - 기초와 설계:
+      - 관계형 설계와 정규화: databases/relational-design.md
+      - SQL과 조인: databases/sql-basics.md
+      - 트랜잭션과 동시성: databases/transactions.md
+      - 쿼리 I/O와 인덱스: databases/query-io.md
     - Redis:
       - databases/redis/overview.md
       - databases/redis/springboot-integration.md
@@ -272,6 +300,8 @@ nav:
   - AI Engineering:
     - ai/bm25-vs-attention.md
     - ai/langchain-vs-langgraph.md
+    - 임베딩과 유사도: ai/embedding-similarity.md
+    - 다중 모달 추천: ai/multimodal-recommendation.md
   - 프로젝트:
     - projects/index.md
     - CBT System: projects/cbt-system.md
@@ -279,6 +309,9 @@ nav:
 - 컴퓨터과학:
   - 알고리즘:
     - algorithms/index.md
+    - 코드와 시뮬레이터: algorithms/code-examples.md
+    - 편집 거리: algorithms/edit-distance.md
+    - 비트셋 DP: algorithms/bitset-dp.md
     - Pointers: algorithms/pointers.md
     - Function Pointers: algorithms/function-pointers.md
     - OOP Patterns: algorithms/oop-patterns.md
@@ -369,8 +402,20 @@ nav:
     - Document Editor: prompts/docs-editor.md
     - Database Prompt: prompts/database.md
     - Architecture: prompts/architecture.md
+    - 프로젝트 문서화: prompts/project-documentation.md
+    - Spring 개발 요청: prompts/spring-development.md
+    - 학습 질문과 개선: prompts/learning-and-refinement.md
 - 도구:
   - tools/index.md
+  - 문서 사이트 유지보수:
+    - tools/documentation/index.md
+    - 출판 아키텍처: tools/documentation/architecture.md
+    - 기여와 복구: tools/documentation/contributing.md
+    - 로컬 개발: tools/documentation/local-development.md
+    - 출판과 복구: tools/documentation/publishing-runbook.md
+    - 개인정보 경계: tools/documentation/privacy.md
+    - AI 운영: tools/documentation/ai-operations.md
+    - 저장소 레이아웃 ADR: adr/ADR-001-repo-layout.md
   - Terminal:
     - tools/terminal/modern-cli-tools.md
     - tools/terminal/tmux.md
@@ -384,6 +429,7 @@ nav:
     - tools/automation/selenium.md
     - tools/automation/change-detection.md
     - tools/automation/schedule-manager.md
+    - 저장소 스크립트: tools/automation/repository-scripts.md
   - AI Tools:
     - tools/ai/langflow.md
     - tools/ai/gemini-shell.md

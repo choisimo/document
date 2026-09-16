@@ -1,0 +1,14 @@
+{
+  "name": "docs-agent-lab",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Twenty isolated documentation and agent experience candidates",
+  "scripts": {
+    "dev": "node server.mjs",
+    "build": "node scripts/build.mjs",
+    "check": "node --test tests/*.test.mjs",
+    "qa": "node tests/browser.cjs"
+  },
+  "engines": { "node": ">=20" }
+}

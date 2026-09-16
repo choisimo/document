@@ -139,6 +139,12 @@ HUB_SITE_DIR="$PWD/dist/site" npm --prefix src run qa:test
 
 새 문서를 추가하면 `apps/docs-site/mkdocs.yml`의 `nav:` 섹션에도 같은 항목을 반영한다.
 
+## 문서·에이전트 기능 실험실
+
+향후 기능을 비교할 수 있는 [20개 독립 예시와 평가 갤러리](apps/docs-agent-lab/README.md)는 `apps/docs-agent-lab/`에 있습니다. `cd apps/docs-agent-lab && npm run dev`로 별도 로컬 서버를 실행합니다. 기존 사이트의 자산과 배포에는 연결되지 않으며, AI 응답과 실행은 공개 자료를 이용한 로컬 예시입니다.
+
+[문서 운영 안내](content/docs/tools/documentation/index.md), [누락 문서 점검 기록](content/notes/documentation-coverage-20260912.md), [blog 에이전트 분석](content/notes/blog-agent-analysis-20260912.md)에서 구현과 근거를 확인할 수 있습니다. 작업 결과는 커밋하지 않은 상태로 검토합니다.
+
 ## 마이그레이션 정보
 
 구 경로와 신 경로의 대응 관계는 [MIGRATION_MAP.md](MIGRATION_MAP.md)에 정리되어 있다.
