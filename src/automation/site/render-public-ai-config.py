@@ -4,6 +4,7 @@
 import argparse
 import json
 import os
+import tempfile
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -37,9 +38,10 @@ def read_public_config() -> dict[str, object]:
                 or port == 0
                 or url.username is not None
                 or url.password is not None
-                or url.query
-                or url.fragment
-                or any(char.isspace() for char in value)
+                or "?" in value
+                or "#" in value
+                or "\\" in value
+                or any(char.isspace() or ord(char) < 32 or ord(char) == 127 for char in value)
             ):
                 raise ValueError(f"{variable} must be an HTTPS base URL without credentials, query or fragment")
             value = value.rstrip("/")
@@ -51,6 +53,15 @@ def read_public_config() -> dict[str, object]:
     config["openNotebookEnabled"] = enabled == "true"
     if config["openNotebookEnabled"] and "openNotebookUrl" not in config:
         raise ValueError("PUBLIC_OPEN_NOTEBOOK_URL is required when Open Notebook is enabled")
+    ai_enabled = os.environ.get("PUBLIC_AI_ENABLED", "").lower()
+    if ai_enabled not in ("", "true", "false"):
+        raise ValueError("PUBLIC_AI_ENABLED must be true or false")
+    config["enabled"] = ai_enabled == "true"
+    if config["enabled"] and "apiBaseUrl" not in config:
+        raise ValueError("PUBLIC_AI_API_BASE_URL is required when AI is enabled")
+    # The master switch also disables optional retrieval in the public UI.
+    if not config["enabled"]:
+        config["openNotebookEnabled"] = False
     return config
 
 
@@ -63,12 +74,22 @@ def main() -> None:
     except ValueError as error:
         parser.exit(1, f"Invalid public AI configuration: {error}\n")
     serialized = json.dumps(config, ensure_ascii=True, indent=2).replace("<", "\\u003c")
-    # Validate before writing so a rejected config cannot replace a working file.
-    args.output.write_text(
+    # Write next to the destination and replace atomically after validation.
+    payload = (
         "// Public build settings: every value in this file is visible to visitors.\n"
-        f"window.PUBLIC_AI_CONFIG = {serialized};\n",
-        encoding="utf-8",
+        f"window.PUBLIC_AI_CONFIG = {serialized};\n"
     )
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=args.output.parent,
+                                         prefix=".ai-config-", delete=False) as file:
+            temporary = Path(file.name)
+            file.write(payload)
+        temporary.chmod(0o644)
+        temporary.replace(args.output)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
     print("Public AI configuration generated (values omitted)")
 
 

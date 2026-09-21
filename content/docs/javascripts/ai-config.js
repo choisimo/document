@@ -1,20 +1,23 @@
 const publicAIConfig = window.PUBLIC_AI_CONFIG || {};
-const openNotebookEnabled = publicAIConfig.openNotebookEnabled === true;
+const aiEnabled = publicAIConfig.enabled === true && typeof publicAIConfig.apiBaseUrl === 'string' && publicAIConfig.apiBaseUrl.length > 0;
+const openNotebookEnabled = aiEnabled && publicAIConfig.openNotebookEnabled === true;
 
 const openNotebookConfig = {
   enabled: openNotebookEnabled,
-  apiUrl: publicAIConfig.openNotebookUrl || 'http://localhost:8090',
+  apiUrl: publicAIConfig.openNotebookUrl || '',
   apiToken: publicAIConfig.openNotebookToken || '',
   maxResults: 5,
   contextMaxChars: 3000,
 };
 
-const openNotebookPromptPrefix = '당신에게는 Open Notebook 지식 베이스의 컨텍스트가 제공됩니다. 이 컨텍스트를 최우선으로 참고하여 답변하세요. 지식 베이스에 관련 정보가 있다면 반드시 해당 내용을 기반으로 답변해주세요.';
+const openNotebookPromptPrefix = '당신에게는 Open Notebook 지식 베이스의 컨텍스트가 제공됩니다. 이 컨텍스트를 로컬 문서 다음의 보조 근거로 참고하여 답변하세요. 지식 베이스에 관련 정보가 있다면 반드시 해당 내용을 기반으로 답변해주세요.';
 const localDocsPromptPrefix = '당신에게는 Documentation Hub 로컬 문서 검색 결과가 제공될 수 있습니다. 이 결과가 있으면 가장 우선적으로 참고하고, 답변마다 관련 문서 경로를 함께 제시하세요.';
 
 window.AI_CONFIG = {
-  // Only explicitly public settings are generated at build time.
-  apiBaseUrl: (publicAIConfig.apiBaseUrl || 'https://ai.dothechi.com/v1').replace(/\/+$/, ''),
+  // No default host: opting in requires a deliberately configured endpoint.
+  enabled: aiEnabled,
+  apiBaseUrl: (typeof publicAIConfig.apiBaseUrl === 'string' ? publicAIConfig.apiBaseUrl : '').replace(/\/+$/, ''),
+  transport: { requestTimeoutMs: 120000, idleTimeoutMs: 30000, retrievalTimeoutMs: 5000, connectionTimeoutMs: 10000 },
 
   apiToken: publicAIConfig.apiToken || '',
 
