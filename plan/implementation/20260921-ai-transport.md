@@ -1,5 +1,7 @@
 # PR00a / PR01 — AI opt-in and transport correctness
 
+후속 기록: [2026-09-22 전송 경계 보강](20260922-ai-transport-hardening.md). 아래 검증 수치와 원격 상태는 2026-09-21 실행의 이력이다.
+
 기준: `admin_nodove/document@e1cfa987838167d55b20d8a45c103c97e8b4c64d`.
 범위: 기존 소스의 실제 수정. 정적 Hub·문서 주소·검색·분할 읽기·Lab 소스는 교체하지 않는다.
 
