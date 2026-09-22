@@ -112,7 +112,7 @@ class InventoryAndApprovalTests(SiteCase):
 
     def test_edited_file_needs_new_review(self):
         self.put('extra/docker/compose.yaml', b'changed')
-        self.assertIn('APPROVAL_HASH_MISMATCH', self.codes(self.check([approval('extra/docker/compose.yaml')]))))
+        self.assertIn('APPROVAL_HASH_MISMATCH', self.codes(self.check([approval('extra/docker/compose.yaml')])))
 
     def test_new_sibling_is_not_implicitly_approved(self):
         self.put('extra/docker/compose.yaml')
@@ -128,7 +128,7 @@ class InventoryAndApprovalTests(SiteCase):
         self.assertIn('UNREVIEWED_EXTRA_ASSET', self.codes(result))
 
     def test_missing_approved_file_is_stale(self):
-        self.assertIn('STALE_APPROVAL', self.codes(self.check([approval('extra/a.txt')]))))
+        self.assertIn('STALE_APPROVAL', self.codes(self.check([approval('extra/a.txt')])))
 
     def test_generated_extra_indexes_also_require_review(self):
         self.put('extra/docker/index.html')
