@@ -33,7 +33,7 @@ title: "도구와 보조 리소스"
 
 <h2 id="directory-group-2">주요 문서</h2>
 
-- [API 키 대시보드](api-key-dashboard.html)
+- [AI 연결과 공개 설정 안내](../tools/documentation/ai-operations.md)
 - [Docker Compose 컬렉션](docker/index.md)
 - [Compose 스택](docker/stacks/index.md)
 - [자동화 Compose 스택](docker/stacks/automation/index.md)
@@ -54,7 +54,7 @@ title: "도구와 보조 리소스"
 <details class="hub-directory-notes" markdown="1" open>
 <summary>안내와 학습 노트</summary>
 
-Extra 섹션은 일반 문서 본문과 별도로 제공되는 보조 리소스의 진입점이다. 현재 `content/docs/extra` 아래에서 확인되는 리소스는 API key dashboard HTML과 Docker Compose 컬렉션 문서다.
+Extra 섹션은 일반 문서 본문과 별도로 제공되는 보조 리소스의 진입점이다. Docker Compose 컬렉션 문서를 제공하며, 원본 보조 파일은 경로와 내용 해시를 검토한 항목만 내보낸다. API key dashboard HTML은 실제 키 관리 기능이 없는 로컬 예시이므로 MkDocs 출판에서 제외한다.
 
 ## 인덱스 범위
 
@@ -72,7 +72,7 @@ Extra 색인의 목적은 실제 존재하는 리소스만 안내하고, 각 리
 
 현재 `content/docs/extra`에서 확인되는 항목은 다음과 같다.
 
-- `api-key-dashboard.html`: API key 관리 대시보드 형태의 정적 HTML
+- `api-key-dashboard.html`: 저장소에만 보존하는 로컬 예시. 실제 키 발급·폐기 기능이 없으며 출판하지 않는다.
 - `docker/index.md`: Docker Compose 컬렉션 상위 문서
 - `docker/stacks/index.md`: Docker Compose 스택 전체 색인
 - 각 Docker stack 카테고리 문서
@@ -95,7 +95,7 @@ Extra 리소스 탐색 흐름은 다음과 같다.
 
 ```text
 extra/index.md
-  -> api-key-dashboard.html
+  -> tools/documentation/ai-operations.md (실제 AI 연결 설정 안내)
   -> docker/index.md
   -> docker/stacks/index.md
   -> infra/docker/stacks 실제 Compose 파일
@@ -107,7 +107,7 @@ extra/index.md
 
 | 리소스 | 경로 | 역할 |
 | --- | --- | --- |
-| API Key Dashboard | [api-key-dashboard.html](api-key-dashboard.html) | API key 관리 UI 형태의 정적 HTML |
+| AI 연결 설정 | [AI 운영 안내](../tools/documentation/ai-operations.md) | 실제 연결 설정과 공개 자격증명 경계 |
 | Docker Compose 컬렉션 | [docker/index.md](docker/index.md) | Compose 리소스 상위 안내 |
 | Docker Stacks | [docker/stacks/index.md](docker/stacks/index.md) | 스택 카테고리 색인 |
 

@@ -15,6 +15,8 @@ site_dir: ../../dist/site
 # The hook restores this source to the build at that distinct destination.
 exclude_docs: |
   /algorithms/algorithm-architect/README.md
+  # Local mock only: never publish a simulated key-management interface.
+  /extra/api-key-dashboard.html
 hooks:
   - hooks/preserve_readme.py
   - hooks/hub_data.py
