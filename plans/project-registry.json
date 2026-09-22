@@ -46,11 +46,11 @@
       "last_observed_main": "487660310ca57346a1ba0b3b4b9bda6001a3c0fb",
       "open_prs": [],
       "source_of_truth": [],
-      "status_note": "Separate repository exists, while AI-server also owns gateway runtime assets. Ownership/canonicality must be resolved before further feature work or archival.",
+      "status_note": "Standalone TypeScript/Express gateway source with its own Compose. AI-server main consumes a published ai-server-gateway image rather than this repository path, so this repo is not the current ai-1 runtime authority. Published-image source/build provenance must still be proven before archival.",
       "relations": [
         {
           "project": "ai-server",
-          "kind": "overlap-review",
+          "kind": "standalone-overlap-review",
           "state": "observed"
         }
       ]

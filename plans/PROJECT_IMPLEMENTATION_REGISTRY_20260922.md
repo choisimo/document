@@ -11,7 +11,7 @@ Repository-local source, status and plan files remain authoritative. Machine-rea
 | Project | Repository | Lifecycle | Current pointer |
 |---|---|---|---|
 | AI Server | `admin_nodove/AI-server` | active / canonical | main `9557084f`; PR39 conflict, PR44 mergeable |
-| AI Gateway | `admin_nodove/ai-gateway` | review | separate repository role overlaps AI-server gateway ownership; no open PR |
+| AI Gateway | `admin_nodove/ai-gateway` | review | standalone TypeScript/Express source; not the current ai-1 runtime authority; image provenance still needs proof |
 | FilamAI | `admin_nodove/filamai` | active / canonical | main `ccea539d`; PR3 latest unfinished-plan publication |
 | FCN | `admin_nodove/fcn` | active / canonical | main `20a2e65a`; PR1/PR2 open |
 | WLatch | `admin_nodove/wlatch-sessionloop` | active / canonical | main `b4d7ed45`; PR6 latest unfinished-plan publication |
@@ -35,6 +35,8 @@ This table is an observation index, not deployment evidence. Exact runtime state
 Do not create a second cross-project registry inside AI-server. Its own plan explicitly points cross-project tracking to `admin_nodove/document`.
 
 Current authoritative pointers include `AGENTS.md`, `docs/operations/AI1_CURRENT_STATE.md` and `plan/IMPLEMENTATION_STATUS_20260922.md`. PR39 is still separate conflicting UI-01c work. PR44 is the latest documentation/status update.
+
+The separate `admin_nodove/ai-gateway` repository contains a standalone TypeScript/Express gateway stack whose AGENTS metadata points to a 2026-02-22 source generation. AI-server's current root Compose consumes the published `ghcr.io/.../ai-server-gateway` image rather than a checkout of that repository. This is enough to mark the separate repository as **not the current ai-1 runtime authority**, but not enough to archive it: the producer/source provenance of the published image still needs to be proven.
 
 ### FilamAI and FCN
 
