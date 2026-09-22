@@ -238,3 +238,254 @@ test('thrown objects cannot forge a successful terminal state', async () => {
   const result = await checked(e, r); assert.equal(result.status, 'failed'); assert.equal(result.code, 'TRANSPORT_ERROR');
   assert.equal(r.observed.completed.length, 0); assert.doesNotMatch(JSON.stringify(result), /private-error/);
 });
+
+// Continuation regressions: each fails on the supplied PR1 implementation.
+test('request configuration is an immutable snapshot across asynchronous retrieval', async () => {
+  const gate = deferred();
+  const e = env(undefined, { apiToken: 'token-for-original-endpoint', modelName: 'original-model' });
+  e.client.queryLocalDocs = () => gate.promise;
+  const r = send(e.client);
+  e.config.apiBaseUrl = 'https://other.invalid/v1';
+  e.config.apiToken = 'token-for-different-endpoint';
+  e.config.modelName = 'new-model';
+  e.config.chatbot.systemPrompt = 'changed-in-flight';
+  gate.resolve(null);
+  await checked(e, r);
+  const [url, request] = e.calls[0];
+  assert.equal(url, 'https://audit.invalid/v1/chat/completions');
+  assert.equal(request.headers.Authorization, 'Bearer token-for-original-endpoint');
+  const payload = JSON.parse(request.body);
+  assert.equal(payload.model, 'original-model');
+  assert.doesNotMatch(payload.messages[0].content, /changed-in-flight/);
+});
+test('optional local retrieval timeout does not consume the entire generation deadline', async () => {
+  const e = env(undefined, { transport: { retrievalTimeoutMs: 10, requestTimeoutMs: 100 } });
+  let signal;
+  e.window.DocSearchEngine = { buildChatContext(_, options) { signal = options.signal; return new Promise(() => {}); } };
+  const r = send(e.client);
+  const result = await checked(e, r);
+  assert.equal(result.status, 'completed');
+  assert.equal(e.calls.length, 1);
+  assert.equal(signal.aborted, true);
+});
+test('cancelled generation releases a response whose headers arrive late', async () => {
+  const gate = deferred(), e = env(() => gate.promise);
+  const r = send(e.client);
+  await tick();
+  e.client.abort();
+  assert.equal((await checked(e, r)).status, 'cancelled');
+  let cancelled = 0;
+  gate.resolve(new Response(new ReadableStream({ cancel() { cancelled++; } }), { headers: { 'Content-Type': 'text/event-stream' } }));
+  await tick();
+  assert.equal(cancelled, 1);
+});
+test('cancelled Notebook retrieval releases a late response body', async () => {
+  const gate = deferred(), e = env(() => gate.promise);
+  e.config.openNotebook.enabled = true;
+  const r = send(e.client); await tick(); e.client.abort();
+  assert.equal((await checked(e, r)).status, 'cancelled');
+  let cancelled = 0;
+  gate.resolve(new Response(new ReadableStream({ cancel() { cancelled++; } }), { headers: { 'Content-Type': 'application/json' } }));
+  await tick(); assert.equal(cancelled, 1);
+});
+test('connection check releases late headers after its deadline', async () => {
+  const gate = deferred(), e = env(() => gate.promise, { transport: { connectionTimeoutMs: 10 } });
+  assert.equal(await e.client.checkConnection(), false);
+  let cancelled = 0;
+  gate.resolve(new Response(new ReadableStream({ cancel() { cancelled++; } })));
+  await tick(); assert.equal(cancelled, 1); assert.equal(e.timers.size, 0);
+});
+test('cancel listener starting a new request cannot erase its abort controller', async () => {
+  const e = env();
+  const aGate = deferred(), bGate = deferred();
+  e.client.queryLocalDocs = q => q === 'A' ? aGate.promise : bGate.promise;
+  const a = send(e.client, 'A');
+  let b;
+  e.client.abortController.signal.addEventListener('abort', () => { b = send(e.client, 'B'); }, { once: true });
+  e.client.abort();
+  assert.equal((await a.promise).status, 'cancelled');
+  const survived = e.client.abortController !== null;
+  bGate.resolve(null); await b.promise; aGate.resolve(null); await tick();
+  assert.equal(survived, true);
+});
+test('one terminal event stops parsing buffered trailing noise', async () => {
+  const e = env(async () => response(sse('finished') + 'ignored-after-terminal'.repeat(15000)));
+  const r = send(e.client); const result = await checked(e, r);
+  assert.equal(result.status, 'completed'); assert.deepEqual(r.observed.completed, ['finished']);
+});
+test('text output ceiling never includes the rejected over-limit delta', async () => {
+  const validChunk = 'x'.repeat(120000);
+  const text = Array.from({ length: 19 }, () => `data: ${delta(validChunk)}\n\n`).join('');
+  const e = env(async () => response(text)), r = send(e.client);
+  const result = await checked(e, r);
+  assert.equal(result.code, 'RESPONSE_TOO_LARGE');
+  assert.ok(result.content.length <= 2097152);
+  assert.ok(r.observed.chunks.every(c => c.full.length <= 2097152));
+});
+test('Notebook refuses a non-JSON content type without contaminating the prompt', async () => {
+  const e = env(async url => url.endsWith('/api/search')
+    ? response('{"results":[{"content":"untrusted-wrong-mime"}]}', { type: 'text/html' })
+    : response(sse()));
+  e.config.openNotebook.enabled = true;
+  const r = send(e.client); await checked(e, r);
+  const payload = JSON.parse(e.calls.find(([url]) => url.endsWith('/chat/completions'))[1].body);
+  assert.doesNotMatch(JSON.stringify(payload), /untrusted-wrong-mime/);
+});
+test('Notebook rejects oversized response bodies before JSON context reaches generation', async () => {
+  let cancelled = 0;
+  const tooLarge = JSON.stringify({ results: [{ content: 'notebook-oversize-marker' + 'x'.repeat(1048576) }] });
+  const e = env(async url => url.endsWith('/api/search') ? new Response(new ReadableStream({
+    start(c) { c.enqueue(new TextEncoder().encode(tooLarge)); }, cancel() { cancelled++; }
+  }), { headers: { 'Content-Type': 'application/json' } }) : response(sse()), { transport: { retrievalTimeoutMs: 100 } });
+  e.config.openNotebook.enabled = true;
+  const r = send(e.client); const result = await checked(e, r);
+  assert.equal(result.status, 'completed');
+  assert.equal(cancelled, 1);
+  // Detect the resource leak, not merely optional-context fallback on timeout.
+});
+test('Notebook result-count and context limits are clamped to positive safe bounds', async () => {
+  const e = env(async url => url.endsWith('/api/search')
+    ? response('{"results":[{"content":"SAFE"}]}', { type: 'application/json' }) : response(sse()));
+  Object.assign(e.config.openNotebook, { enabled: true, maxResults: -50, contextMaxChars: -1 });
+  const r = send(e.client); await checked(e, r);
+  assert.equal(JSON.parse(e.calls[0][1].body).limit, 5);
+});
+test('an oversized caller message fails before retrieval or generation', async () => {
+  const e = env(); let retrieved = 0;
+  e.client.queryLocalDocs = async () => { retrieved++; return null; };
+  const r = send(e.client, 'x'.repeat(262145));
+  const result = await checked(e, r);
+  assert.equal(result.code, 'REQUEST_TOO_LARGE'); assert.equal(e.calls.length, 0); assert.equal(retrieved, 0);
+});
+test('local adapter cannot bypass the configured context character budget', async () => {
+  const e = env();
+  e.client.queryLocalDocs = async () => ({ contextText: 'z'.repeat(50000), results: [] });
+  const r = send(e.client); await checked(e, r);
+  const contextMessage = JSON.parse(e.calls[0][1].body).messages[1];
+  assert.ok(contextMessage.content.length <= 2700);
+});
+
+test('Retry-After rejects arbitrary provider text instead of echoing it to callers', async () => {
+  const e = env(async () => response('ignored', { status: 429, headers: { 'Retry-After': 'provider-private-credential' } }));
+  const r = send(e.client), result = await checked(e, r);
+  assert.equal(result.httpStatus, 429);
+  assert.equal(result.retryAfter, undefined);
+  assert.doesNotMatch(JSON.stringify([result, e.events, r.observed]), /provider-private-credential/);
+});
+test('untrusted thrown object cannot inject HTTP metadata into a redacted result', async () => {
+  const e = env(async () => { throw { httpStatus: 'private-http-data', retryAfter: 'private-retry-data' }; });
+  const r = send(e.client), result = await checked(e, r);
+  assert.equal(result.code, 'TRANSPORT_ERROR');
+  assert.equal(result.httpStatus, undefined); assert.equal(result.retryAfter, undefined);
+  assert.doesNotMatch(JSON.stringify([result, r.observed]), /private-http-data|private-retry-data/);
+});
+test('abort removes listener even when its underlying adapter never settles', async () => {
+  const e = env();
+  const controller = new AbortController();
+  let attached = 0;
+  const signal = {
+    get aborted() { return controller.signal.aborted; }, get reason() { return controller.signal.reason; },
+    addEventListener(...args) { attached++; controller.signal.addEventListener(...args); },
+    removeEventListener(...args) { attached--; controller.signal.removeEventListener(...args); }
+  };
+  const pending = e.client.wait(new Promise(() => {}), signal).catch(() => 'cancelled');
+  controller.abort(); assert.equal(await pending, 'cancelled'); assert.equal(attached, 0);
+});
+
+for (const type of ['application/json; charset=utf-8', 'application/vnd.notebook+json']) {
+  test(`bounded Notebook JSON accepts valid ${type} across UTF-8 chunks`, async () => {
+    const body = response(JSON.stringify({ results: [{ title: '문서', content: '검증 근거 🌐', source: '/public/doc/' }] }), { type, width: 1 });
+    const e = env(async url => url.endsWith('/api/search') ? body : response(sse()));
+    Object.assign(e.config.openNotebook, { enabled: true, apiToken: 'public-kb-only' });
+    const r = send(e.client), result = await checked(e, r);
+    assert.equal(result.status, 'completed'); assert.equal(body.body.locked, false);
+    assert.equal(e.calls[0][1].headers.Authorization, 'Bearer public-kb-only');
+    assert.equal(e.calls[1][1].headers.Authorization, undefined);
+    const payload = JSON.parse(e.calls[1][1].body);
+    assert.match(payload.messages[1].content, /검증 근거 🌐/); assert.equal(payload.messages[1].role, 'user');
+  });
+}
+test('Notebook byte budget is checked before JSON parse even with a false Content-Length', async () => {
+  const large = response(JSON.stringify({ results: [{ content: 'z'.repeat(1048576) }] }), { type: 'application/json', headers: { 'Content-Length': '1' } });
+  const e = env(async url => url.endsWith('/api/search') ? large : response(sse()));
+  e.config.openNotebook.enabled = true;
+  const r = send(e.client), result = await checked(e, r);
+  assert.equal(result.status, 'completed'); assert.equal(large.body.locked, false);
+  assert.equal(JSON.parse(e.calls[1][1].body).messages.length, 2);
+});
+test('Notebook byte limit applies to UTF-8 bytes, not JavaScript string length', async () => {
+  const large = response(JSON.stringify({ results: [{ content: '한'.repeat(400000) }] }), { type: 'application/json' });
+  const e = env(async url => url.endsWith('/api/search') ? large : response(sse()));
+  e.config.openNotebook.enabled = true;
+  const r = send(e.client); await checked(e, r);
+  assert.equal(JSON.parse(e.calls[1][1].body).messages.length, 2); assert.equal(large.body.locked, false);
+});
+test('optional Notebook timeout releases a pending body without cancelling generation', async () => {
+  let cancelled = 0;
+  const body = new Response(new ReadableStream({ cancel() { cancelled++; } }), { headers: { 'Content-Type': 'application/json' } });
+  const e = env(async url => url.endsWith('/api/search') ? body : response(sse()), { transport: { retrievalTimeoutMs: 10 } });
+  e.config.openNotebook.enabled = true;
+  const r = send(e.client); assert.equal((await checked(e, r)).status, 'completed');
+  assert.equal(cancelled, 1); assert.equal(body.body.locked, false);
+});
+test('context truncation preserves surrogate pairs', async () => {
+  const e = env();
+  e.config.search.contextMaxChars = 3;
+  e.client.queryLocalDocs = async () => ({ contextText: 'ab😀tail', results: [] });
+  const r = send(e.client); await checked(e, r);
+  const text = JSON.parse(e.calls[0][1].body).messages[1].content;
+  assert.match(text, /ab/); assert.doesNotMatch(text, /[\uD800-\uDFFF]/);
+});
+test('an oversized system prompt is rejected with no generation fetch', async () => {
+  const e = env(); e.config.chatbot.systemPrompt = 'x'.repeat(262145);
+  const r = send(e.client); assert.equal((await checked(e, r)).code, 'REQUEST_TOO_LARGE'); assert.equal(e.calls.length, 0);
+});
+test('too many messages are rejected before retrieval', async () => {
+  const e = env(); let searched = false;
+  e.client.queryLocalDocs = async () => { searched = true; };
+  const result = await e.client.sendMessage(Array.from({ length: 129 }, () => ({ role: 'user', content: 'x' })));
+  assert.equal(result.code, 'REQUEST_TOO_LARGE'); assert.equal(searched, false); assert.equal(e.calls.length, 0);
+});
+test('an oversized explicit search query is rejected before retrieval', async () => {
+  const e = env(), r = send(e.client, 'q', { query: 'x'.repeat(32769) });
+  assert.equal((await checked(e, r)).code, 'QUERY_TOO_LARGE'); assert.equal(e.calls.length, 0);
+});
+test('rapid replacement generates only for the last request and releases all listeners', async () => {
+  const e = env(), gates = [];
+  e.client.queryLocalDocs = () => { const gate = deferred(); gates.push(gate); return gate.promise; };
+  const runs = Array.from({ length: 24 }, (_, i) => send(e.client, `q-${i}`));
+  gates.at(-1).resolve(null);
+  const results = await Promise.all(runs.map(r => r.promise));
+  gates.forEach(gate => gate.resolve(null)); await tick();
+  assert.equal(results.filter(r => r.status === 'cancelled').length, 23);
+  assert.equal(results.at(-1).status, 'completed'); assert.equal(e.calls.length, 1);
+  assert.equal(JSON.parse(e.calls[0][1].body).messages.at(-1).content, 'q-23');
+  assert.equal(e.timers.size, 0); assert.equal(e.client.currentRequest, null);
+});
+test('reentrant supersession prioritizes the newest request rather than its caller', async () => {
+  const e = env(), gates = new Map();
+  e.client.queryLocalDocs = q => { const gate = deferred(); gates.set(q, gate); return gate.promise; };
+  const a = send(e.client, 'A'); let newest;
+  e.client.abortController.signal.addEventListener('abort', () => { newest = send(e.client, 'NEWEST'); }, { once: true });
+  const intermediate = send(e.client, 'INTERMEDIATE');
+  gates.get('NEWEST').resolve(null);
+  const results = await Promise.all([a.promise, intermediate.promise, newest.promise]);
+  gates.get('A').resolve(null); await tick();
+  assert.deepEqual(results.map(r => r.status), ['cancelled', 'cancelled', 'completed']);
+  assert.equal(gates.has('INTERMEDIATE'), false); assert.equal(e.calls.length, 1);
+  assert.equal(JSON.parse(e.calls[0][1].body).messages.at(-1).content, 'NEWEST');
+  assert.equal(e.timers.size, 0);
+});
+test('late rejected fetch is observed after cancellation', async () => {
+  let reject;
+  const e = env(() => new Promise((_, fail) => { reject = fail; }));
+  const r = send(e.client); await tick(); e.client.abort();
+  assert.equal((await checked(e, r)).status, 'cancelled');
+  reject(new Error('provider-late-private')); await tick();
+  assert.doesNotMatch(JSON.stringify([e.events, r.observed]), /provider-late-private/);
+});
+test('valid Retry-After HTTP-date is retained for a user-initiated retry', async () => {
+  const value = 'Wed, 23 Sep 2026 00:00:00 GMT';
+  const e = env(async () => response('ignored', { status: 503, headers: { 'Retry-After': value } })), r = send(e.client);
+  assert.equal((await checked(e, r)).retryAfter, value); assert.equal(e.calls.length, 1);
+});
