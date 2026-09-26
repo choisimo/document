@@ -18,17 +18,19 @@ Repository-local source, status and plan files remain authoritative. Machine-rea
 | auto-career | `admin_nodove/auto-career` | review | main `7ed08e85`; open PRs none |
 | codex-chatgpt-web-main | `admin_nodove/codex-chatgpt-web-main` | active | main `e736a1b1`; open PRs none |
 | community-refined-flutter | `admin_nodove/community-refined-flutter` | review | main `97919af1`; open PRs #2 |
-| blog | `admin_nodove/blog` | active | main `18a15e12`; open PRs #1, #3 |
+| blog | `admin_nodove/blog` | active | main `18a15e12`; open PRs #1, #3, #4, #5 |
 | writing | `admin_nodove/writing` | active | main `bf01a692`; open PRs none |
 | document | `admin_nodove/document` | active | main `e1cfa987`; open PRs #1, #2 |
 | media-mcp | `nodove/media-mcp` | active | main `5c5db69a`; open PRs #1, #2, #3, #4, #5, #6 |
 | helm | `admin_nodove/helm` | review | main `b3ecce74`; open PRs none |
 | forgejo-mcp | `nodove/forgejo_mcp` | active | main `bb06188b`; open PRs #18 |
 | edu-connector | `nodove/Edu-connector` | active | main `f0052163`; open PRs #1, #2 |
-| filamai-frontend | `admin_nodove/filamai-frontend` | active | main `172731fe`; open PRs none |
-| filamai-backend | `admin_nodove/filamai-backend` | active | main `90c1503e`; open PRs none |
-| intellialgo | `admin_nodove/IntelliAlgo` | active | main `59451515`; open PRs none |
-| community | `admin_nodove/community` | review | main `008c6227`; open PRs none |
+| filamai-frontend | `admin_nodove/filamai-frontend` | active | main `172731fe`; open PRs #1 |
+| filamai-backend | `admin_nodove/filamai-backend` | active | main `90c1503e`; open PRs #1 |
+| intellialgo | `admin_nodove/IntelliAlgo` | active | main `59451515`; open PRs #2 |
+| community | `admin_nodove/community` | review | main `008c6227`; open PRs #1 |
+| atlas-360 | `admin_nodove/atlas-360` | active | main `71c85ab9`; open PRs none |
+| pet-auto-automation | `admin_nodove/pet-auto-automation-v3.1.0` | active | main `0c5e367c`; open PRs #1 |
 
 This table is an observation index, not deployment evidence. Exact runtime state continues to live in each repository's own current-state/runbook/evidence paths.
 
@@ -46,7 +48,7 @@ The separate `admin_nodove/ai-gateway` repository contains a standalone TypeScri
 
 ### FilamAI and FCN
 
-FilamAI is the workspace/meta repository and pins its authoritative backend/frontend submodules. Its own `CURRENT_STATE.md` still treats release readiness as gated.
+FilamAI is the workspace/meta repository, but its current main still pins older backend/frontend submodule baselines. The newer canonical FE10/B1.2 bundle heads are not published and their original downloads returned HTTP502. PR3 preserves the exact recovery targets; child PR1s preserve older R1 adapter patches without applying them. Its own `CURRENT_STATE.md` still treats release readiness as gated.
 
 FCN already documents FilamAI reuse as part of its product direction. The integration rule is therefore **reuse/adapter first**: do not introduce parallel authentication, workspace, file or API-client stacks merely to advance FCN screens.
 
@@ -121,3 +123,9 @@ After this registry contract is merged, the nearest non-duplicative follow-up is
 The 2026-09-26 audit enumerated 63 known repositories and 140 PRs. The repository-list endpoint returned 60 admin_nodove repositories; three known nodove repositories were queried directly. Default refs and PR heads were observed, but PR-less branches, private host worktrees, issue state and remote CI were not fully exposed. These counts are a timestamped observation, not a guarantee of server-wide completeness.
 
 [Repository learning, troubleshooting and Kubernetes report](reports/Repository_Learning_Reports_20260926.html) preserves the existing 2026-09-26 analysis. Its embedded snapshots are historical; use current repository-local sources and this registry for observed refs. Upload does not imply runtime validation or publication of the website.
+
+## 2026-09-26 preservation follow-up
+
+The final core refs above were freshly re-read after the preservation work. The initial audit covered 63 repositories/140 PRs; the private ATLAS preservation repository brings known repositories to 64. New preservation PRs are included in the table, not in that historical PR count.
+
+See [publication and remaining gaps](SYNC_PUBLICATION_20260926.md) for newly preserved artifacts, existing agent work, exact heads and blocked originals. Large FCN assets and the FCN Site are preserved by explicit branches; their source and limitations are linked from FCN PR2. No existing main branch was merged or deployed by this audit.

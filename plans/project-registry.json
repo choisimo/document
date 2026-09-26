@@ -74,7 +74,7 @@
         "CURRENT_STATE.md",
         "docs/PRODUCTION_READINESS_GATE.md"
       ],
-      "status_note": "Parent main dc1d9fe1 pins backend 90c1503e and frontend 172731fe. Child Git repositories are published; PR3 remains open. This does not establish deployment or device acceptance.",
+      "status_note": "Parent main dc1d9fe1 still pins older backend 90c1503e and frontend 172731fe, with original choisimo GitHub submodule URLs. Newer canonical FE10/B1.2 bundle heads are not published; downloads returned HTTP502. PR3 now preserves the canonical manifest/status and explicit blocker. The canonical snapshots contain 2,176 total paths; missing diff count is unknown.",
       "relations": []
     },
     {
@@ -93,7 +93,7 @@
         "docs/IMPLEMENTATION_CONTRACT.md",
         "docs/REQUIREMENTS_COVERAGE.md"
       ],
-      "status_note": "Twenty interactive product/UX concepts exist. Open work includes RFQ research and the latest unfinished-plan publication.",
+      "status_note": "Original 247 missing documentation/design files are preserved: 242 in existing PR2 and five large binary files in explicit preservation branches linked by its manifest. The original cumulative commit could not be transferred intact; do not claim one identical combined target tree. A separate FCN concept Site history is preserved in its own branch.",
       "relations": [
         {
           "project": "filamai",
@@ -199,10 +199,12 @@
       "last_observed_main": "18a15e125de1fef563355c306ad72e32e049fee1",
       "open_prs": [
         1,
-        3
+        3,
+        4,
+        5
       ],
       "source_of_truth": [],
-      "status_note": "Current work includes a content update and latest unfinished-plan publication; shared docs/AI transport behavior must stay aligned with document where applicable.",
+      "status_note": "Admin Studio source 160 files plus seven evidence files is preserved in draft PR4 (167/167 remote hashes verified); full app/runtime gates remain pending. Editorial audit is separately preserved in PR5. Content PR1 and historical VIS05b PR2 are distinct work.",
       "relations": [
         {
           "project": "document",
@@ -315,9 +317,11 @@
       "role": "product",
       "lifecycle": "active",
       "canonical": true,
-      "open_prs": [],
+      "open_prs": [
+        1
+      ],
       "source_of_truth": [],
-      "status_note": "Main 172731fe is published and matches the FilamAI parent frontend gitlink. Full Flutter/device release readiness is not inferred from Git identity.",
+      "status_note": "Main 172731fe remains the older FilamAI parent gitlink target. PR1 preserves the older FCN R1 adapter patch and recovery README; this patch was not applied. The newer canonical FE10 source bundle is not uploaded and original download is blocked by HTTP502; see parent PR3 recovery records.",
       "relations": [
         {
           "project": "filamai",
@@ -333,9 +337,11 @@
       "role": "service",
       "lifecycle": "active",
       "canonical": true,
-      "open_prs": [],
+      "open_prs": [
+        1
+      ],
       "source_of_truth": [],
-      "status_note": "Main 90c1503e is published and matches the FilamAI parent backend gitlink. Runtime and worker evidence remain separate.",
+      "status_note": "Main 90c1503e remains the older FilamAI parent gitlink target. PR1 preserves the older FCN R1 adapter patch and recovery README; this patch was not applied. The newer canonical B1.2 source bundle is not uploaded and original download is blocked by HTTP502; see parent PR3 recovery records.",
       "relations": [
         {
           "project": "filamai",
@@ -351,9 +357,11 @@
       "role": "product",
       "lifecycle": "active",
       "canonical": true,
-      "open_prs": [],
+      "open_prs": [
+        2
+      ],
       "source_of_truth": [],
-      "status_note": "Main 59451515 contains the merged Flutter game UI PR1. Recent browser prototypes, game plans and interview questions are separate source/design lineages; preserve them without replacing the Flutter product or treating unanswered questions as decisions.",
+      "status_note": "Merged Flutter PR1 remains on main. PR2 preserves 74 artifact paths, including the complete game design produced during the audit and a losslessly split Selector archive. The full PR03b source ZIP and some binaries remain inaccessible; these prototypes are not applied as product implementation.",
       "relations": [],
       "last_observed_main": "594515154be093bc8ff87532a190f13efde119fa"
     },
@@ -363,11 +371,39 @@
       "role": "product",
       "lifecycle": "review",
       "canonical": true,
-      "open_prs": [],
+      "open_prs": [
+        1
+      ],
       "source_of_truth": [],
-      "status_note": "Standalone repository exists, but the observed main 008c622 has the empty Git tree and no PR. Source publication is not complete. Recover the actual canonical archive before claiming uploaded application code.",
+      "status_note": "Canonical standalone source (501 paths, zero gitlinks) plus one publication record is preserved in PR1 head 1d0d3884; all 501 source blobs match the independent manifest. A separate archive branch 0bed898c preserves 59 older design/QA artifacts and three metadata versions. Main remains the empty bootstrap. Contract and Git integrity checks passed; Flutter build/runtime acceptance is not inferred.",
       "relations": [],
       "last_observed_main": "008c62270652a7d0add6036d8a9d3b06ec8dc9ea"
+    },
+    {
+      "id": "atlas-360",
+      "repository": "admin_nodove/atlas-360",
+      "role": "product",
+      "lifecycle": "active",
+      "canonical": true,
+      "open_prs": [],
+      "source_of_truth": [],
+      "status_note": "Standalone WebGL landmark miniature-garden Site, distinct from neuro-atlas. Original main 71c85ab9 and its complete one-commit history/8 tracked files are now in this private repository. Original Site workspace and deployment were not modified.",
+      "relations": [],
+      "last_observed_main": "71c85ab9c8d7f432ca750d479b32886a1dc47030"
+    },
+    {
+      "id": "pet-auto-automation",
+      "repository": "admin_nodove/pet-auto-automation-v3.1.0",
+      "role": "tooling",
+      "lifecycle": "active",
+      "canonical": true,
+      "open_prs": [
+        1
+      ],
+      "source_of_truth": [],
+      "status_note": "Main remains v3.1.0. PR1 preserves original v3.2.0 changes (39) and publication evidence (3); 42/42 remote hashes verified. This audit ran 155 tests, 823 snippet checks and 82 package checksum checks successfully. Merge and deployment not performed.",
+      "relations": [],
+      "last_observed_main": "0c5e367c4824c87ecfba82c24fe51f9f13af2469"
     }
   ]
 }
