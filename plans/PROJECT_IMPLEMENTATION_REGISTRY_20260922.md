@@ -1,6 +1,6 @@
 # Project implementation registry — 2026-09-22
 
-Updated observation: **2026-09-23**.
+Updated observation: **2026-09-26** (Asia/Seoul).
 
 Purpose: keep one cross-project index of active work, canonical repositories, overlap/reuse boundaries and archive-review rules without copying repository-local implementation specifications.
 
@@ -10,19 +10,25 @@ Repository-local source, status and plan files remain authoritative. Machine-rea
 
 | Project | Repository | Lifecycle | Current pointer |
 |---|---|---|---|
-| AI Server | `admin_nodove/AI-server` | active / canonical | main `9557084f`; PR39 conflict, PR44 mergeable |
-| AI Gateway | `admin_nodove/ai-gateway` | review | standalone TypeScript/Express source; not the current ai-1 runtime authority; image provenance still needs proof |
-| FilamAI | `admin_nodove/filamai` | active / canonical | main `ccea539d`; PR3 latest unfinished-plan publication |
-| FCN | `admin_nodove/fcn` | active / canonical | main `20a2e65a`; PR1/PR2 open |
-| WLatch | `admin_nodove/wlatch-sessionloop` | active / canonical | main `b4d7ed45`; PR6 latest unfinished-plan publication |
-| auto-career | `admin_nodove/auto-career` | review / canonical repo | Flutter product exists, but product contract/documentation is still incomplete |
-| Codex ChatGPT Web | `admin_nodove/codex-chatgpt-web-main` | active / canonical | main `e736a1b1`; no open PR |
-| Community refined Flutter | `admin_nodove/community-refined-flutter` | review / canonical repo | main `97919af1`; PR2 open; Flutter build/analyze/runtime proof remains unverified in its README |
-| Blog | `admin_nodove/blog` | active / canonical | main `18a15e12`; PR1/PR3 open |
-| Writing | `admin_nodove/writing` | active / canonical | canonical writing archive; no open PR |
-| Document / Docs Hub | `admin_nodove/document` | active / canonical | main `e1cfa987`; PR1/PR2 open; cross-project registry authority |
-| media-mcp | `nodove/media-mcp` | active / canonical | main `5c5db69a`; PR1–PR5 are cumulative YTS automation work |
-| Helm | `admin_nodove/helm` | review | current main tree is empty; ownership/source-of-truth decision required before use |
+| ai-server | `admin_nodove/AI-server` | active | main `b97da169`; open PRs #80, #81, #82, #83, #84, #85 |
+| ai-gateway | `admin_nodove/ai-gateway` | review | main `48766031`; open PRs none |
+| filamai | `admin_nodove/filamai` | active | main `dc1d9fe1`; open PRs #3 |
+| fcn | `admin_nodove/fcn` | active | main `20a2e65a`; open PRs #1, #2 |
+| wlatch-sessionloop | `admin_nodove/wlatch-sessionloop` | active | main `7bf7e9fb`; open PRs #14 |
+| auto-career | `admin_nodove/auto-career` | review | main `7ed08e85`; open PRs none |
+| codex-chatgpt-web-main | `admin_nodove/codex-chatgpt-web-main` | active | main `e736a1b1`; open PRs none |
+| community-refined-flutter | `admin_nodove/community-refined-flutter` | review | main `97919af1`; open PRs #2 |
+| blog | `admin_nodove/blog` | active | main `18a15e12`; open PRs #1, #3 |
+| writing | `admin_nodove/writing` | active | main `bf01a692`; open PRs none |
+| document | `admin_nodove/document` | active | main `e1cfa987`; open PRs #1, #2 |
+| media-mcp | `nodove/media-mcp` | active | main `5c5db69a`; open PRs #1, #2, #3, #4, #5, #6 |
+| helm | `admin_nodove/helm` | review | main `b3ecce74`; open PRs none |
+| forgejo-mcp | `nodove/forgejo_mcp` | active | main `bb06188b`; open PRs #18 |
+| edu-connector | `nodove/Edu-connector` | active | main `f0052163`; open PRs #1, #2 |
+| filamai-frontend | `admin_nodove/filamai-frontend` | active | main `172731fe`; open PRs none |
+| filamai-backend | `admin_nodove/filamai-backend` | active | main `90c1503e`; open PRs none |
+| intellialgo | `admin_nodove/IntelliAlgo` | active | main `59451515`; open PRs none |
+| community | `admin_nodove/community` | review | main `008c6227`; open PRs none |
 
 This table is an observation index, not deployment evidence. Exact runtime state continues to live in each repository's own current-state/runbook/evidence paths.
 
@@ -34,7 +40,7 @@ This table is an observation index, not deployment evidence. Exact runtime state
 
 Do not create a second cross-project registry inside AI-server. Its own plan explicitly points cross-project tracking to `admin_nodove/document`.
 
-Current authoritative pointers include `AGENTS.md`, `docs/operations/AI1_CURRENT_STATE.md` and `plan/IMPLEMENTATION_STATUS_20260922.md`. PR39 is still separate conflicting UI-01c work. PR44 is the latest documentation/status update.
+Current authoritative pointers include `AGENTS.md`, `docs/operations/AI1_CURRENT_STATE.md` and `plan/IMPLEMENTATION_STATUS_20260922.md`. PR39 and PR44 are historical merged work. The observed open sequence is PR80–PR85; PR83/84 depend on PR81. Review the exact current head and checked-in implementation reports before restarting work.
 
 The separate `admin_nodove/ai-gateway` repository contains a standalone TypeScript/Express gateway stack whose AGENTS metadata points to a 2026-02-22 source generation. AI-server's current root Compose consumes the published `ghcr.io/.../ai-server-gateway` image rather than a checkout of that repository. This is enough to mark the separate repository as **not the current ai-1 runtime authority**, but not enough to archive it: the producer/source provenance of the published image still needs to be proven.
 
@@ -52,11 +58,11 @@ Before expanding a separate career backend, resolve whether career evidence shou
 
 ### WLatch
 
-WLatch remains an independent runtime/transport project. Preserve its hardened request/SSE/replay/readiness contracts and continue from PR6/local task state instead of replaying completed PRs.
+WLatch remains an independent runtime/transport project. Preserve its hardened request/SSE/replay/readiness contracts and continue from PR14 and its follow-up architecture instead of replaying merged PR1–PR13.
 
 ### media-mcp
 
-The verified baseline is Docker Compose, not K3s. PR1–PR5 share the same baseline and represent cumulative YTS automation slices. Treat them as stacked work when planning merge/rebase order.
+The verified baseline is Docker Compose, not K3s. PR1–PR6 share the same baseline and represent cumulative YTS automation slices. Treat them as stacked work when planning merge/rebase order.
 
 ### Document, Blog and Writing
 
@@ -109,3 +115,9 @@ After this registry contract is merged, the nearest non-duplicative follow-up is
 2. classify `helm` as a real deployment source or placeholder,
 3. review archive-candidate repositories only after dependency checks,
 4. then move to the first repository-local unfinished implementation rather than adding another coordination layer.
+
+## Observation limits and preserved reports
+
+The 2026-09-26 audit enumerated 63 known repositories and 140 PRs. The repository-list endpoint returned 60 admin_nodove repositories; three known nodove repositories were queried directly. Default refs and PR heads were observed, but PR-less branches, private host worktrees, issue state and remote CI were not fully exposed. These counts are a timestamped observation, not a guarantee of server-wide completeness.
+
+[Repository learning, troubleshooting and Kubernetes report](reports/Repository_Learning_Reports_20260926.html) preserves the existing 2026-09-26 analysis. Its embedded snapshots are historical; use current repository-local sources and this registry for observed refs. Upload does not imply runtime validation or publication of the website.

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "observed_date": "2026-09-23",
+  "observed_date": "2026-09-26",
   "scope": "core-managed-projects",
   "authority": {
     "registry_repository": "admin_nodove/document",
@@ -24,17 +24,21 @@
       "role": "platform",
       "lifecycle": "active",
       "canonical": true,
-      "last_observed_main": "9557084f691f4a9cf046471fdc70c693463392fc",
+      "last_observed_main": "b97da169a5ec4ea0248e903ba1d44846ba8bf2fb",
       "open_prs": [
-        39,
-        44
+        80,
+        81,
+        82,
+        83,
+        84,
+        85
       ],
       "source_of_truth": [
         "AGENTS.md",
         "docs/operations/AI1_CURRENT_STATE.md",
         "plan/IMPLEMENTATION_STATUS_20260922.md"
       ],
-      "status_note": "Current main includes PR43. PR39 remains conflicting UI-01c work; PR44 is a mergeable documentation/status update.",
+      "status_note": "Main b97da169. PR80-85 are open; PR83/84 are based on PR81. Latest PR85 head 7306dad1 has 99/99 cumulative changed-file blobs matching the available local source. PR-body test counts can predate later commits. Upload, merge, CI and runtime readiness are separate.",
       "relations": []
     },
     {
@@ -61,7 +65,7 @@
       "role": "product",
       "lifecycle": "active",
       "canonical": true,
-      "last_observed_main": "ccea539d162a52c69b0c3a3c3fdcc477c8c3495c",
+      "last_observed_main": "dc1d9fe18940b39993d576b6f93e6046dd5809bd",
       "open_prs": [
         3
       ],
@@ -70,7 +74,7 @@
         "CURRENT_STATE.md",
         "docs/PRODUCTION_READINESS_GATE.md"
       ],
-      "status_note": "Workspace/meta repository pins authoritative backend/frontend submodules. Current release authority remains gated; PR3 publishes the latest unfinished plan.",
+      "status_note": "Parent main dc1d9fe1 pins backend 90c1503e and frontend 172731fe. Child Git repositories are published; PR3 remains open. This does not establish deployment or device acceptance.",
       "relations": []
     },
     {
@@ -104,15 +108,15 @@
       "role": "runtime",
       "lifecycle": "active",
       "canonical": true,
-      "last_observed_main": "b4d7ed45e72b8595f61dac6718618875e4914bc5",
+      "last_observed_main": "7bf7e9fb33008cf906c75c030b557279e6932e55",
       "open_prs": [
-        6
+        14
       ],
       "source_of_truth": [
         "README.md",
         "SKILL.md"
       ],
-      "status_note": "Runtime/transport hardening is established on main; PR6 publishes the latest unfinished WLatch plan.",
+      "status_note": "Main 7bf7e9fb includes PR1-13. PR14 publishes external-worker transport/scheduler and follow-up architecture; latest observed head ff0f485c. Runtime wiring and release gates remain repository-local work.",
       "relations": []
     },
     {
@@ -222,7 +226,8 @@
           "kind": "content-source",
           "state": "observed"
         }
-      ]
+      ],
+      "last_observed_main": "bf01a692189386e952f9e89e1c53abcba4196be2"
     },
     {
       "id": "document",
@@ -239,7 +244,7 @@
         "README.md",
         "plans/PROJECT_IMPLEMENTATION_REGISTRY_20260922.md"
       ],
-      "status_note": "Docs Hub is the designated cross-project registry home. PR1 hardens AI transport; PR2 carries this cross-project registry.",
+      "status_note": "PR1 head a9582848 contains the cumulative AI transport/publication implementation; PR2 maintains this cross-project registry. PR descriptions can predate later work. Public-corpus approval and complete runtime gates remain separate.",
       "relations": []
     },
     {
@@ -254,12 +259,13 @@
         2,
         3,
         4,
-        5
+        5,
+        6
       ],
       "source_of_truth": [
         "README.md"
       ],
-      "status_note": "Compose-based media stack is the verified baseline. Five open YTS automation PRs form a cumulative implementation sequence and should be treated as stacked work.",
+      "status_note": "Six open cumulative YTS PRs; latest PR6 head 07ad7dca matches the latest source artifact identity. Do not count cumulative predecessor changes as six independent implementations or infer runtime acceptance.",
       "relations": []
     },
     {
@@ -273,6 +279,95 @@
       "source_of_truth": [],
       "status_note": "Main tree is empty. Decide whether this is the future Helm source of truth or a placeholder before adding deployment logic.",
       "relations": []
+    },
+    {
+      "id": "forgejo-mcp",
+      "repository": "nodove/forgejo_mcp",
+      "role": "tooling",
+      "lifecycle": "active",
+      "canonical": true,
+      "open_prs": [
+        18
+      ],
+      "source_of_truth": [],
+      "status_note": "Main bb06188b corresponds to the connected 2.2.0/27-tool runtime. PR18 head 0521b25a carries branch readers and follow-up architecture; it is uploaded but unmerged. Full branch/issue/check capability is not exposed in this session.",
+      "relations": [],
+      "last_observed_main": "bb06188b41b1c5651b141217ffb4132feafa3cc7"
+    },
+    {
+      "id": "edu-connector",
+      "repository": "nodove/Edu-connector",
+      "role": "product",
+      "lifecycle": "active",
+      "canonical": true,
+      "open_prs": [
+        1,
+        2
+      ],
+      "source_of_truth": [],
+      "status_note": "Previously blocked source d85cef3a is now published in PR1. Flutter mobile PR2 head 8403cbfd is stacked on PR1 and includes mobile/server integration. Android/local test results are recorded by that agent; real providers, devices and remote CI are separate gates.",
+      "relations": [],
+      "last_observed_main": "f005216330c5546ac716f9080899ca93fb11da05"
+    },
+    {
+      "id": "filamai-frontend",
+      "repository": "admin_nodove/filamai-frontend",
+      "role": "product",
+      "lifecycle": "active",
+      "canonical": true,
+      "open_prs": [],
+      "source_of_truth": [],
+      "status_note": "Main 172731fe is published and matches the FilamAI parent frontend gitlink. Full Flutter/device release readiness is not inferred from Git identity.",
+      "relations": [
+        {
+          "project": "filamai",
+          "kind": "gitlink-target",
+          "state": "observed"
+        }
+      ],
+      "last_observed_main": "172731fe749268b207e72fbe09a50f36a389d9f1"
+    },
+    {
+      "id": "filamai-backend",
+      "repository": "admin_nodove/filamai-backend",
+      "role": "service",
+      "lifecycle": "active",
+      "canonical": true,
+      "open_prs": [],
+      "source_of_truth": [],
+      "status_note": "Main 90c1503e is published and matches the FilamAI parent backend gitlink. Runtime and worker evidence remain separate.",
+      "relations": [
+        {
+          "project": "filamai",
+          "kind": "gitlink-target",
+          "state": "observed"
+        }
+      ],
+      "last_observed_main": "90c1503eced012e7627473e78ab5ea485cf31298"
+    },
+    {
+      "id": "intellialgo",
+      "repository": "admin_nodove/IntelliAlgo",
+      "role": "product",
+      "lifecycle": "active",
+      "canonical": true,
+      "open_prs": [],
+      "source_of_truth": [],
+      "status_note": "Main 59451515 contains the merged Flutter game UI PR1. Recent browser prototypes, game plans and interview questions are separate source/design lineages; preserve them without replacing the Flutter product or treating unanswered questions as decisions.",
+      "relations": [],
+      "last_observed_main": "594515154be093bc8ff87532a190f13efde119fa"
+    },
+    {
+      "id": "community",
+      "repository": "admin_nodove/community",
+      "role": "product",
+      "lifecycle": "review",
+      "canonical": true,
+      "open_prs": [],
+      "source_of_truth": [],
+      "status_note": "Standalone repository exists, but the observed main 008c622 has the empty Git tree and no PR. Source publication is not complete. Recover the actual canonical archive before claiming uploaded application code.",
+      "relations": [],
+      "last_observed_main": "008c62270652a7d0add6036d8a9d3b06ec8dc9ea"
     }
   ]
 }
