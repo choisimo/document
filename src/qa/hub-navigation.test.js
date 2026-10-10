@@ -232,7 +232,11 @@ test('reference application reads the actual published corpus and preserves brow
 
   await t.test('an aborted AI request preserves the question and restores keyboard focus', async st => {
     const { page } = await setup(st);
-    // setup aborts requests outside the local site; no question reaches a service.
+    // Opt in only this test. setup still aborts every external request.
+    await page.context().route('**/javascripts/ai-public-config.js', route => route.fulfill({
+      contentType: 'application/javascript',
+      body: 'window.PUBLIC_AI_CONFIG = {enabled:true, apiBaseUrl:"https://ai.test.invalid/v1"};'
+    }));
     await page.goto(base + document.url);
     await page.locator('.article pre').first().waitFor();
     await page.locator('[data-action="reader-tools"]').click();
@@ -244,6 +248,24 @@ test('reference application reads the actual published corpus and preserves brow
     await page.waitForFunction(() => document.activeElement?.id === 'assistant-query');
     assert.equal(await page.locator('#assistant-query').inputValue(), question);
     assert.equal(await page.locator('#assistant-form button[type="submit"]').isEnabled(), true);
+  });
+
+  await t.test('disabled AI preserves static document tools without sending requests', async st => {
+    const { context, page } = await setup(st);
+    await context.route('**/javascripts/ai-public-config.js', route => route.fulfill({
+      contentType: 'application/javascript', body: 'window.PUBLIC_AI_CONFIG = {};'
+    }));
+    const outbound = [];
+    page.on('request', request => { if (!request.url().startsWith(base)) outbound.push(request.url()); });
+    await page.goto(base + document.url);
+    await page.locator('.article pre').first().waitFor();
+    const before = outbound.length; // Document CDN rendering is a separate feature.
+    await page.locator('[data-action="reader-tools"]').click();
+    await page.locator('[data-action="assistant"]').click();
+    assert.equal(await page.locator('#assistant-query').isDisabled(), true);
+    assert.equal(await page.locator('#assistant-form button[type="submit"]').isDisabled(), true);
+    assert.equal(await page.evaluate(() => window.aiClient), null);
+    assert.equal(outbound.slice(before).filter(url => /chat\/completions|api\/search|\/models/.test(url)).length, 0);
   });
 
   await t.test('Docker collection, settings and empty saved state use real data', async st => {

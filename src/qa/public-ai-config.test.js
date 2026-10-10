@@ -38,12 +38,14 @@ test('private legacy tokens never enter generated browser config', (t) => {
   assert.equal(config.apiToken, '');
   assert.equal(config.openNotebook.apiToken, '');
   assert.equal(config.openNotebook.enabled, false);
-  assert.equal(config.apiBaseUrl, 'https://ai.dothechi.com/v1');
+  assert.equal(config.apiBaseUrl, '');
+  assert.equal(config.enabled, false);
 });
 
 test('explicit public settings survive serialization without running injected code', (t) => {
   const model = `model'\\\n\u2028</script>; window.injected = true; // 한글`;
   const { result, source } = render(t, {
+    PUBLIC_AI_ENABLED: 'true',
     PUBLIC_AI_API_BASE_URL: 'https://public.example/v1/',
     PUBLIC_AI_API_TOKEN: 'public-browser-token',
     PUBLIC_AI_MODEL_NAME: model,
@@ -54,6 +56,7 @@ test('explicit public settings survive serialization without running injected co
   assert.equal(result.status, 0, result.stderr);
   const state = evaluate(source);
   assert.equal(state.injected, undefined);
+  assert.equal(state.AI_CONFIG.enabled, true);
   assert.equal(state.AI_CONFIG.modelName, model);
   assert.equal(state.AI_CONFIG.apiBaseUrl, 'https://public.example/v1');
   assert.equal(state.AI_CONFIG.apiToken, 'public-browser-token');
@@ -65,6 +68,12 @@ test('explicit public settings survive serialization without running injected co
 
 test('invalid public configuration fails without replacing an existing output', (t) => {
   for (const values of [
+    { PUBLIC_AI_ENABLED: 'maybe' },
+    { PUBLIC_AI_ENABLED: 'true' },
+    { PUBLIC_AI_API_BASE_URL: 'https://public.example/v1?' },
+    { PUBLIC_AI_API_BASE_URL: 'https://public.example/v1#' },
+    { PUBLIC_AI_API_BASE_URL: 'https://public.example\\path' },
+    { PUBLIC_AI_API_BASE_URL: 'https://public.example/\u0001path' },
     { PUBLIC_AI_API_BASE_URL: 'http://public.example/v1' },
     { PUBLIC_AI_API_BASE_URL: 'https://user:private-password@example.test/v1' },
     { PUBLIC_AI_API_BASE_URL: 'https://example.test/v1?key=private-key' },
@@ -82,4 +91,22 @@ test('invalid public configuration fails without replacing an existing output', 
     assert.equal(source, 'previous output');
     assert.doesNotMatch(result.stdout + result.stderr, /private-password|private-key|private-credential-sentinel/);
   }
+});
+
+for (const enabled of ['', 'false']) test(`master switch '${enabled}' disables an otherwise configured service`, t => {
+  const { result, source } = render(t, {
+    PUBLIC_AI_ENABLED: enabled, PUBLIC_AI_API_BASE_URL: 'https://public.example/v1',
+    PUBLIC_OPEN_NOTEBOOK_ENABLED: 'true', PUBLIC_OPEN_NOTEBOOK_URL: 'https://kb.example',
+  });
+  assert.equal(result.status, 0);
+  const state = evaluate(source);
+  assert.equal(state.AI_CONFIG.enabled, false);
+  assert.equal(state.AI_CONFIG.openNotebook.enabled, false);
+  assert.equal(state.PUBLIC_AI_CONFIG.openNotebookEnabled, false);
+});
+
+test('a stale config with no master switch does not re-enable the runtime', () => {
+  const state = evaluate('window.PUBLIC_AI_CONFIG = {apiBaseUrl: "https://public.example/v1", openNotebookEnabled: true};');
+  assert.equal(state.AI_CONFIG.enabled, false);
+  assert.equal(state.AI_CONFIG.openNotebook.enabled, false);
 });

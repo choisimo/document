@@ -64,7 +64,10 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Test public AI configuration boundary
-        run: node --test src/qa/public-ai-config.test.js
+        run: node --test src/qa/public-ai-config.test.js src/qa/ai-client.test.js
+
+      - name: Test publication boundaries
+        run: python -m unittest discover -s src/qa/publication -v
 
       - name: Test published document data generation
         run: python -m unittest discover -s apps/docs-site/hooks/tests -v
@@ -74,6 +77,7 @@ jobs:
 
       - name: Generate public AI configuration
         env:
+          PUBLIC_AI_ENABLED: ${{ vars.PUBLIC_AI_ENABLED }}
           PUBLIC_AI_API_BASE_URL: ${{ vars.PUBLIC_AI_API_BASE_URL }}
           PUBLIC_AI_API_TOKEN: ${{ vars.PUBLIC_AI_API_TOKEN }}
           PUBLIC_AI_MODEL_NAME: ${{ vars.PUBLIC_AI_MODEL_NAME }}
@@ -173,6 +177,21 @@ jobs:
             echo "::error::hub-app.js not found!"
             exit 1
           fi
+
+      # This is deliberately after ALL writes to dist/site and before upload.
+      # Inventory does not grant approval. Review metadata stays outside the site.
+      - name: Inventory finished public assets
+        run: >-
+          python src/automation/site/publication_gate.py inventory
+          --site dist/site
+          --report "${{ runner.temp }}/docs-publication-candidates.json"
+
+      - name: Require reviewed extra assets before Pages upload
+        run: >-
+          python src/automation/site/publication_gate.py check
+          --site dist/site
+          --manifest plan/publication/extra-assets.json
+          --report "${{ runner.temp }}/docs-publication-check.json"
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
