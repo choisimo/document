@@ -1,0 +1,409 @@
+{
+  "schema_version": 1,
+  "observed_date": "2026-09-26",
+  "scope": "core-managed-projects",
+  "authority": {
+    "registry_repository": "admin_nodove/document",
+    "rule": "Repository-local source, status, and plan files remain authoritative; this registry stores only cross-project pointers and lifecycle metadata."
+  },
+  "archive_policy": {
+    "default_action": "none",
+    "require_all": [
+      "canonical replacement is identified",
+      "no open pull request requires the repository",
+      "no deployment, CI, submodule, gitlink, or automation dependency requires the repository",
+      "history and rollback evidence remain reachable",
+      "archive is reviewed as a separate change"
+    ],
+    "delete_policy": "Do not delete as part of registry maintenance."
+  },
+  "projects": [
+    {
+      "id": "ai-server",
+      "repository": "admin_nodove/AI-server",
+      "role": "platform",
+      "lifecycle": "active",
+      "canonical": true,
+      "last_observed_main": "b97da169a5ec4ea0248e903ba1d44846ba8bf2fb",
+      "open_prs": [
+        80,
+        81,
+        82,
+        83,
+        84,
+        85
+      ],
+      "source_of_truth": [
+        "AGENTS.md",
+        "docs/operations/AI1_CURRENT_STATE.md",
+        "plan/IMPLEMENTATION_STATUS_20260922.md"
+      ],
+      "status_note": "Main b97da169. PR80-85 are open; PR83/84 are based on PR81. Latest PR85 head 7306dad1 has 99/99 cumulative changed-file blobs matching the available local source. PR-body test counts can predate later commits. Upload, merge, CI and runtime readiness are separate.",
+      "relations": []
+    },
+    {
+      "id": "ai-gateway",
+      "repository": "admin_nodove/ai-gateway",
+      "role": "platform",
+      "lifecycle": "review",
+      "canonical": false,
+      "last_observed_main": "487660310ca57346a1ba0b3b4b9bda6001a3c0fb",
+      "open_prs": [],
+      "source_of_truth": [],
+      "status_note": "Standalone TypeScript/Express gateway source with its own Compose. AI-server main consumes a published ai-server-gateway image rather than this repository path, so this repo is not the current ai-1 runtime authority. Published-image source/build provenance must still be proven before archival.",
+      "relations": [
+        {
+          "project": "ai-server",
+          "kind": "standalone-overlap-review",
+          "state": "observed"
+        }
+      ]
+    },
+    {
+      "id": "filamai",
+      "repository": "admin_nodove/filamai",
+      "role": "product",
+      "lifecycle": "active",
+      "canonical": true,
+      "last_observed_main": "dc1d9fe18940b39993d576b6f93e6046dd5809bd",
+      "open_prs": [
+        3
+      ],
+      "source_of_truth": [
+        "README.md",
+        "CURRENT_STATE.md",
+        "docs/PRODUCTION_READINESS_GATE.md"
+      ],
+      "status_note": "Parent main dc1d9fe1 still pins older backend 90c1503e and frontend 172731fe, with original choisimo GitHub submodule URLs. Newer canonical FE10/B1.2 bundle heads are not published; downloads returned HTTP502. PR3 now preserves the canonical manifest/status and explicit blocker. The canonical snapshots contain 2,176 total paths; missing diff count is unknown.",
+      "relations": []
+    },
+    {
+      "id": "fcn",
+      "repository": "admin_nodove/fcn",
+      "role": "product",
+      "lifecycle": "active",
+      "canonical": true,
+      "last_observed_main": "20a2e65aaadfedd63adb271b8fd418306f275fb7",
+      "open_prs": [
+        1,
+        2
+      ],
+      "source_of_truth": [
+        "README.md",
+        "docs/IMPLEMENTATION_CONTRACT.md",
+        "docs/REQUIREMENTS_COVERAGE.md"
+      ],
+      "status_note": "Original 247 missing documentation/design files are preserved: 242 in existing PR2 and five large binary files in explicit preservation branches linked by its manifest. The original cumulative commit could not be transferred intact; do not claim one identical combined target tree. A separate FCN concept Site history is preserved in its own branch.",
+      "relations": [
+        {
+          "project": "filamai",
+          "kind": "reuse",
+          "state": "planned"
+        }
+      ]
+    },
+    {
+      "id": "wlatch-sessionloop",
+      "repository": "admin_nodove/wlatch-sessionloop",
+      "role": "runtime",
+      "lifecycle": "active",
+      "canonical": true,
+      "last_observed_main": "7bf7e9fb33008cf906c75c030b557279e6932e55",
+      "open_prs": [
+        14
+      ],
+      "source_of_truth": [
+        "README.md",
+        "SKILL.md"
+      ],
+      "status_note": "Main 7bf7e9fb includes PR1-13. PR14 publishes external-worker transport/scheduler and follow-up architecture; latest observed head ff0f485c. Runtime wiring and release gates remain repository-local work.",
+      "relations": []
+    },
+    {
+      "id": "auto-career",
+      "repository": "admin_nodove/auto-career",
+      "role": "product",
+      "lifecycle": "review",
+      "canonical": true,
+      "last_observed_main": "7ed08e85ae215c0d13c2b027546a1c4496c071a7",
+      "open_prs": [],
+      "source_of_truth": [
+        "README.md",
+        "pubspec.yaml"
+      ],
+      "status_note": "Flutter product and backend directory exist, but README remains Flutter boilerplate. Cross-project evidence/career ownership should be decided before expanding a parallel backend.",
+      "relations": [
+        {
+          "project": "fcn",
+          "kind": "reuse-candidate",
+          "state": "proposed"
+        }
+      ]
+    },
+    {
+      "id": "codex-chatgpt-web-main",
+      "repository": "admin_nodove/codex-chatgpt-web-main",
+      "role": "tooling",
+      "lifecycle": "active",
+      "canonical": true,
+      "last_observed_main": "e736a1b113f767660fbff060f5e30cccb1c58bf5",
+      "open_prs": [],
+      "source_of_truth": [
+        "README.md",
+        "docs/architecture.md",
+        "docs/security-model.md"
+      ],
+      "status_note": "Current source provides the browser bridge, full harness, dev harness, fail-closed model/UI behavior, and cross-platform launcher.",
+      "relations": [
+        {
+          "project": "wlatch-sessionloop",
+          "kind": "runtime-pattern",
+          "state": "review"
+        }
+      ]
+    },
+    {
+      "id": "community-refined-flutter",
+      "repository": "admin_nodove/community-refined-flutter",
+      "role": "product",
+      "lifecycle": "review",
+      "canonical": true,
+      "last_observed_main": "97919af177cec138e10dad23427617eb44b4a954",
+      "open_prs": [
+        2
+      ],
+      "source_of_truth": [
+        "README.md",
+        "source/docs/design/refined/TASKS.md"
+      ],
+      "status_note": "Refined Flutter source package exists, but Flutter analyze/test/build and real-screen verification are explicitly not yet proven; PR2 publishes the latest unfinished plan.",
+      "relations": [
+        {
+          "project": "filamai",
+          "kind": "reuse-candidate",
+          "state": "planned"
+        },
+        {
+          "project": "fcn",
+          "kind": "reuse-candidate",
+          "state": "planned"
+        }
+      ]
+    },
+    {
+      "id": "blog",
+      "repository": "admin_nodove/blog",
+      "role": "content-product",
+      "lifecycle": "active",
+      "canonical": true,
+      "last_observed_main": "18a15e125de1fef563355c306ad72e32e049fee1",
+      "open_prs": [
+        1,
+        3,
+        4,
+        5
+      ],
+      "source_of_truth": [],
+      "status_note": "Admin Studio source 160 files plus seven evidence files is preserved in draft PR4 (167/167 remote hashes verified); full app/runtime gates remain pending. Editorial audit is separately preserved in PR5. Content PR1 and historical VIS05b PR2 are distinct work.",
+      "relations": [
+        {
+          "project": "document",
+          "kind": "shared-behavior-review",
+          "state": "planned"
+        }
+      ]
+    },
+    {
+      "id": "writing",
+      "repository": "admin_nodove/writing",
+      "role": "content",
+      "lifecycle": "active",
+      "canonical": true,
+      "open_prs": [],
+      "source_of_truth": [],
+      "status_note": "Canonical writing archive for blog posts, essays, drafts, and long-form originals.",
+      "relations": [
+        {
+          "project": "blog",
+          "kind": "content-source",
+          "state": "observed"
+        }
+      ],
+      "last_observed_main": "bf01a692189386e952f9e89e1c53abcba4196be2"
+    },
+    {
+      "id": "document",
+      "repository": "admin_nodove/document",
+      "role": "content-platform",
+      "lifecycle": "active",
+      "canonical": true,
+      "last_observed_main": "e1cfa987838167d55b20d8a45c103c97e8b4c64d",
+      "open_prs": [
+        1,
+        2
+      ],
+      "source_of_truth": [
+        "README.md",
+        "plans/PROJECT_IMPLEMENTATION_REGISTRY_20260922.md"
+      ],
+      "status_note": "PR1 head a9582848 contains the cumulative AI transport/publication implementation; PR2 maintains this cross-project registry. PR descriptions can predate later work. Public-corpus approval and complete runtime gates remain separate.",
+      "relations": []
+    },
+    {
+      "id": "media-mcp",
+      "repository": "nodove/media-mcp",
+      "role": "service",
+      "lifecycle": "active",
+      "canonical": true,
+      "last_observed_main": "5c5db69a03e407bb0b2bbf81fcbb48c409cda87a",
+      "open_prs": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "source_of_truth": [
+        "README.md"
+      ],
+      "status_note": "Six open cumulative YTS PRs; latest PR6 head 07ad7dca matches the latest source artifact identity. Do not count cumulative predecessor changes as six independent implementations or infer runtime acceptance.",
+      "relations": []
+    },
+    {
+      "id": "helm",
+      "repository": "admin_nodove/helm",
+      "role": "infrastructure",
+      "lifecycle": "review",
+      "canonical": false,
+      "last_observed_main": "b3ecce74a3c5feaac9165fcabe7db27775996ccd",
+      "open_prs": [],
+      "source_of_truth": [],
+      "status_note": "Main tree is empty. Decide whether this is the future Helm source of truth or a placeholder before adding deployment logic.",
+      "relations": []
+    },
+    {
+      "id": "forgejo-mcp",
+      "repository": "nodove/forgejo_mcp",
+      "role": "tooling",
+      "lifecycle": "active",
+      "canonical": true,
+      "open_prs": [
+        18
+      ],
+      "source_of_truth": [],
+      "status_note": "Main bb06188b corresponds to the connected 2.2.0/27-tool runtime. PR18 head 0521b25a carries branch readers and follow-up architecture; it is uploaded but unmerged. Full branch/issue/check capability is not exposed in this session.",
+      "relations": [],
+      "last_observed_main": "bb06188b41b1c5651b141217ffb4132feafa3cc7"
+    },
+    {
+      "id": "edu-connector",
+      "repository": "nodove/Edu-connector",
+      "role": "product",
+      "lifecycle": "active",
+      "canonical": true,
+      "open_prs": [
+        1,
+        2
+      ],
+      "source_of_truth": [],
+      "status_note": "Previously blocked source d85cef3a is now published in PR1. Flutter mobile PR2 head 8403cbfd is stacked on PR1 and includes mobile/server integration. Android/local test results are recorded by that agent; real providers, devices and remote CI are separate gates.",
+      "relations": [],
+      "last_observed_main": "f005216330c5546ac716f9080899ca93fb11da05"
+    },
+    {
+      "id": "filamai-frontend",
+      "repository": "admin_nodove/filamai-frontend",
+      "role": "product",
+      "lifecycle": "active",
+      "canonical": true,
+      "open_prs": [
+        1
+      ],
+      "source_of_truth": [],
+      "status_note": "Main 172731fe remains the older FilamAI parent gitlink target. PR1 preserves the older FCN R1 adapter patch and recovery README; this patch was not applied. The newer canonical FE10 source bundle is not uploaded and original download is blocked by HTTP502; see parent PR3 recovery records.",
+      "relations": [
+        {
+          "project": "filamai",
+          "kind": "gitlink-target",
+          "state": "observed"
+        }
+      ],
+      "last_observed_main": "172731fe749268b207e72fbe09a50f36a389d9f1"
+    },
+    {
+      "id": "filamai-backend",
+      "repository": "admin_nodove/filamai-backend",
+      "role": "service",
+      "lifecycle": "active",
+      "canonical": true,
+      "open_prs": [
+        1
+      ],
+      "source_of_truth": [],
+      "status_note": "Main 90c1503e remains the older FilamAI parent gitlink target. PR1 preserves the older FCN R1 adapter patch and recovery README; this patch was not applied. The newer canonical B1.2 source bundle is not uploaded and original download is blocked by HTTP502; see parent PR3 recovery records.",
+      "relations": [
+        {
+          "project": "filamai",
+          "kind": "gitlink-target",
+          "state": "observed"
+        }
+      ],
+      "last_observed_main": "90c1503eced012e7627473e78ab5ea485cf31298"
+    },
+    {
+      "id": "intellialgo",
+      "repository": "admin_nodove/IntelliAlgo",
+      "role": "product",
+      "lifecycle": "active",
+      "canonical": true,
+      "open_prs": [
+        2
+      ],
+      "source_of_truth": [],
+      "status_note": "Merged Flutter PR1 remains on main. PR2 preserves 74 artifact paths, including the complete game design produced during the audit and a losslessly split Selector archive. The full PR03b source ZIP and some binaries remain inaccessible; these prototypes are not applied as product implementation.",
+      "relations": [],
+      "last_observed_main": "594515154be093bc8ff87532a190f13efde119fa"
+    },
+    {
+      "id": "community",
+      "repository": "admin_nodove/community",
+      "role": "product",
+      "lifecycle": "review",
+      "canonical": true,
+      "open_prs": [
+        1
+      ],
+      "source_of_truth": [],
+      "status_note": "Canonical standalone source (501 paths, zero gitlinks) plus one publication record is preserved in PR1 head 1d0d3884; all 501 source blobs match the independent manifest. A separate archive branch 0bed898c preserves 59 older design/QA artifacts and three metadata versions. Main remains the empty bootstrap. Contract and Git integrity checks passed; Flutter build/runtime acceptance is not inferred.",
+      "relations": [],
+      "last_observed_main": "008c62270652a7d0add6036d8a9d3b06ec8dc9ea"
+    },
+    {
+      "id": "atlas-360",
+      "repository": "admin_nodove/atlas-360",
+      "role": "product",
+      "lifecycle": "active",
+      "canonical": true,
+      "open_prs": [],
+      "source_of_truth": [],
+      "status_note": "Standalone WebGL landmark miniature-garden Site, distinct from neuro-atlas. Original main 71c85ab9 and its complete one-commit history/8 tracked files are now in this private repository. Original Site workspace and deployment were not modified.",
+      "relations": [],
+      "last_observed_main": "71c85ab9c8d7f432ca750d479b32886a1dc47030"
+    },
+    {
+      "id": "pet-auto-automation",
+      "repository": "admin_nodove/pet-auto-automation-v3.1.0",
+      "role": "tooling",
+      "lifecycle": "active",
+      "canonical": true,
+      "open_prs": [
+        1
+      ],
+      "source_of_truth": [],
+      "status_note": "Main remains v3.1.0. PR1 preserves original v3.2.0 changes (39) and publication evidence (3); 42/42 remote hashes verified. This audit ran 155 tests, 823 snippet checks and 82 package checksum checks successfully. Merge and deployment not performed.",
+      "relations": [],
+      "last_observed_main": "0c5e367c4824c87ecfba82c24fe51f9f13af2469"
+    }
+  ]
+}
